@@ -63,4 +63,3 @@ metadata #{
   0: for (let i: ubit<4> = 0..8) {
   1:   let acc = A[i];
 }#
-

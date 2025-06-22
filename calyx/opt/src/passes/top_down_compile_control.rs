@@ -1574,7 +1574,7 @@ impl Visitor for TopDownCompileControl {
         let mut done_regs = Vec::with_capacity(s.stmts.len());
 
         // Profiling: record each par child (arm)'s group and done register
-        let child_infos = Vec::with_capacity(s.stmts.len());
+        let mut child_infos = Vec::with_capacity(s.stmts.len());
 
         // For each child, build the enabling logic.
         for con in &s.stmts {
@@ -1642,6 +1642,10 @@ impl Visitor for TopDownCompileControl {
                     pd["write_en"] = group_done ? signal_on["out"];
                 );
 
+                child_infos.push(ParChildInfo {
+                    group: group.borrow().name(),
+                    register: pd.borrow().name(),
+                });
                 par_group.borrow_mut().assignments.extend(assigns);
                 done_regs.push(pd)
             };

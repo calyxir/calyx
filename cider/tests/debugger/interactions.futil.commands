@@ -1,0 +1,43 @@
+break main.
+br main.-1
+br store_a store_b
+ib
+br pipelined_mac.-0
+br pipelined_mac.-1-0
+br pipelined_mac.-1-1
+br main.-2
+ib
+continue
+c
+c
+c
+dis main.-4-b-0-0
+disable 4
+info break
+disable pipelined_mac::write_data_valid
+ib
+break main.-4-b-1
+watch after store_a with print-state \u read_a
+watch after store_b with print-state \u read_b
+info watch
+del main.-2
+c
+c
+c
+c
+c
+c
+c
+c
+c
+c
+c
+c
+c
+c
+c
+c
+c
+c
+c
+c

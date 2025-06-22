@@ -62,13 +62,13 @@ sim_data = /test/data.json
 datadir = sim_data
 build $datadir: hex-data $sim_data | json-dat.py
 rule sim-run
-  command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out
+  command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out || (cat $out >&2 && false)
 cycle-limit = 500000000
 
 build $cells: component-cells /input.ext
 build instrumented.sv: calyx /input.ext
   backend = verilog
-  args = -p validate -p compile-invoke -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json
+  args = -d group2seq -p validate -p compile-invoke -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json
 build verilator-out/Vtoplevel: verilator-compile-standalone-tb instrumented.sv | tb.sv
   out-dir = verilator-out
 build instrumented.exe: cp verilator-out/Vtoplevel

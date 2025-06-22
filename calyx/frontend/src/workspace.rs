@@ -4,6 +4,7 @@ use super::{
 };
 use crate::{LibrarySignatures, source_info::SourceInfoTable};
 use calyx_utils::{CalyxResult, Error, WithPos};
+use itertools::Itertools;
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},
@@ -60,11 +61,11 @@ impl Workspace {
     /// An import path is first resolved as an absolute or
     /// relative(-to-`parent`) path, and if no file exists at either such
     /// extended path exists, it assumed to be under the library path
-    /// `lib_path`.
+    /// `lib_paths`.
     fn canonicalize_import<S>(
         import: S,
         parent: &Path,
-        lib_path: &Path,
+        lib_paths: &[PathBuf],
     ) -> CalyxResult<PathBuf>
     where
         S: AsRef<Path> + Clone + WithPos,
@@ -74,22 +75,42 @@ impl Workspace {
             return Ok(import.as_ref().to_path_buf());
         }
 
-        let relative_import = parent.join(import.clone());
+        let relative_import = parent.join(&import);
         if relative_import.exists() {
             return Ok(relative_import);
         }
 
-        let library_import = lib_path.join(import.clone());
-        if library_import.exists() {
-            return Ok(library_import);
-        }
+        let library_imports: Vec<_> = lib_paths
+            .iter()
+            .filter_map(|lib_path| {
+                let library_import = lib_path.join(&import);
+                library_import.exists().then_some(library_import)
+            })
+            .collect();
 
-        Err(Error::invalid_file(
-            format!("Import path `{}` found neither as an absolute path, nor in the parent ({}), nor in library path ({})",
-            import.as_ref().to_string_lossy(),
-            parent.to_string_lossy(),
-            lib_path.to_string_lossy()
-        )).with_pos(&import))
+        match library_imports.len() {
+            0 => {
+                Err(Error::invalid_file(format!(
+                    "Import path `{}` found neither as an absolute path, nor in the parent ({}), nor in library path ({})",
+                    import.as_ref().to_string_lossy(),
+                    parent.to_string_lossy(),
+                    lib_paths.iter().map(|p| p.to_string_lossy()).format(", ")
+                ))
+                .with_pos(&import))
+            }
+            1 => Ok(library_imports.into_iter().next().unwrap()),
+            _ => {
+                Err(Error::misc(format!(
+                    "Import path `{}` found in multiple library paths ({})",
+                    import.as_ref().to_string_lossy(),
+                    library_imports
+                        .iter()
+                        .map(|p| p.to_string_lossy())
+                        .format(", ")
+                ))
+                .with_pos(&import))
+            }
+        }
     }
 
     // Get the absolute path to an extern. Extern can only exist on paths
@@ -151,11 +172,11 @@ impl Workspace {
     /// program.
     pub fn construct(
         file: &Option<PathBuf>,
-        lib_path: &Path,
+        lib_paths: &[PathBuf],
     ) -> CalyxResult<Self> {
         Self::construct_with_all_deps::<false>(
             file.iter().cloned().collect(),
-            lib_path,
+            lib_paths,
         )
     }
 
@@ -163,11 +184,11 @@ impl Workspace {
     /// imported dependencies.
     pub fn construct_shallow(
         file: &Option<PathBuf>,
-        lib_path: &Path,
+        lib_paths: &[PathBuf],
     ) -> CalyxResult<Self> {
         Self::construct_with_all_deps::<true>(
             file.iter().cloned().collect(),
-            lib_path,
+            lib_paths,
         )
     }
 
@@ -194,7 +215,7 @@ impl Workspace {
         is_source: bool,
         parent: &Path,
         shallow: bool,
-        lib_path: &Path,
+        lib_paths: &[PathBuf],
     ) -> CalyxResult<Vec<(PathBuf, bool)>> {
         // Canonicalize the extern paths and add them
         for (path, exts) in ns.externs {
@@ -238,7 +259,7 @@ impl Workspace {
             .imports
             .into_iter()
             .map(|p| {
-                Self::canonicalize_import(p, parent, lib_path)
+                Self::canonicalize_import(p, parent, lib_paths)
                     .map(|s| (s, false))
             })
             .collect::<CalyxResult<_>>()?;
@@ -251,7 +272,7 @@ impl Workspace {
     /// If in doubt, set SHALLOW to false.
     pub fn construct_with_all_deps<const SHALLOW: bool>(
         mut files: Vec<PathBuf>,
-        lib_path: &Path,
+        lib_paths: &[PathBuf],
     ) -> CalyxResult<Self> {
         // Construct initial namespace. If `files` is empty, then we're reading from the standard input.
         let first = files.pop();
@@ -268,13 +289,19 @@ impl Workspace {
         let mut already_imported: HashSet<PathBuf> = HashSet::new();
 
         let mut ws = Workspace::default();
-        let abs_lib_path = lib_path.canonicalize().map_err(|err| {
-            Error::invalid_file(format!(
-                "Failed to canonicalize library path `{}`: {}",
-                lib_path.to_string_lossy(),
-                err
-            ))
-        })?;
+
+        let abs_lib_paths: Vec<_> = lib_paths
+            .iter()
+            .map(|lib_path| {
+                lib_path.canonicalize().map_err(|err| {
+                    Error::invalid_file(format!(
+                        "Failed to canonicalize library path `{}`: {}",
+                        lib_path.to_string_lossy(),
+                        err
+                    ))
+                })
+            })
+            .collect::<CalyxResult<_>>()?;
 
         // Add original imports to workspace
         ws.original_imports =
@@ -298,7 +325,7 @@ impl Workspace {
             true,
             &parent_canonical,
             false,
-            &abs_lib_path,
+            &abs_lib_paths,
         )?;
         dependencies.append(&mut deps);
 
@@ -314,7 +341,7 @@ impl Workspace {
                 source,
                 &parent,
                 SHALLOW,
-                &abs_lib_path,
+                &abs_lib_paths,
             )?;
             dependencies.append(&mut deps);
 

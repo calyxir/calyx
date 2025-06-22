@@ -1,9 +1,10 @@
 use std::num::NonZeroU32;
 
 use super::{
-    PrintCommand,
+    BreakTarget, ParsePath, PrintCommand,
     core::{
-        Command, ParsedBreakPointID, ParsedGroupName, PrintMode, WatchPosition,
+        Command, ParseNodes, ParsedBreakPointID, ParsedGroupName, PrintMode,
+        WatchPosition,
     },
 };
 use baa::WidthInt;
@@ -132,8 +133,8 @@ impl CommandParser {
 
     fn group(input: Node) -> ParseResult<ParsedGroupName> {
         Ok(match_nodes!(input.into_children();
-            [identifier(i)] => ParsedGroupName::from_group_name(i),
-            [identifier(comp), identifier(group)] => ParsedGroupName::from_comp_and_group(comp, group)
+            [identifier(i)] => ParsedGroupName::from_control_name(i),
+            [identifier(comp), identifier(group)] => ParsedGroupName::from_comp_and_control(comp, group)
         ))
     }
 
@@ -147,13 +148,20 @@ impl CommandParser {
     fn brk_id(input: Node) -> ParseResult<ParsedBreakPointID> {
         Ok(match_nodes!(input.into_children();
                 [num(n)] => n.into(),
-                [group(g)] => g.into()
+                [break_target(target)] => target.into()
+        ))
+    }
+
+    fn break_target(input: Node) -> ParseResult<BreakTarget> {
+        Ok(match_nodes!(input.into_children();
+            [breakpoint_path(p)] => BreakTarget::Path(p),
+            [group(g)] => BreakTarget::Name(g)
         ))
     }
 
     fn brk(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-            [group(g)..] => Command::Break(g.collect()),
+            [break_target(targets)..] => Command::Break(targets.collect())
         ))
     }
 
@@ -187,9 +195,9 @@ impl CommandParser {
 
     fn step_over(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-            [group(g)] => Command::StepOver(g, None),
+            [group(g)] => Command::StepOver(BreakTarget::Name(g), None),
             [group(g), num(n)] => {
-               Command::StepOver(g, NonZeroU32::new(n))
+               Command::StepOver(BreakTarget::Name(g), NonZeroU32::new(n))
             }
         ))
     }
@@ -298,6 +306,41 @@ impl CommandParser {
             [EOI(_)] => Command::Empty,
         ))
     }
+
+    // Path parser:
+    fn body(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn name_path(input: Node) -> ParseResult<String> {
+        Ok(input.as_str().to_owned())
+    }
+
+    fn clause(input: Node) -> ParseResult<ParseNodes> {
+        Ok(match_nodes!(input.into_children();
+            [num(n)] => ParseNodes::Offset(n),
+            [body(_)] => ParseNodes::Body,
+            [branch(b)] => ParseNodes::If(b)
+        ))
+    }
+
+    fn branch(input: Node) -> ParseResult<bool> {
+        let b = input.as_str();
+        let result = b != "f";
+        Ok(result)
+    }
+
+    fn breakpoint_path(input: Node) -> ParseResult<ParsePath> {
+        Ok(match_nodes!(input.into_children();
+            [name_path(n), clause(c)..] => ParsePath::from_iter(c,n),
+        ))
+    }
+
+    fn path(input: Node) -> ParseResult<ParsePath> {
+        Ok(match_nodes!(input.into_children();
+            [breakpoint_path(p), EOI(_)] => p,
+        ))
+    }
 }
 
 /// Parse the given string into a debugger command.
@@ -305,4 +348,13 @@ pub fn parse_command(input_str: &str) -> CiderResult<Command> {
     let inputs = CommandParser::parse(Rule::command, input_str)?;
     let input = inputs.single()?;
     Ok(CommandParser::command(input)?)
+}
+
+// Parse the path
+#[allow(dead_code)]
+pub fn parse_path(input_str: &str) -> Result<ParsePath, Box<Error<Rule>>> {
+    let entries = CommandParser::parse(Rule::path, input_str)?;
+    let entry = entries.single()?;
+
+    CommandParser::path(entry).map_err(Box::new)
 }

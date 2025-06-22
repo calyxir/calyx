@@ -63,4 +63,3 @@ metadata #{
   2: let rhs: ubit<32> = (1 as ubit<32>);
   3: let sum: ubit<32> = add(lhs, rhs);
 }#
-

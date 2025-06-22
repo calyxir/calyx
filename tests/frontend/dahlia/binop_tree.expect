@@ -95,4 +95,3 @@ metadata #{
   3: let d: ubit<32> = 4;
   4: let e: ubit<32> = 2;
 }#
-

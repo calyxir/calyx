@@ -1,8 +1,5 @@
 use super::{
-    commands::{
-        Command, ParseNodes, ParsePath, ParsedBreakPointID, ParsedGroupName,
-        PrintMode,
-    },
+    commands::{Command, ParsedBreakPointID, PrintMode},
     debugging_context::context::DebuggingContext,
     io_utils::Input,
     source::structures::NewSourceMap,
@@ -10,12 +7,14 @@ use super::{
 use crate::{
     configuration::RuntimeConfig,
     debugger::{
-        commands::PrintCommand, source::SourceMap, unwrap_error_message,
+        commands::{BreakTarget, PrintCommand},
+        debugging_context::context::format_control_node,
+        source::SourceMap,
+        unwrap_error_message,
     },
     errors::{BoxedCiderError, CiderError, CiderResult},
     flatten::{
         flat_ir::{
-            base::ComponentIdx,
             base::{GlobalCellIdx, PortValue},
             prelude::{Control, ControlIdx, GroupIdx},
         },
@@ -62,15 +61,15 @@ impl ProgramStatus {
 /// An opaque wrapper type for internal debugging information. This can only be
 /// obtained by calling [Debugger::main_loop] and receiving a [DebuggerReturnStatus::Restart] return
 /// value.
-pub struct DebuggerInfo {
-    ctx: DebuggingContext,
+pub struct DebuggerInfo<C: AsRef<Context> + Clone> {
+    ctx: DebuggingContext<C>,
     input_stream: Input,
 }
 /// An enum indicating the non-error return status of the debugger
-pub enum DebuggerReturnStatus {
+pub enum DebuggerReturnStatus<C: AsRef<Context> + Clone> {
     /// Debugger exited with a restart command and should be reinitialized with
     /// the returned information. Comes from [Command::Restart].
-    Restart(Box<DebuggerInfo>),
+    Restart(Box<DebuggerInfo<C>>),
     /// Debugger exited normally with an exit command. Comes from [Command::Exit].
     Exit,
 }
@@ -88,7 +87,7 @@ pub struct Debugger<C: AsRef<Context> + Clone> {
     interpreter: Simulator<C>,
     // this is technically redundant but is here for mutability reasons
     program_context: C,
-    debugging_context: DebuggingContext,
+    debugging_context: DebuggingContext<C>,
     _source_map: Option<SourceMap>,
 }
 
@@ -134,8 +133,8 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
         Ok(Self {
             interpreter,
-            program_context,
-            debugging_context: DebuggingContext::new(),
+            program_context: program_context.clone(),
+            debugging_context: DebuggingContext::new(program_context),
             _source_map: None,
         })
     }
@@ -191,31 +190,40 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         Ok(self.status())
     }
 
-    pub fn set_breakpoints(&mut self, breakpoints: Vec<ParsedGroupName>) {
+    pub fn set_breakpoints(&mut self, breakpoints: Vec<BreakTarget>) {
         self.create_breakpoints(breakpoints)
     }
 
-    pub fn delete_breakpoints(&mut self, breakpoints: Vec<ParsedGroupName>) {
+    pub fn delete_breakpoints(&mut self, breakpoints: Vec<BreakTarget>) {
         let parsed_bp_ids: Vec<ParsedBreakPointID> = breakpoints
             .into_iter()
-            .map(ParsedBreakPointID::from)
+            .map(ParsedBreakPointID::Target)
             .collect_vec();
+
         self.manipulate_breakpoint(Command::Delete(parsed_bp_ids));
     }
 
     pub fn cont(&mut self) -> Result<StoppedReason, BoxedCiderError> {
         self.do_continue()?; //need to error handle
-        let bps = self
-            .debugging_context
-            .hit_breakpoints()
-            .map(|x| self.grp_idx_to_name(x))
-            .collect_vec();
+
         if self.interpreter.is_done() {
             Ok(StoppedReason::Done)
-        } else if !bps.is_empty() {
-            Ok(StoppedReason::Breakpoint(bps))
         } else {
-            unreachable!()
+            // TODO griffin: Communicate path to adapter
+            let bps = self
+                .debugging_context
+                .hit_breakpoints()
+                .filter_map(|x| {
+                    if let Control::Enable(e) =
+                        &self.program_context.as_ref().primary[x].control
+                    {
+                        Some(self.grp_idx_to_name(e.group()))
+                    } else {
+                        None
+                    }
+                })
+                .collect_vec();
+            Ok(StoppedReason::Breakpoint(bps))
         }
     }
 
@@ -230,16 +238,18 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     fn do_continue(&mut self) -> CiderResult<()> {
         self.debugging_context
-            .set_current_time(self.interpreter.get_currently_running_groups());
+            .set_current_time(self.interpreter.get_currently_running_nodes());
 
-        let mut breakpoints: Vec<GroupIdx> = vec![];
+        let mut breakpoints: Vec<ControlIdx> = vec![];
+
+        let ctx = self.program_context.as_ref();
 
         while breakpoints.is_empty() && !self.interpreter.is_done() {
             self.interpreter.step()?;
             // TODO griffin: figure out how to skip this convergence
             self.interpreter.converge()?;
             self.debugging_context
-                .advance_time(self.interpreter.get_currently_running_groups());
+                .advance_time(self.interpreter.get_currently_running_nodes());
 
             for (_idx, watch) in self.debugging_context.hit_watchpoints() {
                 let print_tuple = watch.print_details();
@@ -259,13 +269,10 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         }
 
         if !self.interpreter.is_done() {
-            for group in breakpoints {
+            for control_idx in breakpoints {
                 println!(
                     "Hit breakpoint: {}",
-                    self.program_context
-                        .as_ref()
-                        .lookup_name(group)
-                        .stylize_breakpoint()
+                    format_control_node(ctx, control_idx)
                 );
             }
             self.interpreter.converge()?;
@@ -282,11 +289,11 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     /// a fresh context and input stream will be used instead.
     pub fn main_loop(
         mut self,
-        info: Option<DebuggerInfo>,
-    ) -> CiderResult<DebuggerReturnStatus> {
+        info: Option<DebuggerInfo<C>>,
+    ) -> CiderResult<DebuggerReturnStatus<C>> {
         let (input_stream, dbg_ctx) = info
             .map(|x| (Some(x.input_stream), Some(x.ctx)))
-            .unwrap_or_else(|| (None, None));
+            .unwrap_or((None, None));
 
         if let Some(dbg_ctx) = dbg_ctx {
             self.debugging_context = dbg_ctx;
@@ -563,7 +570,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         }
 
         let watch_target =
-            match group.lookup_group(self.program_context.as_ref()) {
+            match group.lookup_group_watch(self.program_context.as_ref()) {
                 Ok(v) => v,
                 Err(e) => {
                     println!("Error: {}", e.stylize_error());
@@ -580,58 +587,118 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     fn do_step_over(
         &mut self,
-        target: super::commands::ParsedGroupName,
+        target: BreakTarget,
         bound: Option<NonZeroU32>,
     ) -> Result<(), crate::errors::BoxedCiderError> {
-        let target = match target.lookup_group(self.program_context.as_ref()) {
-            Ok(v) => v,
-            Err(e) => {
-                println!("Error: {}", e.stylize_error());
-                return Ok(());
-            }
-        };
-
-        let mut bound: Option<u32> = bound.map(|x| x.into());
-
-        if !self.interpreter.is_group_running(target) {
-            println!("Group is not currently running")
-        } else {
-            while self.interpreter.is_group_running(target) {
-                if let Some(current_count) = bound.as_mut() {
-                    if *current_count == 0 {
-                        println!("Bound reached, group is still running.");
-                        break;
-                    } else {
-                        *current_count -= 1;
+        let context = self.program_context.as_ref();
+        match target {
+            BreakTarget::Name(target) => {
+                let target = match target.lookup_group(context) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        println!("Error: {}", e.stylize_error());
+                        return Ok(());
                     }
-                }
+                };
 
-                self.interpreter.step()?;
+                let mut bound: Option<u32> = bound.map(|x| x.into());
+
+                if !self.interpreter.is_group_running(target) {
+                    println!("Group is not currently running")
+                } else {
+                    while self.interpreter.is_group_running(target) {
+                        if let Some(current_count) = bound.as_mut() {
+                            if *current_count == 0 {
+                                println!(
+                                    "Bound reached, group is still running."
+                                );
+                                break;
+                            } else {
+                                *current_count -= 1;
+                            }
+                        }
+
+                        self.interpreter.step()?;
+                    }
+                    self.interpreter.converge()?;
+                };
+                Ok(())
             }
-            self.interpreter.converge()?;
-        };
-        Ok(())
+            BreakTarget::Path(path) => {
+                let control_idx = match path.path_idx(context) {
+                    Ok(id) => id,
+                    Err(e) => {
+                        println!("Error: {}", e.stylize_error());
+                        return Ok(());
+                    }
+                };
+
+                let mut bound: Option<u32> = bound.map(|x| x.into());
+
+                if !self.interpreter.is_control_running(control_idx) {
+                    println!("control_idx is not currently running")
+                } else {
+                    while self.interpreter.is_control_running(control_idx) {
+                        if let Some(current_count) = bound.as_mut() {
+                            if *current_count == 0 {
+                                println!(
+                                    "Bound reached, control_idx is still running."
+                                );
+                                break;
+                            } else {
+                                *current_count -= 1;
+                            }
+                        }
+                    }
+                    self.interpreter.step()?;
+                }
+                self.interpreter.converge()?;
+
+                Ok(())
+            }
+        }
     }
 
     fn create_breakpoints(
         &mut self,
-        targets: Vec<super::commands::ParsedGroupName>,
+        targets: Vec<super::commands::BreakTarget>,
     ) {
+        let ctx = self.program_context.as_ref();
         for target in targets {
-            let target = target.lookup_group(self.program_context.as_ref());
-            unwrap_error_message!(target);
+            match target {
+                BreakTarget::Name(target) => {
+                    let group_idx = target.lookup_group(ctx);
+                    unwrap_error_message!(group_idx);
 
-            if self.interpreter.is_group_running(target) {
-                println!(
-                    "Warning: the group {} is already running. This breakpoint will not trigger until the next time the group runs.",
-                    self.program_context
-                        .as_ref()
-                        .lookup_name(target)
-                        .stylize_warning()
-                )
+                    if self.interpreter.is_group_running(group_idx) {
+                        println!(
+                            "Warning: the group {} is already running. This breakpoint will not trigger until the next time the group runs.",
+                            ctx.lookup_name(group_idx).stylize_warning()
+                        )
+                    }
+
+                    // Add all enables that corresponds to said group
+                    let control_idx_vec =
+                        ctx.find_control_ids_for_group(group_idx);
+
+                    for child in control_idx_vec {
+                        self.debugging_context.add_breakpoint(child);
+                    }
+                }
+                BreakTarget::Path(path) => {
+                    let control_idx = path.path_idx(ctx);
+                    unwrap_error_message!(control_idx);
+
+                    if self.interpreter.is_control_running(control_idx) {
+                        println!(
+                            "Warning: the control {} is already running. This breakpoint will not trigger until the next time the control runs.",
+                            format_control_node(ctx, control_idx)
+                        )
+                    }
+
+                    self.debugging_context.add_breakpoint(control_idx);
+                }
             }
-
-            self.debugging_context.add_breakpoint(target);
         }
     }
 
@@ -712,89 +779,27 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             | Command::Enable(targets)
             | Command::Delete(targets) => {
                 for t in targets {
-                    let target =
+                    let parsed_targets =
                         t.parse_to_break_ids(self.program_context.as_ref());
-                    unwrap_error_message!(target);
+                    unwrap_error_message!(parsed_targets);
 
-                    match &command {
-                        Command::Disable(_) => {
-                            self.debugging_context.disable_breakpoint(target)
+                    for target in parsed_targets {
+                        match &command {
+                            Command::Disable(_) => self
+                                .debugging_context
+                                .disable_breakpoint(target),
+                            Command::Enable(_) => {
+                                self.debugging_context.enable_breakpoint(target)
+                            }
+                            Command::Delete(_) => {
+                                self.debugging_context.remove_breakpoint(target)
+                            }
+                            _ => unreachable!(),
                         }
-                        Command::Enable(_) => {
-                            self.debugging_context.enable_breakpoint(target)
-                        }
-                        Command::Delete(_) => {
-                            self.debugging_context.remove_breakpoint(target)
-                        }
-                        _ => unreachable!(),
                     }
                 }
             }
             _ => unreachable!("improper use of manipulate_breakpoint"),
         }
-    }
-
-    /// Returns the controlidx of the last node in the given path and component idx
-    pub fn path_idx(
-        &self,
-        component: ComponentIdx,
-        path: ParsePath,
-    ) -> ControlIdx {
-        let path_nodes = path.get_path();
-        let env = self.interpreter.env();
-        let ctx = env.ctx();
-
-        let component_map = &ctx.primary.components;
-        let control_map = &ctx.primary.control;
-
-        // Get nodes
-        let component_node = component_map.get(component).unwrap();
-
-        let mut control_id = component_node.control().unwrap();
-
-        let mut control_node = &control_map.get(control_id).unwrap().control;
-        for parse_node in path_nodes {
-            match parse_node {
-                ParseNodes::Body => match control_node {
-                    Control::While(while_struct) => {
-                        control_id = while_struct.body();
-                    }
-                    Control::Repeat(repeat_struct) => {
-                        control_id = repeat_struct.body;
-                    }
-                    _ => {
-                        // TODO: Dont want to crash if invalid path, return result type w/ error malformed
-                        panic!();
-                    }
-                },
-                ParseNodes::If(branch) => match control_node {
-                    Control::If(if_struct) => {
-                        control_id = if branch {
-                            if_struct.tbranch()
-                        } else {
-                            if_struct.fbranch()
-                        };
-                    }
-                    _ => {
-                        panic!();
-                    }
-                },
-                ParseNodes::Offset(child) => match control_node {
-                    Control::Par(par_struct) => {
-                        let children = par_struct.stms();
-                        control_id = children[child as usize];
-                    }
-                    Control::Seq(seq_struct) => {
-                        let children = seq_struct.stms();
-                        control_id = children[child as usize]
-                    }
-                    _ => {
-                        panic!();
-                    }
-                },
-            }
-            control_node = control_map.get(control_id).unwrap();
-        }
-        control_id
     }
 }

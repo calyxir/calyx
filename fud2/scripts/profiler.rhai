@@ -57,7 +57,8 @@ fn edsl_to_flamegraph(e, input, output) {
     e.build_cmd(["$cells"], "component-cells", [calyx], []);
     e.build_cmd([instrumented_verilog], "calyx", [calyx], []);
     e.arg("backend", "verilog");
-    e.arg("args", "-p validate -p compile-invoke -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json");
+    // NOTE: disabling group2seq because it may cause cycle count differences btwn profiled vs non-profiled versions.
+    e.arg("args", "-d group2seq -p validate -p compile-invoke -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json");
 
     let instrumented_sim = "instrumented.exe";
     // verilog --> sim; adapted from verilator::verilator_build()
@@ -96,7 +97,8 @@ fn calyx_to_flamegraph(e, input, output) {
     e.build_cmd(["$cells"], "component-cells", [input], []);
     e.build_cmd([instrumented_verilog], "calyx", [input], []);
     e.arg("backend", "verilog");
-    e.arg("args", "-p validate -p compile-invoke -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json");
+    // NOTE: disabling group2seq because it may cause cycle count differences btwn profiled vs non-profiled versions.
+    e.arg("args", "-d group2seq -p validate -p compile-invoke -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json");
 
     let instrumented_sim = "instrumented.exe";
     // verilog --> sim; adapted from verilator::verilator_build()

@@ -8,7 +8,75 @@ from classes import (
     CycleType,
     CycleTrace,
     StackElementType,
+    GroupSummary,
 )
+
+
+def create_group_summaries(cell_metadata: CellMetadata, tracedata: TraceData):
+    """
+    Processes the trace to identify group activation blocks and collect group statistics.
+    """
+    group_summaries: dict[str, GroupSummary] = {}  # names would be component.group
+    currently_active_to_start: dict[str, int] = {}
+    for i in tracedata.trace:
+        active_this_cycle: set[str] = set()
+        for stack in tracedata.trace[i].stacks:
+            stack_acc = cell_metadata.main_component
+            current_component = cell_metadata.main_component
+            for stack_elem in stack:
+                match stack_elem.element_type:
+                    case StackElementType.CELL:
+                        if not stack_elem.is_main:
+                            stack_acc = f"{stack_acc}.{stack_elem.name}"
+                            current_component = cell_metadata.get_component_of_cell(
+                                stack_acc
+                            )
+                    case StackElementType.GROUP:
+                        group_id = f"{current_component}.{stack_elem.name}"
+                        if group_id not in group_summaries:
+                            group_summaries[group_id] = GroupSummary(group_id)
+                        active_this_cycle.add(group_id)
+
+        # groups that ended this cycle
+        for done_group in set(currently_active_to_start.keys()).difference(
+            active_this_cycle
+        ):
+            start_cycle = currently_active_to_start[done_group]
+            group_summaries[done_group].register_interval(range(start_cycle, i))
+            del currently_active_to_start[done_group]
+        # groups that started this cycle
+        for new_group in active_this_cycle.difference(
+            set(currently_active_to_start.keys())
+        ):
+            currently_active_to_start[new_group] = i
+
+    # groups that are active until the end
+    for still_active_group in currently_active_to_start:
+        start_cycle = currently_active_to_start[still_active_group]
+        group_summaries[group_id].register_interval(
+            range(start_cycle, len(tracedata.trace))
+        )
+
+    return group_summaries
+
+
+def write_group_stats(cell_metadata: CellMetadata, tracedata: TraceData, out_dir: str):
+    """
+    Collects and writes statistics information about groups to group-stats.csv.
+    """
+    group_summaries = create_group_summaries(cell_metadata, tracedata)
+    fieldnames = GroupSummary.fieldnames()
+    stats_list = []
+    for group in sorted(group_summaries.keys()):
+        stats_list.append(group_summaries[group].stats())
+    with open(
+        os.path.join(out_dir, "group-stats.csv"), "w", encoding="utf-8"
+    ) as csvFile:
+        writer = csv.DictWriter(
+            csvFile, fieldnames=fieldnames, lineterminator=os.linesep
+        )
+        writer.writeheader()
+        writer.writerows(stats_list)
 
 
 def write_cell_stats(
@@ -23,10 +91,11 @@ def write_cell_stats(
     fieldnames = [
         "cell-name",
         "num-fsms",
-        "useful-cycles",
         "total-cycles",
         "times-active",
         "avg",
+        "useful-cycles",
+        "useful-cycles (%)",
     ] + [
         f"{cat.name} (%)" for cat in tracedata.cycletype_to_cycles
     ]  # fields in CSV file
@@ -46,12 +115,15 @@ def write_cell_stats(
                 cell
             ].active_cycles.intersection(tracedata.cycletype_to_cycles[cycletype])
         avg_cycles = round(cell_total_cycles / times_active, 2)
+        useful_cycles = len(cell_cat[CycleType.GROUP_OR_PRIMITIVE]) + len(
+            cell_cat[CycleType.OTHER]
+        )
         stats_dict = {
             "cell-name": f"{cell} [{component}]",
             "num-fsms": num_fsms,
-            "useful-cycles": len(cell_cat[CycleType.GROUP_OR_PRIMITIVE])
-            + len(cell_cat[CycleType.OTHER]),
+            "useful-cycles": useful_cycles,
             "total-cycles": cell_total_cycles,
+            "useful-cycles (%)": round((useful_cycles / cell_total_cycles) * 100, 1),
             "times-active": times_active,
             "avg": avg_cycles,
         }
@@ -75,6 +147,9 @@ def write_cell_stats(
         )
     totals["times-active"] = "-"
     totals["avg"] = "-"
+    totals["useful-cycles (%)"] = round(
+        (totals["useful-cycles"] / total_cycles) * 100, 1
+    )
     stats.sort(key=lambda e: e["total-cycles"], reverse=True)
     stats.append(totals)  # total should come at the end
     with open(

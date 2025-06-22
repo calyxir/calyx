@@ -1,4 +1,4 @@
-use std::{fs, path::Path, process::Command};
+use std::{fs, process::Command};
 
 use argh::{CommandInfo, FromArgs};
 use fud_core::{
@@ -33,49 +33,45 @@ pub struct ActivateCommand {}
 
 impl PyenvCommand {
     fn init(&self, driver: &fud_core::Driver) -> anyhow::Result<()> {
-        let data_dir = config::data_dir(&driver.name);
+        // This is a bit of a hack to detect whether or not uv is installed
+        if Command::new("uv").arg("--version").output().is_err() {
+            anyhow::bail!(
+                "fud2 env requires `uv` to be installed.\n       Installation instructions can be found at: https://docs.astral.sh/uv/getting-started/installation/"
+            )
+        }
 
+        let data_dir = config::data_dir(&driver.name);
         fs::create_dir_all(&data_dir)?;
 
         let pyenv = data_dir.join("venv");
 
         // create new venv
-        Command::new("python3")
-            .args(["-m", "venv"])
+        Command::new("uv")
+            .args(["venv"])
             .arg(&pyenv)
             .stdout(std::io::stdout())
-            .output()?;
-
-        // install vcdvcd (for Profiler)
-        Command::new(pyenv.join("bin").join("pip"))
-            .arg("install")
-            .arg("vcdvcd")
-            .stdout(std::io::stdout())
-            .output()?;
-
-        // install flit
-        Command::new(pyenv.join("bin").join("pip"))
-            .arg("install")
-            .arg("flit")
-            .stdout(std::io::stdout())
+            .stderr(std::io::stderr())
             .output()?;
 
         // grab the location of the calyx base install
         let config = config::load_config(&driver.name);
         let calyx_base: String = config.extract_inner("calyx.base")?;
 
-        // install fud python library
-        Command::new(pyenv.join("bin").join("python"))
-            .args(["-m", "flit", "install"])
-            .current_dir(Path::new(&calyx_base).join("fud"))
+        Command::new("uv")
+            .args([
+                "sync",
+                "--all-extras",
+                // needed to use the proper venv since uv REALLY wants to use a
+                // local `.venv` directory
+                "--active",
+            ])
             .stdout(std::io::stdout())
-            .output()?;
-
-        // install calyx-py library
-        Command::new(pyenv.join("bin").join("python"))
-            .args(["-m", "flit", "install"])
-            .current_dir(Path::new(&calyx_base).join("calyx-py"))
-            .stdout(std::io::stdout())
+            .stderr(std::io::stderr())
+            // ensure this executes in the appropriate venv
+            .env("VIRTUAL_ENV", &pyenv)
+            // ensure this executes from the calyx dir so that uv sync reads the
+            // right pyproject.toml when installing dependencies
+            .current_dir(calyx_base)
             .output()?;
 
         // add python location to fud2.toml
@@ -93,6 +89,11 @@ impl PyenvCommand {
 
         fs::write(&config_path, toml_doc.to_string())?;
 
+        println!(
+            "Fud2 has been configured to automatically use the virtual environment's python interpreter.
+  To use the virtual environment outside of fud2 run 'eval $(fud2 env activate)' to activate it"
+        );
+
         Ok(())
     }
 
@@ -106,7 +107,10 @@ impl PyenvCommand {
             )
         }
 
-        println!("{}", pyenv.join("bin").join("activate").to_str().unwrap());
+        println!(
+            "source {}",
+            pyenv.join("bin").join("activate").to_str().unwrap()
+        );
 
         Ok(())
     }

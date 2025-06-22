@@ -44,6 +44,7 @@ def dat2json(out_file, in_dir, sim_log=None):
 
     with open(out_file, "w") as f:
         simplejson.dump(out, f, indent=2, sort_keys=True, use_decimal=True)
+        f.write("\n")
 
 
 if __name__ == "__main__":

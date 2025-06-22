@@ -207,6 +207,14 @@ impl Component {
         self.static_groups.find(name)
     }
 
+    /// Return a reference to the fsm with `name` if present.
+    pub fn find_fsm<S>(&self, name: S) -> Option<RRC<FSM>>
+    where
+        S: Into<Id>,
+    {
+        self.fsms.find(name)
+    }
+
     /// Return a refernece to a combination group with `name` if present.
     pub fn find_comb_group<S>(&self, name: S) -> Option<RRC<CombGroup>>
     where

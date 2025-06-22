@@ -39,4 +39,3 @@ metadata #{
   0:   let x: ubit<32> = 4;
   1:   let y: ubit<32> = 5;
 }#
-

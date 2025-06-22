@@ -183,7 +183,7 @@ def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out_dir)
                 "E",
                 cell_to_info,
                 group_to_parent_cell,
-                cell_display_name=nonactive_element_display,
+                display_name=nonactive_element_display,
             )
             write_timeline_event(end_event, out_file)
         for newly_active_element, newly_active_display in active_this_cycle.difference(
@@ -195,7 +195,7 @@ def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out_dir)
                 "B",
                 cell_to_info,
                 group_to_parent_cell,
-                cell_display_name=newly_active_display,
+                display_name=newly_active_display,
             )
             write_timeline_event(begin_event, out_file)
         currently_active = active_this_cycle
@@ -213,7 +213,7 @@ def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out_dir)
             "E",
             cell_to_info,
             group_to_parent_cell,
-            cell_display_name=still_active_display,
+            display_name=still_active_display,
         )
         write_timeline_event(end_event, out_file)
 
@@ -228,7 +228,7 @@ def create_timeline_event(
     event_type,
     cell_to_info,
     group_to_parent_cell,
-    cell_display_name=None,
+    display_name=None,
 ):
     """
     Creates a JSON entry for traceEvents.
@@ -239,7 +239,7 @@ def create_timeline_event(
     """
     if element_name in cell_to_info:  # cell
         event = {
-            "name": element_name if cell_display_name is None else cell_display_name,
+            "name": element_name if display_name is None else display_name,
             "cat": "cell",
             "ph": event_type,
             "pid": cell_to_info[element_name].pid,

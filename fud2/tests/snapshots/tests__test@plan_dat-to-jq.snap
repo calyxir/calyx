@@ -1,0 +1,20 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: dat-to-jq"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+expr = .
+jq = jq
+flags = 
+jqfile = ..
+rule jq-run
+  command = $jq "$expr" $flags $in > $out
+rule jq-run-file
+  command = $jq -f $jqfile $flags $in > $out
+
+build /output.ext: jq-run /input.ext
+
+default /output.ext

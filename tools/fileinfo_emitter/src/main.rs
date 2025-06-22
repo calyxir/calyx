@@ -275,7 +275,7 @@ fn create_file_map(
 fn main() -> CalyxResult<()> {
     let p: Args = argh::from_env();
 
-    let ws = frontend::Workspace::construct(&p.file_path, &p.lib_path)?;
+    let ws = frontend::Workspace::construct(&p.file_path, &[p.lib_path])?;
 
     let ctx: ir::Context = ir::from_ast::ast_to_ir(ws)?;
 

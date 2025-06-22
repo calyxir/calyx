@@ -1,0 +1,55 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: calyx-to-synthesis-json"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+calyx-base = /test/calyx
+rule mkdir
+  command = mkdir -p $out
+rule move
+  command = mv $in $out
+rule copy
+  command = cp $in $out
+rule copy-utilization
+  command = cp out/FutilBuild.runs/impl_1/main_utilization_placed.rpt $out
+rule copy-timing
+  command = cp out/FutilBuild.runs/impl_1/main_timing_summary_routed.rpt $out
+rule copy-area
+  command = cp out/hierarchical_utilization_placed.rpt $out
+rule vivado
+  command = vivado -mode batch -source synth.tcl > /dev/null
+device_xdc = default.xdc
+build default.xdc: get-rsrc
+build synth.tcl: get-rsrc
+rule parse-rpt
+  command = synthrep viz -t flamegraph -f $in > $out
+rule extract-rpt
+  command = synthrep summary > $out
+flamegraph-script = /test/calyx/non-existent.script
+create-visuals-script = $calyx-base/tools/profiler/create-visuals.sh
+rule create-visuals
+  command = bash $create-visuals-script $flamegraph-script . $in $out
+
+calyx-base = /test/calyx
+calyx-exe = $calyx-base/target/debug/calyx
+calyx-lib-path = $calyx-base
+args = 
+rule calyx
+  command = $calyx-exe -l $calyx-lib-path -b $backend $args $in > $out
+rule calyx-pass
+  command = $calyx-exe -l $calyx-lib-path -p $pass $args $in > $out
+cider-calyx-passes = -p none
+rule calyx-cider
+  command = $calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out
+
+build main.sv: calyx /input.ext
+  backend = verilog
+  args = --synthesis -p external --disable-verify
+build device.xdc: copy $device_xdc
+build IGNOREME: vivado | main.sv synth.tcl device.xdc
+build /output.ext: extract-rpt IGNOREME
+
+default /output.ext

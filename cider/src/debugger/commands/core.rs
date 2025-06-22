@@ -8,10 +8,11 @@ use std::{
 };
 
 use crate::{
+    errors::{BreakTargetError, NameResolutionError, PathError},
     flatten::{
-        flat_ir::prelude::GroupIdx,
+        flat_ir::prelude::{Control, ControlIdx, GroupIdx},
         structures::{
-            context::Context,
+            context::{Context, LookupName},
             environment::{Environment, Path},
         },
         text_utils::Color,
@@ -33,7 +34,7 @@ impl Display for BreakpointIdx {
 impl_index!(BreakpointIdx);
 
 /// Identifier for watchpoints
-#[derive(Debug, Eq, Copy, Clone, PartialEq, Hash)]
+#[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct WatchpointIdx(u32);
 
 impl_index!(WatchpointIdx);
@@ -43,17 +44,18 @@ impl Display for WatchpointIdx {
     }
 }
 
-/// The name of a group taken from user input. The component may be elided in
+/// The name of a controlidx taken from user input. The component may be elided in
 /// which case it is generally assumed to be the entry point.
 #[derive(Debug)]
 pub struct ParsedGroupName {
+    // enum: name and group 2 name and path
     component: Option<String>,
     group: String,
 }
 
 impl ParsedGroupName {
     /// Create a new [ParsedGroupName] from just a group name.
-    pub fn from_group_name(group: String) -> Self {
+    pub fn from_control_name(group: String) -> Self {
         Self {
             component: None,
             group,
@@ -61,16 +63,44 @@ impl ParsedGroupName {
     }
 
     /// Create a new [ParsedGroupName] from a component and group name.
-    pub fn from_comp_and_group(component: String, group: String) -> Self {
+    pub fn from_comp_and_control(component: String, group: String) -> Self {
         Self {
             component: Some(component),
             group,
         }
     }
 
+    pub fn get_comp(&self) -> Option<&str> {
+        self.component.as_deref()
+    }
+
     /// Attempts to look up the group of the given name in the context. If the
     /// group lacks a component, it is assumed to be the entry point.
-    pub fn lookup_group(&self, context: &Context) -> Result<GroupIdx, String> {
+    pub fn lookup_group(
+        &self,
+        context: &Context,
+    ) -> Result<GroupIdx, NameResolutionError> {
+        // if given name map back to group idx
+        let comp = if let Some(c) = &self.component {
+            context
+                .lookup_comp_by_name(c.as_ref())
+                .ok_or(NameResolutionError::UnknownComponent(c.clone()))?
+        } else {
+            context.entry_point
+        };
+
+        context
+            .lookup_group_by_name(self.group.as_ref(), comp)
+            .ok_or(NameResolutionError::UnknownGroup {
+                comp: comp.lookup_name(context).clone(),
+                group: self.group.clone(),
+            })
+    }
+
+    pub fn lookup_group_watch(
+        &self,
+        context: &Context,
+    ) -> Result<GroupIdx, String> {
         let comp = if let Some(c) = &self.component {
             context
                 .lookup_comp_by_name(c.as_ref())
@@ -85,13 +115,24 @@ impl ParsedGroupName {
     }
 }
 
+pub enum BreakTarget {
+    Name(ParsedGroupName),
+    Path(ParsePath),
+}
+
 /// An enum representing a breakpoint/watchpoint from user input. This may or
 /// may not be valid.
 pub enum ParsedBreakPointID {
     /// A breakpoint given by the group name.
-    Name(ParsedGroupName),
+    Target(BreakTarget),
     /// A breakpoint given by the identifying number.
     Number(u32),
+}
+
+impl From<BreakTarget> for ParsedBreakPointID {
+    fn from(v: BreakTarget) -> Self {
+        Self::Target(v)
+    }
 }
 
 impl ParsedBreakPointID {
@@ -99,14 +140,25 @@ impl ParsedBreakPointID {
     pub fn parse_to_break_ids(
         &self,
         context: &Context,
-    ) -> Result<BreakpointID, String> {
+    ) -> Result<Vec<BreakpointID>, BreakTargetError> {
         match self {
-            ParsedBreakPointID::Name(name) => {
-                let group = name.lookup_group(context)?;
-                Ok(BreakpointID::Name(group))
-            }
+            ParsedBreakPointID::Target(break_target) => match break_target {
+                BreakTarget::Name(g) => {
+                    let group_idx = g.lookup_group(context)?;
+                    let control_nodes =
+                        context.find_control_ids_for_group(group_idx);
+                    let breaks = control_nodes
+                        .into_iter()
+                        .map(BreakpointID::Name)
+                        .collect();
+                    Ok(breaks)
+                }
+                BreakTarget::Path(parse_path) => {
+                    Ok(vec![BreakpointID::Name(parse_path.path_idx(context)?)])
+                }
+            },
             ParsedBreakPointID::Number(v) => {
-                Ok(BreakpointID::Number(BreakpointIdx::from(*v)))
+                Ok(vec![BreakpointID::Number(BreakpointIdx::from(*v))])
             }
         }
     }
@@ -117,10 +169,16 @@ impl ParsedBreakPointID {
         context: &Context,
     ) -> Result<WatchID, String> {
         match self {
-            ParsedBreakPointID::Name(v) => {
-                let group = v.lookup_group(context)?;
-                Ok(WatchID::Name(group))
-            }
+            ParsedBreakPointID::Target(break_target) => match break_target {
+                BreakTarget::Name(v) => {
+                    let group = v.lookup_group_watch(context)?;
+                    Ok(WatchID::Name(group))
+                }
+                BreakTarget::Path(_p) => {
+                    Err("watchpoints currently do not support the path syntax"
+                        .to_string())
+                }
+            },
             ParsedBreakPointID::Number(v) => {
                 Ok(WatchID::Number(WatchpointIdx::from(*v)))
             }
@@ -136,15 +194,15 @@ impl From<u32> for ParsedBreakPointID {
 
 impl From<ParsedGroupName> for ParsedBreakPointID {
     fn from(v: ParsedGroupName) -> Self {
-        Self::Name(v)
+        Self::Target(BreakTarget::Name(v))
     }
 }
 
 /// A concrete breakpoint
 pub enum BreakpointID {
-    /// A breakpoint on the given group. This does not guarantee that there is
-    /// such a breakpoint, but it does guarantee that the group exists.
-    Name(GroupIdx),
+    /// A breakpoint on the given controlIdx. This does not guarantee that there is
+    /// such a breakpoint, but it does guarantee that the controlIdx exists.
+    Name(ControlIdx),
     /// A breakpoint on the given ID. This does not guarantee that there is a
     /// breakpoint by the given ID. In such cases, operations on the breakpoint
     /// will produce an error.
@@ -164,7 +222,7 @@ impl BreakpointID {
 
     /// Attempts to get the breakpoint ID as a group.
     #[must_use]
-    pub fn as_name(&self) -> Option<&GroupIdx> {
+    pub fn as_name(&self) -> Option<&ControlIdx> {
         if let Self::Name(v) = self {
             Some(v)
         } else {
@@ -337,6 +395,61 @@ impl ParsePath {
     {
         ParsePath::new(iter.into_iter().collect(), component_name)
     }
+
+    /// Returns the control_idx of the control statement pointed to by the path,
+    /// if valid.
+    pub fn path_idx(&self, ctx: &Context) -> Result<ControlIdx, PathError> {
+        let path_nodes = self.get_path();
+
+        let Some(component_idx) = ctx.lookup_comp_by_name(self.get_name())
+        else {
+            return Err(NameResolutionError::UnknownComponent(
+                self.get_name().to_string(),
+            )
+            .into());
+        };
+        let Some(mut control_id) = ctx.primary[component_idx].control() else {
+            return Err(PathError::MissingControl);
+        };
+
+        let mut control_node = &ctx.primary[control_id].control;
+        for parse_node in path_nodes {
+            match parse_node {
+                ParseNodes::Body => match control_node {
+                    Control::While(while_struct) => {
+                        control_id = while_struct.body();
+                    }
+                    Control::Repeat(repeat_struct) => {
+                        control_id = repeat_struct.body;
+                    }
+                    _ => return Err(PathError::Malformed),
+                },
+                ParseNodes::If(branch) => match control_node {
+                    Control::If(if_struct) => {
+                        control_id = if branch {
+                            if_struct.tbranch()
+                        } else {
+                            if_struct.fbranch()
+                        };
+                    }
+                    _ => return Err(PathError::Malformed),
+                },
+                ParseNodes::Offset(child) => match control_node {
+                    Control::Par(par_struct) => {
+                        let children = par_struct.stms();
+                        control_id = children[child as usize];
+                    }
+                    Control::Seq(seq_struct) => {
+                        let children = seq_struct.stms();
+                        control_id = children[child as usize]
+                    }
+                    _ => return Err(PathError::Malformed),
+                },
+            }
+            control_node = &ctx.primary[control_id];
+        }
+        Ok(control_id)
+    }
 }
 
 // Different types of printing commands
@@ -360,7 +473,7 @@ pub enum Command {
     /// different modes and print formats.
     Print(Vec<Vec<String>>, Option<PrintCode>, PrintMode),
     /// Create a breakpoint on the given groups.
-    Break(Vec<ParsedGroupName>),
+    Break(Vec<BreakTarget>),
     /// Display the help message.
     Help,
     /// Exit the debugger.
@@ -382,7 +495,7 @@ pub enum Command {
     /// Delete the given watchpoints.
     DeleteWatch(Vec<ParsedBreakPointID>),
     /// Advance the execution until the given group is no longer running.
-    StepOver(ParsedGroupName, Option<NonZeroU32>),
+    StepOver(BreakTarget, Option<NonZeroU32>),
     /// Create a watchpoint
     Watch(
         ParsedGroupName,

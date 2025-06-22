@@ -1,0 +1,28 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: systolic-to-calyx"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+calyx-base = /test/calyx
+calyx-exe = $calyx-base/target/debug/calyx
+calyx-lib-path = $calyx-base
+args = 
+rule calyx
+  command = $calyx-exe -l $calyx-lib-path -b $backend $args $in > $out
+rule calyx-pass
+  command = $calyx-exe -l $calyx-lib-path -p $pass $args $in > $out
+cider-calyx-passes = -p none
+rule calyx-cider
+  command = $calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out
+
+systolic-script = $calyx-base/frontends/systolic-lang/gen-systolic.py
+python = python3
+rule systolic-to-calyx
+  command = $python $systolic-script $in > $out
+
+build /output.ext: systolic-to-calyx /input.ext
+
+default /output.ext

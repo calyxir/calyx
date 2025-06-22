@@ -1,0 +1,17 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: vcd_json"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+vcdump.exe = vcdump
+rule vcd_json_rule_1
+  command = ${vcdump.exe} $i0 > $o0
+build _vcd_json_rule_1.fake $o0: vcd_json_rule_1 $i0
+  i0 = /input.ext
+  o0 = /output.ext
+
+
+default /output.ext
