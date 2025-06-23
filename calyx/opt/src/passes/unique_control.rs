@@ -87,15 +87,12 @@ fn par_track(
         ir::Control::Enable(enable) => {
             let group_name = enable.group.borrow().name().to_string();
             enable_to_track.insert(group_name, start_idx);
-            start_idx
+            start_idx + 1
         }
         ir::Control::Par(ir::Par { stmts, .. }) => {
             let mut idx = next_idx;
             for stmt in stmts {
-                let potential_new_idx =
-                    par_track(stmt, idx, idx + 1, enable_to_track);
-                idx = cmp::max(idx, potential_new_idx);
-                idx += 1;
+                idx = par_track(stmt, idx, idx + 1, enable_to_track);
             }
             idx
         }
