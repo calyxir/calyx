@@ -682,7 +682,7 @@ impl CalyxParser {
     fn hole(input: Node) -> ParseResult<ast::Port> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(group), identifier(name)] => ast::Port::Hole { group, name }
+            [identifier(struct_elem), identifier(name)] => ast::Port::Hole { struct_elem, name }
         ))
     }
 
