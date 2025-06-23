@@ -81,7 +81,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.control_metadata.add_signal_prefix(self.signal_prefix)
 
         # get go and done for cells (the signals are exactly {cell}.go and {cell}.done)
-        print(self.cell_metadata.cells)
         for cell in self.cell_metadata.cells:
             cell_go = cell + ".go"
             cell_done = cell + ".done"
