@@ -41,5 +41,5 @@ The component executes the two groups in-order.
 
 To see the output from running this component, run the command:
 ```
-fud e examples/futil/multi-component.futil --to vcd
+fud2 examples/futil/multi-component.futil --to vcd
 ```
