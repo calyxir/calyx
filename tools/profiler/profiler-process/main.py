@@ -8,7 +8,7 @@ import construct_trace
 import preprocess
 from visuals import flame, timeline, stats
 
-from classes import CellMetadata, ControlMetadata, TraceData, ControlRegUpdateType, PathMetadata
+from classes import CellMetadata, ControlMetadata, TraceData, ControlRegUpdateType
 
 
 def setup_metadata(args):

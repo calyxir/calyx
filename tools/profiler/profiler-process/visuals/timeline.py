@@ -7,7 +7,6 @@ from classes import (
     ControlRegUpdates,
     StackElementType,
     CellMetadata,
-    PathMetadata,
 )
 
 ts_multiplier = 1  # [timeline view] ms on perfetto UI that resembles a single cycle
@@ -66,7 +65,6 @@ class TimelineCell:
         return (self.pid, group_tid, group_name)
 
     def remove_group(self, enable_name):
-        print(self.enable_to_tid)
         group_name = enable_name.split(self.unique_group_str)[0]
         group_tid = self.enable_to_tid[enable_name]
         # del self.currently_active_group_to_tid[group_name]
@@ -100,9 +98,7 @@ def port_control_events(
         # they are probably single-group components.
         return
     for update_info in control_updates[cell_name]:
-        (control_pid, control_tid) = cell_to_info[cell_name].get_metatrack_pid_tid(
-            "CTRL"
-        )
+        (control_pid, control_tid) = cell_to_info[cell_name].control_pid_tid
         begin_event = {
             "name": update_info.updates,
             "cat": "CTRL",
@@ -206,7 +202,7 @@ def compute_timeline(
                                     cell_to_info[name] = TimelineCell(
                                         name,
                                         pid_acc,
-                                        component_pathdata=enable_thread_data[cell_component],
+                                        enable_to_threadid=enable_thread_data[cell_component],
                                     )
                                 else:
                                     cell_to_info[name] = TimelineCell(name, pid_acc)

@@ -1,7 +1,7 @@
 import json
 import os
 
-from classes import CellMetadata, ControlMetadata, ParChildType, PathMetadata
+from classes import CellMetadata, ControlMetadata, ParChildType
 
 
 def read_shared_cells_map(shared_cells_json) -> dict[str, dict[str, str]]:
@@ -145,6 +145,6 @@ def closest_par_ancestor(descriptor, par_descriptors, default):
     return None # FIXME: what do I do if I find nothing?
 
 def read_enable_thread_json(enable_thread_json):
-    json_data = json.load(enable_thread_json)
+    json_data = json.load(open(enable_thread_json))
     return json_data
 
