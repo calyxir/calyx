@@ -16,11 +16,11 @@ num_timeline_events = 0  # [timeline view] recording how many events have happen
 
 
 def setup_enable_to_tid(
-    path_metadata: dict[str, int] | None, starter_idx
+    enable_to_threadid: dict[str, int] | None, starter_idx
 ) -> dict[str, int]:
     return (
-        {enable: path_metadata[enable] + starter_idx for enable in path_metadata}
-        if path_metadata
+        {enable: enable_to_threadid[enable] + starter_idx for enable in enable_to_threadid}
+        if enable_to_threadid
         else {}
     )
 
@@ -37,14 +37,14 @@ class TimelineCell:
     """
 
     def __init__(
-        self, name: str, pid: int, path_metadata: dict[str, int] | None = None
+        self, name: str, pid: int, enable_to_threadid: dict[str, int] | None = None
     ):
         self.name: str = name
         self.pid: int = pid
         self.tid: int = 1
         self.control_tid: int = 2
         # basically path_metadata info but all ids are bumped by 3 (since path identifiers start from 0)
-        self.enable_to_tid: dict[str, int] = setup_enable_to_tid(path_metadata, 3)
+        self.enable_to_tid: dict[str, int] = setup_enable_to_tid(enable_to_threadid, 3)
         self.misc_enable_acc = 100
         # FIXME: this value ought to be accessed through a variable and really not as a hardcoded value. but probably ok for a first pass
         self.unique_group_str = "UG"
@@ -143,7 +143,7 @@ class ActiveEnable:
 def compute_timeline(
     tracedata: TraceData,
     cell_metadata: CellMetadata,
-    path_metadata: PathMetadata,
+    enable_thread_data: dict[str, dict[str, int]],
     out_dir,
 ):
     """
@@ -158,12 +158,9 @@ def compute_timeline(
     out_file.write(f'{{\n{JSON_INDENT}"traceEvents": [')
     # each cell gets its own pid. The cell's lifetime is tid 1, followed by the FSM(s), then groups
     # main component gets pid 1
-    main_path_metadata: dict[str, int] = path_metadata.component_to_paths[
-        cell_metadata.main_shortname
-    ]
     cell_to_info: dict[str, TimelineCell] = {
         cell_metadata.main_component: TimelineCell(
-            cell_metadata.main_component, 1, path_metadata=main_path_metadata
+            cell_metadata.main_component, 1, enable_to_threadid=enable_thread_data[cell_metadata.main_shortname]
         )
     }
     # generate JSON for all FSM events in main
@@ -205,14 +202,11 @@ def compute_timeline(
                                 cell_component = cell_metadata.get_component_of_cell(
                                     name
                                 )
-                                if cell_component in path_metadata.component_to_paths:
-                                    component_pathdata = (
-                                        path_metadata.component_to_paths[cell_component]
-                                    )
+                                if cell_component in enable_thread_data:
                                     cell_to_info[name] = TimelineCell(
                                         name,
                                         pid_acc,
-                                        component_pathdata=component_pathdata,
+                                        component_pathdata=enable_thread_data[cell_component],
                                     )
                                 else:
                                     cell_to_info[name] = TimelineCell(name, pid_acc)

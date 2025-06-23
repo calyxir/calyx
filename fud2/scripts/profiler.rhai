@@ -10,7 +10,6 @@ fn profiling_setup(e) {
     e.var_("cell-json", "cells.json");
     e.var_("fsm-json", "fsm.json");
     e.var_("cell-share-json", "shared-cells.json");
-    e.var_("path-descriptor-json", "path-descriptors.json");
     e.var_("enable-par-track-json", "enable-par-track.json");
 
     // series of passes after validation and instrumentation

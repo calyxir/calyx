@@ -64,7 +64,7 @@ def create_visuals(
     cell_metadata: CellMetadata,
     control_metadata: ControlMetadata,
     tracedata: TraceData,
-    path_metadata: PathMetadata,
+    enable_thread_metadata: dict[str, dict[str, int]],
     control_reg_updates_per_cycle: dict[int, ControlRegUpdateType],
     out_dir: str,
 ):
@@ -97,7 +97,7 @@ def create_visuals(
     )
     print(f"End writing flame graphs: {datetime.now()}")
 
-    timeline.compute_timeline(tracedata, cell_metadata, path_metadata, args.out_dir)
+    timeline.compute_timeline(tracedata, cell_metadata, enable_thread_metadata, args.out_dir)
     print(f"End writing timeline view: {datetime.now()}")
 
 

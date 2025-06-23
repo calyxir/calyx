@@ -9,13 +9,6 @@ import statistics
 from errors import ProfilerException
 
 @dataclass
-class PathMetadata:
-    component_to_paths: dict[str, dict[str, int]]
-
-
-    
-
-@dataclass
 class SourceLoc:
     """
     ADL source location information obtained from metadata.
