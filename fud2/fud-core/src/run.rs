@@ -1,5 +1,6 @@
 use crate::config;
 use crate::exec::{Driver, OpRef, Plan, SetupRef, StateRef};
+use crate::uninterrupt::Uninterrupt;
 use crate::utils::relative_path;
 use camino::{Utf8Path, Utf8PathBuf};
 use itertools::Itertools;
@@ -403,7 +404,10 @@ impl<'a> Run<'a> {
         } else {
             cmd.stdout(std::process::Stdio::null());
         }
-        let status = cmd.status().map_err(ninja_cmd_io_error)?;
+        let status = {
+            let _unint = Uninterrupt::suppress(); // Suppress SIGINT during Ninja execution.
+            cmd.status().map_err(ninja_cmd_io_error)?
+        };
 
         // Emit to stdout, only when Ninja succeeded.
         if status.success() {

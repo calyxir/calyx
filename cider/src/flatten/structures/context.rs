@@ -29,8 +29,6 @@ use crate::flatten::flat_ir::{
     },
 };
 
-use crate::flatten::structures::environment::SearchPath;
-
 use super::printer::Printer;
 
 /// The immutable program context for the interpreter. Relevant at simulation
@@ -536,20 +534,23 @@ impl Context {
         control_idx: ControlIdx,
         name: &String,
     ) -> String {
-        let path = SearchPath::find_path_from_root(control_idx, self);
         let control_map = &self.primary.control;
+        let mut current = control_idx;
+        let mut path = vec![control_idx];
+
+        while let Some(parent) = control_map[current].parent {
+            path.push(parent);
+            current = parent;
+        }
 
         let mut string_path = format!("{name}.");
 
-        // Remove first index
-        let mut iter = path.iter();
-        let node = iter.next().unwrap();
-        let mut prev_control_node = &control_map[node.node].control;
+        // Remove the root
+        let mut prev_control_node = &control_map[path.pop().unwrap()].control;
 
-        for search_node in iter {
+        while let Some(control_idx) = path.pop() {
             // The control_idx should exist in the map, so we shouldn't worry about it
             // exploding. First SearchNode is root, hence "."
-            let control_idx = search_node.node;
             let control_node = &control_map[control_idx].control;
 
             // we are onto the next iteration and in the body... if Seq or Par is present save their children
@@ -568,21 +569,15 @@ impl Context {
                     string_path += append;
                 }
                 Control::Par(struc) => {
-                    let count = struc
-                        .stms()
-                        .iter()
-                        .position(|&idx| idx == control_idx)
-                        .unwrap();
+                    let count =
+                        struc.find_child(|&idx| idx == control_idx).unwrap();
 
                     let control_type = String::from("-") + &count.to_string();
                     string_path = string_path + &control_type;
                 }
                 Control::Seq(struc) => {
-                    let count = struc
-                        .stms()
-                        .iter()
-                        .position(|&idx| idx == control_idx)
-                        .unwrap();
+                    let count =
+                        struc.find_child(|&idx| idx == control_idx).unwrap();
 
                     let control_type = String::from("-") + &count.to_string();
                     string_path += &control_type;

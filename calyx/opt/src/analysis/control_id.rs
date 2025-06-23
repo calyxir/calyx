@@ -118,7 +118,8 @@ impl ControlId {
     ) -> u64 {
         match con {
             ir::Control::Enable(ir::Enable { attributes, .. })
-            | ir::Control::Invoke(ir::Invoke { attributes, .. }) => {
+            | ir::Control::Invoke(ir::Invoke { attributes, .. })
+            | ir::Control::FSMEnable(ir::FSMEnable { attributes, .. }) => {
                 attributes.insert(NODE_ID, cur_state);
                 cur_state + 1
             }
@@ -180,7 +181,6 @@ impl ControlId {
                 Self::compute_unique_ids_static(s, cur_state, two_if_ids)
             }
             ir::Control::Empty(_) => cur_state,
-            ir::Control::FSMEnable(_) => todo!(),
         }
     }
 

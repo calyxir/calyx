@@ -40,6 +40,6 @@ op(
         // Icarus requires a special --disable-verify version of Calyx code.
         e.build_cmd([output], "calyx", [input], []);
         e.arg("backend", "verilog");
-        e.arg("args", "--disable-verify");
+        e.arg("args", "--disable-verify $args");
     },
 );

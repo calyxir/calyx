@@ -29,7 +29,7 @@ Here is a list of all the people who have worked on Calyx:
 - Andrii Iermolaiev
 - Alma Thaler
 - YoungSeok Na
-- [Jan-Paul Ramos](https://jpramos.me)
+- [Jan-Paul Ramos](https://janpaul.pl)
 - Jiaxuan (Crystal) Hu
 - [Priya Srikumar](https://priyasrikumar.com/)
 

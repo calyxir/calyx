@@ -1,8 +1,12 @@
 ---
 source: fud2/tests/tests.rs
-snapshot_kind: text
 ---
 [
+    (
+        "area-report-to-flamegraph",
+        "area-report",
+        "flamegraph",
+    ),
     (
         "axi-wrapped",
         "calyx",
@@ -34,6 +38,11 @@ snapshot_kind: text
         "firrtl",
     ),
     (
+        "calyx-to-synth-verilog",
+        "calyx",
+        "synth-verilog",
+    ),
+    (
         "calyx-to-verilog",
         "calyx",
         "verilog",
@@ -59,7 +68,12 @@ snapshot_kind: text
         "calyx",
     ),
     (
-        "dat_to_jq",
+        "dat-to-jq",
+        "dat",
+        "jq",
+    ),
+    (
+        "dat-to-jqfile",
         "dat",
         "jq",
     ),
@@ -109,6 +123,11 @@ snapshot_kind: text
         "calyx",
     ),
     (
+        "ntt",
+        "ntt",
+        "calyx",
+    ),
+    (
         "primitive-uses",
         "calyx",
         "primitive-uses-json",
@@ -119,14 +138,49 @@ snapshot_kind: text
         "flamegraph",
     ),
     (
+        "relay",
+        "relay",
+        "calyx",
+    ),
+    (
         "simulate",
         "sim",
         "dat",
     ),
     (
+        "synth-verilog-to-area-report",
+        "synth-verilog",
+        "area-report",
+    ),
+    (
+        "synth-verilog-to-synthesis-json",
+        "synth-verilog",
+        "json-report",
+    ),
+    (
+        "synth-verilog-to-timing-report",
+        "synth-verilog",
+        "timing-report",
+    ),
+    (
+        "synth-verilog-to-utilization-report",
+        "synth-verilog",
+        "utilization-report",
+    ),
+    (
+        "systolic-to-calyx",
+        "systolic",
+        "calyx",
+    ),
+    (
         "trace",
         "sim",
         "vcd",
+    ),
+    (
+        "vcd_json",
+        "vcd",
+        "dat",
     ),
     (
         "verilator",

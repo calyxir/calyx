@@ -28,9 +28,11 @@ fn sim_setup(e) {
     );
 
     // Rule for simulation execution.
+    // the stupid cat thing is just to pipe the contents of the log to stderr
+    // only when the sim exits with an error code
     e.rule(
         "sim-run",
-        "./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out",
+        "./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out || (cat $out >&2 && false)",
     );
 
     // More shared configuration.

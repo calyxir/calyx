@@ -1,7 +1,6 @@
 ---
 source: fud2/tests/tests.rs
 description: "emit plan: calyx-py-profiler"
-snapshot_kind: text
 ---
 build-tool = fud2
 rule get-rsrc
@@ -64,7 +63,7 @@ sim_data = /test/data.json
 datadir = sim_data
 build $datadir: hex-data $sim_data | json-dat.py
 rule sim-run
-  command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out
+  command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out || (cat $out >&2 && false)
 cycle-limit = 500000000
 
 build calyx.futil: edsl-to-calyx /input.ext
