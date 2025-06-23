@@ -30,15 +30,15 @@ defop calyx_to_verilog(c: calyx_state) >> v: verilog_state {
     // retrieve a variable from the fud2.toml config
     let calyx_base = config("calyx.base");
     // retrieve a variable from the config, or a default value
-    let calyx_exe = config_or("calyx.exe", "${calyx_base}/target/debug/calyx");
+    let calyx_exe = config_or("calyx.exe", `${calyx_base}/target/debug/calyx`);
     let args = config_or("calyx.args", "");
 
     // specify a shell command to turn a calyx file "c" into a verilog file "v"
-    shell("${calyx_exe} -l ${calyx_base} -b verilog ${args} ${c} > ${v});
+    shell(`${calyx_exe} -l ${calyx_base} -b verilog ${args} ${c} > ${v}`);
 }
 ```
 
-Counterintuitively, `c`, `v`, `calyx_base`, `calyx_exe`, and `args` do not contain the actual variable values. They contain identifiers which are replaced by the values at runtime. For example, `print(args)` would print a `$args` instead of the value assigned by the config. An op cannot take different code paths based on config values or different input/output file names.
+Counterintuitively, `c`, `v`, `calyx_base`, `calyx_exe`, and `args` do not contain the actual variable values. They contain identifiers which are replaced by the values at runtime. For example, `print(args)` would print a `$args` instead of the value assigned by the config. **Note: In order to use Rhai variables in a command/path, you would need to put backticks around the command/path instead of quotes.** An op cannot take different code paths based on config values or different input/output file names.
 
 This example shows off nearly all of the features available for defining ops. Scripts can reuse functionality by exploiting the tools of Rhai scripting. For example, if we wanted to create a second, similar op `calyx_noverify`, we could factor the contents of `calyx_to_verilog` into a new function and call that function in both ops.
 
@@ -47,10 +47,10 @@ This example shows off nearly all of the features available for defining ops. Sc
 // this function adds `add_args` as extra arguments to it's call to the calyx compiler
 fn calyx_cmd(in_file, out_file, add_args) {
     let calyx_base = config("calyx.base");
-    let calyx_exe = config_or("calyx.exe", "${calyx_base}/target/debug/calyx");
+    let calyx_exe = config_or("calyx.exe", `${calyx_base}/target/debug/calyx`);
     let args = config_or("calyx.args", "");
 
-    shell("${calyx_exe} -l ${calyx_base} -b verilog ${args} ${add_args} ${in_file} > ${out_file});
+    shell(`${calyx_exe} -l ${calyx_base} -b verilog ${args} ${add_args} ${in_file} > ${out_file}`);
 }
 
 // define an op called "calyx_to_verilog" taking a "calyx_state" to a "verilog_state".
@@ -103,14 +103,14 @@ Returns the value of the configuration variable `<config var>` if defined, other
 ```
 shell(<string>)
 ```
-When called in the body of an op, that op will run `<string>` as a shell command to generate its targets. It is an error to call `shell` outside of the body of an op. Additionally, it is an error to call `shell` in the body of an op in which `shell_deps` was called prior. 
+When called in the body of an op, that op will run `<string>` as a shell command to generate its targets. It is an error to call `shell` outside of the body of an op. Additionally, it is an error to call `shell` in the body of an op in which `shell_deps` was called prior. **Note: To use any Rhai variables in the command, you should put backticks around `<string>` instead of quotes.**
 
 In the generated Ninja code, `shell` will create both a `rule` wrapping the shell command and a `build` command that invokes that rule. When a `defop` contains multiple `shell` commands, `fud2` automatically generates Ninja dependencies among the `build` command to ensure they run in order.
 
 ```
 shell_deps(<string>, [<dep1>, <dep2>, ...], [<target1>, <target2>, ..])
 ```
-When called in the body of an op, that op will run `<string>` as a shell command if it needs to generate `<target1>, <target2>, ...` from `<dep1>, <dep2>, ...`. It is an error to call `shell_deps` outside of the body of an op. Additionally, it is an error to call `shell_deps` in the body of an op in which `shell`  was called prior.
+When called in the body of an op, that op will run `<string>` as a shell command if it needs to generate `<target1>, <target2>, ...` from `<dep1>, <dep2>, ...`. It is an error to call `shell_deps` outside of the body of an op. Additionally, it is an error to call `shell_deps` in the body of an op in which `shell`  was called prior. **Note: To use any Rhai variables in the command, you should put backticks around `<string>` instead of quotes.**
 
 Targets and deps are either strings, such as `"file1"`, or identifiers, such as if `c: calyx` existed in the signature of an op then `c` could be used as a target or dep.
 
