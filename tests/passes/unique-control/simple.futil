@@ -1,0 +1,24 @@
+// -p unique-control -x unique-control:par-thread-json=<err> -x unique-control:path-descriptor-json=<err>
+
+import "primitives/core.futil";
+
+component main(@go go: 1) -> (@done done: 1) {
+  cells {
+    r0 = std_reg(32);
+  }
+  wires {
+    group a {
+      r0.write_en = 1'd1;
+      r0.in = 32'd4;
+      a[done] = r0.done;
+    }
+
+  }
+  control {
+    seq {
+      a;
+      a;
+      a;
+    }
+  }
+}
