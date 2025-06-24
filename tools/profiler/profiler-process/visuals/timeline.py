@@ -18,7 +18,10 @@ def setup_enable_to_tid(
     enable_to_threadid: dict[str, int] | None, starter_idx
 ) -> dict[str, int]:
     return (
-        {enable: enable_to_threadid[enable] + starter_idx for enable in enable_to_threadid}
+        {
+            enable: enable_to_threadid[enable] + starter_idx
+            for enable in enable_to_threadid
+        }
         if enable_to_threadid
         else {}
     )
@@ -44,7 +47,9 @@ class TimelineCell:
         self.control_tid: int = 2
         # basically path_metadata info but all ids are bumped by 3 (since path identifiers start from 0)
         self.enable_to_tid: dict[str, int] = setup_enable_to_tid(enable_to_threadid, 3)
-        self.misc_enable_acc = 1000 # compiler-generated groups that weren't recorded in enable_to_tid
+        self.misc_enable_acc = (
+            1000  # compiler-generated groups that weren't recorded in enable_to_tid
+        )
         # FIXME: this value ought to be accessed through a variable and really not as a hardcoded value. but probably ok for a first pass
         self.unique_group_str = "UG"
 
@@ -156,7 +161,9 @@ def compute_timeline(
     # main component gets pid 1
     cell_to_info: dict[str, TimelineCell] = {
         cell_metadata.main_component: TimelineCell(
-            cell_metadata.main_component, 1, enable_to_threadid=enable_thread_data[cell_metadata.main_shortname]
+            cell_metadata.main_component,
+            1,
+            enable_to_threadid=enable_thread_data[cell_metadata.main_shortname],
         )
     }
     # generate JSON for all FSM events in main
@@ -202,7 +209,9 @@ def compute_timeline(
                                     cell_to_info[name] = TimelineCell(
                                         name,
                                         pid_acc,
-                                        enable_to_threadid=enable_thread_data[cell_component],
+                                        enable_to_threadid=enable_thread_data[
+                                            cell_component
+                                        ],
                                     )
                                 else:
                                     cell_to_info[name] = TimelineCell(name, pid_acc)
