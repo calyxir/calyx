@@ -19,7 +19,9 @@ A common routine for using low level Rhai is:
 
 We'll walk through how to write a script that adds support for using the `calyx` compiler.
 
-Like in High Level Rhai, we need to define some states:
+Like in [High Level Rhai][high-level-rhai], we need to define some states:
+
+[high-level-rhai]: ./high-level-rhai.md
 
 ```rust,ignore
 export const calyx_state = state("calyx", ["futil"]);
@@ -89,6 +91,17 @@ The "builder" function would have the following declaration:
 |e, input, output| { ... }
 ```
 where `e` is an emitter, and `input` and `output` are strings containing the filenames of the input and output of the operation. It usually calls functions that [build commands](#building-commands).
+
+<br>
+
+
+```
+rule([<setup1>, <setup2>, ..], <input state>, <output state>, <rule name>)
+```
+
+Defines an op from `<input state>` to `<output state>` that consists of only running the rule `<rule name>` using "setup" functions `<setup1>`, `<setup2>`, etc.
+
+`<setup1>`, `<setup2>`, etc. are "setup" functions. `<input state>` and `<output_state>` are states, and `<rule name>` is a string.
 
 ### Emitter API
 
