@@ -80,7 +80,7 @@ fn assign_par_threads_static(
     match control {
         ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
             assign_par_threads_static(
-                &body,
+                body,
                 start_idx,
                 next_idx,
                 enable_to_track,
@@ -120,13 +120,13 @@ fn assign_par_threads_static(
             tbranch, fbranch, ..
         }) => {
             let false_next_idx = assign_par_threads_static(
-                &tbranch,
+                tbranch,
                 start_idx,
                 next_idx,
                 enable_to_track,
             );
             assign_par_threads_static(
-                &fbranch,
+                fbranch,
                 start_idx,
                 false_next_idx,
                 enable_to_track,
@@ -172,23 +172,23 @@ fn assign_par_threads(
             tbranch, fbranch, ..
         }) => {
             let false_next_idx = assign_par_threads(
-                &tbranch,
+                tbranch,
                 start_idx,
                 next_idx,
                 enable_to_track,
             );
             assign_par_threads(
-                &fbranch,
+                fbranch,
                 start_idx,
                 false_next_idx,
                 enable_to_track,
             )
         }
         ir::Control::While(ir::While { body, .. }) => {
-            assign_par_threads(&body, start_idx, next_idx, enable_to_track)
+            assign_par_threads(body, start_idx, next_idx, enable_to_track)
         }
         ir::Control::Repeat(ir::Repeat { body, .. }) => {
-            assign_par_threads(&body, start_idx, next_idx, enable_to_track)
+            assign_par_threads(body, start_idx, next_idx, enable_to_track)
         }
         ir::Control::Static(static_control) => assign_par_threads_static(
             static_control,
@@ -208,7 +208,7 @@ fn compute_path_descriptors_static(
     current_id: String,
     path_descriptor_info: &mut PathDescriptorInfo,
     parent_is_component: bool,
-) -> () {
+) {
     match control {
         ir::StaticControl::Repeat(_static_repeat) => todo!(),
         ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
@@ -224,9 +224,8 @@ fn compute_path_descriptors_static(
                 .insert(group_name.to_string(), group_id);
         }
         ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
-            let mut acc = 0;
             let par_id = format!("{}-", current_id);
-            for stmt in stmts {
+            for (acc, stmt) in stmts.iter().enumerate() {
                 let stmt_id = format!("{}{}", par_id, acc);
                 compute_path_descriptors_static(
                     stmt,
@@ -234,13 +233,11 @@ fn compute_path_descriptors_static(
                     path_descriptor_info,
                     false,
                 );
-                acc += 1;
             }
             path_descriptor_info.pars.insert(par_id, stmts.len());
         }
         ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => {
-            let mut acc = 0;
-            for stmt in stmts {
+            for (acc, stmt) in stmts.iter().enumerate() {
                 let stmt_id = format!("{}-{}", current_id, acc);
                 compute_path_descriptors_static(
                     stmt,
@@ -248,7 +245,6 @@ fn compute_path_descriptors_static(
                     path_descriptor_info,
                     false,
                 );
-                acc += 1;
             }
         }
         ir::StaticControl::If(ir::StaticIf {
@@ -281,11 +277,10 @@ fn compute_path_descriptors(
     current_id: String,
     path_descriptor_info: &mut PathDescriptorInfo,
     parent_is_component: bool,
-) -> () {
+) {
     match control {
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
-            let mut acc = 0;
-            for stmt in stmts {
+            for (acc, stmt) in stmts.iter().enumerate() {
                 let stmt_id = format!("{}-{}", current_id, acc);
                 compute_path_descriptors(
                     stmt,
@@ -293,13 +288,11 @@ fn compute_path_descriptors(
                     path_descriptor_info,
                     false,
                 );
-                acc += 1;
             }
         }
         ir::Control::Par(ir::Par { stmts, .. }) => {
-            let mut acc = 0;
             let par_id = format!("{}-", current_id);
-            for stmt in stmts {
+            for (acc, stmt) in stmts.iter().enumerate() {
                 let stmt_id = format!("{}{}", par_id, acc);
                 compute_path_descriptors(
                     stmt,
@@ -307,7 +300,6 @@ fn compute_path_descriptors(
                     path_descriptor_info,
                     false,
                 );
-                acc += 1;
             }
             path_descriptor_info.pars.insert(par_id, stmts.len());
         }
@@ -334,7 +326,7 @@ fn compute_path_descriptors(
         ir::Control::While(ir::While { body, .. }) => {
             let body_id = format!("{}-b", current_id);
             compute_path_descriptors(
-                &body,
+                body,
                 body_id,
                 path_descriptor_info,
                 false,
@@ -450,7 +442,7 @@ impl Visitor for UniqueControl {
         };
         compute_path_descriptors(
             &control,
-            format!("{}.", comp.name.to_string()),
+            format!("{}.", comp.name),
             &mut path_descriptor_info,
             true,
         );
