@@ -7,6 +7,9 @@ use calyx_ir::{self as ir, Nothing};
 use calyx_utils::{CalyxResult, OutputFile};
 use serde::Serialize;
 
+// Converts each dynamic and static enable to an enable of a unique group.
+// Also (1) computes path descriptors for each unique enable group and par (outputted to `path_descriptor_json` if provided); and
+// (2) statically assigns par thread ids to each unique enable group (outputted to `par_thread_json` if provided).
 // Used by the profiler.
 
 pub struct UniqueControl {
@@ -22,20 +25,20 @@ impl Named for UniqueControl {
     }
 
     fn description() -> &'static str {
-        "Make all control enables unique by adding a wrapper group"
+        "Make all control (dynamic and static) enables unique."
     }
 
     fn opts() -> Vec<crate::traversal::PassOpt> {
         vec![
             PassOpt::new(
                 "path-descriptor-json",
-                "Write the path descriptor of each group to a JSON file",
+                "Write the path descriptor of each enable and par to a JSON file",
                 ParseVal::OutStream(OutputFile::Null),
                 PassOpt::parse_outstream,
             ),
             PassOpt::new(
                 "par-thread-json",
-                "Write the path descriptor of each group to a JSON file",
+                "Write an assigned thread ID of each enable to a JSON file",
                 ParseVal::OutStream(OutputFile::Null),
                 PassOpt::parse_outstream,
             ),
@@ -43,7 +46,7 @@ impl Named for UniqueControl {
     }
 }
 
-/// Information to serialize for profiling purposes
+/// Information to serialize for locating path descriptors
 #[derive(Serialize)]
 struct PathDescriptorInfo {
     pub enables: HashMap<String, String>,
@@ -68,7 +71,7 @@ impl ConstructVisitor for UniqueControl {
     fn clear_data(&mut self) {}
 }
 
-fn par_track_static(
+fn assign_par_threads_static(
     control: &ir::StaticControl,
     start_idx: u32,
     next_idx: u32,
@@ -76,7 +79,12 @@ fn par_track_static(
 ) -> u32 {
     match control {
         ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
-            par_track_static(&body, start_idx, next_idx, enable_to_track)
+            assign_par_threads_static(
+                &body,
+                start_idx,
+                next_idx,
+                enable_to_track,
+            )
         }
         ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
             let group_name = group.borrow().name().to_string();
@@ -86,14 +94,19 @@ fn par_track_static(
         ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
             let mut idx = next_idx;
             for stmt in stmts {
-                idx = par_track_static(stmt, idx, idx + 1, enable_to_track);
+                idx = assign_par_threads_static(
+                    stmt,
+                    idx,
+                    idx + 1,
+                    enable_to_track,
+                );
             }
             idx
         }
         ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => {
             let mut new_next_idx = next_idx;
             for stmt in stmts {
-                let potential_new_idx = par_track_static(
+                let potential_new_idx = assign_par_threads_static(
                     stmt,
                     start_idx,
                     new_next_idx,
@@ -106,13 +119,13 @@ fn par_track_static(
         ir::StaticControl::If(ir::StaticIf {
             tbranch, fbranch, ..
         }) => {
-            let false_next_idx = par_track_static(
+            let false_next_idx = assign_par_threads_static(
                 &tbranch,
                 start_idx,
                 next_idx,
                 enable_to_track,
             );
-            par_track_static(
+            assign_par_threads_static(
                 &fbranch,
                 start_idx,
                 false_next_idx,
@@ -123,7 +136,7 @@ fn par_track_static(
     }
 }
 
-fn par_track(
+fn assign_par_threads(
     control: &ir::Control,
     start_idx: u32,
     next_idx: u32,
@@ -133,8 +146,12 @@ fn par_track(
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
             let mut new_next_idx = next_idx;
             for stmt in stmts {
-                let potential_new_idx =
-                    par_track(stmt, start_idx, new_next_idx, enable_to_track);
+                let potential_new_idx = assign_par_threads(
+                    stmt,
+                    start_idx,
+                    new_next_idx,
+                    enable_to_track,
+                );
                 new_next_idx = cmp::max(new_next_idx, potential_new_idx)
             }
             new_next_idx
@@ -147,24 +164,33 @@ fn par_track(
         ir::Control::Par(ir::Par { stmts, .. }) => {
             let mut idx = next_idx;
             for stmt in stmts {
-                idx = par_track(stmt, idx, idx + 1, enable_to_track);
+                idx = assign_par_threads(stmt, idx, idx + 1, enable_to_track);
             }
             idx
         }
         ir::Control::If(ir::If {
             tbranch, fbranch, ..
         }) => {
-            let false_next_idx =
-                par_track(&tbranch, start_idx, next_idx, enable_to_track);
-            par_track(&fbranch, start_idx, false_next_idx, enable_to_track)
+            let false_next_idx = assign_par_threads(
+                &tbranch,
+                start_idx,
+                next_idx,
+                enable_to_track,
+            );
+            assign_par_threads(
+                &fbranch,
+                start_idx,
+                false_next_idx,
+                enable_to_track,
+            )
         }
         ir::Control::While(ir::While { body, .. }) => {
-            par_track(&body, start_idx, next_idx, enable_to_track)
+            assign_par_threads(&body, start_idx, next_idx, enable_to_track)
         }
         ir::Control::Repeat(ir::Repeat { body, .. }) => {
-            par_track(&body, start_idx, next_idx, enable_to_track)
+            assign_par_threads(&body, start_idx, next_idx, enable_to_track)
         }
-        ir::Control::Static(static_control) => par_track_static(
+        ir::Control::Static(static_control) => assign_par_threads_static(
             static_control,
             start_idx,
             next_idx,
@@ -174,7 +200,7 @@ fn par_track(
     }
 }
 
-fn label_control_enables(
+fn compute_path_descriptors(
     control: &ir::Control,
     current_id: String,
     path_descriptor_info: &mut PathDescriptorInfo,
@@ -185,7 +211,7 @@ fn label_control_enables(
             let mut acc = 0;
             for stmt in &seq.stmts {
                 let stmt_id = format!("{}-{}", current_id, acc);
-                label_control_enables(
+                compute_path_descriptors(
                     stmt,
                     stmt_id,
                     path_descriptor_info,
@@ -199,7 +225,7 @@ fn label_control_enables(
             let par_id = format!("{}-", current_id);
             for stmt in &par.stmts {
                 let stmt_id = format!("{}{}", par_id, acc);
-                label_control_enables(
+                compute_path_descriptors(
                     stmt,
                     stmt_id,
                     path_descriptor_info,
@@ -212,7 +238,7 @@ fn label_control_enables(
         ir::Control::If(iff) => {
             // process true branch
             let true_id = format!("{}-t", current_id);
-            label_control_enables(
+            compute_path_descriptors(
                 &iff.tbranch,
                 true_id,
                 path_descriptor_info,
@@ -220,7 +246,7 @@ fn label_control_enables(
             );
             // process false branch
             let false_id = format!("{}-f", current_id);
-            label_control_enables(
+            compute_path_descriptors(
                 &iff.fbranch,
                 false_id,
                 path_descriptor_info,
@@ -229,7 +255,12 @@ fn label_control_enables(
         }
         ir::Control::While(ir::While { body, .. }) => {
             let body_id = format!("{}-b", current_id);
-            label_control_enables(&body, body_id, path_descriptor_info, false);
+            compute_path_descriptors(
+                &body,
+                body_id,
+                path_descriptor_info,
+                false,
+            );
         }
         ir::Control::Enable(enable) => {
             let group_id = if parent_is_component {
@@ -318,12 +349,13 @@ impl Visitor for UniqueControl {
         _sigs: &calyx_ir::LibrarySignatures,
         _comps: &[calyx_ir::Component],
     ) -> VisResult {
+        // Compute path descriptors for each enable and par block in the component.
         let control = comp.control.borrow();
         let mut path_descriptor_info = PathDescriptorInfo {
             enables: HashMap::new(),
             pars: HashMap::new(),
         };
-        label_control_enables(
+        compute_path_descriptors(
             &control,
             format!("{}.", comp.name.to_string()),
             &mut path_descriptor_info,
@@ -331,20 +363,23 @@ impl Visitor for UniqueControl {
         );
         self.path_descriptor_infos
             .insert(comp.name.to_string(), path_descriptor_info);
+        // Compute par thread ids for each enable in the component.
         let mut enable_to_track: HashMap<String, u32> = HashMap::new();
-        par_track(&control, 0, 1, &mut enable_to_track);
+        assign_par_threads(&control, 0, 1, &mut enable_to_track);
         self.par_thread_info
             .insert(comp.name.to_string(), enable_to_track);
         Ok(Action::Continue)
     }
 
     fn finish_context(&mut self, _ctx: &mut calyx_ir::Context) -> VisResult {
+        // Write path descriptors to file if prompted.
         if let Some(json_out_file) = &mut self.path_descriptor_json {
             let _ = serde_json::to_writer_pretty(
                 json_out_file.get_write(),
                 &self.path_descriptor_infos,
             );
         }
+        // Write par thread assignments to file if prompted.
         if let Some(json_out_file) = &mut self.par_thread_json {
             let _ = serde_json::to_writer_pretty(
                 json_out_file.get_write(),

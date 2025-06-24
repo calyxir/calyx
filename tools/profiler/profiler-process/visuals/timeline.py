@@ -44,7 +44,7 @@ class TimelineCell:
         self.control_tid: int = 2
         # basically path_metadata info but all ids are bumped by 3 (since path identifiers start from 0)
         self.enable_to_tid: dict[str, int] = setup_enable_to_tid(enable_to_threadid, 3)
-        self.misc_enable_acc = 100
+        self.misc_enable_acc = 1000 # compiler-generated groups that weren't recorded in enable_to_tid
         # FIXME: this value ought to be accessed through a variable and really not as a hardcoded value. but probably ok for a first pass
         self.unique_group_str = "UG"
 
