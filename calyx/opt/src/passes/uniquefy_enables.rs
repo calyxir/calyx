@@ -377,7 +377,6 @@ impl Visitor for UniquefyEnables {
         // create an unique-ified version of the group
         let mut builder = ir::Builder::new(comp, sigs);
         let unique_group = builder.add_group(unique_group_name);
-        // let unique_group_assignments = s.group.borrow().assignments.clone();
         let mut unique_group_assignments: Vec<calyx_ir::Assignment<Nothing>> =
             Vec::new();
         for asgn in s.group.borrow().assignments.iter() {
