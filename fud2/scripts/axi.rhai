@@ -23,15 +23,25 @@ fn wrapper_setup(e) {
     // For now point to standalone axi-generator.py. Can maybe turn this into a rsrc file?
     let dynamic =
         e.config_constrained_or("dynamic", ["true", "false"], "false");
+    
     let generator_path = if dynamic == "true" {
         "$calyx-base/yxi/axi-calyx/dynamic_axi_generator.py"
     } else {
         "$calyx-base/yxi/axi-calyx/axi_generator.py"
     };
+    
+    let for_xilinx = e.config_constrained_or("xilinx.controlled", ["true", "false"], "false");
+    
+    if for_xilinx == "true" {
+        e.var_("python_args", "--generate-for-xilinx");
+    } else {
+        e.var_("python_args", "");
+    };
+    
     e.config_var_or("axi-generator", "axi.generator", generator_path);
     e.config_var_or("python", "python", "python3");
 
-    e.rule("gen-axi", "$python $axi-generator $in > $out");
+    e.rule("gen-axi", "$python $axi-generator $python_args $in > $out");
 
     // Define a simple `combine` rule that just concatenates any numer of files.
     e.rule("combine", "cat $in > $out");

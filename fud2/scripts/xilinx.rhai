@@ -25,7 +25,7 @@ fn xilinx_setup(e) {
 
     // Compile an `.xo` file to an `.xclbin` file, which is where the actual EDA work occurs.
     // Currently [on havarti] we have only ever supported hw_emu and hw modes
-    e.config_constrained_val("xilinx.mode", ["hw", "hw_emu"]);
+    e.config_constrained_or("xilinx.mode", ["hw", "hw_emu"], "hw");
     e.config_var("xilinx-mode", "xilinx.mode");
     e.config_var_or("platform", "xilinx.device", "xilinx_u50_gen3x16_xdma_201920_3");
     e.rule(
