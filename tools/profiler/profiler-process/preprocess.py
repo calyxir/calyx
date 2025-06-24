@@ -137,14 +137,10 @@ def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
 
     return control_metadata
 
-def closest_par_ancestor(descriptor, par_descriptors, default):
-    for par_descriptor in sorted(par_descriptors, key=len, reverse=True):
-        # because we sorted in reverse, the first hit is the closest par parent
-        if par_descriptor in descriptor:
-            return par_descriptor                
-    return None # FIXME: what do I do if I find nothing?
-
 def read_enable_thread_json(enable_thread_json):
+    """
+    Returns the contents of the JSON file that maps enables to thread ids.
+    """
     json_data = json.load(open(enable_thread_json))
     return json_data
 
