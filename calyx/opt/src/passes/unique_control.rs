@@ -1,4 +1,4 @@
-use std::{cmp, collections::HashMap};
+use std::{cmp, collections::BTreeMap};
 
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
@@ -14,9 +14,9 @@ use serde::Serialize;
 
 pub struct UniqueControl {
     path_descriptor_json: Option<OutputFile>,
-    path_descriptor_infos: HashMap<String, PathDescriptorInfo>,
+    path_descriptor_infos: BTreeMap<String, PathDescriptorInfo>,
     par_thread_json: Option<OutputFile>,
-    par_thread_info: HashMap<String, HashMap<String, u32>>,
+    par_thread_info: BTreeMap<String, BTreeMap<String, u32>>,
 }
 
 impl Named for UniqueControl {
@@ -49,8 +49,8 @@ impl Named for UniqueControl {
 /// Information to serialize for locating path descriptors
 #[derive(Serialize)]
 struct PathDescriptorInfo {
-    pub enables: HashMap<String, String>,
-    pub pars: HashMap<String, usize>,
+    pub enables: BTreeMap<String, String>,
+    pub pars: BTreeMap<String, usize>,
 }
 
 impl ConstructVisitor for UniqueControl {
@@ -62,9 +62,9 @@ impl ConstructVisitor for UniqueControl {
         Ok(UniqueControl {
             path_descriptor_json: opts[&"path-descriptor-json"]
                 .not_null_outstream(),
-            path_descriptor_infos: HashMap::new(),
+            path_descriptor_infos: BTreeMap::new(),
             par_thread_json: opts[&"par-thread-json"].not_null_outstream(),
-            par_thread_info: HashMap::new(),
+            par_thread_info: BTreeMap::new(),
         })
     }
 
@@ -75,7 +75,7 @@ fn assign_par_threads_static(
     control: &ir::StaticControl,
     start_idx: u32,
     next_idx: u32,
-    enable_to_track: &mut HashMap<String, u32>,
+    enable_to_track: &mut BTreeMap<String, u32>,
 ) -> u32 {
     match control {
         ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
@@ -140,7 +140,7 @@ fn assign_par_threads(
     control: &ir::Control,
     start_idx: u32,
     next_idx: u32,
-    enable_to_track: &mut HashMap<String, u32>,
+    enable_to_track: &mut BTreeMap<String, u32>,
 ) -> u32 {
     match control {
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
@@ -196,7 +196,83 @@ fn assign_par_threads(
             next_idx,
             enable_to_track,
         ),
+        ir::Control::Invoke(_) => {
+            panic!("compile-invoke should be run before unique-control!")
+        }
         _ => next_idx,
+    }
+}
+
+fn compute_path_descriptors_static(
+    control: &ir::StaticControl,
+    current_id: String,
+    path_descriptor_info: &mut PathDescriptorInfo,
+    parent_is_component: bool,
+) -> () {
+    match control {
+        ir::StaticControl::Repeat(_static_repeat) => todo!(),
+        ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
+            let group_id = if parent_is_component {
+                // edge case: the entire control is just one static enable
+                format!("{}0", current_id)
+            } else {
+                current_id
+            };
+            let group_name = group.borrow().name();
+            path_descriptor_info
+                .enables
+                .insert(group_name.to_string(), group_id);
+        }
+        ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+            let mut acc = 0;
+            let par_id = format!("{}-", current_id);
+            for stmt in stmts {
+                let stmt_id = format!("{}{}", par_id, acc);
+                compute_path_descriptors_static(
+                    stmt,
+                    stmt_id,
+                    path_descriptor_info,
+                    false,
+                );
+                acc += 1;
+            }
+            path_descriptor_info.pars.insert(par_id, stmts.len());
+        }
+        ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => {
+            let mut acc = 0;
+            for stmt in stmts {
+                let stmt_id = format!("{}-{}", current_id, acc);
+                compute_path_descriptors_static(
+                    stmt,
+                    stmt_id,
+                    path_descriptor_info,
+                    false,
+                );
+                acc += 1;
+            }
+        }
+        ir::StaticControl::If(ir::StaticIf {
+            tbranch, fbranch, ..
+        }) => {
+            // process true branch
+            let true_id = format!("{}-t", current_id);
+            compute_path_descriptors_static(
+                tbranch,
+                true_id,
+                path_descriptor_info,
+                false,
+            );
+            // process false branch
+            let false_id = format!("{}-f", current_id);
+            compute_path_descriptors_static(
+                fbranch,
+                false_id,
+                path_descriptor_info,
+                false,
+            );
+        }
+        ir::StaticControl::Empty(_empty) => todo!(),
+        ir::StaticControl::Invoke(_static_invoke) => todo!(),
     }
 }
 
@@ -207,9 +283,9 @@ fn compute_path_descriptors(
     parent_is_component: bool,
 ) -> () {
     match control {
-        ir::Control::Seq(seq) => {
+        ir::Control::Seq(ir::Seq { stmts, .. }) => {
             let mut acc = 0;
-            for stmt in &seq.stmts {
+            for stmt in stmts {
                 let stmt_id = format!("{}-{}", current_id, acc);
                 compute_path_descriptors(
                     stmt,
@@ -220,10 +296,10 @@ fn compute_path_descriptors(
                 acc += 1;
             }
         }
-        ir::Control::Par(par) => {
+        ir::Control::Par(ir::Par { stmts, .. }) => {
             let mut acc = 0;
             let par_id = format!("{}-", current_id);
-            for stmt in &par.stmts {
+            for stmt in stmts {
                 let stmt_id = format!("{}{}", par_id, acc);
                 compute_path_descriptors(
                     stmt,
@@ -233,13 +309,15 @@ fn compute_path_descriptors(
                 );
                 acc += 1;
             }
-            path_descriptor_info.pars.insert(par_id, par.stmts.len());
+            path_descriptor_info.pars.insert(par_id, stmts.len());
         }
-        ir::Control::If(iff) => {
+        ir::Control::If(ir::If {
+            tbranch, fbranch, ..
+        }) => {
             // process true branch
             let true_id = format!("{}-t", current_id);
             compute_path_descriptors(
-                &iff.tbranch,
+                tbranch,
                 true_id,
                 path_descriptor_info,
                 false,
@@ -247,7 +325,7 @@ fn compute_path_descriptors(
             // process false branch
             let false_id = format!("{}-f", current_id);
             compute_path_descriptors(
-                &iff.fbranch,
+                fbranch,
                 false_id,
                 path_descriptor_info,
                 false,
@@ -262,19 +340,34 @@ fn compute_path_descriptors(
                 false,
             );
         }
-        ir::Control::Enable(enable) => {
+        ir::Control::Enable(ir::Enable { group, .. }) => {
             let group_id = if parent_is_component {
                 // edge case: the entire control is just one enable
                 format!("{}0", current_id)
             } else {
                 current_id
             };
-            let group_name = enable.group.borrow().name();
+            let group_name = group.borrow().name();
             path_descriptor_info
                 .enables
                 .insert(group_name.to_string(), group_id);
         }
-        _ => {}
+        ir::Control::Repeat(ir::Repeat { .. }) => {
+            todo!()
+        }
+        ir::Control::Static(static_control) => {
+            compute_path_descriptors_static(
+                static_control,
+                current_id,
+                path_descriptor_info,
+                parent_is_component,
+            );
+        }
+        ir::Control::Empty(_) => (),
+        ir::Control::FSMEnable(_) => todo!(),
+        ir::Control::Invoke(_) => {
+            panic!("compile-invoke should be run before unique-control!")
+        }
     }
 }
 
@@ -352,8 +445,8 @@ impl Visitor for UniqueControl {
         // Compute path descriptors for each enable and par block in the component.
         let control = comp.control.borrow();
         let mut path_descriptor_info = PathDescriptorInfo {
-            enables: HashMap::new(),
-            pars: HashMap::new(),
+            enables: BTreeMap::new(),
+            pars: BTreeMap::new(),
         };
         compute_path_descriptors(
             &control,
@@ -364,7 +457,7 @@ impl Visitor for UniqueControl {
         self.path_descriptor_infos
             .insert(comp.name.to_string(), path_descriptor_info);
         // Compute par thread ids for each enable in the component.
-        let mut enable_to_track: HashMap<String, u32> = HashMap::new();
+        let mut enable_to_track: BTreeMap<String, u32> = BTreeMap::new();
         assign_par_threads(&control, 0, 1, &mut enable_to_track);
         self.par_thread_info
             .insert(comp.name.to_string(), enable_to_track);
