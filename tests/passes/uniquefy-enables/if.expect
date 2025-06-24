@@ -108,10 +108,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       "dUG0": "main.-1-1-f-0",
       "eUG": "main.-1-1-f-1"
     },
-    "pars": {
-      "main.-1-": 2,
-      "main.-1-1-f-": 2
-    }
+    "pars": [
+      "main.-1-",
+      "main.-1-1-f-"
+    ]
   }
 }{
   "main": {

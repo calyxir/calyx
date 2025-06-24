@@ -85,9 +85,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       "dUG": "main.-2-0-b-0",
       "eUG": "main.-2-0-b-1"
     },
-    "pars": {
-      "main.-2-": 2
-    }
+    "pars": [
+      "main.-2-"
+    ]
   }
 }{
   "main": {

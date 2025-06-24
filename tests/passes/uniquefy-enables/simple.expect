@@ -41,7 +41,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       "aUG0": "main.-1",
       "aUG1": "main.-2"
     },
-    "pars": {}
+    "pars": []
   }
 }{
   "main": {

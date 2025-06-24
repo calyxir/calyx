@@ -1,4 +1,4 @@
-use std::{cmp, collections::BTreeMap};
+use std::{cmp, collections::BTreeMap, collections::BTreeSet};
 
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
@@ -50,7 +50,7 @@ impl Named for UniquefyEnables {
 #[derive(Serialize)]
 struct PathDescriptorInfo {
     pub enables: BTreeMap<String, String>,
-    pub pars: BTreeMap<String, usize>,
+    pub pars: BTreeSet<String>,
 }
 
 impl ConstructVisitor for UniquefyEnables {
@@ -234,7 +234,7 @@ fn compute_path_descriptors_static(
                     false,
                 );
             }
-            path_descriptor_info.pars.insert(par_id, stmts.len());
+            path_descriptor_info.pars.insert(par_id);
         }
         ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => {
             for (acc, stmt) in stmts.iter().enumerate() {
@@ -301,7 +301,7 @@ fn compute_path_descriptors(
                     false,
                 );
             }
-            path_descriptor_info.pars.insert(par_id, stmts.len());
+            path_descriptor_info.pars.insert(par_id);
         }
         ir::Control::If(ir::If {
             tbranch, fbranch, ..
@@ -438,7 +438,7 @@ impl Visitor for UniquefyEnables {
         let control = comp.control.borrow();
         let mut path_descriptor_info = PathDescriptorInfo {
             enables: BTreeMap::new(),
-            pars: BTreeMap::new(),
+            pars: BTreeSet::new(),
         };
         compute_path_descriptors(
             &control,
