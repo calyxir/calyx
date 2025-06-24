@@ -1,4 +1,4 @@
-// -p unique-control -x unique-control:par-thread-json=<err> -x unique-control:path-descriptor-json=<err>
+// -p uniquefy-enables -x uniquefy-enables:par-thread-json=<err> -x uniquefy-enables:path-descriptor-json=<err>
 
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
@@ -7,8 +7,11 @@ component main(@go go: 1) -> (@done done: 1) {
   cells {
     a_reg = std_reg(32);
     b_reg = std_reg(32);
+    c_reg = std_reg(32);
     d_reg = std_reg(32);
     e_reg = std_reg(32);
+    f_reg = std_reg(32);
+    g_reg = std_reg(32);
     lt = std_lt(32);
   }
   wires {
@@ -29,6 +32,12 @@ component main(@go go: 1) -> (@done done: 1) {
       b[done] = b_reg.done;
     }
 
+    group c {
+      c_reg.write_en = 1'd1;
+      c_reg.in = 32'd4;
+      c[done] = c_reg.done;
+    }
+
     group d {
       d_reg.write_en = 1'd1;
       d_reg.in = 32'd4;
@@ -41,19 +50,27 @@ component main(@go go: 1) -> (@done done: 1) {
       e[done] = e_reg.done;
     }
 
+    group f {
+      f_reg.write_en = 1'd1;
+      f_reg.in = 32'd4;
+      f[done] = f_reg.done;
+    }
+
   }
   control {
     seq {
       a;
-      b;
       par {
-	while lt.out with cond {
-	  seq {
+        seq {
+	  b; c;
+        }
+	if lt.out with cond {
 	   d;
-	   e;
+	} else {
+	  par {
+	    d; e;
 	  }
 	}
-	b;
       }
     }
   }

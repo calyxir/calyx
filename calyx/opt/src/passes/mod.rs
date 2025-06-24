@@ -79,7 +79,7 @@ pub use static_inference::StaticInference;
 pub use static_inliner::StaticInliner;
 pub use static_promotion::StaticPromotion;
 pub use static_repeat_fsm_allocation::StaticRepeatFSMAllocation;
-pub use unique_control::UniqueControl;
+pub use unique_control::UniquefyEnables;
 pub use unroll_bound::UnrollBounded;
 // pub use simplify_guards::SimplifyGuards;
 pub use add_guard::AddGuard;

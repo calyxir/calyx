@@ -1,4 +1,4 @@
-// -p unique-control -x unique-control:par-thread-json=<err> -x unique-control:path-descriptor-json=<err>
+// -p uniquefy-enables -x uniquefy-enables:par-thread-json=<err> -x uniquefy-enables:path-descriptor-json=<err>
 
 import "primitives/core.futil";
 

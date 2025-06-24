@@ -1,4 +1,4 @@
-// -p unique-control
+// -p uniquefy-enables -x uniquefy-enables:par-thread-json=<err> -x uniquefy-enables:path-descriptor-json=<err>
 
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
@@ -58,20 +58,18 @@ component main(@go go: 1) -> (@done done: 1) {
 
   }
   control {
-    par {
-      seq {
-      g;
-      	par {
-        a;
-      	b;
-	}
-      	c;
-      }
+    seq {
+      a;
       par {
-        d;
-      	e;
-      	f;
-      }      
+        seq {
+	  b; c;
+        }
+	seq {
+	  d; e;
+	}
+        a;
+      }
+      c;
     }
   }
 }

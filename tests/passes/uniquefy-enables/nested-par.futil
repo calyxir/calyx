@@ -1,4 +1,4 @@
-// -p unique-control -x unique-control:par-thread-json=<err> -x unique-control:path-descriptor-json=<err>
+// -p uniquefy-enables
 
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
@@ -12,14 +12,8 @@ component main(@go go: 1) -> (@done done: 1) {
     e_reg = std_reg(32);
     f_reg = std_reg(32);
     g_reg = std_reg(32);
-    lt = std_lt(32);
   }
   wires {
-    comb group cond {
-      lt.left = a_reg.out;
-      lt.right = 32'd8;
-    }
-
     group a {
       a_reg.write_en = 1'd1;
       a_reg.in = 32'd4;
@@ -56,22 +50,28 @@ component main(@go go: 1) -> (@done done: 1) {
       f[done] = f_reg.done;
     }
 
+    group g {
+      g_reg.write_en = 1'd1;
+      g_reg.in = 32'd4;
+      g[done] = g_reg.done;
+    }
+
   }
   control {
-    seq {
-      a;
-      par {
-        seq {
-	  b; c;
-        }
-	if lt.out with cond {
-	   d;
-	} else {
-	  par {
-	    d; e;
-	  }
+    par {
+      seq {
+      g;
+      	par {
+        a;
+      	b;
 	}
+      	c;
       }
+      par {
+        d;
+      	e;
+      	f;
+      }      
     }
   }
 }

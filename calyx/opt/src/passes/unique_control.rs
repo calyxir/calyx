@@ -12,16 +12,16 @@ use serde::Serialize;
 // (2) statically assigns par thread ids to each unique enable group (outputted to `par_thread_json` if provided).
 // Used by the profiler.
 
-pub struct UniqueControl {
+pub struct UniquefyEnables {
     path_descriptor_json: Option<OutputFile>,
     path_descriptor_infos: BTreeMap<String, PathDescriptorInfo>,
     par_thread_json: Option<OutputFile>,
     par_thread_info: BTreeMap<String, BTreeMap<String, u32>>,
 }
 
-impl Named for UniqueControl {
+impl Named for UniquefyEnables {
     fn name() -> &'static str {
-        "unique-control"
+        "uniquefy-enables"
     }
 
     fn description() -> &'static str {
@@ -53,13 +53,13 @@ struct PathDescriptorInfo {
     pub pars: BTreeMap<String, usize>,
 }
 
-impl ConstructVisitor for UniqueControl {
+impl ConstructVisitor for UniquefyEnables {
     fn from(ctx: &ir::Context) -> CalyxResult<Self>
     where
         Self: Sized + Named,
     {
         let opts = Self::get_opts(ctx);
-        Ok(UniqueControl {
+        Ok(UniquefyEnables {
             path_descriptor_json: opts[&"path-descriptor-json"]
                 .not_null_outstream(),
             path_descriptor_infos: BTreeMap::new(),
@@ -363,7 +363,7 @@ fn compute_path_descriptors(
     }
 }
 
-impl Visitor for UniqueControl {
+impl Visitor for UniquefyEnables {
     fn enable(
         &mut self,
         s: &mut calyx_ir::Enable,
