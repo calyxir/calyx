@@ -1,6 +1,6 @@
 ---
 source: fud2/tests/tests.rs
-description: "emit plan: calyx-noverify"
+description: "emit plan: verilog-to-xo"
 ---
 build-tool = fud2
 rule get-rsrc
@@ -20,8 +20,14 @@ rule calyx-cider
 rule copy
   command = cp $in $out
 
-build /output.ext: calyx /input.ext
-  backend = verilog
-  args = --disable-verify $args
+vivado-dir = /test/xilinx/vivado
+vitis-dir = /test/xilinx/vitis
+build gen_xo.tcl: get-rsrc
+build get-ports.py: get-rsrc
+python = python3
+rule gen-xo
+  command = $vivado-dir/bin/vivado -mode batch -source gen_xo.tcl -tclargs $out `$python get-ports.py kernel.xml`
+  pool = console
+
 
 default /output.ext

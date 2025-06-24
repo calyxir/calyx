@@ -198,6 +198,11 @@ source: fud2/tests/tests.rs
         "sim",
     ),
     (
+        "verilog-to-xo",
+        "verilog",
+        "xo",
+    ),
+    (
         "xclbin",
         "xo",
         "xclbin",

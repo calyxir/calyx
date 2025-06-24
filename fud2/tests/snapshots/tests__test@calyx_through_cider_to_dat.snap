@@ -17,6 +17,8 @@ rule calyx-pass
 cider-calyx-passes = -p none
 rule calyx-cider
   command = $calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out
+rule copy
+  command = cp $in $out
 
 cider-exe = $calyx-base/target/debug/cider
 cider-converter = $calyx-base/target/debug/cider-data-converter
