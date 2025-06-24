@@ -137,10 +137,10 @@ def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
 
     return control_metadata
 
+
 def read_enable_thread_json(enable_thread_json):
     """
     Returns the contents of the JSON file that maps enables to thread ids.
     """
     json_data = json.load(open(enable_thread_json))
     return json_data
-

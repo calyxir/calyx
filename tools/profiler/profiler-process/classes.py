@@ -8,6 +8,7 @@ import statistics
 
 from errors import ProfilerException
 
+
 @dataclass
 class SourceLoc:
     """
@@ -300,6 +301,7 @@ class StackElementType(Enum):
     CELL = 3
     CONTROL_GROUP = 4  # TDCC-generated groups that manage control
 
+
 @dataclass
 class StackElement:
     """
@@ -332,7 +334,10 @@ class StackElement:
 
     @property
     def name(self) -> str:
-        if self.element_type == StackElementType.GROUP and self.unique_group_str in self.internal_name:
+        if (
+            self.element_type == StackElementType.GROUP
+            and self.unique_group_str in self.internal_name
+        ):
             # control enabled group given a unique identifier name
             return self.internal_name.split(self.unique_group_str)[0]
         else:
@@ -513,7 +518,10 @@ class CycleTrace:
                             curr_component = cell_component
                     case StackElementType.GROUP:
                         # compiler-generated groups will not be contained in adl_map.group_map
-                        if stack_elem.internal_name in adl_map.group_map[curr_component]:
+                        if (
+                            stack_elem.internal_name
+                            in adl_map.group_map[curr_component]
+                        ):
                             stack_elem.sourceloc = adl_map.group_map[curr_component][
                                 stack_elem.internal_name
                             ]

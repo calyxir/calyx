@@ -27,7 +27,13 @@ def setup_metadata(args):
     )
     # create tracedata object here so we can use it outside of converter
     tracedata: TraceData = TraceData()
-    return cell_metadata, control_metadata, tracedata, shared_cells_map, enable_thread_data
+    return (
+        cell_metadata,
+        control_metadata,
+        tracedata,
+        shared_cells_map,
+        enable_thread_data,
+    )
 
 
 def process_vcd(
@@ -97,14 +103,18 @@ def create_visuals(
     )
     print(f"End writing flame graphs: {datetime.now()}")
 
-    timeline.compute_timeline(tracedata, cell_metadata, enable_thread_metadata, args.out_dir)
+    timeline.compute_timeline(
+        tracedata, cell_metadata, enable_thread_metadata, args.out_dir
+    )
     print(f"End writing timeline view: {datetime.now()}")
 
 
 def main(args):
     print(f"Start time: {datetime.now()}")
 
-    cell_metadata, control_metadata, tracedata, shared_cells_map, enable_tracks_data = setup_metadata(args)
+    cell_metadata, control_metadata, tracedata, shared_cells_map, enable_tracks_data = (
+        setup_metadata(args)
+    )
 
     control_reg_updates_per_cycle: dict[int, ControlRegUpdateType] = process_vcd(
         cell_metadata, shared_cells_map, control_metadata, tracedata
