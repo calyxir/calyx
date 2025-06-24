@@ -7,8 +7,8 @@ use calyx_ir::{self as ir, Nothing};
 use calyx_utils::{CalyxResult, OutputFile};
 use serde::Serialize;
 
-/// Adds probe wires to each group (includes static groups and comb groups) to detect when a group is active.
-/// Used by the profiler.
+// Used by the profiler.
+
 pub struct UniqueControl {
     path_descriptor_json: Option<OutputFile>,
     path_descriptor_infos: HashMap<String, PathDescriptorInfo>,
@@ -68,6 +68,61 @@ impl ConstructVisitor for UniqueControl {
     fn clear_data(&mut self) {}
 }
 
+fn par_track_static(
+    control: &ir::StaticControl,
+    start_idx: u32,
+    next_idx: u32,
+    enable_to_track: &mut HashMap<String, u32>,
+) -> u32 {
+    match control {
+        ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
+            par_track_static(&body, start_idx, next_idx, enable_to_track)
+        }
+        ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
+            let group_name = group.borrow().name().to_string();
+            enable_to_track.insert(group_name, start_idx);
+            start_idx + 1
+        }
+        ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+            let mut idx = next_idx;
+            for stmt in stmts {
+                idx = par_track_static(stmt, idx, idx + 1, enable_to_track);
+            }
+            idx
+        }
+        ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => {
+            let mut new_next_idx = next_idx;
+            for stmt in stmts {
+                let potential_new_idx = par_track_static(
+                    stmt,
+                    start_idx,
+                    new_next_idx,
+                    enable_to_track,
+                );
+                new_next_idx = cmp::max(new_next_idx, potential_new_idx)
+            }
+            new_next_idx
+        }
+        ir::StaticControl::If(ir::StaticIf {
+            tbranch, fbranch, ..
+        }) => {
+            let false_next_idx = par_track_static(
+                &tbranch,
+                start_idx,
+                next_idx,
+                enable_to_track,
+            );
+            par_track_static(
+                &fbranch,
+                start_idx,
+                false_next_idx,
+                enable_to_track,
+            )
+        }
+        _ => next_idx,
+    }
+}
+
 fn par_track(
     control: &ir::Control,
     start_idx: u32,
@@ -109,7 +164,12 @@ fn par_track(
         ir::Control::Repeat(ir::Repeat { body, .. }) => {
             par_track(&body, start_idx, next_idx, enable_to_track)
         }
-        ir::Control::Static(_static_control) => todo!(),
+        ir::Control::Static(static_control) => par_track_static(
+            static_control,
+            start_idx,
+            next_idx,
+            enable_to_track,
+        ),
         _ => next_idx,
     }
 }
@@ -197,8 +257,8 @@ impl Visitor for UniqueControl {
     ) -> VisResult {
         let group_name = s.group.borrow().name();
         // UG stands for "unique group". This is to separate these names from the original group names
-        let unique_group_name = format!("{}UG", group_name);
-        // create a wrapper group
+        let unique_group_name: String = format!("{}UG", group_name);
+        // create an unique-ified version of the group
         let mut builder = ir::Builder::new(comp, sigs);
         let unique_group = builder.add_group(unique_group_name);
         // let unique_group_assignments = s.group.borrow().assignments.clone();
@@ -224,6 +284,32 @@ impl Visitor for UniqueControl {
             .assignments
             .append(&mut unique_group_assignments);
         Ok(Action::Change(Box::new(ir::Control::enable(unique_group))))
+    }
+
+    fn static_enable(
+        &mut self,
+        s: &mut calyx_ir::StaticEnable,
+        comp: &mut calyx_ir::Component,
+        sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        let group_name = s.group.borrow().name();
+        // UG stands for "unique group". This is to separate these names from the original group names
+        let unique_group_name = format!("{}UG", group_name);
+        // create an unique-ified version of the group
+        let mut builder = ir::Builder::new(comp, sigs);
+        let unique_group = builder.add_static_group(
+            unique_group_name,
+            s.group.borrow().get_latency(),
+        );
+        // Since we don't need to worry about setting the `done` signal, the assignments of unique_group are
+        // a straight copy of the original group's assignments
+        unique_group.borrow_mut().assignments =
+            s.group.borrow().assignments.clone();
+
+        Ok(Action::Change(Box::new(ir::Control::static_enable(
+            unique_group,
+        ))))
     }
 
     fn finish(
