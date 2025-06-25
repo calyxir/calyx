@@ -17,6 +17,7 @@ fn xilinx_setup(e) {
     e.rsrc("gen_xo.tcl");
     e.rsrc("get-ports.py");
     e.config_var_or("python", "python", "python3");
+    e.rule("copy", "cp $in $out");
     e.rule(
         "gen-xo",
         "$vivado-dir/bin/vivado -mode batch -source gen_xo.tcl -tclargs $out `$python get-ports.py kernel.xml`"
@@ -25,8 +26,8 @@ fn xilinx_setup(e) {
 
     // Compile an `.xo` file to an `.xclbin` file, which is where the actual EDA work occurs.
     // Currently [on havarti] we have only ever supported hw_emu and hw modes
-    e.config_constrained_or("xilinx.mode", ["hw", "hw_emu"], "hw");
-    e.config_var("xilinx-mode", "xilinx.mode");
+    let xilinx_mode = e.config_constrained_or("xilinx.mode", ["hw", "hw_emu"], "hw");
+    e.var_("xilinx-mode", xilinx_mode);
     e.config_var_or("platform", "xilinx.device", "xilinx_u50_gen3x16_xdma_201920_3");
     e.rule(
         "compile-xclbin",

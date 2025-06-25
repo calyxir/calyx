@@ -17,8 +17,6 @@ rule calyx-pass
 cider-calyx-passes = -p none
 rule calyx-cider
   command = $calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out
-rule copy
-  command = cp $in $out
 
 build _to_stdout_verilog.sv: calyx _from_stdin_calyx.futil
   backend = verilog

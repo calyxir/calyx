@@ -48,16 +48,16 @@ def create_axi_lite_channel_ports(prog, prefix: Literal["AW", "AR", "W", "B", "R
         channel_inputs.append((f"{x}PROT", 3))
         channel_outputs.append((f"{x}READY", 1))
     elif x == "W":
-        channel_inputs.append((f"WVALID", 1))
-        channel_inputs.append((f"WDATA", 32))
-        channel_inputs.append((f"WSTRB", int(32 / 8)))
-        channel_outputs.append((f"WREADY", 1))
+        channel_inputs.append(("WVALID", 1))
+        channel_inputs.append(("WDATA", 32))
+        channel_inputs.append(("WSTRB", int(32 / 8)))
+        channel_outputs.append(("WREADY", 1))
     elif x in ["B", "R"]:
         channel_inputs.append((f"{x}READY", 1))
         channel_outputs.append((f"{x}VALID", 1))
         channel_outputs.append((f"{x}RESP", 2))
         if x == "R":
-            channel_outputs.append((f"RDATA", 32))
+            channel_outputs.append(("RDATA", 32))
 
     add_comp_ports(s_to_m_channel, channel_inputs, channel_outputs)
 
@@ -229,10 +229,8 @@ def add_read_controller(prog, mems):
     add_comp_ports(read_controller, read_controller_inputs, read_controller_outputs)
 
     # Cells
-    ar_channel = read_controller.cell(
-        f"ar_channel", prog.get_component(f"s_ar_channel")
-    )
-    r_channel = read_controller.cell(f"r_channel", prog.get_component(f"s_r_channel"))
+    ar_channel = read_controller.cell("ar_channel", prog.get_component("s_ar_channel"))
+    r_channel = read_controller.cell("r_channel", prog.get_component("s_r_channel"))
 
     # Registers
     raddr = read_controller.reg(16, "raddr")
@@ -301,11 +299,9 @@ def add_write_controller(prog, mems):
     add_comp_ports(write_controller, write_controller_inputs, write_controller_outputs)
 
     # Cells
-    aw_channel = write_controller.cell(
-        f"aw_channel", prog.get_component(f"s_aw_channel")
-    )
-    w_channel = write_controller.cell(f"w_channel", prog.get_component(f"s_w_channel"))
-    b_channel = write_controller.cell(f"b_channel", prog.get_component(f"s_b_channel"))
+    aw_channel = write_controller.cell("aw_channel", prog.get_component("s_aw_channel"))
+    w_channel = write_controller.cell("w_channel", prog.get_component("s_w_channel"))
+    b_channel = write_controller.cell("b_channel", prog.get_component("s_b_channel"))
 
     # Registers
     w_addr = write_controller.reg(16, "w_addr")
@@ -457,10 +453,10 @@ def add_control_subordinate(prog, mems):
     ap_done_or = control_subordinate.or_(32, "ap_done_or")
 
     read_controller = control_subordinate.cell(
-        f"s_control_read_controller", prog.get_component("s_control_read_controller")
+        "s_control_read_controller", prog.get_component("s_control_read_controller")
     )
     write_controller = control_subordinate.cell(
-        f"s_control_write_controller", prog.get_component("s_control_write_controller")
+        "s_control_write_controller", prog.get_component("s_control_write_controller")
     )
 
     n_ap_done = control_subordinate.not_(1, "n_ap_done")
@@ -614,12 +610,9 @@ if __name__ == "__main__":
     if len(sys.argv) > 2:
         raise Exception("The controller generator takes 1 yxi file name as argument")
     else:
-        try:
-            yxi_filename = sys.argv[1]
-            if not yxi_filename.endswith(".yxi"):
-                raise Exception("controller generator requires an yxi file")
-        except:
-            pass  # no arg passed
+        yxi_filename = sys.argv[1]
+        if not yxi_filename.endswith(".yxi"):
+            raise Exception("controller generator requires an yxi file")
     with open(yxi_filename, "r", encoding="utf-8") as yxifile:
         yxifile = open(yxi_filename)
         yxi = json.load(yxifile)
