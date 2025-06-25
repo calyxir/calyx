@@ -1,7 +1,7 @@
 import json
 import os
 
-from classes import CellMetadata, ControlMetadata, ParChildType
+from profiler.classes import CellMetadata, ControlMetadata, ParChildType
 
 
 def read_shared_cells_map(shared_cells_json) -> dict[str, dict[str, str]]:

@@ -22,10 +22,6 @@ fn profiling_setup(e) {
 
     // rules for postprocessing
 
-    // script to process vcd and produce folded representation of flame graph
-    e.var_("parse-vcd-script", "$calyx-base/tools/profiler/profiler-process/main.py");
-    e.rule("parse-vcd", "python3 $parse-vcd-script $in $cells $fsm-json $cell-share-json profiler-out $out --print-trace-threshold 100");
-
     e.config_var("flamegraph-script", "flamegraph.script");
     e.var_("create-visuals-script", "$calyx-base/tools/profiler/create-visuals.sh");
     e.rule("create-visuals", "bash $create-visuals-script $flamegraph-script profiler-out $in $out");
@@ -40,7 +36,19 @@ fn profiling_setup(e) {
     e.config_var_or("fileinfo_emitter", "fileinfo_emitter", "$calyx-base/target/debug/fileinfo_emitter");
     e.rule("parse-metadata", "$fileinfo_emitter -l $calyx-base $in > $metadata-mapping-json");
 
-    e.rule("parse-vcd-from-adl", "python3 $parse-vcd-script $in $cells $fsm-json $cell-share-json profiler-out $out --adl-mapping-file $metadata-mapping-json --print-trace-threshold 100");
+    e.rule("parse-vcd-from-adl", "profiler $in $cells $fsm-json $cell-share-json profiler-out $out --adl-mapping-file $metadata-mapping-json --print-trace-threshold 100");
+}
+
+fn profiler_non_synth_setup(e) {
+    // script to process vcd and produce folded representation of flame graph
+    e.rule("parse-vcd", "profiler $in $cells $fsm-json $cell-share-json profiler-out $out --print-trace-threshold 100");
+}
+
+fn profiler_synth_setup(e) {
+    // script to process vcd and produce folded representation of flame graph
+    e.config_var("hierarchy", "synth-verilog.hierachy-summary");
+    e.config_var("variable", "synth-verilog.variable");
+    e.rule("parse-vcd", "profiler $in $cells $fsm-json $cell-share-json profiler-out $out --print-trace-threshold 100 --utilization-report-json $hierarchy --utilization-variable $variable");
 }
 
 // TODO: merge with calyx_to_flamegraph
@@ -133,14 +141,22 @@ fn calyx_to_flamegraph(e, input, output) {
 
 op(
     "profiler",
-    [c::calyx_setup, profiling_setup, v::verilator_setup, sim::sim_setup],
+    [c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
+    c::calyx_state,
+    flamegraph,
+    |e, input, output| calyx_to_flamegraph(e, input, output)
+);
+
+op(
+    "profiler-synthesis",
+    [c::calyx_setup, profiling_setup, profiler_synth_setup, v::verilator_setup, sim::sim_setup],
     c::calyx_state,
     flamegraph,
     |e, input, output| calyx_to_flamegraph(e, input, output)
 );
 
 op("calyx-py-profiler",
-    [c::calyx_setup, profiling_setup, v::verilator_setup, sim::sim_setup],
+    [c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
     cp::calyx_py,
     flamegraph,
     |e, input, output| edsl_to_flamegraph(e, input, output)

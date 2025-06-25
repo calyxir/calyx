@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import statistics
 
-from errors import ProfilerException
+from profiler.errors import ProfilerException
 
 
 @dataclass
@@ -513,6 +513,53 @@ class CycleTrace:
         self.sourceloc_info_added = True
 
 
+class UtilizationCycleTrace(CycleTrace):
+    """
+    List of stacks that are active in a single cycle, containing utilization information
+    (both aggregated and per primitive).
+    """
+
+    global_utilization: dict[str, dict]
+    utilization: dict
+    utilization_per_primitive: dict[str, dict]
+    primitives_active: list[str]
+
+    def __init__(
+        self,
+        utilization: dict[str, dict],
+        stacks_this_cycle: list[list[StackElement]] | None = None,
+    ):
+        self.global_utilization = utilization
+        self.utilization = {}
+        self.primitives_active = []
+        self.utilization_per_primitive = {}
+        super().__init__(stacks_this_cycle)
+
+    def __repr__(self):
+        return super().__repr__() + f"\n\t{self.utilization}"
+
+    def add_stack(self, stack):
+        super().add_stack(stack)
+        top: StackElement = stack[-1]
+        if top.element_type == StackElementType.PRIMITIVE:
+            primitive = ".".join(
+                map(
+                    lambda x: x.name,
+                    filter(
+                        lambda x: x.element_type == StackElementType.CELL or x == top,
+                        stack,
+                    ),
+                )
+            )
+            self.primitives_active.append(primitive)
+            for k, v in self.global_utilization.get(primitive, {}).items():
+                if v.isdigit():
+                    self.utilization[k] = self.utilization.get(k, 0) + int(v)
+            self.utilization_per_primitive[primitive] = self.global_utilization.get(
+                primitive, {}
+            )
+
+
 @dataclass
 class GroupSummary:
     """
@@ -590,6 +637,7 @@ class TraceData:
     trace: dict[int, CycleTrace] = field(default_factory=dict)
     trace_classified: dict[int, CycleType] = field(default_factory=dict)
     cell_to_active_cycles: dict[str, Summary] = field(default_factory=dict)
+    # primitive to active cycles?
 
     # fields relating to control groups/registers
     trace_with_control_groups: dict[int, CycleTrace] = field(default_factory=dict)
@@ -643,6 +691,7 @@ class TraceData:
         control_groups_trace: dict[int, set[str]],
         cell_metadata: CellMetadata,
         control_metadata: ControlMetadata,
+        utilization: dict[str, dict] | None = None,
     ):
         """
         Populates the field trace_with_control_groups by combining control group information (from control_groups_trace) with self.trace.
@@ -651,7 +700,11 @@ class TraceData:
         control_metadata.order_pars(cell_metadata)
         for i in self.trace:
             if i in control_groups_trace:
-                self.trace_with_control_groups[i] = CycleTrace()
+                self.trace_with_control_groups[i] = (
+                    CycleTrace()
+                    if utilization is None
+                    else UtilizationCycleTrace(utilization)
+                )
                 for events_stack in self.trace[i].stacks:
                     new_events_stack = self._create_events_stack_with_control_groups(
                         events_stack,

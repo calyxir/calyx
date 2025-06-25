@@ -1,6 +1,12 @@
 import os
 
-from classes import CycleTrace, CycleType, TraceData, ControlRegUpdateType, FlameMapMode
+from profiler.classes import (
+    CycleTrace,
+    CycleType,
+    TraceData,
+    ControlRegUpdateType,
+    FlameMapMode,
+)
 
 SCALED_FLAME_MULTIPLIER = (
     1000  # [flame graph] multiplier so scaled flame graph will not round up.
