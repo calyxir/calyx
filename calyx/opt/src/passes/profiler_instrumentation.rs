@@ -54,7 +54,7 @@ impl Visitor for ProfilerInstrumentation {
         // groups to primitives that they invoked
         let mut primitive_invoke_map: HashMap<
             Id,
-            HashSet<(Id, ir::Guard<Nothing>)>,
+            Vec<(Id, ir::Guard<Nothing>)>,
         > = HashMap::new();
         // child_group --> [(parent_group, Guard)]
         let group_names = comp
@@ -75,8 +75,8 @@ impl Visitor for ProfilerInstrumentation {
         // Dynamic groups: iterate and check for structural enables, cell invokes, and primitive enables
         for group_ref in comp.groups.iter() {
             let group = &group_ref.borrow();
-            let mut primitive_set: HashSet<(Id, ir::Guard<Nothing>)> =
-                HashSet::new();
+            let mut comb_primitives_covered = HashSet::new();
+            let mut primitive_vec: Vec<(Id, ir::Guard<Nothing>)> = Vec::new();
             for assigment_ref in group.assignments.iter() {
                 let dst_borrow = assigment_ref.dst.borrow();
                 if let ir::PortParent::Group(parent_group_ref) =
@@ -99,7 +99,7 @@ impl Visitor for ProfilerInstrumentation {
                                 );
                             }
                         }
-                        acc += 1; // really sad hack
+                        acc += 1; // really sad hack for obtaining the number of structural enables
                     }
                 }
                 if let ir::PortParent::Cell(cell_ref) = &dst_borrow.parent {
@@ -113,7 +113,10 @@ impl Visitor for ProfilerInstrumentation {
                             let cell_name = cell_ref.upgrade().borrow().name();
                             // don't need to profile for combinational primitives, and if the port isn't a go port.
                             if is_comb {
-                                primitive_set.insert((cell_name, Guard::True));
+                                if comb_primitives_covered.insert(cell_name) {
+                                    primitive_vec
+                                        .push((cell_name, Guard::True));
+                                }
                             } else if dst_borrow.has_attribute(NumAttr::Go) {
                                 let guard = Guard::and(
                                     *(assigment_ref.guard.clone()),
@@ -121,7 +124,7 @@ impl Visitor for ProfilerInstrumentation {
                                         assigment_ref.src.borrow().clone(),
                                     )),
                                 );
-                                primitive_set.insert((cell_name, guard));
+                                primitive_vec.push((cell_name, guard));
                             }
                         }
                         calyx_ir::CellType::Component { name: _ } => {
@@ -146,7 +149,7 @@ impl Visitor for ProfilerInstrumentation {
                 }
             }
             primitive_invoke_map
-                .insert(group_ref.borrow().name(), primitive_set);
+                .insert(group_ref.borrow().name(), primitive_vec);
         }
         // build probe and assignments for every group (dynamic and static) + all structural invokes
         let mut builder = ir::Builder::new(comp, sigs);
