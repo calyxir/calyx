@@ -118,7 +118,9 @@ def xclrun():
     assert (
         environ.get("XCL_EMULATION_MODE") in ["hw_emu", "sw_emu"]
         or environ.get("XCL_EMULATION_MODE") is None
-    ), "Invalid XCL_EMULATION_MODE value. Must be 'hw_emu', 'sw_emu', or unset for actual hw execution."
+    ), (
+        "Invalid XCL_EMULATION_MODE value. Must be 'hw_emu', 'sw_emu', or unset for actual hw execution."
+    )
     # Parse command-line arguments.
     parser = argparse.ArgumentParser(
         description="run a compiled XRT program",
