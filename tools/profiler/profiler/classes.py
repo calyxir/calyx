@@ -519,9 +519,14 @@ class UtilizationCycleTrace(CycleTrace):
     (both aggregated and per primitive).
     """
 
+    # Reference to the global utilization map from all primitives to their utilization
     global_utilization: dict[str, dict]
+    # Aggregated utilization of all the primitives in this cycle
+    # Ex. {'Total LUTs': 21, 'Logic LUTs': 5, 'LUTRAMs': 16, 'SRLs': 0, 'FFs': 38, 'RAMB36': 0, 'RAMB18': 0, 'URAM': 0, 'DSP Blocks': 0}
     utilization: dict
+    # Map between primitives in this cycle and their utilization (subset of global_utilization filtered for this cycle)
     utilization_per_primitive: dict[str, dict]
+    # List of all the primitives active in this cycle
     primitives_active: list[str]
 
     def __init__(

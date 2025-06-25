@@ -35,19 +35,20 @@ fn profiling_setup(e) {
     e.var_("metadata-mapping-json", "metadata-map.json");
     e.config_var_or("fileinfo_emitter", "fileinfo_emitter", "$calyx-base/target/debug/fileinfo_emitter");
     e.rule("parse-metadata", "$fileinfo_emitter -l $calyx-base $in > $metadata-mapping-json");
-
-    e.rule("parse-vcd-from-adl", "profiler $in $cells $fsm-json $cell-share-json profiler-out $out --adl-mapping-file $metadata-mapping-json --print-trace-threshold 100");
 }
 
 fn profiler_non_synth_setup(e) {
     // script to process vcd and produce folded representation of flame graph
     e.rule("parse-vcd", "profiler $in $cells $fsm-json $cell-share-json profiler-out $out --print-trace-threshold 100");
+    e.rule("parse-vcd-from-adl", "profiler $in $cells $fsm-json $cell-share-json profiler-out $out --adl-mapping-file $metadata-mapping-json --print-trace-threshold 100");
 }
 
 fn profiler_synth_setup(e) {
-    // script to process vcd and produce folded representation of flame graph
+    // location of the hierarchy json file from synthesis
     e.config_var("hierarchy", "synth-verilog.hier");
+    // synthesis variable to plot, one of: ff (FlipFlops), lut (Look-Up Tables), llut (Logical Look-Up Tables), lutram (Look-Up Table RAMs)
     e.config_var("variable", "synth-verilog.var");
+    // script to process vcd and produce folded representation of flame graph as well as html plots
     e.rule("parse-vcd", "profiler $in $cells $fsm-json $cell-share-json profiler-out $out --print-trace-threshold 100 --utilization-report-json $hierarchy --utilization-variable $variable");
 }
 
@@ -148,7 +149,7 @@ op(
 );
 
 op(
-    "profiler-synthesis",
+    "profiler-area-util",
     [c::calyx_setup, profiling_setup, profiler_synth_setup, v::verilator_setup, sim::sim_setup],
     c::calyx_state,
     flamegraph,
