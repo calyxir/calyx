@@ -22,10 +22,6 @@ fn profiling_setup(e) {
 
     // rules for postprocessing
 
-    // script to process vcd and produce folded representation of flame graph
-    e.var_("parse-vcd-script", "$calyx-base/tools/profiler/profiler-process/main.py");
-    e.rule("parse-vcd", "python3 $parse-vcd-script $in $cells $fsm-json $cell-share-json profiler-out $out --print-trace-threshold 100");
-
     e.config_var("flamegraph-script", "flamegraph.script");
     e.var_("create-visuals-script", "$calyx-base/tools/profiler/create-visuals.sh");
     e.rule("create-visuals", "bash $create-visuals-script $flamegraph-script profiler-out $in $out");
@@ -39,8 +35,21 @@ fn profiling_setup(e) {
     e.var_("metadata-mapping-json", "metadata-map.json");
     e.config_var_or("fileinfo_emitter", "fileinfo_emitter", "$calyx-base/target/debug/fileinfo_emitter");
     e.rule("parse-metadata", "$fileinfo_emitter -l $calyx-base $in > $metadata-mapping-json");
+}
 
-    e.rule("parse-vcd-from-adl", "python3 $parse-vcd-script $in $cells $fsm-json $cell-share-json profiler-out $out --adl-mapping-file $metadata-mapping-json --print-trace-threshold 100");
+fn profiler_non_synth_setup(e) {
+    // script to process vcd and produce folded representation of flame graph
+    e.rule("parse-vcd", "profiler $in $cells $fsm-json $cell-share-json profiler-out $out --print-trace-threshold 100");
+    e.rule("parse-vcd-from-adl", "profiler $in $cells $fsm-json $cell-share-json profiler-out $out --adl-mapping-file $metadata-mapping-json --print-trace-threshold 100");
+}
+
+fn profiler_synth_setup(e) {
+    // location of the hierarchy json file from synthesis
+    e.config_var("hierarchy", "synth-verilog.hier");
+    // synthesis variable to plot, one of: ff (FlipFlops), lut (Look-Up Tables), llut (Logical Look-Up Tables), lutram (Look-Up Table RAMs)
+    e.config_var("variable", "synth-verilog.var");
+    // script to process vcd and produce folded representation of flame graph as well as html plots
+    e.rule("parse-vcd", "profiler $in $cells $fsm-json $cell-share-json profiler-out $out --print-trace-threshold 100 --utilization-report-json $hierarchy --utilization-variable $variable");
 }
 
 // TODO: merge with calyx_to_flamegraph
@@ -133,14 +142,22 @@ fn calyx_to_flamegraph(e, input, output) {
 
 op(
     "profiler",
-    [c::calyx_setup, profiling_setup, v::verilator_setup, sim::sim_setup],
+    [c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
+    c::calyx_state,
+    flamegraph,
+    |e, input, output| calyx_to_flamegraph(e, input, output)
+);
+
+op(
+    "profiler-area-util",
+    [c::calyx_setup, profiling_setup, profiler_synth_setup, v::verilator_setup, sim::sim_setup],
     c::calyx_state,
     flamegraph,
     |e, input, output| calyx_to_flamegraph(e, input, output)
 );
 
 op("calyx-py-profiler",
-    [c::calyx_setup, profiling_setup, v::verilator_setup, sim::sim_setup],
+    [c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
     cp::calyx_py,
     flamegraph,
     |e, input, output| edsl_to_flamegraph(e, input, output)

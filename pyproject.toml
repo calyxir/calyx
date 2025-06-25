@@ -15,6 +15,7 @@ mrxl = { workspace = true }
 queues = { workspace = true }
 fud = { workspace = true }
 synthrep = { workspace = true }
+profiler = { workspace = true }
 
 [tool.uv.workspace]
 members = [
@@ -25,6 +26,7 @@ members = [
     "frontends/queues",
     "fud",
     "tools/report-parsing",
+    "tools/profiler",
 ]
 
 [project.optional-dependencies]
@@ -35,7 +37,7 @@ queues = ["queues"]
 profiler = [
     # should probably add the profiler to the workplace but I don't want to deal
     # with that right now
-    "vcdvcd",
+    "profiler",
     "synthrep",
 ]
 fud2_scripts = [
