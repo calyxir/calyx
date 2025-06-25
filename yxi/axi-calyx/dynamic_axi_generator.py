@@ -11,8 +11,14 @@ import json
 import sys
 
 parser = argparse.ArgumentParser("Config settings for AXI generation.")
-parser.add_argument("--generate-for-xilinx", action="store_true", help="Adds subordinate controllers that Xilinx expectes to interface with.")
-parser.add_argument("yxi_filename", nargs="?", default="input.yxi", help="Input .yxi file")
+parser.add_argument(
+    "--generate-for-xilinx",
+    action="store_true",
+    help="Adds subordinate controllers that Xilinx expectes to interface with.",
+)
+parser.add_argument(
+    "yxi_filename", nargs="?", default="input.yxi", help="Input .yxi file"
+)
 
 args = parser.parse_args()
 
@@ -30,7 +36,7 @@ type_key = "memory_type"
 
 
 # TODO (nathanielnrn): Should we make these comb groups?
-def add_address_translator(prog:Builder, mem):
+def add_address_translator(prog: Builder, mem):
     address_width = mem[address_width_key][0]
     data_width = mem[width_key]
     name = mem[name_key]
@@ -54,15 +60,15 @@ def add_address_translator(prog:Builder, mem):
         address_translator.this()["axi_address"] = address_mult.out
 
 
-def add_arread_channel(prog:Builder, mem):
+def add_arread_channel(prog: Builder, mem):
     _add_m_to_s_address_channel(prog, mem, "AR")
 
 
-def add_awwrite_channel(prog:Builder, mem):
+def add_awwrite_channel(prog: Builder, mem):
     _add_m_to_s_address_channel(prog, mem, "AW")
 
 
-def _add_m_to_s_address_channel(prog:Builder, mem, prefix: Literal["AW", "AR"]):
+def _add_m_to_s_address_channel(prog: Builder, mem, prefix: Literal["AW", "AR"]):
     """Adds a manager to subordinate
     channel to the program. Uses `prefix` to name the channels
     appropriately. Expected to be either "AW" or "AR."
@@ -152,7 +158,7 @@ def _add_m_to_s_address_channel(prog:Builder, mem, prefix: Literal["AW", "AR"]):
     return m_to_s_address_channel
 
 
-def add_read_channel(prog:Builder, mem):
+def add_read_channel(prog: Builder, mem):
     # Inputs/Outputs
     name = mem[name_key]
     read_channel = prog.component(f"m_read_channel_{name}")
@@ -245,7 +251,7 @@ def add_read_channel(prog:Builder, mem):
     read_channel.control += [invoke_n_RLAST, while_n_RLAST]
 
 
-def add_write_channel(prog:Builder, mem):
+def add_write_channel(prog: Builder, mem):
     data_width = mem[width_key]
     name = mem[name_key]
     # Inputs/Outputs
@@ -317,7 +323,7 @@ def add_write_channel(prog:Builder, mem):
 # For now we assume all responses are OKAY because we don't have any error
 # handling logic. So basically this sets BREADY high then lowers it on
 # handshake.
-def add_bresp_channel(prog:Builder, mem):
+def add_bresp_channel(prog: Builder, mem):
     name = mem[name_key]
     # Inputs/Outputs
     bresp_channel = prog.component(f"m_bresp_channel_{name}")
@@ -352,7 +358,7 @@ def add_bresp_channel(prog:Builder, mem):
     bresp_channel.control += [invoke(bt_reg, in_in=0), block_transfer]
 
 
-def add_read_controller(prog:Builder, mem):
+def add_read_controller(prog: Builder, mem):
     add_arread_channel(prog, mem)
     add_read_channel(prog, mem)
 
@@ -428,7 +434,7 @@ def add_read_controller(prog:Builder, mem):
     ]
 
 
-def add_write_controller(prog:Builder, mem):
+def add_write_controller(prog: Builder, mem):
     add_awwrite_channel(prog, mem)
     add_write_channel(prog, mem)
     add_bresp_channel(prog, mem)
@@ -559,9 +565,15 @@ def add_axi_dyn_mem(prog: Builder, mem):
     add_comp_ports(axi_dyn_mem, dyn_mem_inputs, dyn_mem_outputs)
 
     # Cells
-    address_translator = axi_dyn_mem.cell(f"address_translator_{name}", prog.get_component(f"address_translator_{name}"))
-    read_controller = axi_dyn_mem.cell(f"read_controller_{name}", prog.get_component(f"read_controller_{name}"))
-    write_controller = axi_dyn_mem.cell(f"write_controller_{name}", prog.get_component(f"write_controller_{name}"))
+    address_translator = axi_dyn_mem.cell(
+        f"address_translator_{name}", prog.get_component(f"address_translator_{name}")
+    )
+    read_controller = axi_dyn_mem.cell(
+        f"read_controller_{name}", prog.get_component(f"read_controller_{name}")
+    )
+    write_controller = axi_dyn_mem.cell(
+        f"write_controller_{name}", prog.get_component(f"write_controller_{name}")
+    )
     base_addr_adder = axi_dyn_mem.add(64, f"base_addr_adder_{name}")
     write_en_reg = axi_dyn_mem.reg(1, f"write_en_reg_{name}")
 
@@ -578,8 +590,8 @@ def add_axi_dyn_mem(prog: Builder, mem):
         write_en_reg.in_ = this_component["write_en"]
         write_en_reg.write_en = 1
         latch_write_en.done = write_en_reg.done
-    
-    #Control
+
+    # Control
     read_controller_invoke = invoke(
         axi_dyn_mem.get_cell(f"read_controller_{name}"),
         in_axi_address=base_addr_adder.out,
@@ -621,20 +633,19 @@ def add_axi_dyn_mem(prog: Builder, mem):
 
     axi_dyn_mem.control += [
         latch_write_en,
-        if_(write_en_reg.out, write_controller_invoke, read_controller_invoke)
+        if_(write_en_reg.out, write_controller_invoke, read_controller_invoke),
     ]
 
 
 # NOTE: Unlike the channel functions, this can expect multiple mems
 def add_wrapper_comp(prog, mems):
-
-    add_control_subordinate(prog,mems)
+    add_control_subordinate(prog, mems)
     for mem in mems:
         add_address_translator(prog, mem)
         add_read_controller(prog, mem)
         add_write_controller(prog, mem)
         add_axi_dyn_mem(prog, mem)
-    
+
     wrapper_comp = prog.component("Toplevel")
     wrapper_comp.attribute("toplevel", 1)
     # Get handles to be used later
@@ -666,39 +677,40 @@ def add_wrapper_comp(prog, mems):
         # ("ARPROT", 3), #We don't do anything with this
         (f"{prefix}RVALID", 1),
         (f"ap_rst_n", 1),
-        (f"ap_clk", 1, ["clk"])
+        (f"ap_clk", 1, ["clk"]),
     ]
 
     wrapper_outputs = [
         (f"{prefix}AWREADY", 1),
         (f"{prefix}WREADY", 1),
         (f"{prefix}BVALID", 1),
-        (f"{prefix}BRESP", 2),  
+        (f"{prefix}BRESP", 2),
         (f"{prefix}ARREADY", 1),
         (f"{prefix}RREADY", 1),
         (f"{prefix}RDATA", 32),
-        (f"{prefix}RRESP", 2),  
+        (f"{prefix}RRESP", 2),
         ("ap_start", 1),
         ("ap_done", 1),
     ]
 
     add_comp_ports(wrapper_comp, wrapper_inputs, wrapper_outputs)
-    
+
     if GENERATE_FOR_XILINX:
-        control_subordinate = wrapper_comp.cell(f"control_subordinate", prog.get_component("control_subordinate"))
+        control_subordinate = wrapper_comp.cell(
+            f"control_subordinate", prog.get_component("control_subordinate")
+        )
         ap_start_block_reg = wrapper_comp.reg(1, f"ap_start_block_reg")
         ap_done_reg = wrapper_comp.reg(1, f"ap_done_reg")
 
         with wrapper_comp.continuous:
             control_subordinate.ap_done_in = ap_done_reg.out
 
+        # NOTE: This breaks encapsulation of modules a bit,
+        # but allows us to block on ap_start in the control block without
+        # adding new control flow constructs.
 
-    #NOTE: This breaks encapsulation of modules a bit,
-    # but allows us to block on ap_start in the control block without
-    # adding new control flow constructs.
-
-    # Ideally, it'd be nice to have this functionality included as part of
-    # the control flow of the wrapper or perhaps the main_compute invocation? 
+        # Ideally, it'd be nice to have this functionality included as part of
+        # the control flow of the wrapper or perhaps the main_compute invocation?
         with wrapper_comp.group(f"block_ap_start") as block_ap_start:
             ap_start_block_reg.in_ = 1
             ap_start_block_reg.write_en = control_subordinate.ap_start
@@ -779,7 +791,9 @@ def add_wrapper_comp(prog, mems):
             # Connect wrapper ports with axi_dyn_mem ports
 
             # Read controller portion inputs
-            axi_mem["ARESETn"] = wrapper_comp.this()[f"ap_rst_n"] #note that both styles work
+            axi_mem["ARESETn"] = wrapper_comp.this()[
+                f"ap_rst_n"
+            ]  # note that both styles work
             # wrapper_comp.this()[f"{mem_name}_ARESETn"] = axi_mem["ARESETn"] #note that both styles work
             axi_mem.ARREADY = wrapper_comp.this()[f"{prefixed_mem_name}_ARREADY"]
             axi_mem.RVALID = wrapper_comp.this()[f"{prefixed_mem_name}_RVALID"]
@@ -812,8 +826,6 @@ def add_wrapper_comp(prog, mems):
             if GENERATE_FOR_XILINX:
                 axi_mem["base_address"] = control_subordinate[f"{mem_name}_base_addr"]
 
-
-
         # Creates `<mem_name> = internal_mem_<mem_name>` as refs in invocation of `main_compute`
         ref_mem_kwargs[f"ref_{mem_name}"] = axi_mem
 
@@ -821,38 +833,36 @@ def add_wrapper_comp(prog, mems):
 
     # Compute invoke
     # Assumes refs should be of form `<mem_name> = internal_mem_<mem_name>`
-    main_compute_invoke = invoke(
-        main_compute, **ref_mem_kwargs
-    )
+    main_compute_invoke = invoke(main_compute, **ref_mem_kwargs)
 
     if GENERATE_FOR_XILINX:
         control_subordinate_invoke = invoke(
             control_subordinate,
             in_ARESETn=wrapper_comp.this()[f"ap_rst_n"],
-            in_AWVALID = wrapper_comp.this()[f"s_axi_control_AWVALID"],
-            in_AWADDR = wrapper_comp.this()[f"s_axi_control_AWADDR"],
-            in_WVALID = wrapper_comp.this()[f"s_axi_control_WVALID"],
-            in_WDATA = wrapper_comp.this()[f"s_axi_control_WDATA"],
-            in_WSTRB = wrapper_comp.this()[f"s_axi_control_WSTRB"],
-            in_BREADY = wrapper_comp.this()[f"s_axi_control_BREADY"],
-            in_ARVALID = wrapper_comp.this()[f"s_axi_control_ARVALID"],
-            in_ARADDR = wrapper_comp.this()[f"s_axi_control_ARADDR"],
-            in_RVALID = wrapper_comp.this()[f"s_axi_control_RVALID"],
-            out_AWREADY = wrapper_comp.this()[f"s_axi_control_AWREADY"],
-            out_WREADY = wrapper_comp.this()[f"s_axi_control_WREADY"],
-            out_BVALID = wrapper_comp.this()[f"s_axi_control_BVALID"],
-            out_BRESP = wrapper_comp.this()[f"s_axi_control_BRESP"],
-            out_ARREADY = wrapper_comp.this()[f"s_axi_control_ARREADY"],
-            out_RDATA = wrapper_comp.this()[f"s_axi_control_RDATA"],
-            out_RREADY = wrapper_comp.this()[f"s_axi_control_RREADY"],
-            out_RRESP = wrapper_comp.this()[f"s_axi_control_RRESP"],
-            )
+            in_AWVALID=wrapper_comp.this()[f"s_axi_control_AWVALID"],
+            in_AWADDR=wrapper_comp.this()[f"s_axi_control_AWADDR"],
+            in_WVALID=wrapper_comp.this()[f"s_axi_control_WVALID"],
+            in_WDATA=wrapper_comp.this()[f"s_axi_control_WDATA"],
+            in_WSTRB=wrapper_comp.this()[f"s_axi_control_WSTRB"],
+            in_BREADY=wrapper_comp.this()[f"s_axi_control_BREADY"],
+            in_ARVALID=wrapper_comp.this()[f"s_axi_control_ARVALID"],
+            in_ARADDR=wrapper_comp.this()[f"s_axi_control_ARADDR"],
+            in_RVALID=wrapper_comp.this()[f"s_axi_control_RVALID"],
+            out_AWREADY=wrapper_comp.this()[f"s_axi_control_AWREADY"],
+            out_WREADY=wrapper_comp.this()[f"s_axi_control_WREADY"],
+            out_BVALID=wrapper_comp.this()[f"s_axi_control_BVALID"],
+            out_BRESP=wrapper_comp.this()[f"s_axi_control_BRESP"],
+            out_ARREADY=wrapper_comp.this()[f"s_axi_control_ARREADY"],
+            out_RDATA=wrapper_comp.this()[f"s_axi_control_RDATA"],
+            out_RREADY=wrapper_comp.this()[f"s_axi_control_RREADY"],
+            out_RRESP=wrapper_comp.this()[f"s_axi_control_RRESP"],
+        )
 
         # Compiler should reschedule these 2 seqs to be in parallel right?
         wrapper_comp.control += par(
             control_subordinate_invoke,
-            [block_ap_start, main_compute_invoke, assert_ap_done]
-            )
+            [block_ap_start, main_compute_invoke, assert_ap_done],
+        )
     else:
         wrapper_comp.control += main_compute_invoke
 
@@ -891,16 +901,16 @@ def build():
 def check_mems_wellformed(mems):
     """Checks if memories from yxi are well formed. Returns true if they are, false otherwise."""
     for mem in mems:
-        assert (
-            mem[width_key] % 8 == 0
-        ), "Width must be a multiple of 8 to alow byte addressing to host"
-        assert log2(
-            mem[width_key]
-        ).is_integer(), "Width must be a power of 2 to be correctly described by xSIZE"
+        assert mem[width_key] % 8 == 0, (
+            "Width must be a multiple of 8 to alow byte addressing to host"
+        )
+        assert log2(mem[width_key]).is_integer(), (
+            "Width must be a power of 2 to be correctly described by xSIZE"
+        )
         assert mem[size_key] > 0, "Memory size must be greater than 0"
-        assert (
-            mem[type_key] == "Dynamic"
-        ), "Only dynamic memories are currently supported for dynamic axi"
+        assert mem[type_key] == "Dynamic", (
+            "Only dynamic memories are currently supported for dynamic axi"
+        )
 
 
 if __name__ == "__main__":
