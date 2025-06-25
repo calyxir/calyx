@@ -275,8 +275,10 @@ fn compute_path_descriptors_static(
                 false,
             );
         }
-        ir::StaticControl::Empty(_empty) => todo!(),
-        ir::StaticControl::Invoke(_static_invoke) => todo!(),
+        ir::StaticControl::Empty(_empty) => (),
+        ir::StaticControl::Invoke(_static_invoke) => {
+            panic!("compile-invoke should be run before unique-control!")
+        }
     }
 }
 
