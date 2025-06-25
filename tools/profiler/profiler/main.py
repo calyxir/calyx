@@ -4,9 +4,6 @@ import os
 from profiler.visuals.plots import Plotter
 import vcdvcd
 import json
-import pandas as pd
-import plotly.express as px
-from collections import Counter
 
 import profiler.adl_mapping as adl_mapping
 import profiler.construct_trace as construct_trace
@@ -18,7 +15,6 @@ from profiler.classes import (
     ControlMetadata,
     TraceData,
     ControlRegUpdateType,
-    UtilizationCycleTrace,
 )
 
 
