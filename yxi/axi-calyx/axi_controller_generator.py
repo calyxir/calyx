@@ -39,10 +39,7 @@ def create_axi_lite_channel_ports(prog, prefix: Literal["AW", "AR", "W", "B", "R
     lc_x = prefix.lower()
     x = prefix
     s_to_m_channel = prog.component(f"s_{lc_x}_channel")
-    channel_inputs = [
-        ("ARESETn", 1),
-        ("ap_done", 1)
-    ]
+    channel_inputs = [("ARESETn", 1), ("ap_done", 1)]
     channel_outputs = []
 
     if x in ["AW", "AR"]:
@@ -106,9 +103,11 @@ def _add_s_to_m_address_channel(prog, prefix: Literal["AW", "AR"]):
         x_addr.write_en = (x_ready.out & xVALID) @ 1
         x_addr.write_en = ~(x_ready.out & xVALID) @ 0
 
-        block_transfer.done = (x_addr.done | s_to_m_address_channel.this()["ap_done"]) @ 1
+        block_transfer.done = (
+            x_addr.done | s_to_m_address_channel.this()["ap_done"]
+        ) @ 1
 
-    s_to_m_address_channel.control += [invoke(x_ready, in_in=0),block_transfer]
+    s_to_m_address_channel.control += [invoke(x_ready, in_in=0), block_transfer]
 
 
 def add_read_channel(prog):
@@ -140,7 +139,9 @@ def add_read_channel(prog):
         read_channel.this()["RRESP"] = 0b00
 
         # TODO: Make sure this works? This is changed from the manager controllers which uses a "bt_reg" (block_transfer)
-        service_read_request.done = (r_handshake_occurred.out | read_channel.this()["ap_done"]) @ 1
+        service_read_request.done = (
+            r_handshake_occurred.out | read_channel.this()["ap_done"]
+        ) @ 1
 
     read_channel.control += [
         invoke(r_handshake_occurred, in_in=0),
@@ -163,7 +164,7 @@ def add_write_channel(prog):
         wDATA = write_channel.this()["WDATA"]
 
         wready.in_ = (~(wready.out & wVALID)) @ 1
-        wready.in_ = ((wready.out & wVALID)) @ 0
+        wready.in_ = (wready.out & wVALID) @ 0
         wready.write_en = 1
 
         wdata.in_ = wDATA
@@ -172,7 +173,6 @@ def add_write_channel(prog):
 
         service_write_request.done = (wdata.done | write_channel.this()["ap_done"]) @ 1
 
-    
     write_channel.control += [invoke(wready, in_in=0), service_write_request]
 
 
@@ -185,20 +185,22 @@ def add_bresp_channel(prog):
 
     with bresp_channel.continuous:
         bresp_channel.this()["BVALID"] = bvalid.out
-        bresp_channel.this()[
-            "BRESP"
-        ] = 0b00  # Assume OKAY. Could make this dynamic in the future by passing in a ref cell.
+        bresp_channel.this()["BRESP"] = (
+            0b00  # Assume OKAY. Could make this dynamic in the future by passing in a ref cell.
+        )
 
     with bresp_channel.group("block_transfer") as block_transfer:
         BREADY = bresp_channel.this()["BREADY"]
         bvalid.in_ = (~(bvalid.out & BREADY)) @ 1
-        bvalid.in_ = ((bvalid.out & BREADY)) @ 0
+        bvalid.in_ = (bvalid.out & BREADY) @ 0
         bvalid.write_en = 1
 
         b_handshake_occurred.in_ = (bvalid.out & BREADY) @ 1
         b_handshake_occurred.in_ = ~(bvalid.out & BREADY) @ 0
         b_handshake_occurred.write_en = 1
-        block_transfer.done = (b_handshake_occurred.out | bresp_channel.this()["ap_done"]) @ 1
+        block_transfer.done = (
+            b_handshake_occurred.out | bresp_channel.this()["ap_done"]
+        ) @ 1
 
     bresp_channel.control += [invoke(b_handshake_occurred, in_in=0), block_transfer]
 
@@ -246,7 +248,7 @@ def add_read_controller(prog, mems):
             ref_rdata=reg,
             in_ARESETn=read_controller.this()["ARESETn"],
             in_RREADY=read_controller.this()["RREADY"],
-            in_ap_done = read_controller.this()["ap_done"],
+            in_ap_done=read_controller.this()["ap_done"],
             out_RVALID=read_controller.this()["RVALID"],
             out_RRESP=read_controller.this()["RRESP"],
             out_RDATA=read_controller.this()["RDATA"],
@@ -286,7 +288,7 @@ def add_write_controller(prog, mems):
         ("WDATA", 32),
         ("WSTRB", 4),
         ("BREADY", 1),
-        ("ap_done", 1) # Passed in to allow short circuiting of component completion
+        ("ap_done", 1),  # Passed in to allow short circuiting of component completion
     ]
 
     write_controller_outputs = [
@@ -359,7 +361,7 @@ def get_xrt_case_dict(invoke_function, controller, mems):
         case_dict[args_addr] = invoke_function(
             controller.get_cell(f"{mem['name']}_base_addr_0_31")
         )
-        args_addr += 4 # 32 bit addr per kernel argument is 4 bytes
+        args_addr += 4  # 32 bit addr per kernel argument is 4 bytes
         case_dict[args_addr] = invoke_function(
             controller.get_cell(f"{mem['name']}_base_addr_32_63")
         )
@@ -370,7 +372,7 @@ def get_xrt_case_dict(invoke_function, controller, mems):
 # Add XRT specified control registers and appropriate base_address registers for each memory
 # to `component`
 # Returns list of control registers for easy access to iterate through
-def generate_control_registers(component, mems, as_refs : bool):
+def generate_control_registers(component, mems, as_refs: bool):
     # XRT registers. We currently ignore everything except control and kernel argument registers
     control_regs = [component.reg(32, "control", as_refs)]
 
@@ -399,7 +401,6 @@ def generate_control_registers(component, mems, as_refs : bool):
             with component.continuous:
                 base_addr_cat.left = base_addr_left.out
                 base_addr_cat.right = base_addr_right.out
-
 
     return control_regs
 
@@ -455,7 +456,6 @@ def add_control_subordinate(prog, mems):
     ap_done_slice = control_subordinate.bit_slice("ap_done_slice", 32, 1, 1, 1)
     ap_done_or = control_subordinate.or_(32, "ap_done_or")
 
-
     read_controller = control_subordinate.cell(
         f"s_control_read_controller", prog.get_component("s_control_read_controller")
     )
@@ -470,13 +470,14 @@ def add_control_subordinate(prog, mems):
 
     # Wires
     xrt_control_reg = control_subordinate.get_cell("control")
-    
-    with control_subordinate.continuous:
 
+    with control_subordinate.continuous:
         # output base addresses to memories
         for mem in mems:
             control_subordinate.output(f"{mem['name']}_base_addr", 64)
-            control_subordinate.this()[f"{mem['name']}_base_addr"] = control_subordinate.get_cell(f"{mem['name']}_base_addr_cat").out
+            control_subordinate.this()[f"{mem['name']}_base_addr"] = (
+                control_subordinate.get_cell(f"{mem['name']}_base_addr_cat").out
+            )
 
         # NOTE (nate): There must be a better away of hooking up a components ports to
         # a cell's ports within the component. Unfortunately I don't think the builders existing
@@ -488,7 +489,9 @@ def add_control_subordinate(prog, mems):
         write_controller["ARESETn"] = this["ARESETn"]
         write_controller["AWVALID"] = this["AWVALID"]
         write_controller["AWADDR"] = this["AWADDR"]
-        write_controller["AWPROT"] = const(3, 0b110) #Tie to priveleged, nonsecure, data access request
+        write_controller["AWPROT"] = const(
+            3, 0b110
+        )  # Tie to priveleged, nonsecure, data access request
         write_controller["WVALID"] = this["WVALID"]
         write_controller["WDATA"] = this["WDATA"]
         write_controller["WSTRB"] = this["WSTRB"]
@@ -498,7 +501,9 @@ def add_control_subordinate(prog, mems):
         read_controller["ARESETn"] = this["ARESETn"]
         read_controller["ARVALID"] = this["ARVALID"]
         read_controller["ARADDR"] = this["ARADDR"]
-        read_controller["ARPROT"] = const(3, 0b110) #Tie to priveleged, nonsecure, data access request.
+        read_controller["ARPROT"] = const(
+            3, 0b110
+        )  # Tie to priveleged, nonsecure, data access request.
         read_controller["ap_done"] = this["ap_done_in"]
 
         #   Outputs
@@ -511,7 +516,6 @@ def add_control_subordinate(prog, mems):
         this["RRESP"] = read_controller["RRESP"]
         this["ap_start"] = ap_start_slice.out
         this["ap_done_out"] = ap_done_slice.out
-
 
         # XRT Wiring stuff
         ap_start_slice.in_ = xrt_control_reg.out
@@ -534,29 +538,22 @@ def add_control_subordinate(prog, mems):
         xrt_control_reg.write_en = 1
         write_ap_done.done = xrt_control_reg.done
 
-    #Pass in the concrete cells as into our invokes
+    # Pass in the concrete cells as into our invokes
     sub_controller_kwargs = {}
     for reg in control_regs:
         sub_controller_kwargs[f"ref_{reg.name}"] = reg
     # Control
-    read_controller_invoke = invoke(
-        read_controller,
-        **sub_controller_kwargs
-    )
+    read_controller_invoke = invoke(read_controller, **sub_controller_kwargs)
 
-    write_controller_invoke = invoke(
-        write_controller,
-        **sub_controller_kwargs
-    )
-
+    write_controller_invoke = invoke(write_controller, **sub_controller_kwargs)
 
     control_subordinate.control += [
         init_control_regs,
-            par(
-                while_(n_ap_done.out, write_controller_invoke),
-                while_(n_ap_done.out, read_controller_invoke),
-            ),
-            write_ap_done
+        par(
+            while_(n_ap_done.out, write_controller_invoke),
+            while_(n_ap_done.out, read_controller_invoke),
+        ),
+        write_ap_done,
     ]
 
 
@@ -600,16 +597,16 @@ def build():
 def check_mems_welformed(mems):
     """Checks if memories from yxi are well formed. Returns true if they are, false otherwise."""
     for mem in mems:
-        assert (
-            mem[width_key] % 8 == 0
-        ), "Width must be a multiple of 8 to alow byte addressing to host"
-        assert log2(
-            mem[width_key]
-        ).is_integer(), "Width must be a power of 2 to be correctly described by xSIZE"
+        assert mem[width_key] % 8 == 0, (
+            "Width must be a multiple of 8 to alow byte addressing to host"
+        )
+        assert log2(mem[width_key]).is_integer(), (
+            "Width must be a power of 2 to be correctly described by xSIZE"
+        )
         assert mem[size_key] > 0, "Memory size must be greater than 0"
-        assert (
-            mem[type_key] == "Dynamic"
-        ), "Only dynamic memories are currently supported for dynamic axi"
+        assert mem[type_key] == "Dynamic", (
+            "Only dynamic memories are currently supported for dynamic axi"
+        )
 
 
 if __name__ == "__main__":
