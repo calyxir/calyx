@@ -332,6 +332,60 @@ where
     }
 }
 
+/// A dense secondary map
+///
+/// This is suitable for cases where secondary values are given out in
+/// contiguous chunks with occasional gaps between them. If contiguous blocks
+/// are rare, then using
+/// [SecondarySparseMap](super::sparse_map::SecondarySparseMap) will have better
+/// performance
+pub struct SemiContiguousSecondaryMap<K: IndexRef + Ord, D> {
+    /// stored ranges and their starting indices
+    ranges: Vec<(IndexRange<K>, usize)>,
+    data: Vec<D>,
+}
+
+impl<K: IndexRef + Ord, D> SemiContiguousSecondaryMap<K, D> {
+    pub fn new() -> Self {
+        Self {
+            ranges: Vec::new(),
+            data: Vec::new(),
+        }
+    }
+
+    pub fn with_capacity(cap: usize) -> Self {
+        Self {
+            ranges: Vec::new(),
+            data: Vec::with_capacity(cap),
+        }
+    }
+
+    /// An insert function which assumes the given key is strictly greater than
+    /// all other keys which have been placed in the map so far. Failure to
+    /// abide by this will result in incorrect behavior
+    pub fn monotonic_insert(&mut self, key: K, data: D) {
+        self.data.push(data);
+        if let Some((range, base)) = self.ranges.last_mut() {
+            assert!(range.end() < key, "incorrect use of monotonic_insert");
+            if range.end().index() + 1 == key.index() {
+                range.set_end(key);
+                return;
+            }
+        }
+
+        // either we are not contiguous with the last range or there are no
+        // ranges
+        self.ranges
+            .push((IndexRange::single_interval(key), self.data.len() - 1))
+    }
+
+    pub fn get(&self, key: K) -> Option<&D> {
+        let (_, base) = self.ranges.iter().find(|(r, _)| r.contains(key))?;
+        let target = key.index() - base;
+        Some(&self.data[target])
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{impl_index, maps::IndexedMap};
