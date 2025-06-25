@@ -7,7 +7,7 @@ component main(@go go: 1) -> (@done done: 1) {
     r0 = std_reg(32);
   }
   wires {
-    group a {
+    group a<"promotable"=1> {
       r0.write_en = 1'd1;
       r0.in = 32'd4;
       a[done] = r0.done;

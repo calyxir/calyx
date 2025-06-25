@@ -210,7 +210,15 @@ fn compute_path_descriptors_static(
     parent_is_component: bool,
 ) {
     match control {
-        ir::StaticControl::Repeat(_static_repeat) => todo!(),
+        ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
+            let body_id = format!("{}-b", current_id);
+            compute_path_descriptors_static(
+                body,
+                body_id,
+                path_descriptor_info,
+                false,
+            );
+        }
         ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
             let group_id = if parent_is_component {
                 // edge case: the entire control is just one static enable
@@ -344,8 +352,14 @@ fn compute_path_descriptors(
                 .enables
                 .insert(group_name.to_string(), group_id);
         }
-        ir::Control::Repeat(ir::Repeat { .. }) => {
-            todo!()
+        ir::Control::Repeat(ir::Repeat { body, .. }) => {
+            let body_id = format!("{}-b", current_id);
+            compute_path_descriptors(
+                body,
+                body_id,
+                path_descriptor_info,
+                false,
+            );
         }
         ir::Control::Static(static_control) => {
             compute_path_descriptors_static(
@@ -398,6 +412,9 @@ impl Visitor for UniquefyEnables {
             .borrow_mut()
             .assignments
             .append(&mut unique_group_assignments);
+        // copy over all attributes that were in the original group.
+        unique_group.borrow_mut().attributes =
+            s.group.borrow().attributes.clone();
         Ok(Action::Change(Box::new(ir::Control::enable(unique_group))))
     }
 
@@ -421,7 +438,9 @@ impl Visitor for UniquefyEnables {
         // a straight copy of the original group's assignments
         unique_group.borrow_mut().assignments =
             s.group.borrow().assignments.clone();
-
+        // copy over all attributes that were in the original group.
+        unique_group.borrow_mut().attributes =
+            s.group.borrow().attributes.clone();
         Ok(Action::Change(Box::new(ir::Control::static_enable(
             unique_group,
         ))))
