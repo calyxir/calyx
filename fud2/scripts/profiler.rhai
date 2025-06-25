@@ -46,8 +46,8 @@ fn profiler_non_synth_setup(e) {
 
 fn profiler_synth_setup(e) {
     // script to process vcd and produce folded representation of flame graph
-    e.config_var("hierarchy", "synth-verilog.hierachy-summary");
-    e.config_var("variable", "synth-verilog.variable");
+    e.config_var("hierarchy", "synth-verilog.hier");
+    e.config_var("variable", "synth-verilog.var");
     e.rule("parse-vcd", "profiler $in $cells $fsm-json $cell-share-json profiler-out $out --print-trace-threshold 100 --utilization-report-json $hierarchy --utilization-variable $variable");
 }
 

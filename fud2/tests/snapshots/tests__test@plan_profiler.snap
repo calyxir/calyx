@@ -26,9 +26,6 @@ edsl-args =
 component_cells = $calyx-base/target/debug/component_cells
 rule component-cells
   command = $component_cells -l $calyx-base $in > $out
-parse-vcd-script = $calyx-base/tools/profiler/profiler-process/main.py
-rule parse-vcd
-  command = python3 $parse-vcd-script $in $cells $fsm-json $cell-share-json profiler-out $out --print-trace-threshold 100
 flamegraph-script = /test/calyx/non-existent.script
 create-visuals-script = $calyx-base/tools/profiler/create-visuals.sh
 rule create-visuals
@@ -41,7 +38,10 @@ fileinfo_emitter = $calyx-base/target/debug/fileinfo_emitter
 rule parse-metadata
   command = $fileinfo_emitter -l $calyx-base $in > $metadata-mapping-json
 rule parse-vcd-from-adl
-  command = python3 $parse-vcd-script $in $cells $fsm-json $cell-share-json profiler-out $out --adl-mapping-file $metadata-mapping-json --print-trace-threshold 100
+  command = profiler $in $cells $fsm-json $cell-share-json profiler-out $out --adl-mapping-file $metadata-mapping-json --print-trace-threshold 100
+
+rule parse-vcd
+  command = profiler $in $cells $fsm-json $cell-share-json profiler-out $out --print-trace-threshold 100
 
 verilator = verilator
 cycle-limit = 500000000
