@@ -17,7 +17,6 @@ fn calyx_setup(e) {
        "calyx-cider",
        "$calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out",
    );
-   e.rule("copy", "cp $in $out");
 }
 
 op(
