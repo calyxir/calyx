@@ -4,7 +4,6 @@ import os
 import vcdvcd
 import json
 import pandas as pd
-import numpy as np
 import plotly.express as px
 from collections import Counter
 
