@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::{
@@ -72,9 +72,11 @@ impl Visitor for ProfilerInstrumentation {
             .iter()
             .map(|group| group.borrow().name())
             .collect::<Vec<_>>();
-        // Dynamic groups: iterate and check for structural enables and for cell invokes
+        // Dynamic groups: iterate and check for structural enables, cell invokes, and primitive enables
         for group_ref in comp.groups.iter() {
             let group = &group_ref.borrow();
+            // set to prevent adding multiple probes for a combinational primitive enabled by the group
+            let mut comb_primitives_covered = HashSet::new();
             let mut primitive_vec: Vec<(Id, ir::Guard<Nothing>)> = Vec::new();
             for assigment_ref in group.assignments.iter() {
                 let dst_borrow = assigment_ref.dst.borrow();
@@ -98,7 +100,7 @@ impl Visitor for ProfilerInstrumentation {
                                 );
                             }
                         }
-                        acc += 1; // really sad hack
+                        acc += 1; // really sad hack for obtaining the number of structural enables
                     }
                 }
                 if let ir::PortParent::Cell(cell_ref) = &dst_borrow.parent {
@@ -110,9 +112,14 @@ impl Visitor for ProfilerInstrumentation {
                             latency: _,
                         } => {
                             let cell_name = cell_ref.upgrade().borrow().name();
-                            // don't need to profile for combinational primitives, and if the port isn't a go port.
-                            if !is_comb & dst_borrow.has_attribute(NumAttr::Go)
-                            {
+                            if is_comb {
+                                // collecting primitives for area utilization; we want to avoid adding the same primitive twice!
+                                if comb_primitives_covered.insert(cell_name) {
+                                    primitive_vec
+                                        .push((cell_name, Guard::True));
+                                }
+                            } else if dst_borrow.has_attribute(NumAttr::Go) {
+                                // non-combinational primitives
                                 let guard = Guard::and(
                                     *(assigment_ref.guard.clone()),
                                     Guard::port(ir::rrc(
