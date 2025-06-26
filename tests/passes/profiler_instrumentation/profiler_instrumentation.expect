@@ -7,8 +7,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     lt_reg = std_reg(1);
     add = std_add(32);
     @control @generated @protected cond___main_group_probe = std_wire(1);
+    @control @generated @protected lt___cond___main_primitive_probe = std_wire(1);
     @control @generated @protected lt_reg___cond___main_primitive_probe = std_wire(1);
     @control @generated @protected incr___main_group_probe = std_wire(1);
+    @control @generated @protected add___incr___main_primitive_probe = std_wire(1);
     @control @generated @protected i___incr___main_primitive_probe = std_wire(1);
   }
   wires {
@@ -20,6 +22,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       lt_reg.write_en = 1'd1;
       cond[done] = lt_reg.done;
       cond___main_group_probe.in = 1'd1;
+      lt___cond___main_primitive_probe.in = 1'd1;
       lt_reg___cond___main_primitive_probe.in = 1'd1;
     }
     group incr<"static"=1> {
@@ -30,6 +33,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       i.write_en = 1'd1;
       incr[done] = i.done;
       incr___main_group_probe.in = 1'd1;
+      add___incr___main_primitive_probe.in = 1'd1;
       i___incr___main_primitive_probe.in = 1'd1;
     }
   }
