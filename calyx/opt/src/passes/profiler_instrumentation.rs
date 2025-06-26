@@ -35,6 +35,23 @@ impl ConstructVisitor for ProfilerInstrumentation {
     fn clear_data(&mut self) {}
 }
 
+fn combinational_group(comp: &mut ir::Component, sigs: &ir::LibrarySignatures) {
+    // groups to groups that they enabled
+    let mut structural_enable_map: HashMap<Id, Vec<(Id, ir::Guard<Nothing>)>> =
+        HashMap::new();
+    // groups to cells (from non-primitive components) that they invoked
+    let mut cell_invoke_map: HashMap<Id, Vec<Id>> = HashMap::new();
+    // groups to primitives that they invoked
+    let mut primitive_invoke_map: HashMap<Id, Vec<(Id, ir::Guard<Nothing>)>> =
+        HashMap::new();
+
+    let group_names = comp
+        .comb_groups
+        .iter()
+        .map(|group| group.borrow().name())
+        .collect::<Vec<_>>();
+}
+
 fn group(comp: &mut ir::Component, sigs: &ir::LibrarySignatures) {
     // groups to groups that they enabled
     let mut structural_enable_map: HashMap<Id, Vec<(Id, ir::Guard<Nothing>)>> =
