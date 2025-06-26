@@ -42,8 +42,8 @@ fn profiling_setup(e) {
 
 fn profiler_non_synth_setup(e) {
     // script to process vcd and produce folded representation of flame graph
-    e.rule("parse-vcd", "profiler $in $cells $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --print-trace-threshold 100");
-    e.rule("parse-vcd-from-adl", "profiler $in $cells $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --adl-mapping-file $metadata-mapping-json --print-trace-threshold 100");
+    e.rule("parse-vcd", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --print-trace-threshold 100");
+    e.rule("parse-vcd-from-adl", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --adl-mapping-file $metadata-mapping-json --print-trace-threshold 100");
 }
 
 fn profiler_synth_setup(e) {
@@ -52,7 +52,7 @@ fn profiler_synth_setup(e) {
     // synthesis variable to plot, one of: ff (FlipFlops), lut (Look-Up Tables), llut (Logical Look-Up Tables), lutram (Look-Up Table RAMs)
     e.config_var("variable", "synth-verilog.var");
     // script to process vcd and produce folded representation of flame graph as well as html plots
-    e.rule("parse-vcd", "profiler $in $cells $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --print-trace-threshold 100 --utilization-report-json $hierarchy --utilization-variable $variable");
+    e.rule("parse-vcd", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --print-trace-threshold 100 --utilization-report-json $hierarchy --utilization-variable $variable");
 }
 
 // TODO: merge with calyx_to_flamegraph

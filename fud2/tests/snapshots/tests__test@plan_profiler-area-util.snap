@@ -43,7 +43,7 @@ rule parse-metadata
 hierarchy = /test/calyx/non-existent.json
 variable = ff
 rule parse-vcd
-  command = profiler $in $cells $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --print-trace-threshold 100 --utilization-report-json $hierarchy --utilization-variable $variable
+  command = profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --print-trace-threshold 100 --utilization-report-json $hierarchy --utilization-variable $variable
 
 verilator = verilator
 cycle-limit = 500000000

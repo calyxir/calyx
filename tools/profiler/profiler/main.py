@@ -117,6 +117,7 @@ def create_visuals(
         p = Plotter(tracedata.trace)
         p.run_all(utilization_variable, out_dir)
 
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Analyze instrumented VCD file and generate initial files for visualizations"
@@ -169,7 +170,13 @@ def main():
     args = parse_args()
     print(f"Start time: {datetime.now()}")
 
-    cell_metadata, shared_cells_map, control_metadata, tracedata, enable_thread_metadata = setup_metadata(args)
+    (
+        cell_metadata,
+        control_metadata,
+        tracedata,
+        shared_cells_map,
+        enable_thread_metadata,
+    ) = setup_metadata(args)
 
     utilization: dict[str, dict] | None = None
     utilization_variable: str | None = None
