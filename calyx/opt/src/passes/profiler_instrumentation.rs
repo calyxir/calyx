@@ -75,6 +75,7 @@ impl Visitor for ProfilerInstrumentation {
         // Dynamic groups: iterate and check for structural enables, cell invokes, and primitive enables
         for group_ref in comp.groups.iter() {
             let group = &group_ref.borrow();
+            // set to prevent adding multiple probes for a combinational primitive enabled by the group
             let mut comb_primitives_covered = HashSet::new();
             let mut primitive_vec: Vec<(Id, ir::Guard<Nothing>)> = Vec::new();
             for assigment_ref in group.assignments.iter() {
@@ -111,13 +112,14 @@ impl Visitor for ProfilerInstrumentation {
                             latency: _,
                         } => {
                             let cell_name = cell_ref.upgrade().borrow().name();
-                            // don't need to profile for combinational primitives, and if the port isn't a go port.
                             if is_comb {
+                                // collecting primitives for area utilization; we want to avoid adding the same primitive twice!
                                 if comb_primitives_covered.insert(cell_name) {
                                     primitive_vec
                                         .push((cell_name, Guard::True));
                                 }
                             } else if dst_borrow.has_attribute(NumAttr::Go) {
+                                // non-combinational primitives
                                 let guard = Guard::and(
                                     *(assigment_ref.guard.clone()),
                                     Guard::port(ir::rrc(
