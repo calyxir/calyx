@@ -1,7 +1,7 @@
 import os
 
-from visuals import flame
-from classes import AdlMap, FlameMapMode, TraceData
+from profiler.visuals import flame
+from profiler.classes import AdlMap, FlameMapMode, TraceData
 
 
 def create_and_write_adl_map(tracedata: TraceData, adl_mapping_file: str, out_dir: str):

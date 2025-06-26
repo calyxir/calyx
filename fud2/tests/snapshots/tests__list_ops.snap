@@ -138,6 +138,11 @@ source: fud2/tests/tests.rs
         "flamegraph",
     ),
     (
+        "profiler-area-util",
+        "calyx",
+        "flamegraph",
+    ),
+    (
         "relay",
         "relay",
         "calyx",
