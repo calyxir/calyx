@@ -1,7 +1,7 @@
 import argparse
 from datetime import datetime
 import os
-from profiler.visuals.plots import Plotter
+from profiler.visuals.utilization_plots import Plotter
 import vcdvcd
 import json
 
