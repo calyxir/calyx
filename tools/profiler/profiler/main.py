@@ -1,14 +1,21 @@
 import argparse
 from datetime import datetime
 import os
+from profiler.visuals.plots import Plotter
 import vcdvcd
+import json
 
-import adl_mapping
-import construct_trace
-import preprocess
-from visuals import flame, timeline, stats
+import profiler.adl_mapping as adl_mapping
+import profiler.construct_trace as construct_trace
+import profiler.preprocess as preprocess
+from profiler.visuals import flame, timeline, stats
 
-from classes import CellMetadata, ControlMetadata, TraceData, ControlRegUpdateType
+from profiler.classes import (
+    CellMetadata,
+    ControlMetadata,
+    TraceData,
+    ControlRegUpdateType,
+)
 
 
 def setup_metadata(args):
@@ -41,6 +48,8 @@ def process_vcd(
     shared_cells_map: dict[str, dict[str, str]],
     control_metadata: ControlMetadata,
     tracedata: TraceData,
+    vcd_filename: str,
+    utilization: dict[str, dict] | None = None,
 ):
     """
     Wrapper function to process the VCD file to produce a trace.
@@ -48,17 +57,17 @@ def process_vcd(
     """
     print(f"Start reading VCD: {datetime.now()}")
     converter = construct_trace.VCDConverter(cell_metadata, control_metadata, tracedata)
-    vcdvcd.VCDVCD(args.vcd_filename, callbacks=converter)
+    vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
     print(f"Start Postprocessing VCD: {datetime.now()}")
 
-    converter.postprocess(shared_cells_map)
+    converter.postprocess(shared_cells_map, utilization)
     (
         control_groups_trace,
         control_reg_updates_per_cycle,
     ) = converter.postprocess_control()
     del converter
     tracedata.create_trace_with_control_groups(
-        control_groups_trace, cell_metadata, control_metadata
+        control_groups_trace, cell_metadata, control_metadata, utilization
     )
     print(f"End Postprocessing VCD: {datetime.now()}")
     print(f"End reading VCD: {datetime.now()}")
@@ -73,6 +82,8 @@ def create_visuals(
     enable_thread_metadata: dict[str, dict[str, int]],
     control_reg_updates_per_cycle: dict[int, ControlRegUpdateType],
     out_dir: str,
+    flame_out: str,
+    utilization_variable: str | None = None,
 ):
     """
     Wrapper function to compute statistics, write flame graphs, and write timeline view.
@@ -82,64 +93,31 @@ def create_visuals(
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
 
-    flame.create_simple_flame_graph(
-        tracedata, control_reg_updates_per_cycle, args.out_dir
-    )
-    stats.write_group_stats(cell_metadata, tracedata, args.out_dir)
+    flame.create_simple_flame_graph(tracedata, control_reg_updates_per_cycle, out_dir)
+    stats.write_group_stats(cell_metadata, tracedata, out_dir)
     stats.write_cell_stats(
         cell_metadata,
         control_metadata,
         tracedata,
-        args.out_dir,
+        out_dir,
     )
-    stats.write_par_stats(tracedata, args.out_dir)
+    stats.write_par_stats(tracedata, out_dir)
     print(f"End writing stats: {datetime.now()}")
 
     flat_flame_map, scaled_flame_map = flame.create_flame_maps(
         tracedata.trace_with_control_groups
     )
-    flame.write_flame_maps(
-        flat_flame_map, scaled_flame_map, args.out_dir, args.flame_out
-    )
+    flame.write_flame_maps(flat_flame_map, scaled_flame_map, out_dir, flame_out)
     print(f"End writing flame graphs: {datetime.now()}")
 
-    timeline.compute_timeline(
-        tracedata, cell_metadata, enable_thread_metadata, args.out_dir
-    )
+    timeline.compute_timeline(tracedata, cell_metadata, enable_thread_metadata, out_dir)
     print(f"End writing timeline view: {datetime.now()}")
 
+    if utilization_variable:
+        p = Plotter(tracedata.trace)
+        p.run_all(utilization_variable, out_dir)
 
-def main(args):
-    print(f"Start time: {datetime.now()}")
-
-    cell_metadata, control_metadata, tracedata, shared_cells_map, enable_tracks_data = (
-        setup_metadata(args)
-    )
-
-    control_reg_updates_per_cycle: dict[int, ControlRegUpdateType] = process_vcd(
-        cell_metadata, shared_cells_map, control_metadata, tracedata
-    )
-
-    tracedata.print_trace(threshold=args.print_trace_threshold, ctrl_trace=True)
-
-    create_visuals(
-        cell_metadata,
-        control_metadata,
-        tracedata,
-        enable_tracks_data,
-        control_reg_updates_per_cycle,
-        args.out_dir,
-    )
-
-    if args.adl_mapping_file is not None:  # emit ADL flame graphs.
-        adl_mapping.create_and_write_adl_map(
-            tracedata, args.adl_mapping_file, args.out_dir
-        )
-
-    print(f"End time: {datetime.now()}")
-
-
-if __name__ == "__main__":
+def parse_args():
     parser = argparse.ArgumentParser(
         description="Analyze instrumented VCD file and generate initial files for visualizations"
     )
@@ -162,6 +140,18 @@ if __name__ == "__main__":
     parser.add_argument("out_dir", help="Output directory")
     parser.add_argument("flame_out", help="Output file for flattened flame graph")
     parser.add_argument(
+        "--utilization-report-json",
+        dest="utilization_report_json",
+        help="utilization report json file",
+    )
+    parser.add_argument(
+        "--utilization-variable",
+        dest="utilization_variable",
+        help="utilization variable to visualize (default: %(default)s)",
+        default="ff",
+        choices=["ff", "lut", "llut", "lutram"],
+    )
+    parser.add_argument(
         "--adl-mapping-file", dest="adl_mapping_file", help="adl mapping file"
     )
     parser.add_argument(
@@ -172,4 +162,55 @@ if __name__ == "__main__":
         help="Print the trace to stdout if less than or equal to specified number of cycles",
     )
     args = parser.parse_args()
-    main(args)
+    return args
+
+
+def main():
+    args = parse_args()
+    print(f"Start time: {datetime.now()}")
+
+    cell_metadata, shared_cells_map, control_metadata, tracedata, enable_thread_metadata = setup_metadata(args)
+
+    utilization: dict[str, dict] | None = None
+    utilization_variable: str | None = None
+
+    if args.utilization_report_json is not None:
+        print("Utilization report mode enabled.")
+        with open(args.utilization_report_json) as f:
+            utilization = json.load(f)
+            map = {
+                "ff": "FFs",
+                "lut": "Total LUTs",
+                "llut": "Logic LUTs",
+                "lutram": "LUTRAMs",
+            }
+            utilization_variable = map[args.utilization_variable]
+
+    control_reg_updates_per_cycle: dict[int, ControlRegUpdateType] = process_vcd(
+        cell_metadata,
+        shared_cells_map,
+        control_metadata,
+        tracedata,
+        args.vcd_filename,
+        utilization,
+    )
+
+    tracedata.print_trace(threshold=args.print_trace_threshold, ctrl_trace=True)
+
+    create_visuals(
+        cell_metadata,
+        control_metadata,
+        tracedata,
+        enable_thread_metadata,
+        control_reg_updates_per_cycle,
+        args.out_dir,
+        args.flame_out,
+        utilization_variable,
+    )
+
+    if args.adl_mapping_file is not None:  # emit ADL flame graphs.
+        adl_mapping.create_and_write_adl_map(
+            tracedata, args.adl_mapping_file, args.out_dir
+        )
+
+    print(f"End time: {datetime.now()}")

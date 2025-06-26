@@ -5,6 +5,7 @@ import pandas as pd
 import plotly.express as px
 import argparse
 import re
+import json
 
 
 def summary(dir):
@@ -15,6 +16,25 @@ def summary(dir):
             PurePath("impl_1", "main_utilization_placed.rpt"),
             PurePath("impl_1", "main_timing_summary_routed.rpt"),
             PurePath("synth_1", "main_utilization_synth.rpt"),
+        )
+    )
+
+
+def flatten_tree(tree, prefix=""):
+    flat = {}
+    for name, node in tree.items():
+        fq_name = f"{prefix}.{name}" if prefix else name
+        flat[fq_name] = {k: v for k, v in node.items() if k != "children"}
+        if node.get("children"):
+            flat.update(flatten_tree(node["children"], fq_name))
+    return flat
+
+
+def hierarchy_summary(dir):
+    print(
+        json.dumps(
+            flatten_tree(create_tree(Path(dir, "hierarchical_utilization_placed.rpt"))),
+            indent=2,
         )
     )
 
@@ -94,10 +114,21 @@ def main():
         help="specify Vivado output directory (default: %(default)s)",
         default="out",
     )
+    summary_parser.add_argument(
+        "-m",
+        "--mode",
+        help="set summary mode (default: %(default)s)",
+        choices=["utilization", "hierarchy"],
+        default="utilization",
+    )
     args = parser.parse_args()
     match args.command:
         case "summary":
-            summary(args.directory)
+            match args.mode:
+                case "utilization":
+                    summary(args.directory)
+                case "hierarchy":
+                    hierarchy_summary(args.directory)
         case "viz":
             match args.type:
                 case "flamegraph":

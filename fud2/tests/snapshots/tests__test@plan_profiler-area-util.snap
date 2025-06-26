@@ -1,6 +1,6 @@
 ---
 source: fud2/tests/tests.rs
-description: "emit plan: profiler"
+description: "emit plan: profiler-area-util"
 snapshot_kind: text
 ---
 build-tool = fud2
@@ -40,10 +40,10 @@ fileinfo_emitter = $calyx-base/target/debug/fileinfo_emitter
 rule parse-metadata
   command = $fileinfo_emitter -l $calyx-base $in > $metadata-mapping-json
 
+hierarchy = /test/calyx/non-existent.json
+variable = ff
 rule parse-vcd
-  command = profiler $in $cells $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --print-trace-threshold 100
-rule parse-vcd-from-adl
-  command = profiler $in $cells $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --adl-mapping-file $metadata-mapping-json --print-trace-threshold 100
+  command = profiler $in $cells $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --print-trace-threshold 100 --utilization-report-json $hierarchy --utilization-variable $variable
 
 verilator = verilator
 cycle-limit = 500000000

@@ -93,6 +93,8 @@ impl InstaTest for Plan {
             .merge(("dahlia", "/test/bin/dahlia"))
             .merge(("jq.expr", "."))
             .merge(("flamegraph.script", "/test/calyx/non-existent.script"))
+            .merge(("synth-verilog.hier", "/test/calyx/non-existent.json"))
+            .merge(("synth-verilog.var", "ff"))
             .merge(("c0", "v1"));
         let run = Run::with_config(driver, self, config);
         let mut buf = vec![];

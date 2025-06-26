@@ -2,7 +2,7 @@ import json
 import os
 
 from dataclasses import dataclass
-from classes import (
+from profiler.classes import (
     TraceData,
     ControlRegUpdates,
     StackElementType,

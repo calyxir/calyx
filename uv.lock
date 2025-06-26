@@ -9,6 +9,7 @@ members = [
     "fud",
     "mrxl",
     "ntt-pipeline",
+    "profiler",
     "queues",
     "synthrep",
     "systolic-lang",
@@ -114,8 +115,8 @@ ntt = [
     { name = "ntt-pipeline" },
 ]
 profiler = [
+    { name = "profiler" },
     { name = "synthrep" },
-    { name = "vcdvcd" },
 ]
 queues = [
     { name = "queues" },
@@ -130,10 +131,10 @@ requires-dist = [
     { name = "fud", marker = "extra == 'fud2-scripts'", editable = "fud" },
     { name = "mrxl", marker = "extra == 'mrxl'", editable = "frontends/mrxl" },
     { name = "ntt-pipeline", marker = "extra == 'ntt'", virtual = "frontends/ntt-pipeline" },
+    { name = "profiler", marker = "extra == 'profiler'", editable = "tools/profiler" },
     { name = "queues", marker = "extra == 'queues'", editable = "frontends/queues" },
     { name = "synthrep", marker = "extra == 'profiler'", editable = "tools/report-parsing" },
     { name = "systolic-lang", marker = "extra == 'systolic'", virtual = "frontends/systolic-lang" },
-    { name = "vcdvcd", marker = "extra == 'profiler'" },
 ]
 provides-extras = ["ntt", "systolic", "mrxl", "queues", "profiler", "fud2-scripts"]
 
@@ -464,6 +465,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/99/b1/85e18ac92afd08c533603e3393977b6bc1443043115a47bb094f3b98f94f/prettytable-3.16.0.tar.gz", hash = "sha256:3c64b31719d961bf69c9a7e03d0c1e477320906a98da63952bc6698d6164ff57", size = 66276, upload-time = "2025-03-24T19:39:04.008Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/02/c7/5613524e606ea1688b3bdbf48aa64bafb6d0a4ac3750274c43b6158a390f/prettytable-3.16.0-py3-none-any.whl", hash = "sha256:b5eccfabb82222f5aa46b798ff02a8452cf530a352c31bddfa29be41242863aa", size = 33863, upload-time = "2025-03-24T19:39:02.359Z" },
+]
+
+[[package]]
+name = "profiler"
+source = { editable = "tools/profiler" }
+dependencies = [
+    { name = "pandas" },
+    { name = "plotly" },
+    { name = "vcdvcd" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pandas" },
+    { name = "plotly" },
+    { name = "vcdvcd" },
 ]
 
 [[package]]

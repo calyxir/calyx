@@ -3,12 +3,12 @@ requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "synthrep"
+name = "profiler"
 authors = [{ name = "The Calyx Authors" }]
 classifiers = ["License :: OSI Approved :: MIT License"]
 dynamic = ["version", "description"]
-dependencies = ["pandas", "plotly"]
+dependencies = ["vcdvcd", "pandas", "plotly"]
 readme = "README.md"
 
 [project.scripts]
-synthrep = "synthrep.cli:main"
+profiler = "profiler.main:main"

@@ -1,9 +1,10 @@
 import vcdvcd
 
-from classes import (
+from profiler.classes import (
     CellMetadata,
     ControlMetadata,
     CycleTrace,
+    UtilizationCycleTrace,
     TraceData,
     StackElement,
     StackElementType,
@@ -11,7 +12,7 @@ from classes import (
 )
 from dataclasses import dataclass
 from collections import defaultdict
-from errors import ProfilerException
+from profiler.errors import ProfilerException
 
 DELIMITER = "___"
 
@@ -165,7 +166,11 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         int_value
                     )
 
-    def postprocess(self, shared_cells_map: dict[str, dict[str, str]]):
+    def postprocess(
+        self,
+        shared_cells_map: dict[str, dict[str, str]],
+        utilization: dict[str, dict] | None = None,
+    ):
         """
         Postprocess data mapping timestamps to events (signal changes)
         We have to postprocess instead of processing signals in a stream because
@@ -317,11 +322,21 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         info_this_cycle["primitive-enable"][cell_name][
                             parent_group
                         ].add(primitive_name)
-                cycle_trace = create_cycle_trace(
-                    self.cell_metadata,
-                    info_this_cycle,
-                    shared_cells_map,
-                    True,
+                cycle_trace = (
+                    create_cycle_trace(
+                        self.cell_metadata,
+                        info_this_cycle,
+                        shared_cells_map,
+                        True,
+                    )
+                    if utilization is None
+                    else create_utilization_cycle_trace(
+                        self.cell_metadata,
+                        info_this_cycle,
+                        shared_cells_map,
+                        True,
+                        utilization,
+                    )
                 )  # True to track primitives
                 self.tracedata.trace[clock_cycles] = cycle_trace
         self.clock_cycles = (
@@ -486,6 +501,22 @@ def create_cycle_trace(
             stacks_this_cycle.append(elem_name_to_stack[elem])
 
     return CycleTrace(stacks_this_cycle)
+
+
+def create_utilization_cycle_trace(
+    cell_info: CellMetadata,
+    info_this_cycle: dict[str, str | dict[str, str]],
+    shared_cell_map: dict[str, dict[str, str]],
+    include_primitives: bool,
+    utilization: dict[str, dict],
+):
+    """
+    Creates a UtilizationCycleTrace object for stack elements in this cycle, computing the dependencies between them.
+    """
+    cycle_trace = create_cycle_trace(
+        cell_info, info_this_cycle, shared_cell_map, include_primitives
+    )
+    return UtilizationCycleTrace(utilization, cycle_trace.stacks)
 
 
 def add_control_enables(
