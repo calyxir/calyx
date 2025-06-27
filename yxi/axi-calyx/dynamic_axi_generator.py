@@ -5,10 +5,9 @@
 from calyx.builder import Builder, add_comp_ports, invoke, par, while_, if_
 from axi_controller_generator import add_control_subordinate
 from typing import Literal
-from math import log2, ceil
+from math import log2
 import argparse
 import json
-import sys
 
 parser = argparse.ArgumentParser("Config settings for AXI generation.")
 parser.add_argument(
@@ -51,7 +50,7 @@ def add_address_translator(prog: Builder, mem):
     address_mult = address_translator.const_mult(
         64, width_in_bytes(data_width), f"mul_{name}"
     )
-    pad_input_addr = address_translator.pad(address_width, 64, f"pad_input_addr")
+    pad_input_addr = address_translator.pad(address_width, 64, "pad_input_addr")
 
     # Assignment
     with address_translator.continuous:
@@ -571,7 +570,7 @@ def add_axi_dyn_mem(prog: Builder, mem):
     read_controller = axi_dyn_mem.cell(
         f"read_controller_{name}", prog.get_component(f"read_controller_{name}")
     )
-    write_controller = axi_dyn_mem.cell(
+    _write_controller = axi_dyn_mem.cell(
         f"write_controller_{name}", prog.get_component(f"write_controller_{name}")
     )
     base_addr_adder = axi_dyn_mem.add(64, f"base_addr_adder_{name}")
@@ -676,8 +675,8 @@ def add_wrapper_comp(prog, mems):
         (f"{prefix}ARADDR", 16),
         # ("ARPROT", 3), #We don't do anything with this
         (f"{prefix}RVALID", 1),
-        (f"ap_rst_n", 1),
-        (f"ap_clk", 1, ["clk"]),
+        ("ap_rst_n", 1),
+        ("ap_clk", 1, ["clk"]),
     ]
 
     wrapper_outputs = [
@@ -697,10 +696,10 @@ def add_wrapper_comp(prog, mems):
 
     if GENERATE_FOR_XILINX:
         control_subordinate = wrapper_comp.cell(
-            f"control_subordinate", prog.get_component("control_subordinate")
+            "control_subordinate", prog.get_component("control_subordinate")
         )
-        ap_start_block_reg = wrapper_comp.reg(1, f"ap_start_block_reg")
-        ap_done_reg = wrapper_comp.reg(1, f"ap_done_reg")
+        ap_start_block_reg = wrapper_comp.reg(1, "ap_start_block_reg")
+        ap_done_reg = wrapper_comp.reg(1, "ap_done_reg")
 
         with wrapper_comp.continuous:
             control_subordinate.ap_done_in = ap_done_reg.out
@@ -711,12 +710,12 @@ def add_wrapper_comp(prog, mems):
 
         # Ideally, it'd be nice to have this functionality included as part of
         # the control flow of the wrapper or perhaps the main_compute invocation?
-        with wrapper_comp.group(f"block_ap_start") as block_ap_start:
+        with wrapper_comp.group("block_ap_start") as block_ap_start:
             ap_start_block_reg.in_ = 1
             ap_start_block_reg.write_en = control_subordinate.ap_start
             block_ap_start.done = ap_start_block_reg.done
 
-        with wrapper_comp.group(f"assert_ap_done") as assert_ap_done:
+        with wrapper_comp.group("assert_ap_done") as assert_ap_done:
             ap_done_reg.in_ = 1
             ap_done_reg.write_en = 1
             assert_ap_done.done = ap_done_reg.done
@@ -792,7 +791,7 @@ def add_wrapper_comp(prog, mems):
 
             # Read controller portion inputs
             axi_mem["ARESETn"] = wrapper_comp.this()[
-                f"ap_rst_n"
+                "ap_rst_n"
             ]  # note that both styles work
             # wrapper_comp.this()[f"{mem_name}_ARESETn"] = axi_mem["ARESETn"] #note that both styles work
             axi_mem.ARREADY = wrapper_comp.this()[f"{prefixed_mem_name}_ARREADY"]
@@ -838,24 +837,24 @@ def add_wrapper_comp(prog, mems):
     if GENERATE_FOR_XILINX:
         control_subordinate_invoke = invoke(
             control_subordinate,
-            in_ARESETn=wrapper_comp.this()[f"ap_rst_n"],
-            in_AWVALID=wrapper_comp.this()[f"s_axi_control_AWVALID"],
-            in_AWADDR=wrapper_comp.this()[f"s_axi_control_AWADDR"],
-            in_WVALID=wrapper_comp.this()[f"s_axi_control_WVALID"],
-            in_WDATA=wrapper_comp.this()[f"s_axi_control_WDATA"],
-            in_WSTRB=wrapper_comp.this()[f"s_axi_control_WSTRB"],
-            in_BREADY=wrapper_comp.this()[f"s_axi_control_BREADY"],
-            in_ARVALID=wrapper_comp.this()[f"s_axi_control_ARVALID"],
-            in_ARADDR=wrapper_comp.this()[f"s_axi_control_ARADDR"],
-            in_RVALID=wrapper_comp.this()[f"s_axi_control_RVALID"],
-            out_AWREADY=wrapper_comp.this()[f"s_axi_control_AWREADY"],
-            out_WREADY=wrapper_comp.this()[f"s_axi_control_WREADY"],
-            out_BVALID=wrapper_comp.this()[f"s_axi_control_BVALID"],
-            out_BRESP=wrapper_comp.this()[f"s_axi_control_BRESP"],
-            out_ARREADY=wrapper_comp.this()[f"s_axi_control_ARREADY"],
-            out_RDATA=wrapper_comp.this()[f"s_axi_control_RDATA"],
-            out_RREADY=wrapper_comp.this()[f"s_axi_control_RREADY"],
-            out_RRESP=wrapper_comp.this()[f"s_axi_control_RRESP"],
+            in_ARESETn=wrapper_comp.this()["ap_rst_n"],
+            in_AWVALID=wrapper_comp.this()["s_axi_control_AWVALID"],
+            in_AWADDR=wrapper_comp.this()["s_axi_control_AWADDR"],
+            in_WVALID=wrapper_comp.this()["s_axi_control_WVALID"],
+            in_WDATA=wrapper_comp.this()["s_axi_control_WDATA"],
+            in_WSTRB=wrapper_comp.this()["s_axi_control_WSTRB"],
+            in_BREADY=wrapper_comp.this()["s_axi_control_BREADY"],
+            in_ARVALID=wrapper_comp.this()["s_axi_control_ARVALID"],
+            in_ARADDR=wrapper_comp.this()["s_axi_control_ARADDR"],
+            in_RVALID=wrapper_comp.this()["s_axi_control_RVALID"],
+            out_AWREADY=wrapper_comp.this()["s_axi_control_AWREADY"],
+            out_WREADY=wrapper_comp.this()["s_axi_control_WREADY"],
+            out_BVALID=wrapper_comp.this()["s_axi_control_BVALID"],
+            out_BRESP=wrapper_comp.this()["s_axi_control_BRESP"],
+            out_ARREADY=wrapper_comp.this()["s_axi_control_ARREADY"],
+            out_RDATA=wrapper_comp.this()["s_axi_control_RDATA"],
+            out_RREADY=wrapper_comp.this()["s_axi_control_RREADY"],
+            out_RRESP=wrapper_comp.this()["s_axi_control_RRESP"],
         )
 
         # Compiler should reschedule these 2 seqs to be in parallel right?
