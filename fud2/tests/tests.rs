@@ -90,6 +90,7 @@ impl InstaTest for Plan {
             .merge(("xilinx.vivado", "/test/xilinx/vivado"))
             .merge(("xilinx.vitis", "/test/xilinx/vitis"))
             .merge(("xilinx.xrt", "/test/xilinx/xrt"))
+            .merge(("yxi.file", "/test/yxi/file"))
             .merge(("dahlia", "/test/bin/dahlia"))
             .merge(("jq.expr", "."))
             .merge(("flamegraph.script", "/test/calyx/non-existent.script"))
