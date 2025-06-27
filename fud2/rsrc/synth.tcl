@@ -51,4 +51,5 @@ wait_on_run impl_1
 # Obtain hierarchical report on resource utilization                                                                                                                                   
 open_run impl_1
 report_utilization -hierarchical -file $outdir/hierarchical_utilization_placed.rpt
+report_timing -file $outdir/main_timing_report.rpt
 close_design
