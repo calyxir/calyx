@@ -398,19 +398,26 @@ impl<K: IndexRef + Ord, D> Default for SemiContiguousSecondaryMap<K, D> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{impl_index, maps::IndexedMap};
+    use std::collections::BTreeSet;
+
+    use crate::{IndexRef, impl_index, maps::IndexedMap};
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    struct MyIdx(u32);
+    impl_index!(MyIdx);
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct MyData {
+        number: usize,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct MySecondaryData {
+        number: usize,
+    }
 
     #[test]
     fn test_split_mut() {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-        struct MyIdx(u32);
-        impl_index!(MyIdx);
-
-        #[derive(Debug, Clone, PartialEq, Eq)]
-        struct MyData {
-            number: usize,
-        }
-
         let mut data_map: IndexedMap<MyIdx, MyData> = IndexedMap::new();
 
         for i in 0_usize..4000 {
@@ -439,5 +446,49 @@ mod tests {
 
         assert_eq!(first_mut.number, 7001);
         assert_eq!(second_mut.number, 7002);
+    }
+
+    use proptest::prelude::*;
+
+    fn make_map(count: usize) -> IndexedMap<MyIdx, MyData> {
+        let mut map = IndexedMap::new();
+        for i in 0..count {
+            map.push(MyData { number: i });
+        }
+        map
+    }
+
+    fn counts(max: usize) -> impl Strategy<Value = (usize, BTreeSet<usize>)> {
+        (2..max).prop_flat_map(|count| {
+            (
+                Just(count),
+                prop::collection::btree_set(0..count, 1..=(count / 2)),
+            )
+        })
+    }
+
+    proptest! {
+        #[test]
+        fn test_semi_map(
+            (count, sparse_entries) in counts(5000)
+        ) {
+            let map = make_map(count);
+            let mut semi_map = super::SemiContiguousSecondaryMap::<MyIdx, MySecondaryData>::new();
+
+            for entry in sparse_entries.iter() {
+                let idx = MyIdx::from(*entry);
+                semi_map.monotonic_insert(idx, MySecondaryData { number: *entry });
+            }
+
+            for entry in map.keys() {
+                if sparse_entries.contains(&entry.index()) {
+                    let data = semi_map.get(entry).unwrap();
+                    assert_eq!(data, &MySecondaryData { number: entry.index() });
+                } else {
+                    assert!(semi_map.get(entry).is_none());
+                }
+
+            }
+        }
     }
 }
