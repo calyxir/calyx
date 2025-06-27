@@ -41,13 +41,11 @@ impl ConstructVisitor for ProfilerInstrumentation {
 /// Creates probe cells and assignments pertaining to standard groups.
 fn group(comp: &mut ir::Component, sigs: &ir::LibrarySignatures) {
     // groups to groups that they enabled
-    let mut structural_enable_map: HashMap<Id, Vec<(Id, ir::Guard<Nothing>)>> =
-        HashMap::new();
+    let mut structural_enable_map: CallsFromGroupMap<Nothing> = HashMap::new();
     // groups to cells (from non-primitive components) that they invoked
-    let mut cell_invoke_map: HashMap<Id, Vec<Id>> = HashMap::new();
+    let mut cell_invoke_map: CallsFromGroupMap<Nothing> = HashMap::new();
     // groups to primitives that they invoked
-    let mut primitive_invoke_map: HashMap<Id, Vec<(Id, ir::Guard<Nothing>)>> =
-        HashMap::new();
+    let mut primitive_invoke_map: CallsFromGroupMap<Nothing> = HashMap::new();
     let group_names = comp
         .groups
         .iter()
@@ -108,13 +106,16 @@ fn group(comp: &mut ir::Component, sigs: &ir::LibrarySignatures) {
                     calyx_ir::CellType::Component { name: _ } => {
                         if dst_borrow.has_attribute(NumAttr::Go) {
                             let cell_name = cell_ref.upgrade().borrow().name();
+                            let guard = *(assignment_ref.guard.clone());
                             match cell_invoke_map.get_mut(&group.name()) {
                                 Some(vec_ref) => {
-                                    vec_ref.push(cell_name);
+                                    vec_ref.push((cell_name, guard));
                                 }
                                 None => {
-                                    cell_invoke_map
-                                        .insert(group.name(), vec![cell_name]);
+                                    cell_invoke_map.insert(
+                                        group.name(),
+                                        vec![(cell_name, guard)],
+                                    );
                                 }
                             }
                         }
@@ -152,10 +153,9 @@ fn combinational_group(comp: &mut ir::Component, sigs: &ir::LibrarySignatures) {
     // NOTE: combinational groups cannot structurally enable other groups
 
     // groups to cells (from non-primitive components) that they invoked
-    let mut cell_invoke_map: HashMap<Id, Vec<Id>> = HashMap::new();
+    let mut cell_invoke_map: CallsFromGroupMap<Nothing> = HashMap::new();
     // groups to primitives that they invoked
-    let mut primitive_invoke_map: HashMap<Id, Vec<(Id, ir::Guard<Nothing>)>> =
-        HashMap::new();
+    let mut primitive_invoke_map: CallsFromGroupMap<Nothing> = HashMap::new();
 
     let group_names = comp
         .comb_groups
@@ -213,13 +213,16 @@ fn combinational_group(comp: &mut ir::Component, sigs: &ir::LibrarySignatures) {
                                 group.name()
                             );
                         } else if comb_cells_covered.insert(cell_name) {
+                            let guard = *(assignment_ref.guard.clone());
                             match cell_invoke_map.get_mut(&group.name()) {
                                 Some(vec_ref) => {
-                                    vec_ref.push(cell_name);
+                                    vec_ref.push((cell_name, guard));
                                 }
                                 None => {
-                                    cell_invoke_map
-                                        .insert(group.name(), vec![cell_name]);
+                                    cell_invoke_map.insert(
+                                        group.name(),
+                                        vec![(cell_name, guard)],
+                                    );
                                 }
                             }
                         }
@@ -285,7 +288,7 @@ fn create_assignments<T: Clone>(
     sigs: &ir::LibrarySignatures,
     group_names: &[Id],
     structural_enable_map_opt: Option<CallsFromGroupMap<T>>,
-    cell_invoke_map_opt: Option<HashMap<Id, Vec<Id>>>,
+    cell_invoke_map_opt: Option<CallsFromGroupMap<T>>,
     primitive_invoke_map_opt: Option<CallsFromGroupMap<T>>,
 ) -> Vec<(
     Id,
@@ -356,7 +359,7 @@ fn create_assignments<T: Clone>(
     if let Some(cell_invoke_map) = cell_invoke_map_opt {
         // probe cell and assignments for structural cell invocations (the group is structurally invoking a cell.)
         for (invoker_group, invoked_cells) in cell_invoke_map.iter() {
-            for invoked_cell in invoked_cells {
+            for (invoked_cell, guard) in invoked_cells {
                 let probe_cell_name = format!(
                     "{}{}{}{}{}_cell_probe",
                     invoked_cell,
@@ -375,7 +378,7 @@ fn create_assignments<T: Clone>(
                 let probe_asgn: ir::Assignment<T> = builder.build_assignment(
                     probe_cell.borrow().get("in"),
                     one.borrow().get("out"),
-                    Guard::True,
+                    guard.clone(),
                 );
                 group_name_assign_and_cell.push((
                     *invoker_group,
