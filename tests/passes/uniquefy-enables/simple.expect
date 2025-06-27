@@ -1,0 +1,52 @@
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r0 = std_reg(32);
+  }
+  wires {
+    group a<"promotable"=1> {
+      r0.write_en = 1'd1;
+      r0.in = 32'd4;
+      a[done] = r0.done;
+    }
+    group aUG<"promotable"=1> {
+      r0.write_en = 1'd1;
+      r0.in = 32'd4;
+      aUG[done] = r0.done;
+    }
+    group aUG0<"promotable"=1> {
+      r0.write_en = 1'd1;
+      r0.in = 32'd4;
+      aUG0[done] = r0.done;
+    }
+    group aUG1<"promotable"=1> {
+      r0.write_en = 1'd1;
+      r0.in = 32'd4;
+      aUG1[done] = r0.done;
+    }
+  }
+  control {
+    seq {
+      aUG;
+      aUG0;
+      aUG1;
+    }
+  }
+}
+---STDERR---
+{
+  "main": {
+    "enables": {
+      "aUG": "main.-0",
+      "aUG0": "main.-1",
+      "aUG1": "main.-2"
+    },
+    "pars": []
+  }
+}{
+  "main": {
+    "aUG": 0,
+    "aUG0": 0,
+    "aUG1": 0
+  }
+}

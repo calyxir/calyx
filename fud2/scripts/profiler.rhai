@@ -6,9 +6,12 @@ import "rtl_sim" as sim;
 export const flamegraph = state("flamegraph", ["svg"]);
 
 fn profiling_setup(e) {
-    e.var_("cells", "cells.json");
+    // files produced via compiler + tools that will be used in postprocessing
+    e.var_("cell-json", "cells.json");
     e.var_("fsm-json", "fsm.json");
     e.var_("cell-share-json", "shared-cells.json");
+    e.var_("enable-par-track-json", "enable-par-track.json");
+
     // series of passes after validation and instrumentation
     e.config_var_or("passes", "profiler.compilation-passes", "-p pre-opt -p compile -p post-opt -p lower"); // set passes="-p compile-sync -p simplify-with-control -p compile-invoke -p compile -p lower" to run without optimizations
 
@@ -39,8 +42,8 @@ fn profiling_setup(e) {
 
 fn profiler_non_synth_setup(e) {
     // script to process vcd and produce folded representation of flame graph
-    e.rule("parse-vcd", "profiler $in $cells $fsm-json $cell-share-json profiler-out $out --print-trace-threshold 100");
-    e.rule("parse-vcd-from-adl", "profiler $in $cells $fsm-json $cell-share-json profiler-out $out --adl-mapping-file $metadata-mapping-json --print-trace-threshold 100");
+    e.rule("parse-vcd", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --print-trace-threshold 100");
+    e.rule("parse-vcd-from-adl", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --adl-mapping-file $metadata-mapping-json --print-trace-threshold 100");
 }
 
 fn profiler_synth_setup(e) {
@@ -49,7 +52,7 @@ fn profiler_synth_setup(e) {
     // synthesis variable to plot, one of: ff (FlipFlops), lut (Look-Up Tables), llut (Logical Look-Up Tables), lutram (Look-Up Table RAMs)
     e.config_var("variable", "synth-verilog.var");
     // script to process vcd and produce folded representation of flame graph as well as html plots
-    e.rule("parse-vcd", "profiler $in $cells $fsm-json $cell-share-json profiler-out $out --print-trace-threshold 100 --utilization-report-json $hierarchy --utilization-variable $variable");
+    e.rule("parse-vcd", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --print-trace-threshold 100 --utilization-report-json $hierarchy --utilization-variable $variable");
 }
 
 // TODO: merge with calyx_to_flamegraph
@@ -63,11 +66,11 @@ fn edsl_to_flamegraph(e, input, output) {
 
     // instrument calyx and produce verilog
     let instrumented_verilog = "instrumented.sv";
-    e.build_cmd(["$cells"], "component-cells", [calyx], []);
+    e.build_cmd(["$cell-json"], "component-cells", [calyx], []);
     e.build_cmd([instrumented_verilog], "calyx", [calyx], []);
     e.arg("backend", "verilog");
     // NOTE: disabling group2seq because it may cause cycle count differences btwn profiled vs non-profiled versions.
-    e.arg("args", "-d group2seq -p validate -p compile-invoke -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json");
+    e.arg("args", "-d group2seq -p validate -p compile-invoke -p uniquefy-enables -p profiler-instrumentation -p dead-group-removal $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json");
 
     let instrumented_sim = "instrumented.exe";
     // verilog --> sim; adapted from verilator::verilator_build()
@@ -96,18 +99,18 @@ fn edsl_to_flamegraph(e, input, output) {
     // vcd --> flamegraph
     let elems_profiled_json = "elems-profiled.json";
     let flamegraph_folded = "flamegraph.folded";
-    e.build_cmd([flamegraph_folded], "parse-vcd-from-adl", [instrumented_vcd], ["$cells", "$metadata-mapping-json"]);
+    e.build_cmd([flamegraph_folded], "parse-vcd-from-adl", [instrumented_vcd], ["$cell-json", "$metadata-mapping-json"]);
     e.build_cmd([output], "create-visuals", [flamegraph_folded], []);
 }
 
 fn calyx_to_flamegraph(e, input, output) {
     // instrument calyx and produce verilog
     let instrumented_verilog = "instrumented.sv";
-    e.build_cmd(["$cells"], "component-cells", [input], []);
+    e.build_cmd(["$cell-json"], "component-cells", [input], []);
     e.build_cmd([instrumented_verilog], "calyx", [input], []);
     e.arg("backend", "verilog");
     // NOTE: disabling group2seq because it may cause cycle count differences btwn profiled vs non-profiled versions.
-    e.arg("args", "-d group2seq -p validate -p compile-invoke -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json");
+    e.arg("args", "-d group2seq -p validate -p compile-invoke -p uniquefy-enables -p profiler-instrumentation -p dead-group-removal $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json");
 
     let instrumented_sim = "instrumented.exe";
     // verilog --> sim; adapted from verilator::verilator_build()
@@ -136,7 +139,7 @@ fn calyx_to_flamegraph(e, input, output) {
     // vcd --> flamegraph
     let elems_profiled_json = "elems-profiled.json";
     let flamegraph_folded = "flamegraph.folded";
-    e.build_cmd([flamegraph_folded], "parse-vcd", [instrumented_vcd], ["$cells"]);
+    e.build_cmd([flamegraph_folded], "parse-vcd", [instrumented_vcd], ["$cell-json"]);
     e.build_cmd([output], "create-visuals", [flamegraph_folded], []);
 }
 

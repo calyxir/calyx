@@ -29,6 +29,7 @@ mod static_inference;
 mod static_inliner;
 mod static_promotion;
 mod static_repeat_fsm_allocation;
+mod uniquefy_enables;
 
 // mod simplify_guards;
 mod add_guard;
@@ -78,6 +79,7 @@ pub use static_inference::StaticInference;
 pub use static_inliner::StaticInliner;
 pub use static_promotion::StaticPromotion;
 pub use static_repeat_fsm_allocation::StaticRepeatFSMAllocation;
+pub use uniquefy_enables::UniquefyEnables;
 pub use unroll_bound::UnrollBounded;
 // pub use simplify_guards::SimplifyGuards;
 pub use add_guard::AddGuard;

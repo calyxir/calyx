@@ -53,7 +53,7 @@ def create_group_summaries(cell_metadata: CellMetadata, tracedata: TraceData):
     # groups that are active until the end
     for still_active_group in currently_active_to_start:
         start_cycle = currently_active_to_start[still_active_group]
-        group_summaries[group_id].register_interval(
+        group_summaries[still_active_group].register_interval(
             range(start_cycle, len(tracedata.trace))
         )
 
