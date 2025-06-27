@@ -178,8 +178,11 @@ impl StaticSchedule<'_, '_> {
             self.build_fsm_pieces(ir::RRC::clone(&fsm));
 
         if non_promoted_static_component {
-            // If the component is static by design, there will be exactly one
-            // FSM allocated to it. We will get rid of the FSMEnable node from the
+            // If the component is itself static<n>, there will be a super, parent
+            // FSM that is expected to reset to state 0 exactly at cycle <n>
+            // (the component is active during exactly [0..n-1]).
+            //
+            // We will get rid of the FSMEnable node from the
             // control in this case, so we need to manually add fsm[start] = comp[go]
             // because wire-inliner will not get to it.
 
@@ -202,10 +205,14 @@ impl StaticSchedule<'_, '_> {
             // In this case, the component is either a promoted static component
             // or the control is a static island that needs to handshake with its
             // surrounding dynamic context. In either event, we want to assign
-            // fsm[done] to maintain the dynamic interface. We'll do this in state 0:
+            // fsm[done] to maintain the dynamic interface. We'll do this in state 0
+            // because the FSM controlling a static schedule cannot spend another
+            // cycle in a separate DONE state (e.g. what if the static schedule is
+            // invoked back-to-back in a repeat? The extra DONE state would push
+            // the schedule one cycle back for every iteration.)
 
-            // register to store whether the FSM has been run exactly one time when
-            // we return to state 0
+            // This register stores whether the FSM has been run exactly one time when
+            // we return to state 0.
             let looped_once: ir::RRC<ir::Cell> =
                 self.builder.add_primitive("looped_once", "std_reg", &[1]);
 

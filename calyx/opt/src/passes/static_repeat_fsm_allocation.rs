@@ -1,9 +1,10 @@
 use crate::analysis::{IncompleteTransition, StaticSchedule};
 use crate::traversal::{Action, ConstructVisitor, Named, Visitor};
-use calyx_ir::{self as ir, BoolAttr, GetAttributes};
+use calyx_ir::{self as ir, BoolAttr, GetAttributes, StaticControl};
 use calyx_utils::CalyxResult;
 use core::ops::Not;
 use itertools::Itertools;
+use std::collections::VecDeque;
 
 pub struct StaticRepeatFSMAllocation {}
 
@@ -243,7 +244,6 @@ impl Visitor for StaticRepeatFSMAllocation {
 
         // make sure [start] for each FSM is pulsed at most once, at the first
         // cycle
-
         let trigger_fsms = trigger_fsms_with_branch_latency
             .into_iter()
             .map(|(mut assign, latency)| {
@@ -319,34 +319,8 @@ impl Visitor for StaticRepeatFSMAllocation {
         let signal_on = builder.add_constant(1, 1);
         let repeat_group = builder.add_static_group("repeat", s.latency);
         let mut sch_generator = StaticSchedule::from(&mut builder);
-        // let trigger_fsm = if !one_state_exists(&s.body) {
-        let trigger_fsm = if false {
-            // If there are no states that loop in place (i.e. that have registers
-            // and adders to count latency), then we can unroll the repeat because
-            // we won't then generate a lot of these resources.
 
-            // Replace the static repeat node with a dummy node so we can create a
-            // StaticControl instance to pass into `construct_schedule`
-            let dummy_repeat = ir::StaticRepeat {
-                attributes: ir::Attributes::default(),
-                body: Box::new(ir::StaticControl::empty()),
-                num_repeats: 0,
-                latency: 0,
-            };
-
-            let repeat_node = std::mem::replace(s, dummy_repeat);
-            let sc_wrapper = ir::StaticControl::Repeat(repeat_node);
-            let fsm = sch_generator.build_fsm(&sc_wrapper);
-            let mut trigger_thread = builder.build_assignment(
-                fsm.borrow().get("start"),
-                signal_on.borrow().get("out"),
-                ir::Guard::True,
-            );
-            trigger_thread
-                .guard
-                .add_interval(ir::StaticTiming::new((0, 1)));
-            trigger_thread
-        } else {
+        let trigger_fsm = {
             // This FSM implements the schedule for the body of the repeat
             let fsm = sch_generator.build_fsm(&s.body);
 
@@ -369,6 +343,7 @@ impl Visitor for StaticRepeatFSMAllocation {
             group: repeat_group,
             attributes: ir::Attributes::default(),
         });
+
         enable
             .get_mut_attributes()
             .insert(ir::BoolAttr::OneState, 1);

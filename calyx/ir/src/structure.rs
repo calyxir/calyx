@@ -621,6 +621,18 @@ pub enum Transition {
     Conditional(Vec<(Guard<Nothing>, u64)>),
 }
 
+///
+/// fsm {
+///     0 {} => {
+///         [wire1] ? -> 1
+///         [wire2] ? -> 2
+///         NOT THIS --> ![wire1] && ![wire2] -> 0 XXX
+///         THIS -> 1'd1 -> 0
+///     }
+///     ...
+/// }
+///
+
 impl Transition {
     pub fn new_uncond(s: u64) -> Self {
         Self::Unconditional(s)

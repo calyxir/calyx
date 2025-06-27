@@ -139,10 +139,10 @@ impl FSMCallGraph {
             .iter()
             .map(|(fsm, states)| {
                 let compacted_callees = states
-                    .into_iter()
+                    .iter()
                     .map(|(state, callees)| {
                         let (lockstep_fsms, mut self_looping_fsms) =
-                            callees.into_iter().partition(|callee| {
+                            callees.iter().partition(|callee| {
                                 self.id2fsm
                                     .get(callee)
                                     .unwrap()
@@ -166,7 +166,7 @@ impl FSMCallGraph {
                         }
                     })
                     .collect();
-                (fsm.clone(), compacted_callees)
+                (*fsm, compacted_callees)
             })
             .collect();
 
