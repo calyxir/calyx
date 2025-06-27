@@ -8,8 +8,8 @@ use std::{
 
 use crate::flatten::{
     flat_ir::{
-        indexes::{AssignmentIdx, AssignmentWinner, GlobalCellIdx},
         component::AssignmentDefinitionLocation,
+        indexes::{AssignmentIdx, AssignmentWinner, GlobalCellIdx},
         prelude::ControlIdx,
     },
     structures::{
@@ -299,7 +299,7 @@ fn format_assignment_location<C: Clone + AsRef<Context>>(
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct ClockMap {
     clocks: IndexedMap<ClockIdx, VectorClock<ThreadIdx>>,
     reverse_map: HashMap<ClockPair, ClockPairInfo>,
@@ -308,7 +308,14 @@ pub struct ClockMap {
 
 impl ClockMap {
     pub fn new() -> Self {
-        Self::default()
+        let mut map = Self {
+            clocks: IndexedMap::default(),
+            reverse_map: HashMap::default(),
+            extra_info: SecondarySparseMap::default(),
+        };
+        // generate the invalid zero clock
+        map.new_clock();
+        map
     }
 
     /// pushes a new clock into the map and returns its index
@@ -454,20 +461,15 @@ impl Counter for u128 {
     }
 }
 
-/// If the clock map is provided, use it to create a new clock. Otherwise,
-/// return the 0th clock idx.
+/// Generate a new clock pair in the provided clock_map
 pub fn new_clock_pair(
-    clock_map: &mut Option<&mut ClockMap>,
+    clock_map: &mut ClockMap,
     cell: GlobalCellIdx,
     entry_number: Option<u32>,
 ) -> ClockPair {
-    if let Some(map) = clock_map {
-        let pair = map.new_clock_pair();
-        map.insert_reverse_entry(pair, cell, entry_number);
-        pair
-    } else {
-        ClockPair::zero()
-    }
+    let pair = clock_map.new_clock_pair();
+    clock_map.insert_reverse_entry(pair, cell, entry_number);
+    pair
 }
 
 /// A simple vector clock implementation.
@@ -707,6 +709,13 @@ impl ValueWithClock {
 pub struct ClockPair {
     pub read_clock: ClockIdx,
     pub write_clock: ClockIdx,
+}
+
+impl Default for ClockPair {
+    /// Returns the zero clock pair, which does not correspond to a valid clock
+    fn default() -> Self {
+        Self::zero()
+    }
 }
 
 impl ClockPair {

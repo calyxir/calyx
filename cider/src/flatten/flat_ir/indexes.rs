@@ -113,6 +113,10 @@ impl_index!(LocalCellOffset);
 pub struct LocalRefCellOffset(u32);
 impl_index!(LocalRefCellOffset);
 
+#[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
+pub struct MemoryLocation(u32);
+impl_index!(MemoryLocation);
+
 /// Enum used in assignments to encapsulate the different types of port
 /// references these are always relative to a component's base-point and must be
 /// converted to global references when used.

@@ -1,7 +1,11 @@
 use baa::BitVecValue;
-use cider_idx::{IndexRef, iter::IndexRange, maps::IndexedMap};
-use std::collections::HashMap;
-use std::fmt::Debug;
+use cider_idx::{
+    IndexRef,
+    iter::IndexRange,
+    maps::{IndexedMap, SemiContiguousSecondaryMap},
+};
+use std::{collections::HashMap, ops::Index};
+use std::{fmt::Debug, ops::IndexMut};
 
 use crate::{
     errors::{ConflictingAssignments, RuntimeError, RuntimeResult},
@@ -9,8 +13,8 @@ use crate::{
         flat_ir::indexes::{
             AssignedValue, AssignmentIdx, AssignmentWinner, BaseIndices,
             CellRef, ComponentIdx, GlobalCellIdx, GlobalCellRef, GlobalPortIdx,
-            GlobalPortRef, GlobalRefCellIdx, GlobalRefPortIdx, PortRef,
-            PortValue,
+            GlobalPortRef, GlobalRefCellIdx, GlobalRefPortIdx, MemoryLocation,
+            PortRef, PortValue,
         },
         primitives::{
             Primitive,
@@ -20,7 +24,10 @@ use crate::{
     },
 };
 
-use super::Environment;
+use super::{
+    Environment,
+    clock::{ClockMap, ClockPair, ValueWithClock, new_clock_pair},
+};
 
 #[derive(Debug, Clone)]
 pub struct PortMap(IndexedMap<GlobalPortIdx, PortValue>);
@@ -331,5 +338,71 @@ impl PinnedPorts {
 
     pub fn remove(&mut self, port: GlobalPortIdx) {
         self.map.remove(&port);
+    }
+}
+
+pub(crate) type MemoryRegion = IndexRange<MemoryLocation>;
+
+pub struct MemoryMap {
+    data: IndexedMap<MemoryLocation, BitVecValue>,
+    clocks: SemiContiguousSecondaryMap<MemoryLocation, ClockPair>,
+}
+
+impl IndexMut<MemoryLocation> for MemoryMap {
+    fn index_mut(&mut self, index: MemoryLocation) -> &mut Self::Output {
+        &mut self.data[index]
+    }
+}
+
+impl Index<MemoryLocation> for MemoryMap {
+    type Output = BitVecValue;
+
+    fn index(&self, index: MemoryLocation) -> &Self::Output {
+        &self.data[index]
+    }
+}
+
+impl MemoryMap {
+    pub fn new() -> Self {
+        Self {
+            data: IndexedMap::new(),
+            clocks: SemiContiguousSecondaryMap::new(),
+        }
+    }
+
+    pub fn push_clockless(&mut self, val: BitVecValue) -> MemoryLocation {
+        self.data.push(val)
+    }
+
+    pub fn push_clocked(
+        &mut self,
+        val: BitVecValue,
+        clock: ClockPair,
+    ) -> MemoryLocation {
+        let mem_loc = self.data.push(val);
+        self.clocks.monotonic_insert(mem_loc, clock);
+        mem_loc
+    }
+
+    pub fn get_clock(&self, key: MemoryLocation) -> Option<ClockPair> {
+        self.clocks.get(key).copied()
+    }
+
+    pub fn get_clock_or_default(&self, key: MemoryLocation) -> ClockPair {
+        self.clocks.get(key).copied().unwrap_or_default()
+    }
+
+    pub fn allocate_memory_location(
+        &mut self,
+        val: BitVecValue,
+        cell: GlobalCellIdx,
+        entry: Option<u32>,
+        clock_map: &mut Option<&mut ClockMap>,
+    ) -> MemoryLocation {
+        if let Some(clock) = clock_map {
+            self.push_clocked(val, new_clock_pair(clock, cell, entry))
+        } else {
+            self.push_clockless(val)
+        }
     }
 }

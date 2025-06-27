@@ -3,7 +3,7 @@ use crate::{
     flatten::{
         flat_ir::indexes::GlobalPortIdx,
         structures::{
-            environment::{PortMap, clock::ClockMap},
+            environment::{MemoryMap, PortMap, clock::ClockMap},
             thread::ThreadMap,
         },
     },
@@ -106,11 +106,19 @@ impl std::ops::BitOrAssign for UpdateStatus {
 pub type UpdateResult = RuntimeResult<UpdateStatus>;
 
 pub trait Primitive {
-    fn exec_comb(&self, _port_map: &mut PortMap) -> UpdateResult {
+    fn exec_comb(
+        &self,
+        _port_map: &mut PortMap,
+        _state_map: &MemoryMap,
+    ) -> UpdateResult {
         Ok(UpdateStatus::Unchanged)
     }
 
-    fn exec_cycle(&mut self, _port_map: &mut PortMap) -> RuntimeResult<()> {
+    fn exec_cycle(
+        &mut self,
+        _port_map: &mut PortMap,
+        _state_map: &mut MemoryMap,
+    ) -> RuntimeResult<()> {
         Ok(())
     }
 
@@ -122,20 +130,6 @@ pub trait Primitive {
         true
     }
 
-    /// Serialize the state of this primitive, if any.
-    fn serialize(&self, _code: Option<PrintCode>) -> Serializable {
-        Serializable::Empty
-    }
-
-    // more efficient to override this with true in stateful cases
-    fn has_serializable_state(&self) -> bool {
-        self.serialize(None).has_state()
-    }
-
-    fn dump_memory_state(&self) -> Option<Vec<u8>> {
-        None
-    }
-
     fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx>;
 
     /// Returns `true` if this primitive only has a combinational part
@@ -144,6 +138,13 @@ pub trait Primitive {
     }
 
     fn clone_boxed(&self) -> Box<dyn Primitive>;
+
+    /// Returns a dyn object which can serialize the state of the primitive. For
+    /// primitives which have state to serialize this must be given a
+    /// non-default implementation
+    fn serializer(&self) -> Option<&dyn SerializeState> {
+        None
+    }
 }
 
 pub trait RaceDetectionPrimitive: Primitive {
@@ -152,8 +153,9 @@ pub trait RaceDetectionPrimitive: Primitive {
         port_map: &mut PortMap,
         _clock_map: &mut ClockMap,
         _thread_map: &ThreadMap,
+        state_map: &MemoryMap,
     ) -> UpdateResult {
-        self.exec_comb(port_map)
+        self.exec_comb(port_map, state_map)
     }
 
     fn exec_cycle_checked(
@@ -161,8 +163,9 @@ pub trait RaceDetectionPrimitive: Primitive {
         port_map: &mut PortMap,
         _clock_map: &mut ClockMap,
         _thread_map: &ThreadMap,
+        state_map: &mut MemoryMap,
     ) -> RuntimeResult<()> {
-        self.exec_cycle(port_map)
+        self.exec_cycle(port_map, state_map)
     }
 
     /// Get a reference to the underlying primitive. Unfortunately cannot add an
@@ -170,4 +173,16 @@ pub trait RaceDetectionPrimitive: Primitive {
     fn as_primitive(&self) -> &dyn Primitive;
 
     fn clone_boxed_rd(&self) -> Box<dyn RaceDetectionPrimitive>;
+}
+
+pub trait SerializeState {
+    /// Serialize the internal state of the primitive with the given formatting
+    fn serialize(
+        &self,
+        _code: Option<PrintCode>,
+        _state_map: &MemoryMap,
+    ) -> Serializable;
+
+    /// Dumps stored data as a raw byte stream
+    fn dump_memory_state(&self, _state_map: &MemoryMap) -> Vec<u8>;
 }
