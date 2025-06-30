@@ -43,10 +43,7 @@ use std::{
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use baa::{BitVecOps, BitVecValue};
 use calyx_frontend::source_info::PositionId;
-use cider_idx::{
-    IndexRef,
-    maps::SecondaryMap,
-};
+use cider_idx::{IndexRef, maps::SecondaryMap};
 use delegate::delegate;
 use fxhash::{FxHashMap, FxHashSet};
 use itertools::Itertools;

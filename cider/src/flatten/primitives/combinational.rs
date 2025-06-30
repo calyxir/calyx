@@ -7,9 +7,7 @@ use crate::flatten::{
         Primitive, all_defined, comb_primitive, declare_ports, ports,
         prim_trait::UpdateStatus, utils::floored_division,
     },
-    structures::environment::{
-        MemoryMap, PortMap,
-    },
+    structures::environment::{MemoryMap, PortMap},
 };
 
 use baa::{BitVecOps, BitVecValue};
