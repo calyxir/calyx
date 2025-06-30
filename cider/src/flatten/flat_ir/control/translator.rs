@@ -9,20 +9,20 @@ use crate::{
     as_raw::AsRaw,
     flatten::{
         flat_ir::{
-            base::{LocalPortOffset, SignatureRange},
             cell_prototype::{CellPrototype, ConstantType},
             component::{
                 AuxiliaryComponentInfo, CombComponentCore, ComponentCore,
                 PrimaryComponentInfo,
             },
             flatten_trait::{FlattenTree, SingleHandle, flatten_tree},
+            indexes::{LocalPortOffset, SignatureRange},
             prelude::{
                 Assignment, AssignmentIdx, CellRef, CombGroup, CombGroupIdx,
                 ComponentIdx, GroupIdx, GuardIdx, PortRef,
             },
             wires::{
-                core::Group,
                 guards::{Guard, PortComp},
+                structures::Group,
             },
         },
         structures::context::{

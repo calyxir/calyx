@@ -7,7 +7,7 @@ use crate::{
             prim_trait::*,
             utils::{ShiftBuffer, floored_division, int_sqrt},
         },
-        structures::environment::PortMap,
+        structures::environment::{MemoryMap, PortMap},
     },
 };
 use baa::{BitVecOps, BitVecValue, WidthInt};
@@ -41,7 +41,7 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
         Box::new(self.clone())
     }
 
-    fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
+    fn exec_comb(&self, port_map: &mut PortMap, _: &MemoryMap) -> UpdateResult {
         ports![&self.base_port; out: Self::OUT, done: Self::DONE];
 
         let out_changed =
@@ -59,7 +59,11 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
         Ok(out_changed | done_signal)
     }
 
-    fn exec_cycle(&mut self, port_map: &mut PortMap) -> RuntimeResult<()> {
+    fn exec_cycle(
+        &mut self,
+        port_map: &mut PortMap,
+        _: &mut MemoryMap,
+    ) -> RuntimeResult<()> {
         ports![&self.base_port;
             left: Self::LEFT,
             right: Self::RIGHT,
@@ -149,7 +153,7 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
         Box::new(self.clone())
     }
 
-    fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
+    fn exec_comb(&self, port_map: &mut PortMap, _: &MemoryMap) -> UpdateResult {
         ports![&self.base_port;
                out_quot: Self::OUT_QUOTIENT,
                out_rem: Self::OUT_REMAINDER,
@@ -165,7 +169,11 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
         Ok(quot_changed | rem_changed | done_signal)
     }
 
-    fn exec_cycle(&mut self, port_map: &mut PortMap) -> RuntimeResult<()> {
+    fn exec_cycle(
+        &mut self,
+        port_map: &mut PortMap,
+        _: &mut MemoryMap,
+    ) -> RuntimeResult<()> {
         ports![&self.base_port;
             left: Self::LEFT,
             right: Self::RIGHT,
@@ -276,7 +284,7 @@ impl<const IS_FIXED_POINT: bool> Primitive for Sqrt<IS_FIXED_POINT> {
         Box::new(self.clone())
     }
 
-    fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
+    fn exec_comb(&self, port_map: &mut PortMap, _: &MemoryMap) -> UpdateResult {
         ports![&self.base_port; out: Self::OUT, done: Self::DONE];
 
         let done_changed = port_map.set_done(done, self.done_is_high)?;
@@ -286,7 +294,11 @@ impl<const IS_FIXED_POINT: bool> Primitive for Sqrt<IS_FIXED_POINT> {
         Ok(out_changed | done_changed)
     }
 
-    fn exec_cycle(&mut self, port_map: &mut PortMap) -> RuntimeResult<()> {
+    fn exec_cycle(
+        &mut self,
+        port_map: &mut PortMap,
+        _: &mut MemoryMap,
+    ) -> RuntimeResult<()> {
         ports![&self.base_port;
             reset: Self::RESET,
             go: Self::GO,
@@ -370,7 +382,7 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
         Box::new(self.clone())
     }
 
-    fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
+    fn exec_comb(&self, port_map: &mut PortMap, _: &MemoryMap) -> UpdateResult {
         ports![&self.base_port; out: Self::OUT, done: Self::DONE];
 
         let out_changed =
@@ -388,7 +400,11 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
         Ok(out_changed | done_signal)
     }
 
-    fn exec_cycle(&mut self, port_map: &mut PortMap) -> RuntimeResult<()> {
+    fn exec_cycle(
+        &mut self,
+        port_map: &mut PortMap,
+        _: &mut MemoryMap,
+    ) -> RuntimeResult<()> {
         ports![&self.base_port;
             left: Self::LEFT,
             right: Self::RIGHT,
@@ -498,7 +514,7 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
         Box::new(self.clone())
     }
 
-    fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
+    fn exec_comb(&self, port_map: &mut PortMap, _: &MemoryMap) -> UpdateResult {
         ports![&self.base_port;
                out_quot: Self::OUT_QUOTIENT,
                out_rem: Self::OUT_REMAINDER,
@@ -514,7 +530,11 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
         Ok(quot_changed | rem_changed | done_signal)
     }
 
-    fn exec_cycle(&mut self, port_map: &mut PortMap) -> RuntimeResult<()> {
+    fn exec_cycle(
+        &mut self,
+        port_map: &mut PortMap,
+        _: &mut MemoryMap,
+    ) -> RuntimeResult<()> {
         ports![&self.base_port;
             left: Self::LEFT,
             right: Self::RIGHT,

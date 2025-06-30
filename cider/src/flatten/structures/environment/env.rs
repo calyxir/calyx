@@ -16,11 +16,11 @@ use crate::{
     errors::*,
     flatten::{
         flat_ir::{
-            base::{
+            cell_prototype::{CellPrototype, SingleWidthType},
+            indexes::{
                 LocalCellOffset, LocalPortOffset, LocalRefCellOffset,
                 LocalRefPortOffset,
             },
-            cell_prototype::{CellPrototype, SingleWidthType},
             prelude::*,
             wires::guards::{Guard, PortComp},
         },
@@ -59,6 +59,7 @@ pub struct Environment<C: AsRef<Context> + Clone> {
     pub(super) ref_cells: RefCellMap,
     /// A map from global ref port IDs to the port they reference, if any.
     pub(super) ref_ports: RefPortMap,
+    state_map: MemoryMap,
     /// The program counter for the whole program execution.
     pc: ProgramCounter,
     /// A largely unused map which will force a given port to have a given
@@ -210,6 +211,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                         data_map,
                         memories_initialized,
                         check_race.then_some(&mut env.clocks),
+                        &mut env.state_map,
                     );
                     let cell = env.cells.push(cell_dyn);
 
@@ -280,6 +282,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             logger: initialize_logger(logging_conf),
             ports_to_cells_map: SecondaryMap::new_with_default(0.into()),
             pinned_ports: PinnedPorts::new(),
+            state_map: MemoryMap::new(),
         };
 
         let ctx = ctx.as_ref();
@@ -1084,7 +1087,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         &self,
         comp_idx: ComponentIdx,
         cell: LocalCellOffset,
-    ) -> &crate::flatten::flat_ir::base::CellDefinitionInfo<LocalPortOffset>
+    ) -> &crate::flatten::flat_ir::indexes::CellDefinitionInfo<LocalPortOffset>
     {
         let comp = &self.ctx.as_ref().secondary[comp_idx];
         let idx = comp.cell_offset_map[cell];
@@ -1095,7 +1098,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         &self,
         comp_idx: ComponentIdx,
         cell: LocalRefCellOffset,
-    ) -> &crate::flatten::flat_ir::base::CellDefinitionInfo<LocalRefPortOffset>
+    ) -> &crate::flatten::flat_ir::indexes::CellDefinitionInfo<LocalRefPortOffset>
     {
         let comp = &self.ctx.as_ref().secondary[comp_idx];
         let idx = comp.ref_cell_offset_map[cell];
@@ -1726,7 +1729,10 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         for cell in self.env.cells.values_mut() {
             match cell {
                 CellLedger::Primitive { cell_dyn } => {
-                    let res = cell_dyn.exec_cycle(&mut self.env.ports);
+                    let res = cell_dyn.exec_cycle(
+                        &mut self.env.ports,
+                        &mut self.env.state_map,
+                    );
                     if res.is_err() {
                         prim_step_res = res;
                         break;
@@ -1738,6 +1744,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         &mut self.env.ports,
                         &mut self.env.clocks,
                         &self.env.thread_map,
+                        &mut self.env.state_map,
                     );
                     if res.is_err() {
                         prim_step_res = res;
@@ -2792,7 +2799,8 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             let cell = &mut self.env.cells[cell];
             match cell {
                 CellLedger::Primitive { cell_dyn } => {
-                    let result = cell_dyn.exec_comb(&mut self.env.ports)?;
+                    let result = cell_dyn
+                        .exec_comb(&mut self.env.ports, &self.env.state_map)?;
 
                     changed |= result;
 
@@ -2833,6 +2841,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         &mut self.env.ports,
                         &mut self.env.clocks,
                         &self.env.thread_map,
+                        &self.env.state_map,
                     )?;
                     changed |= result;
                 }
@@ -3012,8 +3021,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         declaration,
                         self.env.cells[cell_index]
                             .unwrap_primitive()
-                            .dump_memory_state()
-                            .unwrap(),
+                            .serializer()
+                            .unwrap()
+                            .dump_data(&self.env.state_map),
                     )
                 }
                 CellPrototype::SingleWidth {
@@ -3026,8 +3036,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                             *width,
                             self.env.cells[cell_index]
                                 .unwrap_primitive()
-                                .dump_memory_state()
-                                .unwrap(),
+                                .serializer()
+                                .unwrap()
+                                .dump_data(&self.env.state_map),
                         )
                     }
                 }
@@ -3093,23 +3104,20 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         name: Option<&str>,
     ) -> Option<String> {
         let cell = self.env.cells[cell_idx].unwrap_primitive();
-        let state = cell.serialize(Some(print_code));
-
+        let serializer = cell.serializer()?;
         let mut output = String::new();
 
-        if state.has_state() {
-            if let Some(name_override) = name {
-                write!(output, "{name_override}: ").unwrap();
-            } else {
-                write!(output, "{}: ", self.get_full_name(cell_idx)).unwrap();
-            }
+        let state = serializer.serialize(Some(print_code), &self.env.state_map);
 
-            writeln!(output, "{state}").unwrap();
-
-            Some(output)
+        if let Some(name_override) = name {
+            write!(output, "{name_override}: ").unwrap();
         } else {
-            None
+            write!(output, "{}: ", self.get_full_name(cell_idx)).unwrap();
         }
+
+        writeln!(output, "{state}").unwrap();
+
+        Some(output)
     }
 }
 

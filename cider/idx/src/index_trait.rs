@@ -52,6 +52,13 @@ where
         }
     }
 
+    pub fn single_interval(item: I) -> Self {
+        Self {
+            start: item,
+            end: I::new(item.index() + 1),
+        }
+    }
+
     pub fn size(&self) -> usize {
         self.end.index().saturating_sub(self.start.index())
     }
@@ -74,6 +81,11 @@ where
 
     pub fn end(&self) -> I {
         self.end
+    }
+
+    pub fn nth_entry(&self, n: usize) -> I {
+        assert!(n < self.size());
+        I::new(self.start.index() + n)
     }
 }
 
