@@ -2,6 +2,8 @@ use std::fmt::{Display, Write};
 
 use owo_colors::{OwoColorize, Stream::Stdout, Style};
 
+use crate::configuration::ColorConfig;
+
 pub const INDENTATION: &str = "    ";
 
 /// Indents each line in the given string by the indentation count.
@@ -116,12 +118,10 @@ pub fn print_debugger_welcome() {
     );
 }
 
-pub(crate) fn force_color(force_color: bool) {
-    if force_color {
-        owo_colors::set_override(true);
-    }
-    // Allow inference of color if not forced rather than forcing no colors
-    else {
-        owo_colors::unset_override();
+pub(crate) fn force_color(force_color: ColorConfig) {
+    match force_color {
+        ColorConfig::On => owo_colors::set_override(true),
+        ColorConfig::Off => owo_colors::set_override(false),
+        ColorConfig::Auto => owo_colors::unset_override(),
     }
 }

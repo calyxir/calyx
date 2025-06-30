@@ -134,7 +134,7 @@ fud2 --from calyx --to dat \
 name = "data-race detection"
 paths = ["data-race/*.futil"]
 cmd = """
-../../target/debug/cider {} -l ../../  --check-data-race
+../../target/debug/cider {} -l ../../  --check-data-race --force-color off
 """
 
 [[tests]]
@@ -295,5 +295,6 @@ name = "Debugger Interaction"
 paths = ["debugger/*.futil"]
 cmd = """
 cat {}.commands | fud2 --to cider-debug {} \
-         -s calyx.args="--log off"
+         -s calyx.args="--log off" \
+         -s cider.flags="--force-color off"
 """

@@ -4,7 +4,7 @@ use argh::FromArgs;
 
 use calyx_utils::OutputFile;
 use cider::{
-    configuration,
+    configuration::{self, ColorConfig},
     debugger::{Debugger, DebuggerInfo, DebuggerReturnStatus},
     errors::CiderResult,
     flatten::structures::{context::Context, environment::Simulator},
@@ -16,6 +16,7 @@ use std::{
 };
 
 #[derive(FromArgs)]
+#[argh(help_triggers("-h", "--help"))]
 /// The Calyx Interpreter
 pub struct Opts {
     /// input file
@@ -80,9 +81,9 @@ pub struct Opts {
     #[argh(switch, long = "check-data-race")]
     check_data_race: bool,
 
-    /// force color output
-    #[argh(switch, long = "force-color")]
-    force_color: bool,
+    /// configure color output (on | off | auto). default = on
+    #[argh(option, long = "force-color", default = "ColorConfig::On")]
+    color_conf: ColorConfig,
 
     #[argh(subcommand)]
     mode: Option<Command>,
@@ -121,9 +122,8 @@ fn main() -> CiderResult<()> {
         .allow_invalid_memory_access(opts.allow_invalid_memory_access)
         .error_on_overflow(opts.error_on_overflow)
         .undef_guard_check(opts.undef_guard_check)
+        .color_config(opts.color_conf)
         .build();
-
-    runtime_config.set_force_color(opts.force_color);
 
     let command = opts.mode.unwrap_or(Command::Interpret(CommandInterpret {}));
     let i_ctx = cider::flatten::setup_simulation(
