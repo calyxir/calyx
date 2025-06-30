@@ -85,6 +85,11 @@ pub struct Opts {
     #[argh(option, long = "force-color", default = "ColorConfig::On")]
     color_conf: ColorConfig,
 
+    /// entangle memories with the given name. This option should only be used
+    /// if you know what you are doing and as a result is hidden from the help output.
+    #[argh(option, hidden_help, long = "entangle")]
+    entangle: Vec<String>,
+
     #[argh(subcommand)]
     mode: Option<Command>,
 }
@@ -130,6 +135,7 @@ fn main() -> CiderResult<()> {
         &opts.file,
         &opts.lib_path,
         opts.skip_verification,
+        &opts.entangle,
     )?;
 
     match &command {

@@ -1,5 +1,6 @@
 use std::ops::Index;
 
+use ahash::{HashSet, HashSetExt};
 use calyx_frontend::source_info::SourceInfoTable;
 use calyx_ir::Direction;
 use cider_idx::{
@@ -8,24 +9,28 @@ use cider_idx::{
     maps::{IndexedMap, SecondaryMap, SecondarySparseMap},
 };
 
-use crate::flatten::flat_ir::{
-    cell_prototype::CellPrototype,
-    component::{
-        AssignmentDefinitionLocation, AuxiliaryComponentInfo, ComponentMap,
-        PrimaryComponentInfo,
-    },
-    identifier::IdMap,
-    prelude::{
-        Assignment, AssignmentIdx, CellDefinitionIdx, CellInfo, CombGroup,
-        CombGroupIdx, CombGroupMap, ComponentIdx, Control, ControlIdx,
-        ControlMap, ControlNode, Group, GroupIdx, GuardIdx, Identifier,
-        LocalCellOffset, LocalPortOffset, LocalRefCellOffset,
-        LocalRefPortOffset, ParentIdx, PortDefinitionIdx, PortDefinitionRef,
-        PortRef, RefCellDefinitionIdx, RefCellInfo, RefPortDefinitionIdx,
-    },
-    wires::{
-        guards::{Guard, GuardMap},
-        structures::{AssignmentMap, GroupMap},
+use crate::{
+    errors::CiderResult,
+    flatten::flat_ir::{
+        cell_prototype::CellPrototype,
+        component::{
+            AssignmentDefinitionLocation, AuxiliaryComponentInfo, ComponentMap,
+            PrimaryComponentInfo,
+        },
+        identifier::IdMap,
+        prelude::{
+            Assignment, AssignmentIdx, CellDefinitionIdx, CellInfo, CombGroup,
+            CombGroupIdx, CombGroupMap, ComponentIdx, Control, ControlIdx,
+            ControlMap, ControlNode, Group, GroupIdx, GuardIdx, Identifier,
+            LocalCellOffset, LocalPortOffset, LocalRefCellOffset,
+            LocalRefPortOffset, ParentIdx, PortDefinitionIdx,
+            PortDefinitionRef, PortRef, RefCellDefinitionIdx, RefCellInfo,
+            RefPortDefinitionIdx,
+        },
+        wires::{
+            guards::{Guard, GuardMap},
+            structures::{AssignmentMap, GroupMap},
+        },
     },
 };
 
@@ -132,6 +137,8 @@ pub struct SecondaryContext {
     pub comp_aux_info: SecondaryMap<ComponentIdx, AuxiliaryComponentInfo>,
     /// Source Info Table
     pub source_info_table: Option<SourceInfoTable>,
+    /// A list of the entangled memories in the program
+    pub entangled_mems: Vec<EntangledMemories>,
 }
 
 impl Index<Identifier> for SecondaryContext {
@@ -192,6 +199,7 @@ impl SecondaryContext {
             ref_cell_defs: Default::default(),
             comp_aux_info: Default::default(),
             source_info_table,
+            entangled_mems: Vec::new(),
         }
     }
 
@@ -589,6 +597,155 @@ impl Context {
             prev_control_node = control_node;
         }
         string_path
+    }
+
+    /// Set the
+    pub(crate) fn entangle_memories(
+        &mut self,
+        names: &[String],
+    ) -> CiderResult<()> {
+        let mut entangled_mems = vec![];
+        for mem_grouping in names {
+            let mut iter = mem_grouping.split(",").map(|name| {
+                let name = name.trim();
+                let (comp, mem_name) = if name.contains("::") {
+                    let mut part = name.split("::");
+                    let comp_name = part.next().unwrap();
+                    let mem_name = part.next().unwrap();
+                    let comp = self.find_component(|_, info| {
+                        self.resolve_id(info.name) == comp_name
+                    });
+                    let Some(comp) = comp else {
+                        return Err(todo!());
+                    };
+                    (comp, mem_name)
+                } else {
+                    (self.entry_point, name)
+                };
+
+                let mem = self.secondary[comp].definitions.cells().iter().find(
+                    |def_idx| {
+                        self.resolve_id(self.secondary[*def_idx].name)
+                            == mem_name
+                    },
+                );
+                let Some(mem) = mem else {
+                    return Err(todo!());
+                };
+                Ok(mem)
+            });
+
+            let Some(res) = iter.next() else {
+                return Err(todo!());
+            };
+            let first_cell = match res {
+                Ok(v) => v,
+                Err(_) => return Err(todo!()),
+            };
+            let Some(cell_prototype) = self.secondary.local_cell_defs
+                [first_cell]
+                .prototype
+                .as_memory()
+            else {
+                return Err(todo!());
+            };
+
+            let mut entangled_grouping = HashSet::new();
+            entangled_grouping.insert(first_cell);
+            let mut representative: CellDefinitionIdx = first_cell;
+
+            for res in iter {
+                let current_cell = match res {
+                    Ok(v) => v,
+                    Err(_) => return Err(todo!()),
+                };
+
+                // must be defined in the same component
+                if self.secondary[first_cell].parent
+                    != self.secondary[current_cell].parent
+                {
+                    return Err(todo!());
+                }
+
+                // cell must be a memory
+                let Some(mem_prototype) =
+                    self.secondary[current_cell].prototype.as_memory()
+                else {
+                    return Err(todo!());
+                };
+
+                // memories need to be the same in shape and type
+                if cell_prototype != mem_prototype {
+                    return Err(todo!());
+                }
+
+                entangled_grouping.insert(current_cell);
+                representative = std::cmp::min(representative, current_cell);
+            }
+
+            let entangled_group = EntangledMemories {
+                group: entangled_grouping,
+                representative,
+            };
+
+            entangled_mems.push(entangled_group);
+        }
+
+        // need to merge any overlapping sets together. The objectively correct
+        // thing to do would be to find some Union-Find data structure
+        // implementation and force it to work with our keys. If the performance
+        // of this thing ever starts to matter we should do that. However, I
+        // suspect that given the small number of things we expect to entangle
+        // and the fact that this is a one-time operation, that time spent
+        // optimizing this extremely bad implementation would be a waste. -G
+        let mut merged_entangled_mems = vec![];
+        while let Some(mut current) = entangled_mems.pop() {
+            loop {
+                let initial_len = entangled_mems.len();
+                entangled_mems.retain(|group| {
+                    if group.overlaps(&current) {
+                        current.merge(group);
+                        false
+                    } else {
+                        true
+                    }
+                });
+                if initial_len == entangled_mems.len() {
+                    merged_entangled_mems.push(current);
+                    break;
+                }
+            }
+        }
+
+        self.secondary.entangled_mems = merged_entangled_mems;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+/// A set of cell definitions whose memories should be entangled
+pub struct EntangledMemories {
+    group: HashSet<CellDefinitionIdx>,
+    representative: CellDefinitionIdx,
+}
+
+impl EntangledMemories {
+    pub fn contains(&self, idx: CellDefinitionIdx) -> bool {
+        self.group.contains(&idx)
+    }
+
+    pub fn representative(&self) -> CellDefinitionIdx {
+        self.representative
+    }
+
+    fn merge(&mut self, other: &Self) {
+        self.group.extend(&other.group);
+        self.representative =
+            std::cmp::min(self.representative, other.representative)
+    }
+
+    fn overlaps(&self, other: &Self) -> bool {
+        !self.group.is_disjoint(&other.group)
     }
 }
 
