@@ -1,5 +1,3 @@
-/// Core structures used by the rest of the IR
-pub mod indexes;
 /// Cell prototypes (i.e cell types)
 pub mod cell_prototype;
 /// Component definitions
@@ -12,15 +10,17 @@ pub mod control;
 pub(super) mod flatten_trait;
 /// Module collecting structures around strings and identifiers
 pub mod identifier;
+/// Core structures used by the rest of the IR
+pub mod indexes;
 /// Module collecting the structures related to the wires section of a Calyx program
 pub mod wires;
 
 /// Utility module with public imports for internal use
 pub(crate) mod prelude {
 
-    pub use super::indexes::*;
     pub use super::control::structures::*;
     pub use super::identifier::Identifier;
+    pub use super::indexes::*;
     pub use super::wires::structures::*;
 }
 
