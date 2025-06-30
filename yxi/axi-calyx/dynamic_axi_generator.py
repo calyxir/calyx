@@ -637,8 +637,7 @@ def add_axi_dyn_mem(prog: Builder, mem):
 
 
 # NOTE: Unlike the channel functions, this can expect multiple mems
-def add_wrapper_comp(prog, mems):
-    add_control_subordinate(prog, mems)
+def add_wrapper_comp(prog: Builder, mems):
     for mem in mems:
         add_address_translator(prog, mem)
         add_read_controller(prog, mem)
@@ -656,45 +655,47 @@ def add_wrapper_comp(prog, mems):
         "main_compute", "main", check_undeclared=False
     )
 
+    wrapper_comp.input("ap_rst_n", 1)
     # Generate XRT Control Ports for AXI Lite Control Subordinate,
     # must be prefixed with `s_axi_control`
     # This is copied from `axi_controller_generator.py`
-    prefix = "s_axi_control_"
-    wrapper_inputs = [
-        (f"{prefix}AWVALID", 1),
-        # XRT imposes a 16-bit address space for the control subordinate
-        (f"{prefix}AWADDR", 16),
-        # ("AWPROT", 3), #We don't do anything with this
-        (f"{prefix}WVALID", 1),
-        # Want to use 32 bits because the registers in XRT are assumed to be this size
-        (f"{prefix}WDATA", 32),
-        # We don't use WSTRB but it is required by some versions of the spec. We should tie high on subordinate.
-        (f"{prefix}WSTRB", int(32 / 8)),
-        (f"{prefix}BREADY", 1),
-        (f"{prefix}ARVALID", 1),
-        (f"{prefix}ARADDR", 16),
-        # ("ARPROT", 3), #We don't do anything with this
-        (f"{prefix}RVALID", 1),
-        ("ap_rst_n", 1),
-        ("ap_clk", 1, ["clk"]),
-    ]
-
-    wrapper_outputs = [
-        (f"{prefix}AWREADY", 1),
-        (f"{prefix}WREADY", 1),
-        (f"{prefix}BVALID", 1),
-        (f"{prefix}BRESP", 2),
-        (f"{prefix}ARREADY", 1),
-        (f"{prefix}RREADY", 1),
-        (f"{prefix}RDATA", 32),
-        (f"{prefix}RRESP", 2),
-        ("ap_start", 1),
-        ("ap_done", 1),
-    ]
-
-    add_comp_ports(wrapper_comp, wrapper_inputs, wrapper_outputs)
-
     if GENERATE_FOR_XILINX:
+        add_control_subordinate(prog, mems)
+
+        prefix = "s_axi_control_"
+        wrapper_inputs = [
+            (f"{prefix}AWVALID", 1),
+            # XRT imposes a 16-bit address space for the control subordinate
+            (f"{prefix}AWADDR", 16),
+            # ("AWPROT", 3), #We don't do anything with this
+            (f"{prefix}WVALID", 1),
+            # Want to use 32 bits because the registers in XRT are assumed to be this size
+            (f"{prefix}WDATA", 32),
+            # We don't use WSTRB but it is required by some versions of the spec. We should tie high on subordinate.
+            (f"{prefix}WSTRB", int(32 / 8)),
+            (f"{prefix}BREADY", 1),
+            (f"{prefix}ARVALID", 1),
+            (f"{prefix}ARADDR", 16),
+            # ("ARPROT", 3), #We don't do anything with this
+            (f"{prefix}RVALID", 1),
+            ("ap_clk", 1, ["clk"]),
+        ]
+
+        wrapper_outputs = [
+            (f"{prefix}AWREADY", 1),
+            (f"{prefix}WREADY", 1),
+            (f"{prefix}BVALID", 1),
+            (f"{prefix}BRESP", 2),
+            (f"{prefix}ARREADY", 1),
+            (f"{prefix}RREADY", 1),
+            (f"{prefix}RDATA", 32),
+            (f"{prefix}RRESP", 2),
+            ("ap_start", 1),
+            ("ap_done", 1),
+        ]
+
+        add_comp_ports(wrapper_comp, wrapper_inputs, wrapper_outputs)
+
         control_subordinate = wrapper_comp.cell(
             "control_subordinate", prog.get_component("control_subordinate")
         )
