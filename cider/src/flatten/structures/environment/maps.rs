@@ -26,7 +26,7 @@ use crate::{
 
 use super::{
     Environment,
-    clock::{ClockMap, ClockPair, ValueWithClock, new_clock_pair},
+    clock::{ClockMap, ClockPair, new_clock_pair},
 };
 
 #[derive(Debug, Clone)]
@@ -358,6 +358,12 @@ impl Index<MemoryLocation> for MemoryMap {
 
     fn index(&self, index: MemoryLocation) -> &Self::Output {
         &self.data[index]
+    }
+}
+
+impl Default for MemoryMap {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

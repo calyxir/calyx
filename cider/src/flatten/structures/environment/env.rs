@@ -1,6 +1,6 @@
 use super::{
     assignments::*,
-    clock::{ClockMap, ReadSource, ValueWithClock},
+    clock::{ClockMap, ReadSource},
     maps::*,
     program_counter::*,
     traverser::{Path, TraversalError, Traverser},
@@ -45,7 +45,7 @@ use baa::{BitVecOps, BitVecValue};
 use calyx_frontend::source_info::PositionId;
 use cider_idx::{
     IndexRef,
-    maps::{IndexedMap, SecondaryMap},
+    maps::SecondaryMap,
 };
 use delegate::delegate;
 use fxhash::{FxHashMap, FxHashSet};

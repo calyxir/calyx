@@ -1,7 +1,6 @@
 use std::iter::repeat;
 
 use cider_idx::{IndexRef, iter::SplitIndexRange, maps::IndexedMap};
-use itertools::Itertools;
 
 use crate::{
     errors::{RuntimeError, RuntimeResult},
@@ -22,7 +21,7 @@ use crate::{
         structures::{
             environment::{
                 MemoryMap, PortMap,
-                clock::{ClockMap, ReadSource, ValueWithClock, new_clock_pair},
+                clock::{ClockMap, ReadSource},
             },
             thread::{ThreadIdx, ThreadMap},
         },
@@ -663,7 +662,7 @@ impl SerializeState for CombMem {
         Serializable::Array(
             state_map
                 .map_region(self.internal_state, |x| {
-                    Entry::from_val_code(&x, &code)
+                    Entry::from_val_code(x, &code)
                 })
                 .collect(),
             self.addresser.get_dimensions(),
@@ -914,7 +913,7 @@ impl Primitive for SeqMem {
             port_map.insert_val_general(
                 self.read_data(),
                 self.read_out
-                    .get_value(&state_map, self.width)
+                    .get_value(state_map, self.width)
                     .into_option()
                     .unwrap(),
             )?
@@ -1012,7 +1011,7 @@ impl SerializeState for SeqMem {
         Serializable::Array(
             state_map
                 .map_region(self.internal_state, |x| {
-                    Entry::from_val_code(&x, &code)
+                    Entry::from_val_code(x, &code)
                 })
                 .collect(),
             self.addresser.get_dimensions(),

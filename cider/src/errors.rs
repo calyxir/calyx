@@ -151,9 +151,9 @@ pub type RuntimeResult<T> = Result<T, BoxedRuntimeError>;
 #[error(transparent)]
 pub struct BoxedRuntimeError(#[from] Box<RuntimeError>);
 
-impl<T> Into<Result<T, BoxedRuntimeError>> for RuntimeError {
-    fn into(self) -> Result<T, BoxedRuntimeError> {
-        Result::Err(self.into())
+impl<T> From<RuntimeError> for Result<T, BoxedRuntimeError> {
+    fn from(val: RuntimeError) -> Self {
+        Result::Err(val.into())
     }
 }
 

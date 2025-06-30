@@ -9,7 +9,6 @@ use crate::flatten::{
     },
     structures::environment::{
         MemoryMap, PortMap,
-        clock::{ValueWithClock, new_clock_pair},
     },
 };
 
