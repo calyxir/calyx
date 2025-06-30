@@ -493,6 +493,7 @@ impl CombMem {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn new_with_init<T>(
         base_port: GlobalPortIdx,
         global_idx: GlobalCellIdx,
@@ -802,6 +803,7 @@ impl SeqMem {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn new_with_init<T>(
         base_port: GlobalPortIdx,
         global_idx: GlobalCellIdx,

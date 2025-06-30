@@ -24,6 +24,7 @@ use crate::{
 
 use baa::BitVecValue;
 
+#[allow(clippy::too_many_arguments)]
 pub fn build_primitive(
     prim: &CellInfo,
     base_port: GlobalPortIdx,
