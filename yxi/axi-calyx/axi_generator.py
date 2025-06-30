@@ -2,6 +2,11 @@
 # than this original axi generator which implement a read-compute-write sequence
 # to get data in and out of the computational kernel.
 
+# A partial list of things to update to get this working:
+# 1. The cocotb AXI testbench expects the clk signal to be called `ap_clk`
+# 2. The cocotb AXI testbench expects toplevel wires to start with a prefix of `m_axi_`
+# 3. To interface correctly with Xilinx/XRT, we need to add subordinate axi controller logic from add_control_subordinate.py
+
 
 from calyx.builder import (
     Builder,
