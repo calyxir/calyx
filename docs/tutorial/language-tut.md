@@ -94,15 +94,15 @@ We have one (unsigned integer) data element, and we indicate the bit width (32 b
 
 If you want to see how this Calyx program compiles to Verilog, here's the [fud][] incantation you need:
 
-    fud exec language-tutorial-mem.futil --to verilog
+    fud2 language-tutorial-mem.futil --to verilog
 
 Not terribly interesting!
 However, one nice thing you can do with programs is execute them.
 
 To run our program using [Icarus Verilog][], do this:
 
-    fud exec language-tutorial-mem.futil --to dat --through icarus-verilog \
-        -s verilog.data data.json
+    fud2 language-tutorial-mem.futil --to dat --through icarus \
+        -s sim.data=data.json
 
 Using `--to dat` asks fud to run the program, and the extra `-s verilog.data <filename>` argument tells it where to find the input data.
 The `--through icarus-verilog` option tells fud which Verilog simulator to use (see [the chapter about fud][fud] for alternatives such as [Verilator][]).
@@ -142,7 +142,7 @@ But now we're controlling things with an execution schedule.
 
 If you're curious to see how the Calyx compiler lowers this program to a Verilog-like structural form of Calyx, you can do this:
 
-    fud exec language-tutorial-mem.futil --to calyx-lowered
+    calyx language-tutorial-mem.futil
 
 Notably, you'll see `control {}` in the output, meaning that the compiler has eliminated all the control statements and replaced them with continuous assignments in `wires`.
 
