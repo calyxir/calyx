@@ -178,12 +178,14 @@ used are [dynamic memories](https://github.com/calyxir/calyx/blob/main/primitive
     ```
 
 2. Wrap the calyx file with AXI memory controllers (implemented in Calyx).
-If your original Calyx file uses `std_mem` you'll want to leave out the `--set dynamic=true`:
+If your original Calyx file uses `std_mem` you'll want to leave out the `--set dynamic=true`.
+Setting `xilinx.controlled=true` is required to run through Xilinx. Setting this generates a subordinate AXI controller according
+to Vitis [requirements](https://docs.amd.com/r/en-US/ug1701-vitis-accelerated-embedded/RTL-Kernel-Interface-Requirements). AXI-wrapped
+calyx that does *not* have a subordinate controller can be tested via [Cocotb](../interfacing.md#cocotb):
 
     ```bash    
-    fud2 dyn-vec-add.futil --from calyx --to calyx --through axi-wrapped --set dynamic=true -o axi-wrapped.futil
+    fud2 dyn-vec-add.futil --from calyx --to calyx --through axi-wrapped --set dynamic=true --set xilinx.controlled=true -o axi-wrapped.futil 
     ```
-
 
 3. Turn the wrapped Calyx file into verilog. At this point you need to decide if you
 are targeting emulation or execution. If you are targeting execution make sure the target is `verilog-noverify`, as opposed to (the default) `verilog`:
@@ -197,13 +199,13 @@ Based on what was targeted in the last step, either `xilinx.mode=hw_emu` (the de
 or set `xilinx.mode=hw`.
 
     ```bash
-    fud2 axi-wrapped.v -o axi-wrapped.xo --set yxi.file=dyn-vec-add.yxi --set xilinx.mode=hw
+    fud2 axi-wrapped.v -o axi-wrapped.xo --set yxi.file=dyn-vec-add.yxi --set xilinx.mode=hw_emu
     ```
 
 5. Generate a `.xclbin`. Use the same `xilinx.mode` setting from the previous step:
 
     ```bash
-    fud2 axi-wrapped.xo -o axi-wrapped.xclbin --set xilinx.mode=hw
+    fud2 axi-wrapped.xo -o axi-wrapped.xclbin --set xilinx.mode=hw_emu
     ```
 
 Now that we have a `.xclbin` file, we can execute our design with our [xclrun tool](#execution-via-xclrun).
