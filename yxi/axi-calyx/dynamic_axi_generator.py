@@ -655,7 +655,10 @@ def add_wrapper_comp(prog: Builder, mems):
         "main_compute", "main", check_undeclared=False
     )
 
+    # Cocotb expects these to be present for simulation, include them even when not generating for Xilinx
     wrapper_comp.input("ap_rst_n", 1)
+    wrapper_comp.input("ap_clk", 1, ["clk"])
+
     # Generate XRT Control Ports for AXI Lite Control Subordinate,
     # must be prefixed with `s_axi_control`
     # This is copied from `axi_controller_generator.py`
@@ -678,7 +681,6 @@ def add_wrapper_comp(prog: Builder, mems):
             (f"{prefix}ARADDR", 16),
             # ("ARPROT", 3), #We don't do anything with this
             (f"{prefix}RVALID", 1),
-            ("ap_clk", 1, ["clk"]),
         ]
 
         wrapper_outputs = [
