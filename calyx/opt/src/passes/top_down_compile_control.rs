@@ -1426,6 +1426,7 @@ impl Visitor for TopDownCompileControl {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        dbg!(comp.name);
         let mut con = comp.control.borrow_mut();
         match *con {
             // If there's one top-level FSM at the beginning of the traversal,
@@ -1457,6 +1458,7 @@ impl Visitor for TopDownCompileControl {
     ) -> VisResult {
         // only compile using new fsm if has new_fsm attribute
         if !s.attributes.has(ir::BoolAttr::NewFSM) {
+            println!("returning...");
             return Ok(Action::Continue);
         }
         let mut builder = ir::Builder::new(comp, sigs);
@@ -1469,16 +1471,30 @@ impl Visitor for TopDownCompileControl {
             ir::Control::fsm_enable(sch.realize_fsm(self.dump_fsm))
         } else {
             let fsm_impl = self.get_representation(&sch, &s.attributes);
-            ir::Control::enable(sch.realize_schedule(
+            let seq_group = sch.realize_schedule(
                 self.dump_fsm,
                 &mut self.profiling_info,
                 fsm_impl,
-            ))
+            );
+            if let Some(pos_set) =
+                s.get_mut_attributes().get_set(calyx_frontend::SetAttr::Pos)
+            {
+                for pos in pos_set.iter() {
+                    seq_group
+                        .borrow_mut()
+                        .attributes
+                        .insert_set(calyx_frontend::SetAttr::Pos, pos.clone());
+                }
+            }
+            seq_group.borrow_mut().attributes = s.attributes.clone();
+            ir::Control::enable(seq_group)
         };
 
         // Add NODE_ID to compiled enable.
         let state_id = s.attributes.get(NODE_ID).unwrap();
         seq_enable.get_mut_attributes().insert(NODE_ID, state_id);
+
+        dbg!(&seq_enable);
 
         Ok(Action::change(seq_enable))
     }
@@ -1565,6 +1581,17 @@ impl Visitor for TopDownCompileControl {
 
         // Compilation group
         let par_group = builder.add_group("par");
+        // Retaining set attributes from original control node in the generated Par group
+        if let Some(pos_set) =
+            s.get_mut_attributes().get_set(calyx_frontend::SetAttr::Pos)
+        {
+            for pos in pos_set.iter() {
+                par_group
+                    .borrow_mut()
+                    .attributes
+                    .insert_set(calyx_frontend::SetAttr::Pos, pos.clone());
+            }
+        }
         structure!(builder;
             let signal_on = constant(1, 1);
             let signal_off = constant(0, 1);
@@ -1713,11 +1740,21 @@ impl Visitor for TopDownCompileControl {
             ir::Control::fsm_enable(sch.realize_fsm(self.dump_fsm))
         } else {
             let fsm_rep = self.get_representation(&sch, &attrs);
-            ir::Control::enable(sch.realize_schedule(
+            let control_group = sch.realize_schedule(
                 self.dump_fsm,
                 &mut self.profiling_info,
                 fsm_rep,
-            ))
+            );
+            if let Some(pos_set) = attrs.get_set(calyx_frontend::SetAttr::Pos) {
+                for pos in pos_set.iter() {
+                    control_group
+                        .borrow_mut()
+                        .attributes
+                        .insert_set(calyx_frontend::SetAttr::Pos, pos.clone());
+                }
+            }
+            ir::Control::enable(control_group)
+            // Retaining set attributes from original control node in the generated Par group
         };
 
         Ok(Action::change(control_node))
