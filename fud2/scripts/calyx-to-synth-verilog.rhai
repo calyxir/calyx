@@ -5,9 +5,9 @@ export const synth_verilog_state = state("synth-verilog", ["sv"]);
 // Helper to compile Calyx to synth-ready SV
 fn calyx_to_synth_verilog(e, input, output) {
     // Compile Calyx to synth-ready SV
-    e.build_cmd(["main.sv"], "calyx", [input], []);
+    e.build_cmd([output], "calyx", [input], []);
     e.arg("backend", "verilog");
-    e.arg("args", "--synthesis -p external --disable-verify");
+    e.arg("args", "--synthesis -p external --disable-verify $args");
 }
 
 // Op to compile Calyx to synth-ready SV
