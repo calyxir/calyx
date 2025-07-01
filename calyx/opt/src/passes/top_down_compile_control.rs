@@ -2,9 +2,10 @@ use crate::passes;
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
+use calyx_frontend::SetAttr;
 use calyx_ir::{
-    self as ir, BoolAttr, Cell, GetAttributes, Id, LibrarySignatures, Printer,
-    RRC, build_assignments, guard, structure,
+    self as ir, Attributes, BoolAttr, Cell, GetAttributes, Id,
+    LibrarySignatures, Printer, RRC, build_assignments, guard, structure,
 };
 use calyx_utils::{CalyxResult, Error, OutputFile, math::bits_needed_for};
 use ir::Nothing;
@@ -318,6 +319,7 @@ struct ParInfo {
     #[serde(serialize_with = "id_serialize_passthrough")]
     pub par_group: Id,
     pub child_groups: Vec<ParChildInfo>,
+    pub pos: Vec<u32>,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Serialize)]
@@ -365,6 +367,15 @@ impl<'b, 'a> From<&'b mut ir::Builder<'a>> for Schedule<'b, 'a> {
             builder,
         }
     }
+}
+
+fn get_top_level_attrs(c: &ir::Control) -> CalyxResult<&ir::Attributes> {
+    let attr_opt = match c {
+        ir::Control::Seq(ir::Seq { attributes, .. }) => attributes,
+        ir::Control::While(ir::While { attributes, .. }) => attributes,
+        _ => todo!(),
+    };
+    Ok(attr_opt)
 }
 
 impl Schedule<'_, '_> {
@@ -1426,7 +1437,6 @@ impl Visitor for TopDownCompileControl {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        dbg!(comp.name);
         let mut con = comp.control.borrow_mut();
         match *con {
             // If there's one top-level FSM at the beginning of the traversal,
@@ -1458,7 +1468,6 @@ impl Visitor for TopDownCompileControl {
     ) -> VisResult {
         // only compile using new fsm if has new_fsm attribute
         if !s.attributes.has(ir::BoolAttr::NewFSM) {
-            println!("returning...");
             return Ok(Action::Continue);
         }
         let mut builder = ir::Builder::new(comp, sigs);
@@ -1493,8 +1502,6 @@ impl Visitor for TopDownCompileControl {
         // Add NODE_ID to compiled enable.
         let state_id = s.attributes.get(NODE_ID).unwrap();
         seq_enable.get_mut_attributes().insert(NODE_ID, state_id);
-
-        dbg!(&seq_enable);
 
         Ok(Action::change(seq_enable))
     }
@@ -1581,17 +1588,6 @@ impl Visitor for TopDownCompileControl {
 
         // Compilation group
         let par_group = builder.add_group("par");
-        // Retaining set attributes from original control node in the generated Par group
-        if let Some(pos_set) =
-            s.get_mut_attributes().get_set(calyx_frontend::SetAttr::Pos)
-        {
-            for pos in pos_set.iter() {
-                par_group
-                    .borrow_mut()
-                    .attributes
-                    .insert_set(calyx_frontend::SetAttr::Pos, pos.clone());
-            }
-        }
         structure!(builder;
             let signal_on = constant(1, 1);
             let signal_off = constant(0, 1);
@@ -1677,11 +1673,19 @@ impl Visitor for TopDownCompileControl {
                 done_regs.push(pd)
             };
         }
+        let pos = if let Some(pos_set) =
+            s.get_mut_attributes().get_set(calyx_frontend::SetAttr::Pos)
+        {
+            pos_set.iter().map(|p| *p).collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
         // Profiling: save collected information about this par
         self.profiling_info.insert(ProfilingInfo::Par(ParInfo {
             component: builder.component.name,
             par_group: par_group.borrow().name(),
             child_groups: child_infos,
+            pos: pos,
         }));
 
         // Done condition for this group
@@ -1745,12 +1749,14 @@ impl Visitor for TopDownCompileControl {
                 &mut self.profiling_info,
                 fsm_rep,
             );
-            if let Some(pos_set) = attrs.get_set(calyx_frontend::SetAttr::Pos) {
+            let ctrl = &control.borrow();
+            let attrs = get_top_level_attrs(ctrl)?;
+            if let Some(pos_set) = attrs.get_set(SetAttr::Pos) {
                 for pos in pos_set.iter() {
                     control_group
                         .borrow_mut()
                         .attributes
-                        .insert_set(calyx_frontend::SetAttr::Pos, pos.clone());
+                        .insert_set(SetAttr::Pos, pos.clone());
                 }
             }
             ir::Control::enable(control_group)
