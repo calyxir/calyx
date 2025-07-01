@@ -1,4 +1,6 @@
 from collections import Counter
+import json
+import pprint
 import pandas as pd
 import plotly.express as px
 from profiler.classes import UtilizationCycleTrace
@@ -49,6 +51,9 @@ class Plotter:
         active_cycles = Counter()
 
         for cycle, trace in self.data.items():
+            print(
+                f"Cycle {cycle}: {pprint.pformat(trace.utilization_per_primitive, indent=4)}"
+            )
             for prim, vars_dict in trace.utilization_per_primitive.items():
                 if var in vars_dict:
                     value = int(vars_dict[var])
@@ -57,6 +62,7 @@ class Plotter:
                     )
                     usage_sum[prim] += value
                     if value != 0:
+                        print(prim)
                         active_cycles[prim] += 1
 
         ratios = {

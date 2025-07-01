@@ -131,8 +131,11 @@ def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
                         )
                     # add par done register information
                     child_pd_reg = child["register"]
-                    control_metadata.add_par_done_reg(".".join((cell, child_pd_reg)))
+                    control_metadata.add_par_done_reg(
+                        component, par, child_pd_reg, ".".join((cell, child_pd_reg))
+                    )
                 # add information to control_metadata
                 control_metadata.register_fully_qualified_par(fully_qualified_par)
+    print(control_metadata.par_done_regs)
 
     return control_metadata

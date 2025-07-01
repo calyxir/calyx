@@ -170,6 +170,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
     def postprocess(
         self,
         shared_cells_map: dict[str, dict[str, str]],
+        control_metadata: ControlMetadata | None = None,
         utilization: dict[str, dict] | None = None,
     ):
         """
@@ -333,6 +334,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     if utilization is None
                     else create_utilization_cycle_trace(
                         self.cell_metadata,
+                        control_metadata,
                         info_this_cycle,
                         shared_cells_map,
                         True,
@@ -506,6 +508,7 @@ def create_cycle_trace(
 
 def create_utilization_cycle_trace(
     cell_info: CellMetadata,
+    control_metadata: ControlMetadata,
     info_this_cycle: dict[str, str | dict[str, str]],
     shared_cell_map: dict[str, dict[str, str]],
     include_primitives: bool,
@@ -517,7 +520,7 @@ def create_utilization_cycle_trace(
     cycle_trace = create_cycle_trace(
         cell_info, info_this_cycle, shared_cell_map, include_primitives
     )
-    return UtilizationCycleTrace(utilization, cycle_trace.stacks)
+    return UtilizationCycleTrace(utilization, control_metadata, cycle_trace.stacks)
 
 
 def add_control_enables(

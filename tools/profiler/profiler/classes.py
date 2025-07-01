@@ -172,16 +172,20 @@ class ControlMetadata:
     )
     # fully qualified names of done registers for pars
     par_done_regs: set[str] = field(default_factory=set)
+    # component name --> { control group name --> { primitives used by control group } }
+    component_to_control_to_primitives: defaultdict[str, defaultdict[str, set[str]]] = (
+        field(default_factory=lambda: defaultdict(lambda: defaultdict(set)))
+    )
     # partial_fsm_events:
-
     cell_to_ordered_pars: defaultdict[str, list[str]] = field(
         default_factory=lambda: defaultdict(list)
     )  # cell --> ordered par group names
 
     added_signal_prefix: bool = field(default=False)
 
-    def add_par_done_reg(self, par_done_reg):
-        self.par_done_regs.add(par_done_reg)
+    def add_par_done_reg(self, component, par_group, par_done_reg, stack):
+        self.par_done_regs.add(stack)
+        self.component_to_control_to_primitives[component][par_group].add(par_done_reg)
 
     def register_fully_qualified_par(self, fully_qualified_par):
         self.par_groups.add(fully_qualified_par)
@@ -217,8 +221,9 @@ class ControlMetadata:
             fully_qualified_fsm = ".".join((cell, fsm_name))
             self.fsms.add(fully_qualified_fsm)
 
-    def register_par(self, par_group, component):
+    def register_par(self, par_group: str, component: str):
         self.component_to_par_groups[component].add(par_group)
+        # self.component_to_control_to_primitives[component][par_group].add()
 
     def register_par_child(
         self,
@@ -527,17 +532,28 @@ class UtilizationCycleTrace(CycleTrace):
     # Map between primitives in this cycle and their utilization (subset of global_utilization filtered for this cycle)
     utilization_per_primitive: dict[str, dict]
     # List of all the primitives active in this cycle
-    primitives_active: list[str]
+    primitives_active: set[str]
+    # Tdcc control groups active this cycle: [(component_name, control_group_name, stack)]
+    # Ex. [("flow_inference", "par0", "main.dataplane.myqueue.flow_infer.")]
+    # The stack string goes up until (and excluding) the control group.
+    # For *reasons* we keep a period at the end of the stack string (basically we
+    # want to append actual primitives used for the control flow, but these are not
+    # on the stack, so we must get them from the FSM file separately)
+    control_groups_active: list[tuple[str, str, str]]
+    control_metadata: ControlMetadata
 
     def __init__(
         self,
         utilization: dict[str, dict],
+        control_metadata: ControlMetadata,
         stacks_this_cycle: list[list[StackElement]] | None = None,
     ):
         self.global_utilization = utilization
         self.utilization = {}
-        self.primitives_active = []
+        self.primitives_active = set()
         self.utilization_per_primitive = {}
+        self.control_groups_active = []
+        self.control_metadata = control_metadata
         super().__init__(stacks_this_cycle)
 
     def __repr__(self):
@@ -545,24 +561,60 @@ class UtilizationCycleTrace(CycleTrace):
 
     def add_stack(self, stack):
         super().add_stack(stack)
+        print("HELLO MY DEAR")
         top: StackElement = stack[-1]
-        if top.element_type == StackElementType.PRIMITIVE:
-            primitive = ".".join(
+        fully_qualified_name = ".".join(
+            map(
+                lambda x: x.name,
+                filter(
+                    lambda x: x.element_type == StackElementType.CELL
+                    or x.element_type == StackElementType.PRIMITIVE,
+                    stack,
+                ),
+            )
+        )
+        if (
+            top.element_type == StackElementType.PRIMITIVE
+            and top.name
+            not in self.control_metadata.component_to_control_to_primitives[
+                top.component_name
+            ].values()
+        ):
+            self.primitives_active.add(fully_qualified_name)
+            # print(fully_qualified_name)
+            # for k, v in self.global_utilization.get(fully_qualified_name, {}).items():
+            #     if v.isdigit():
+            #         self.utilization[k] = self.utilization.get(k, 0) + int(v)
+            # self.utilization_per_primitive[fully_qualified_name] = (
+            #     self.global_utilization.get(fully_qualified_name, {})
+            # )
+            # print(self.utilization_per_primitive)
+        # we check for control groups in the stack
+        if any(e.element_type == StackElementType.CONTROL_GROUP for e in stack):
+            stack_string = ""
+            comp = ""
+            gp = ""
+            for e in stack:
+                if e.element_type == StackElementType.CONTROL_GROUP:
+                    gp = e.name
+                    break
+                elif e.element_type == StackElementType.CELL:
+                    stack_string += e.name + "."
+                comp = e.component_name
+            # self.control_groups_active.append((comp, gp, stack_string))
+            self.primitives_active |= set(
                 map(
-                    lambda x: x.name,
-                    filter(
-                        lambda x: x.element_type == StackElementType.CELL or x == top,
-                        stack,
-                    ),
+                    lambda x: f"{stack_string}{x}",
+                    self.control_metadata.component_to_control_to_primitives[comp][gp],
                 )
             )
-            self.primitives_active.append(primitive)
-            for k, v in self.global_utilization.get(primitive, {}).items():
+        print(f"primitives:  {self.primitives_active}")
+        for p in self.primitives_active:
+            for k, v in self.global_utilization.get(p, {}).items():
                 if v.isdigit():
                     self.utilization[k] = self.utilization.get(k, 0) + int(v)
-            self.utilization_per_primitive[primitive] = self.global_utilization.get(
-                primitive, {}
-            )
+            self.utilization_per_primitive[p] = self.global_utilization.get(p, {})
+        print(f"utilization per primitive: {self.utilization_per_primitive}")
 
 
 @dataclass
@@ -708,7 +760,7 @@ class TraceData:
                 self.trace_with_control_groups[i] = (
                     CycleTrace()
                     if utilization is None
-                    else UtilizationCycleTrace(utilization)
+                    else UtilizationCycleTrace(utilization, control_metadata)
                 )
                 for events_stack in self.trace[i].stacks:
                     new_events_stack = self._create_events_stack_with_control_groups(

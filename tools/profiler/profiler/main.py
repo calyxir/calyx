@@ -53,7 +53,7 @@ def process_vcd(
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
     print(f"Start Postprocessing VCD: {datetime.now()}")
 
-    converter.postprocess(shared_cells_map, utilization)
+    converter.postprocess(shared_cells_map, control_metadata, utilization)
     (
         control_groups_trace,
         control_reg_updates_per_cycle,
