@@ -6,7 +6,7 @@ use calyx_utils::OutputFile;
 use cider::{
     configuration::{self, ColorConfig},
     debugger::{Debugger, DebuggerInfo, DebuggerReturnStatus},
-    errors::CiderResult,
+    errors::{CiderError, CiderResult},
     flatten::structures::{context::Context, environment::Simulator},
 };
 
@@ -131,6 +131,21 @@ fn main() -> CiderResult<()> {
         .build();
 
     let command = opts.mode.unwrap_or(Command::Interpret(CommandInterpret {}));
+
+    if !opts.entangle.is_empty() && !opts.check_data_race {
+        return Err(CiderError::generic_error(
+            "Entangling memories must be used in conjunction with data race detection. Please enable it via `--check-data-race`.",
+        ).into());
+    } else if !opts.entangle.is_empty() {
+        let logger = cider::logging::initialize_logger(
+            runtime_config.get_logging_config(),
+        );
+        cider::logging::warn!(
+            logger,
+            "Memory entanglement has been enabled. This is an experimental feature and is liable to cause errors. It should only be used if you know what you are doing"
+        );
+    }
+
     let i_ctx = cider::flatten::setup_simulation(
         &opts.file,
         &opts.lib_path,
