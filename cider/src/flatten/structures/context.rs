@@ -10,7 +10,7 @@ use cider_idx::{
 };
 
 use crate::{
-    errors::CiderResult,
+    errors::{CiderError, CiderResult},
     flatten::flat_ir::{
         cell_prototype::CellPrototype,
         component::{
@@ -616,7 +616,9 @@ impl Context {
                         self.resolve_id(info.name) == comp_name
                     });
                     let Some(comp) = comp else {
-                        return Err(todo!());
+                        return Err(CiderError::generic_error(format!(
+                            "No component named '{comp_name}'"
+                        )));
                     };
                     (comp, mem_name)
                 } else {
@@ -630,24 +632,25 @@ impl Context {
                     },
                 );
                 let Some(mem) = mem else {
-                    return Err(todo!());
+                    return Err(CiderError::generic_error(format!(
+                        "No memory named '{mem_name}'"
+                    )));
                 };
                 Ok(mem)
             });
 
-            let Some(res) = iter.next() else {
-                return Err(todo!());
-            };
-            let first_cell = match res {
-                Ok(v) => v,
-                Err(_) => return Err(todo!()),
-            };
+            let first_cell = iter.next().unwrap()?;
+
             let Some(cell_prototype) = self.secondary.local_cell_defs
                 [first_cell]
                 .prototype
                 .as_memory()
             else {
-                return Err(todo!());
+                return Err(CiderError::generic_error(format!(
+                    "'{}' is not a memory",
+                    self.lookup_name(first_cell)
+                ))
+                .into());
             };
 
             let mut entangled_grouping = HashSet::new();
@@ -655,28 +658,39 @@ impl Context {
             let mut representative: CellDefinitionIdx = first_cell;
 
             for res in iter {
-                let current_cell = match res {
-                    Ok(v) => v,
-                    Err(_) => return Err(todo!()),
-                };
+                let current_cell = res?;
 
                 // must be defined in the same component
                 if self.secondary[first_cell].parent
                     != self.secondary[current_cell].parent
                 {
-                    return Err(todo!());
+                    return Err(CiderError::generic_error(format!(
+                        "Entangled memories must be defined in the same component. '{}' and '{}' are defined in '{}' and '{}'",
+                        self.lookup_name(first_cell),
+                        self.lookup_name(current_cell),
+                        self.lookup_name(self.secondary[first_cell].parent),
+                        self.lookup_name(self.secondary[current_cell].parent)
+                    )).into());
                 }
 
                 // cell must be a memory
                 let Some(mem_prototype) =
                     self.secondary[current_cell].prototype.as_memory()
                 else {
-                    return Err(todo!());
+                    return Err(CiderError::generic_error(format!(
+                        "'{}' is not a memory",
+                        self.lookup_name(current_cell)
+                    ))
+                    .into());
                 };
 
                 // memories need to be the same in shape and type
                 if cell_prototype != mem_prototype {
-                    return Err(todo!());
+                    return Err(CiderError::generic_error(format!(
+                        "Entangled memories must have identical definitions. '{}' and '{}' do not have matching definitions",
+                        self.lookup_name(first_cell),
+                        self.lookup_name(current_cell),
+                    )).into());
                 }
 
                 entangled_grouping.insert(current_cell);
@@ -787,6 +801,14 @@ impl LookupName for CombGroupIdx {
     #[inline]
     fn lookup_name<'ctx>(&self, ctx: &'ctx Context) -> &'ctx String {
         ctx.resolve_id(ctx.primary[*self].name())
+    }
+}
+
+impl LookupName for CellDefinitionIdx {
+    fn lookup_name<'ctx>(&self, ctx: &'ctx Context) -> &'ctx String {
+        ctx.secondary[*self]
+            .name
+            .resolve(&ctx.secondary.string_table)
     }
 }
 
