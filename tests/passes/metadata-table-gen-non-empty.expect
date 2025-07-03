@@ -1,5 +1,5 @@
 import "primitives/core.futil";
-component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+component main<"pos"={4}>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     reg1 = std_reg(32);
     reg2 = std_reg(32);
@@ -7,22 +7,22 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     lt = std_lt(32);
   }
   wires {
-    group g1<"pos"={4}> {
+    group g1<"pos"={5}> {
       reg1.in = 32'd1;
       reg1.write_en = 1'd1;
       done = reg1.done;
     }
-    group g2<"pos"={5}> {
+    group g2<"pos"={6}> {
       reg2.in = 32'd2;
       reg2.write_en = 1'd1;
       done = reg2.done;
     }
-    group g3<"pos"={6}> {
+    group g3<"pos"={7}> {
       reg3.in = 32'd3;
       reg3.write_en = 1'd1;
       done = reg3.done;
     }
-    group g4<"pos"={7}> {
+    group g4<"pos"={8}> {
       reg3.in = 32'd0;
       reg3.write_en = 1'd1;
       done = reg3.done;
@@ -33,15 +33,15 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
   }
   control {
-    @pos{8} par {
-      @pos{9} seq {
-        @pos{10} g1;
-        @pos{11} g2;
+    @pos{9} par {
+      @pos{10} seq {
+        @pos{11} g1;
+        @pos{12} g2;
       }
-      @pos{12} if lt.out with cond {
-        @pos{13} g3;
+      @pos{13} if lt.out with cond {
+        @pos{14} g3;
       } else {
-        @pos{14} g4;
+        @pos{15} g4;
       }
     }
   }
@@ -54,15 +54,16 @@ POSITIONS
 1: 1 5
 2: 1 6
 3: 1 7
-4: 2 14
-5: 2 19
-6: 2 24
-7: 2 29
-8: 2 40
-9: 2 41
-10: 2 42
-11: 2 43
-12: 2 45
-13: 2 46
-14: 2 48
+4: 2 5
+5: 2 14
+6: 2 19
+7: 2 24
+8: 2 29
+9: 2 40
+10: 2 41
+11: 2 42
+12: 2 43
+13: 2 45
+14: 2 46
+15: 2 48
 }#
