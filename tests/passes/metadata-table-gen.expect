@@ -1,5 +1,5 @@
 import "primitives/core.futil";
-component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+component main<"pos"={1}>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     reg1 = std_reg(32);
     reg2 = std_reg(32);
@@ -7,22 +7,22 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     lt = std_lt(32);
   }
   wires {
-    group g1<"pos"={1}> {
+    group g1<"pos"={2}> {
       reg1.in = 32'd1;
       reg1.write_en = 1'd1;
       done = reg1.done;
     }
-    group g2<"pos"={2}> {
+    group g2<"pos"={3}> {
       reg2.in = 32'd2;
       reg2.write_en = 1'd1;
       done = reg2.done;
     }
-    group g3<"pos"={3}> {
+    group g3<"pos"={4}> {
       reg3.in = 32'd3;
       reg3.write_en = 1'd1;
       done = reg3.done;
     }
-    group g4<"pos"={4}> {
+    group g4<"pos"={5}> {
       reg3.in = 32'd0;
       reg3.write_en = 1'd1;
       done = reg3.done;
@@ -33,15 +33,15 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
   }
   control {
-    @pos{5} par {
-      @pos{6} seq {
-        @pos{7} g1;
-        @pos{8} g2;
+    @pos{6} par {
+      @pos{7} seq {
+        @pos{8} g1;
+        @pos{9} g2;
       }
-      @pos{9} if lt.out with cond {
-        @pos{10} g3;
+      @pos{10} if lt.out with cond {
+        @pos{11} g3;
       } else {
-        @pos{11} g4;
+        @pos{12} g4;
       }
     }
   }
@@ -50,15 +50,16 @@ sourceinfo #{
 FILES
 1: tests/passes/metadata-table-gen.futil
 POSITIONS
-1: 1 14
-2: 1 19
-3: 1 24
-4: 1 29
-5: 1 40
-6: 1 41
-7: 1 42
-8: 1 43
-9: 1 45
-10: 1 46
-11: 1 48
+1: 1 5
+2: 1 14
+3: 1 19
+4: 1 24
+5: 1 29
+6: 1 40
+7: 1 41
+8: 1 42
+9: 1 43
+10: 1 45
+11: 1 46
+12: 1 48
 }#
