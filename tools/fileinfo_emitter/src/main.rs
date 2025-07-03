@@ -1,9 +1,12 @@
 use argh::FromArgs;
+use calyx_frontend::ast::Control;
 use calyx_frontend::{
     self as frontend, SetAttr, SetAttribute, source_info::PositionId,
     source_info::SourceInfoTable, source_info::SourceLocation,
 };
-use calyx_ir::{self as ir, Id};
+use calyx_ir::GetAttributes;
+use calyx_ir::{self as ir, Id, source_info::LineNum};
+use calyx_utils::WithPos;
 use calyx_utils::{CalyxResult, OutputFile};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -46,11 +49,15 @@ where
 struct ComponentInfo {
     #[serde(serialize_with = "id_serialize_passthrough")]
     pub component: Id,
-    pub filename: String,
-    pub linenum: usize,
-    pub varname: String,
+    // components may not have metadata attached.
+    pub filename: Option<String>,
+    // components may not have metadata attached.
+    pub linenum: Option<usize>,
+    // components may not have metadata attached.
+    pub varname: Option<String>,
     pub cells: Vec<PosInfo>,
     pub groups: Vec<PosInfo>,
+    pub control: Vec<ControlCalyxPosInfo>,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Serialize)]
@@ -62,10 +69,55 @@ struct PosInfo {
     pub varname: String,
 }
 
+// Obtaining the original line numbers of Calyx
+#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
+struct ControlCalyxPosInfo {
+    // TODO: Probably good to add filename as well in case the Calyx component
+    // TODO: Also we need to make sure that we pull out the line number from Calyx (check if file is .futil)
+    // pub filename: String,
+    pub pos_num: u32,
+    pub linenum: u32,
+}
+
 struct ComponentPosIds {
-    pub component_pos_id: u32,
+    pub component_pos_id: Option<u32>,
     pub cells: HashMap<Id, u32>,
     pub groups: HashMap<Id, u32>,
+    pub control: HashMap<u32, u32>,
+}
+
+fn collect_control_info(
+    ctrl: &ir::Control,
+    c_map: &mut HashMap<u32, u32>,
+) -> CalyxResult<()> {
+    let attr = ctrl.get_attributes();
+    if let Some(pos_set) = attr.get_set(SetAttr::Pos) {
+        let pos = pos_set.iter().next().unwrap();
+        let temp = attr.copy_span();
+        let (_, (line, _)) = temp.get_line_num();
+        c_map.insert(line as u32, *pos);
+    }
+    match ctrl {
+        ir::Control::Seq(ir::Seq { stmts, .. })
+        | ir::Control::Par(ir::Par { stmts, .. }) => {
+            for stmt in stmts {
+                collect_control_info(&stmt, c_map)?;
+            }
+        }
+        ir::Control::While(ir::While { body, .. })
+        | ir::Control::Repeat(ir::Repeat { body, .. }) => {
+            collect_control_info(&body, c_map)?;
+        }
+        ir::Control::If(ir::If {
+            tbranch, fbranch, ..
+        }) => {
+            collect_control_info(&tbranch, c_map)?;
+            collect_control_info(&fbranch, c_map)?;
+        }
+        _ => (),
+    }
+
+    Ok(())
 }
 
 /// Collects @pos{} attributes for each component, group, and cell.
@@ -75,15 +127,18 @@ fn gen_component_info(
     component_info: &mut HashMap<Id, ComponentPosIds>,
 ) -> CalyxResult<()> {
     // get pos for component
-    let component_set_attr = comp
-        .attributes
-        .get_set(SetAttribute::Set(SetAttr::Pos))
-        .unwrap();
-    let component_pos = component_set_attr.iter().next().unwrap();
+    let component_pos = if let Some(pos_set) =
+        comp.attributes.get_set(SetAttribute::Set(SetAttr::Pos))
+    {
+        Some(*pos_set.iter().next().unwrap())
+    } else {
+        None
+    };
     let mut component_pos_id = ComponentPosIds {
-        component_pos_id: *component_pos,
+        component_pos_id: component_pos,
         cells: HashMap::new(),
         groups: HashMap::new(),
+        control: HashMap::new(),
     };
 
     // get pos for groups
@@ -121,6 +176,10 @@ fn gen_component_info(
             }
         }
     }
+
+    let ctrl = comp.control.borrow();
+    collect_control_info(&ctrl, &mut component_pos_id.control)?;
+
     component_info.insert(comp.name, component_pos_id);
     Ok(())
 }
@@ -160,6 +219,10 @@ fn get_adl_var_name(
     file_lines_map: &HashMap<String, Vec<String>>,
     calyx_var_name: &Id,
 ) -> String {
+    if filename.ends_with(".futil") {
+        // If the original file is a Calyx file, the var name is the Calyx var name.
+        return calyx_var_name.to_string();
+    }
     // NOTE: This function currently only supports calyx-py eDSL.
     let unnamed = format!("'{calyx_var_name}'"); // fallback: Calyx-level construct variable name
     let file_lines: &Vec<String> = file_lines_map.get(filename).unwrap();
@@ -198,28 +261,42 @@ fn resolve(
     file_lines_map: &HashMap<String, Vec<String>>,
 ) -> CalyxResult<()> {
     for (curr_component, curr_component_pos_ids) in component_pos_ids.iter() {
-        let SourceLocation { file, line } = source_info_table.lookup_position(
-            PositionId::from(curr_component_pos_ids.component_pos_id),
-        );
-        let curr_component_filename = source_info_table
-            .lookup_file_path(*file)
-            .as_path()
-            .to_str()
-            .unwrap()
-            .to_string();
-        let mut curr_component_info = ComponentInfo {
-            component: *curr_component,
-            filename: curr_component_filename.clone(),
-            linenum: line.as_usize(),
-            varname: get_adl_var_name(
-                &curr_component_filename,
-                line.as_usize(),
-                file_lines_map,
-                curr_component,
-            ),
-            cells: Vec::new(),
-            groups: Vec::new(),
-        };
+        let mut curr_component_info =
+            if let Some(pos_id) = curr_component_pos_ids.component_pos_id {
+                let SourceLocation { file, line } =
+                    source_info_table.lookup_position(PositionId::from(pos_id));
+                let curr_component_filename = source_info_table
+                    .lookup_file_path(*file)
+                    .as_path()
+                    .to_str()
+                    .unwrap()
+                    .to_string();
+                let varname = get_adl_var_name(
+                    &curr_component_filename,
+                    line.as_usize(),
+                    file_lines_map,
+                    curr_component,
+                );
+                ComponentInfo {
+                    component: *curr_component,
+                    filename: Some(curr_component_filename.clone()),
+                    linenum: Some(line.as_usize()),
+                    varname: Some(varname),
+                    cells: Vec::new(),
+                    groups: Vec::new(),
+                    control: Vec::new(),
+                }
+            } else {
+                ComponentInfo {
+                    component: *curr_component,
+                    filename: None,
+                    linenum: None,
+                    varname: None,
+                    cells: Vec::new(),
+                    groups: Vec::new(),
+                    control: Vec::new(),
+                }
+            };
         for (cell_name, cell_pos_id) in curr_component_pos_ids.cells.iter() {
             if let Ok(pos_info) = obtain_pos_info(
                 cell_name,
@@ -239,6 +316,13 @@ fn resolve(
             ) {
                 curr_component_info.groups.push(pos_info);
             }
+        }
+
+        for (ctrl_line, ctrl_pos_id) in curr_component_pos_ids.control.iter() {
+            curr_component_info.control.push(ControlCalyxPosInfo {
+                linenum: *ctrl_line,
+                pos_num: *ctrl_pos_id,
+            });
         }
         component_info.insert(curr_component_info);
     }
