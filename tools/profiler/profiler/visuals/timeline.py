@@ -1,6 +1,7 @@
 import json
 import os
 
+from dataclasses import dataclass
 from profiler.classes import (
     TraceData,
     ControlRegUpdates,
@@ -13,46 +14,66 @@ JSON_INDENT = "    "  # [timeline view] indentation for generating JSON on the f
 num_timeline_events = 0  # [timeline view] recording how many events have happened
 
 
+def setup_enable_to_tid(
+    enable_to_threadid: dict[str, int] | None, starter_idx
+) -> dict[str, int]:
+    return (
+        {
+            enable: enable_to_threadid[enable] + starter_idx
+            for enable in enable_to_threadid
+        }
+        if enable_to_threadid
+        else {}
+    )
+
+
 class TimelineCell:
-    # bookkeeping for forming cells and their groups
-    def __init__(self, name, pid):
-        self.name = name
-        self.pid = pid
-        self.tid = 1  # the cell itself gets tid 1, FSMs gets 2+, followed by parallel executions of groups
-        self.tid_acc = 2
-        self.fsm_to_tid = {}  # contents: group/fsm --> tid
-        self.currently_active_group_to_tid = {}
-        self.queued_tids = []
+    """
+    Bookkeeping for forming cells and their groups
 
-    def get_metatrack_pid_tid(self, fsm_name):
+    Current system:
+    FIXME: we are assuming that there are no nested pars.
+    tid 1 is reserved for the cell itself
+    tid 2 is reserved for control register updates
+    tid 3+ will be computed using the path descriptor
+    """
+
+    def __init__(
+        self, name: str, pid: int, enable_to_threadid: dict[str, int] | None = None
+    ):
+        self.name: str = name
+        self.pid: int = pid
+        self.tid: int = 1
+        self.control_tid: int = 2
+        # basically path_metadata info but all ids are bumped by 3 (since path identifiers start from 0)
+        self.enable_to_tid: dict[str, int] = setup_enable_to_tid(enable_to_threadid, 3)
+        self.misc_enable_acc = (
+            1000  # compiler-generated groups that weren't recorded in enable_to_tid
+        )
+        # FIXME: this value ought to be accessed through a variable and really not as a hardcoded value. but probably ok for a first pass
+        self.unique_group_str = "UG"
+
+    @property
+    def control_pid_tid(self):
         # metatrack is the second tid, containing information about control register updates
-        if fsm_name not in self.fsm_to_tid:
-            self.fsm_to_tid[fsm_name] = self.tid_acc
-            self.tid_acc += 1
-        return (self.pid, self.fsm_to_tid[fsm_name])
+        return (self.pid, self.control_tid)
 
-    def get_group_pid_tid(self, group_name):
-        return (self.pid, self.currently_active_group_to_tid[group_name])
-
-    def add_group(self, group_name):
-        if (
-            group_name in self.currently_active_group_to_tid
-        ):  # no-op since the group is already registered.
-            return self.currently_active_group_to_tid[group_name]
-        if len(self.queued_tids) > 0:
-            group_tid = min(self.queued_tids)
-            self.queued_tids.remove(group_tid)
+    def add_group(self, enable_name: str):
+        group_name = enable_name.split(self.unique_group_str)[0]
+        if enable_name in self.enable_to_tid:
+            group_tid = self.enable_to_tid[enable_name]
         else:
-            group_tid = self.tid_acc
-            self.tid_acc += 1
-        self.currently_active_group_to_tid[group_name] = group_tid
-        return (self.pid, group_tid)
+            # this has to be a structural enable. not sure what the best behavior here is
+            group_tid = self.misc_enable_acc
+            self.enable_to_tid[group_name] = group_tid
+            self.misc_enable_acc += 1
+        return (self.pid, group_tid, group_name)
 
-    def remove_group(self, group_name):
-        group_tid = self.currently_active_group_to_tid[group_name]
-        self.queued_tids.append(group_tid)
-        del self.currently_active_group_to_tid[group_name]
-        return (self.pid, group_tid)
+    def remove_group(self, enable_name):
+        group_name = enable_name.split(self.unique_group_str)[0]
+        group_tid = self.enable_to_tid[enable_name]
+        # del self.currently_active_group_to_tid[group_name]
+        return (self.pid, group_tid, group_name)
 
 
 def write_timeline_event(event, out_file):
@@ -82,9 +103,7 @@ def port_control_events(
         # they are probably single-group components.
         return
     for update_info in control_updates[cell_name]:
-        (control_pid, control_tid) = cell_to_info[cell_name].get_metatrack_pid_tid(
-            "CTRL"
-        )
+        (control_pid, control_tid) = cell_to_info[cell_name].control_pid_tid
         begin_event = {
             "name": update_info.updates,
             "cat": "CTRL",
@@ -106,7 +125,28 @@ def port_control_events(
     del control_updates[cell_name]
 
 
-def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out_dir):
+@dataclass(frozen=True)
+class ActiveCell:
+    cell_name: str
+    display_name: str | None
+
+    @property
+    def name(self) -> str:
+        return self.cell_name if self.display_name is None else self.display_name
+
+
+@dataclass(frozen=True)
+class ActiveEnable:
+    enable_name: str
+    cell_name: str  # cell from which enable is active from
+
+
+def compute_timeline(
+    tracedata: TraceData,
+    cell_metadata: CellMetadata,
+    enable_thread_data: dict[str, dict[str, int]],
+    out_dir,
+):
     """
     Compute and output a JSON that conforms to the Google Trace File format.
     Each cell gets its own process id, where tid 1 is the duration of the cell itself,
@@ -120,7 +160,11 @@ def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out_dir)
     # each cell gets its own pid. The cell's lifetime is tid 1, followed by the FSM(s), then groups
     # main component gets pid 1
     cell_to_info: dict[str, TimelineCell] = {
-        cell_metadata.main_component: TimelineCell(cell_metadata.main_component, 1)
+        cell_metadata.main_component: TimelineCell(
+            cell_metadata.main_component,
+            1,
+            enable_to_threadid=enable_thread_data[cell_metadata.main_shortname],
+        )
     }
     # generate JSON for all FSM events in main
     port_control_events(
@@ -129,11 +173,12 @@ def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out_dir)
         cell_metadata.main_component,
         out_file,
     )
-    group_to_parent_cell = {}
     pid_acc = 2
-    currently_active = set()
+    currently_active_cells: set[ActiveCell] = set()
+    currently_active_groups: set[ActiveEnable] = set()
     for i in tracedata.trace:
-        active_this_cycle: set[tuple[str, str]] = set()
+        cells_active_this_cycle: set[ActiveCell] = set()
+        groups_active_this_cycle: set[ActiveEnable] = set()
         for stack in tracedata.trace[i].stacks:
             stack_acc = cell_metadata.main_component
             current_cell = (
@@ -147,17 +192,29 @@ def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out_dir)
                             # don't accumulate to the stack if your name is main.
                             name = cell_metadata.main_component
                         else:
-                            display_name = f"{stack_acc}.{stack_elem.name}"
+                            display_name = f"{stack_acc}.{stack_elem.internal_name}"
                             if stack_elem.replacement_cell_name is not None:
                                 # shared cell. use the info of the replacement cell
                                 display_name += f" ({stack_elem.replacement_cell_name})"
                                 stack_acc += "." + stack_elem.replacement_cell_name
                             else:
-                                stack_acc += "." + stack_elem.name
+                                stack_acc += "." + stack_elem.internal_name
                             name = stack_acc
                             current_cell = name
                             if name not in cell_to_info:  # cell is not registered yet
-                                cell_to_info[name] = TimelineCell(name, pid_acc)
+                                cell_component = cell_metadata.get_component_of_cell(
+                                    name
+                                )
+                                if cell_component in enable_thread_data:
+                                    cell_to_info[name] = TimelineCell(
+                                        name,
+                                        pid_acc,
+                                        enable_to_threadid=enable_thread_data[
+                                            cell_component
+                                        ],
+                                    )
+                                else:
+                                    cell_to_info[name] = TimelineCell(name, pid_acc)
                                 # generate JSON for all FSM events in this cell
                                 port_control_events(
                                     tracedata.control_reg_updates,
@@ -166,101 +223,146 @@ def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out_dir)
                                     out_file,
                                 )
                                 pid_acc += 1
+                        cells_active_this_cycle.add(ActiveCell(name, display_name))
                     case StackElementType.PRIMITIVE:
                         # ignore primitives for now
                         continue
                     case StackElementType.GROUP:
-                        name = stack_acc + "." + stack_elem.name
-                        group_to_parent_cell[name] = current_cell
-                active_this_cycle.add((name, display_name))
-        for nonactive_element, nonactive_element_display in currently_active.difference(
-            active_this_cycle
-        ):  # element that was previously active but no longer is.
-            # make end event
-            end_event = create_timeline_event(
-                nonactive_element,
-                i,
-                "E",
-                cell_to_info,
-                group_to_parent_cell,
-                display_name=nonactive_element_display,
-            )
-            write_timeline_event(end_event, out_file)
-        for newly_active_element, newly_active_display in active_this_cycle.difference(
-            currently_active
-        ):  # element that started to be active this cycle.
-            begin_event = create_timeline_event(
-                newly_active_element,
-                i,
-                "B",
-                cell_to_info,
-                group_to_parent_cell,
-                display_name=newly_active_display,
-            )
-            write_timeline_event(begin_event, out_file)
-        currently_active = active_this_cycle
+                        # TODO: maybe we need to retain stack names? Reevaluate this commenting out
+                        # name = stack_acc + "." + stack_elem.internal_name
+                        groups_active_this_cycle.add(
+                            ActiveEnable(stack_elem.internal_name, current_cell)
+                        )
 
-    # Read through all cycles; postprocessing
-    for (
-        still_active_element,
-        still_active_display,
-    ) in (
-        currently_active
-    ):  # need to close any elements that are still active at the end of the simulation
-        end_event = create_timeline_event(
-            still_active_element,
-            len(tracedata.trace),
-            "E",
+        register_done_elements_for_cycle(
+            out_file,
             cell_to_info,
-            group_to_parent_cell,
-            display_name=still_active_display,
+            currently_active_cells,
+            currently_active_groups,
+            i,
+            cells_active_this_cycle,
+            groups_active_this_cycle,
         )
-        write_timeline_event(end_event, out_file)
+
+        register_new_elements(
+            out_file,
+            cell_to_info,
+            currently_active_cells,
+            currently_active_groups,
+            i,
+            cells_active_this_cycle,
+            groups_active_this_cycle,
+        )
+
+        currently_active_cells = cells_active_this_cycle
+        currently_active_groups = groups_active_this_cycle
+
+    # Gotten through all cycles; postprocessing any cells and groups that were active until the very end
+    # need to close any elements that are still active at the end of the simulation
+    for still_active_cell in currently_active_cells:
+        cell_end_event = create_cell_timeline_event(
+            still_active_cell, len(tracedata.trace), "E", cell_to_info
+        )
+        write_timeline_event(cell_end_event, out_file)
+    for still_active_group in currently_active_groups:
+        group_end_event = create_group_timeline_event(
+            still_active_group, len(tracedata.trace), "E", cell_to_info
+        )
+        write_timeline_event(group_end_event, out_file)
 
     # close off the json
     out_file.write("\t\t]\n}")
     out_file.close()
 
 
-def create_timeline_event(
-    element_name,
-    cycle,
-    event_type,
+def register_new_elements(
+    out_file,
     cell_to_info,
-    group_to_parent_cell,
-    display_name=None,
+    currently_active_cells,
+    currently_active_groups,
+    i,
+    cells_active_this_cycle,
+    groups_active_this_cycle,
 ):
     """
-    Creates a JSON entry for traceEvents.
-    element_name: fully qualified name of cell/group
-    cycle: timestamp of the event, in cycles
-    event_type: "B" for begin event, "E" for end event
-    display_name: Optional arg for when we want the name of a cell entry to be something else (ex. shared cells). Ignored for groups
+    Identifies and creates events for cells/group enables that started execution this cycle.
     """
-    if element_name in cell_to_info:  # cell
-        event = {
-            "name": element_name if display_name is None else display_name,
-            "cat": "cell",
-            "ph": event_type,
-            "pid": cell_to_info[element_name].pid,
-            "tid": 1,
-            "ts": cycle * ts_multiplier,
-        }
-    else:  # group; need to extract the cell name to obtain tid and pid.
-        cell_name = group_to_parent_cell[element_name]
-        cell_info = cell_to_info[cell_name]
-        if event_type == "B":
-            (pid, tid) = cell_info.add_group(element_name)
-        else:
-            (pid, tid) = cell_info.remove_group(element_name)
-        event = {
-            "name": element_name.split(".")[
-                -1
-            ],  # take only the group name for easier visibility
-            "cat": "group",
-            "ph": event_type,
-            "pid": pid,
-            "tid": tid,
-            "ts": cycle * ts_multiplier,
-        }
-    return event
+    for newly_active_cell in cells_active_this_cycle.difference(currently_active_cells):
+        # cell that started to be active this cycle
+        cell_begin_event = create_cell_timeline_event(
+            newly_active_cell, i, "B", cell_to_info
+        )
+        write_timeline_event(cell_begin_event, out_file)
+    for newly_active_group in groups_active_this_cycle.difference(
+        currently_active_groups
+    ):
+        # group that started to be active this cycle
+        group_start_event = create_group_timeline_event(
+            newly_active_group, i, "B", cell_to_info
+        )
+        write_timeline_event(group_start_event, out_file)
+
+
+def register_done_elements_for_cycle(
+    out_file,
+    cell_to_info,
+    currently_active_cells,
+    currently_active_groups,
+    i,
+    cells_active_this_cycle,
+    groups_active_this_cycle,
+):
+    """
+    Identifies and creates events for cells/group enables that finished execution this cycle.
+    """
+    for nonactive_cell in currently_active_cells.difference(cells_active_this_cycle):
+        # cell that was previously active but no longer is
+        # make end event
+        cell_end_event = create_cell_timeline_event(
+            nonactive_cell, i, "E", cell_to_info
+        )
+        write_timeline_event(cell_end_event, out_file)
+    for nonactive_group in currently_active_groups.difference(groups_active_this_cycle):
+        # group/enable that was previously active but no longer is
+        # make end event
+        group_end_event = create_group_timeline_event(
+            nonactive_group, i, "E", cell_to_info
+        )
+        write_timeline_event(group_end_event, out_file)
+
+
+def create_cell_timeline_event(
+    active_cell_info: ActiveCell,
+    cycle: int,
+    event_type: str,
+    cell_to_info: dict[str, TimelineCell],
+):
+    return {
+        "name": active_cell_info.name,
+        "cat": "cell",
+        "ph": event_type,
+        "pid": cell_to_info[active_cell_info.cell_name].pid,
+        "tid": 1,
+        "ts": cycle * ts_multiplier,
+    }
+
+
+def create_group_timeline_event(
+    active_group_info: ActiveEnable,
+    cycle: int,
+    event_type: str,
+    cell_to_info: dict[str, TimelineCell],
+):
+    cell_info = cell_to_info[active_group_info.cell_name]
+    if event_type == "B":
+        (pid, tid, name) = cell_info.add_group(active_group_info.enable_name)
+    else:
+        (pid, tid, name) = cell_info.remove_group(active_group_info.enable_name)
+    return {
+        "name": name,  # take only the group name for easier visibility
+        "cat": "group",
+        "ph": event_type,
+        "pid": pid,
+        "tid": tid,
+        "ts": cycle * ts_multiplier,
+    }
