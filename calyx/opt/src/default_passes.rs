@@ -151,7 +151,7 @@ impl PassManager {
 
         register_alias!(
             pm,
-            "med-fsm",
+            "compile-fsm",
             [
                 DataPathInfer,
                 CollapseControl,
@@ -161,44 +161,13 @@ impl PassManager {
                 GroupToInvoke,
                 ComponentInliner,
                 CombProp,
-                // DeadCellRemoval,
-                CellShare,
+                DeadCellRemoval,
                 SimplifyWithControl,
                 CompileInvoke,
                 StaticInference,
                 StaticPromotion,
                 DeadGroupRemoval,
                 CollapseControl,
-                FSMAnnotator,
-                FSMBuilder,
-                DeadGroupRemoval,
-                MergeAssign,
-                CompileRepeat,
-                TopDownCompileControl,
-            ]
-        );
-
-        register_alias!(
-            pm,
-            "compile-fsm",
-            [
-                DataPathInfer,
-                CollapseControl,
-                CompileSyncWithoutSyncReg,
-                GroupToSeq,
-                DeadAssignmentRemoval,
-                GroupToInvoke,
-                ComponentInliner,
-                CombProp,
-                // DeadCellRemoval,
-                CellShare,
-                SimplifyWithControl,
-                CompileInvoke,
-                StaticInference,
-                StaticPromotion,
-                DeadGroupRemoval,
-                CollapseControl,
-                FSMAnnotator,
             ]
         );
 
