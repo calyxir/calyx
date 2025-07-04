@@ -10,6 +10,7 @@ mod control_order;
 mod control_ports;
 mod dataflow_order;
 mod domination_analysis;
+mod fsm_call_graph;
 mod fsm_construction;
 mod graph;
 mod graph_coloring;

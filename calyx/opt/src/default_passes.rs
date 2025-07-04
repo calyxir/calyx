@@ -147,6 +147,28 @@ impl PassManager {
 
         register_alias!(
             pm,
+            "compile-fsm",
+            [
+                DataPathInfer,
+                CollapseControl,
+                CompileSyncWithoutSyncReg,
+                GroupToSeq, // FIXME: may make programs *slower*
+                DeadAssignmentRemoval,
+                GroupToInvoke,
+                ComponentInliner,
+                CombProp,
+                DeadCellRemoval,
+                SimplifyWithControl,
+                CompileInvoke,
+                StaticInference,
+                StaticPromotion,
+                DeadGroupRemoval,
+                CollapseControl,
+            ]
+        );
+
+        register_alias!(
+            pm,
             "compile",
             [
                 StaticInliner,
