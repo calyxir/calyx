@@ -154,7 +154,7 @@ impl PassManager {
                 DataPathInfer,
                 CollapseControl,
                 CompileSyncWithoutSyncReg,
-                GroupToSeq,
+                GroupToSeq, // FIXME: may make programs *slower*
                 DeadAssignmentRemoval,
                 GroupToInvoke,
                 ComponentInliner,
@@ -166,7 +166,6 @@ impl PassManager {
                 StaticPromotion,
                 DeadGroupRemoval,
                 CollapseControl,
-                FSMAnnotator,
             ]
         );
 
