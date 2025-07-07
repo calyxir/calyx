@@ -107,7 +107,7 @@ op(
     }
 );
 
-// Op to get synthesis JSON summary from synth-ready SV
+// Op to get hierarchical utilization JSON summary from synth-ready SV
 op(
     "synth-verilog-to-hierarchy-json",
     [synth_setup],

@@ -152,8 +152,6 @@ class ControlMetadata:
     fsms: set[str] = field(default_factory=set)
     # names of fully qualified par groups
     ctrl_groups: set[str] = field(default_factory=set)
-    # names of fully qualified tdcc groups
-    tdcc_groups: set[str] = field(default_factory=set)
     # component --> { fsm in the component. NOT fully qualified }
     # components that are not in this dictionary do not contain any fsms
     component_to_fsms: defaultdict[str, set[str]] = field(
@@ -201,7 +199,7 @@ class ControlMetadata:
         self.fsms = {f"{signal_prefix}.{fsm}" for fsm in self.fsms}
         self.par_done_regs = {f"{signal_prefix}.{pd}" for pd in self.par_done_regs}
         self.ctrl_groups = {
-            f"{signal_prefix}.{par_group}" for par_group in self.ctrl_groups
+            f"{signal_prefix}.{ctrl_group}" for ctrl_group in self.ctrl_groups
         }
         new_par_to_children = defaultdict(list)
         for fully_qualified_par in self.par_to_par_children:
@@ -233,7 +231,6 @@ class ControlMetadata:
 
     def register_par(self, par_group: str, component: str):
         self.component_to_par_groups[component].add(par_group)
-        # self.component_to_control_to_primitives[component][par_group].add()
 
     def register_par_child(
         self,
@@ -628,7 +625,7 @@ class UtilizationCycleTrace(CycleTrace):
             if e.element_type == StackElementType.CONTROL_GROUP:
                 seen_groups.add((stack_string, comp, e.name))
             if e.element_type == StackElementType.CELL:
-                stack_string += e.name + "."
+                stack_string += f"{e.name}."
             if e.component_name:
                 comp = e.component_name
         # get primitives used by each control group from the control metadata and
