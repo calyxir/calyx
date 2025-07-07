@@ -1,6 +1,4 @@
 from collections import Counter
-import json
-import pprint
 import pandas as pd
 import plotly.express as px
 from profiler.classes import UtilizationCycleTrace
