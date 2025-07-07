@@ -2,7 +2,7 @@
 use crate::pass_manager::PassResult;
 use crate::passes::{
     AddGuard, Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
-    CompileInvoke, CompileRepeat, CompileStatic, ComponentInliner,
+    CompileFSM, CompileInvoke, CompileRepeat, CompileStatic, ComponentInliner,
     ConstantPortProp, DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval,
     DeadGroupRemoval, DefaultAssigns, Externalize, GoInsertion, GroupToInvoke,
     GroupToSeq, InferShare, LowerGuards, MergeAssign, Papercut,
@@ -14,8 +14,7 @@ use crate::passes::{
 };
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
-    FSMAnnotator, FSMBuilder, HoleInliner, Metadata, ParToSeq,
-    RegisterUnsharing,
+    HoleInliner, Metadata, ParToSeq, RegisterUnsharing,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -58,8 +57,7 @@ impl PassManager {
         pm.register_pass::<CompileSync>()?;
         pm.register_pass::<CompileSyncWithoutSyncReg>()?;
         pm.register_pass::<AddGuard>()?;
-        pm.register_pass::<FSMAnnotator>()?;
-        pm.register_pass::<FSMBuilder>()?;
+        pm.register_pass::<CompileFSM>()?;
 
         // Lowering passes
         pm.register_pass::<GoInsertion>()?;
@@ -151,7 +149,7 @@ impl PassManager {
 
         register_alias!(
             pm,
-            "compile-fsm",
+            "compile-fsm-pipeline",
             [
                 DataPathInfer,
                 CollapseControl,
@@ -168,6 +166,7 @@ impl PassManager {
                 StaticPromotion,
                 DeadGroupRemoval,
                 CollapseControl,
+                CompileFSM,
             ]
         );
 
