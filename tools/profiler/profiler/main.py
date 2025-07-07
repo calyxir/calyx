@@ -106,7 +106,7 @@ def create_visuals(
     print(f"End writing timeline view: {datetime.now()}")
 
     if utilization_variable:
-        p = Plotter(tracedata.trace)
+        p = Plotter(tracedata.trace_with_control_groups)
         p.run_all(utilization_variable, out_dir)
 
 

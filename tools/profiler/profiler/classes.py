@@ -151,7 +151,9 @@ class ControlMetadata:
     # names of fully qualified FSMs
     fsms: set[str] = field(default_factory=set)
     # names of fully qualified par groups
-    par_groups: set[str] = field(default_factory=set)
+    ctrl_groups: set[str] = field(default_factory=set)
+    # names of fully qualified tdcc groups
+    tdcc_groups: set[str] = field(default_factory=set)
     # component --> { fsm in the component. NOT fully qualified }
     # components that are not in this dictionary do not contain any fsms
     component_to_fsms: defaultdict[str, set[str]] = field(
@@ -181,21 +183,25 @@ class ControlMetadata:
         default_factory=lambda: defaultdict(list)
     )  # cell --> ordered par group names
 
+    cell_to_tdcc_groups: defaultdict[str, set[str]] = field(
+        default_factory=lambda: defaultdict(set)
+    )  # cell --> { tdcc groups }
+
     added_signal_prefix: bool = field(default=False)
 
     def add_par_done_reg(self, component, par_group, par_done_reg, stack):
         self.par_done_regs.add(stack)
         self.component_to_control_to_primitives[component][par_group].add(par_done_reg)
 
-    def register_fully_qualified_par(self, fully_qualified_par):
-        self.par_groups.add(fully_qualified_par)
+    def register_fully_qualified_ctrl_gp(self, fully_qualified_gp):
+        self.ctrl_groups.add(fully_qualified_gp)
 
     def add_signal_prefix(self, signal_prefix: str):
         assert not self.added_signal_prefix
         self.fsms = {f"{signal_prefix}.{fsm}" for fsm in self.fsms}
         self.par_done_regs = {f"{signal_prefix}.{pd}" for pd in self.par_done_regs}
-        self.par_groups = {
-            f"{signal_prefix}.{par_group}" for par_group in self.par_groups
+        self.ctrl_groups = {
+            f"{signal_prefix}.{par_group}" for par_group in self.ctrl_groups
         }
         new_par_to_children = defaultdict(list)
         for fully_qualified_par in self.par_to_par_children:
@@ -207,6 +213,10 @@ class ControlMetadata:
             )
         self.par_to_par_children = new_par_to_children
         self.added_signal_prefix = True
+        fully_qualified_tdccs = {
+            f"{signal_prefix}.{c}": g for c, g in self.cell_to_tdcc_groups.items()
+        }
+        self.cell_to_tdcc_groups = fully_qualified_tdccs
 
     def register_fsm(self, fsm_name, component, cell_metadata: CellMetadata):
         """
@@ -531,15 +541,9 @@ class UtilizationCycleTrace(CycleTrace):
     utilization: dict
     # Map between primitives in this cycle and their utilization (subset of global_utilization filtered for this cycle)
     utilization_per_primitive: dict[str, dict]
-    # List of all the primitives active in this cycle
+    # List of all the NON-CONTROL GROUP primitives active in this cycle
     primitives_active: set[str]
-    # Tdcc control groups active this cycle: [(component_name, control_group_name, stack)]
-    # Ex. [("flow_inference", "par0", "main.dataplane.myqueue.flow_infer.")]
-    # The stack string goes up until (and excluding) the control group.
-    # For *reasons* we keep a period at the end of the stack string (basically we
-    # want to append actual primitives used for the control flow, but these are not
-    # on the stack, so we must get them from the FSM file separately)
-    control_groups_active: list[tuple[str, str, str]]
+    # Reference to the control metadata, used for checking control groups
     control_metadata: ControlMetadata
 
     def __init__(
@@ -561,60 +565,91 @@ class UtilizationCycleTrace(CycleTrace):
 
     def add_stack(self, stack):
         super().add_stack(stack)
-        print("HELLO MY DEAR")
         top: StackElement = stack[-1]
-        fully_qualified_name = ".".join(
-            map(
-                lambda x: x.name,
-                filter(
-                    lambda x: x.element_type == StackElementType.CELL
-                    or x.element_type == StackElementType.PRIMITIVE,
-                    stack,
-                ),
-            )
-        )
+        fully_qualified_name = self._get_fully_qualified_name(stack)
+        # if primitive (but not control primitive) then add directly to primitives_active
         if (
             top.element_type == StackElementType.PRIMITIVE
-            and top.name
-            not in self.control_metadata.component_to_control_to_primitives[
-                top.component_name
-            ].values()
+            and top.name not in self._flatten_control_primitives(top.component_name)
         ):
             self.primitives_active.add(fully_qualified_name)
-            # print(fully_qualified_name)
-            # for k, v in self.global_utilization.get(fully_qualified_name, {}).items():
-            #     if v.isdigit():
-            #         self.utilization[k] = self.utilization.get(k, 0) + int(v)
-            # self.utilization_per_primitive[fully_qualified_name] = (
-            #     self.global_utilization.get(fully_qualified_name, {})
-            # )
-            # print(self.utilization_per_primitive)
-        # we check for control groups in the stack
+        # if there are any control groups we call helper
         if any(e.element_type == StackElementType.CONTROL_GROUP for e in stack):
-            stack_string = ""
-            comp = ""
-            gp = ""
-            for e in stack:
-                if e.element_type == StackElementType.CONTROL_GROUP:
-                    gp = e.name
-                    break
-                elif e.element_type == StackElementType.CELL:
-                    stack_string += e.name + "."
-                comp = e.component_name
-            # self.control_groups_active.append((comp, gp, stack_string))
-            self.primitives_active |= set(
-                map(
-                    lambda x: f"{stack_string}{x}",
-                    self.control_metadata.component_to_control_to_primitives[comp][gp],
-                )
-            )
-        print(f"primitives:  {self.primitives_active}")
+            self._add_control_group_utilization(stack)
+        # get primitives utilization from global utilization map.
+        # the little trick here is that this skips the control primitives since
+        # those are processed separately. note that self.primitives_active does
+        # NOT include control primitives!
         for p in self.primitives_active:
-            for k, v in self.global_utilization.get(p, {}).items():
-                if v.isdigit():
-                    self.utilization[k] = self.utilization.get(k, 0) + int(v)
-            self.utilization_per_primitive[p] = self.global_utilization.get(p, {})
-        print(f"utilization per primitive: {self.utilization_per_primitive}")
+            util = {
+                k: int(v) if v.isdigit() else v
+                for k, v in self.global_utilization.get(p, {}).items()
+            }
+            self.utilization_per_primitive[p] = util
+        # populate aggregated cycle utilization
+        self.utilization = {}
+        for util in self.utilization_per_primitive.values():
+            for k, v in util.items():
+                if isinstance(v, int):
+                    self.utilization[k] = self.utilization.get(k, 0) + v
+
+    def _get_fully_qualified_name(self, stack: list[StackElement]):
+        """
+        Get the fully qualified name of a stack.
+        """
+        return ".".join(
+            x.name
+            for x in stack
+            if x.element_type in {StackElementType.CELL, StackElementType.PRIMITIVE}
+        )
+
+    def _flatten_control_primitives(self, component: str):
+        """
+        Get control primitives from a component.
+        """
+        return {
+            primitive
+            for control_map in self.control_metadata.component_to_control_to_primitives.get(
+                component, {}
+            ).values()
+            for primitive in control_map
+        }
+
+    def _add_control_group_utilization(self, stack: list[StackElement]):
+        """
+        Add utilization of primitives in control groups on stack to utilization per primitive.
+        """
+        stack_string = ""
+        comp = "main"
+        seen_groups = set()
+        # accummulate control groups seen on the stack, with their fully qualified name
+        # up until that point and the component they are in.
+        for e in stack:
+            if e.element_type == StackElementType.CONTROL_GROUP:
+                seen_groups.add((stack_string, comp, e.name))
+            if e.element_type == StackElementType.CELL:
+                stack_string += e.name + "."
+            if e.component_name:
+                comp = e.component_name
+        # get primitives used by each control group from the control metadata and
+        # fetch their utilization from the global utilization map.
+        # NOTE: we aggregate them based on control groups, because the user doesn't
+        # really care about each individual par done register, but rather the combined
+        # utilization of that control flow construct
+        for prefix, comp, gp in seen_groups:
+            key = f"{prefix}{gp}"
+            primitives = self.control_metadata.component_to_control_to_primitives[comp][
+                gp
+            ]
+            control_prims = {f"{prefix}{p}" for p in primitives}
+            self.utilization_per_primitive[key] = {}
+
+            for prim in control_prims:
+                for k, v in self.global_utilization.get(prim, {}).items():
+                    if v.isdigit():
+                        self.utilization_per_primitive[key][k] = (
+                            self.utilization_per_primitive[key].get(k, 0) + int(v)
+                        )
 
 
 @dataclass
@@ -838,6 +873,13 @@ class TraceData:
                 case StackElementType.PRIMITIVE:
                     # All primitives are leaf nodes, so there is no more work left to be done.
                     break
+            if current_cell in control_metadata.cell_to_tdcc_groups:
+                for cell, gps in control_metadata.cell_to_tdcc_groups.items():
+                    for g in gps:
+                        if f"{cell}.{g}" in active_control_groups:
+                            events_stack_with_ctrl.append(
+                                StackElement(g, StackElementType.CONTROL_GROUP)
+                            )
             if current_cell in control_metadata.cell_to_ordered_pars:
                 active_from_cell = active_control_groups.intersection(
                     control_metadata.cell_to_ordered_pars[current_cell]
