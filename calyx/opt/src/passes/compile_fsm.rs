@@ -1,5 +1,5 @@
 use crate::{
-    analysis::FSMCallGraph,
+    analysis::{FSMCallGraph, StatePossibility},
     traversal::{Action, ConstructVisitor, Named, VisResult, Visitor},
 };
 use calyx_ir::{self as ir};
@@ -30,19 +30,26 @@ impl Visitor for CompileFSM {
     ) -> VisResult {
         let mut call_graph = FSMCallGraph::new();
 
+        println!("BEFORE");
+
         println!("top level pointer:");
-        println!(
-            "{:?}",
-            call_graph
-                .build_from_control(&comp.control.borrow())
-                .unwrap()
-        );
+        let mut top_level = call_graph
+            .build_from_control(&comp.control.borrow())
+            .unwrap();
+        println!("{:?}", top_level);
 
         println!();
         println!("fsms:");
         call_graph.graph.iter().enumerate().for_each(|(i, afsm)| {
             println!("fsm {i}: {:?}", afsm);
         });
+
+        println!();
+        println!("AFTER");
+        if let StatePossibility::Call(call) = &mut top_level {
+            call.postorder_analysis();
+        }
+        println!("{:?}", top_level);
 
         Ok(Action::Continue)
     }
