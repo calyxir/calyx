@@ -15,6 +15,7 @@ from profiler.classes import (
     ControlMetadata,
     TraceData,
     ControlRegUpdateType,
+    Utilization,
 )
 
 
@@ -49,7 +50,7 @@ def process_vcd(
     control_metadata: ControlMetadata,
     tracedata: TraceData,
     vcd_filename: str,
-    utilization: dict[str, dict] | None = None,
+    utilization: Utilization | None = None,
 ):
     """
     Wrapper function to process the VCD file to produce a trace.
@@ -178,20 +179,20 @@ def main():
         enable_thread_metadata,
     ) = setup_metadata(args)
 
-    utilization: dict[str, dict] | None = None
+    utilization: Utilization | None = None
     utilization_variable: str | None = None
 
     if args.utilization_report_json is not None:
         print("Utilization report mode enabled.")
         with open(args.utilization_report_json) as f:
-            utilization = json.load(f)
-            map = {
+            utilization = Utilization(json.load(f))
+            varmap = {
                 "ff": "FFs",
                 "lut": "Total LUTs",
                 "llut": "Logic LUTs",
                 "lutram": "LUTRAMs",
             }
-            utilization_variable = map[args.utilization_variable]
+            utilization_variable = varmap[args.utilization_variable]
 
     control_reg_updates_per_cycle: dict[int, ControlRegUpdateType] = process_vcd(
         cell_metadata,
@@ -203,6 +204,10 @@ def main():
     )
 
     tracedata.print_trace(threshold=args.print_trace_threshold, ctrl_trace=True)
+    if utilization:
+        print(
+            f"Unaccessed utilization values: {', '.join(utilization.get_unaccessed())}"
+        )
 
     create_visuals(
         cell_metadata,

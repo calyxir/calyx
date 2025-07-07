@@ -32,6 +32,36 @@ class SourceLoc:
 
 
 @dataclass
+class Utilization:
+    """
+    Hierarchical utilization wrapper.
+    """
+
+    map: dict[str, dict[str, str]]
+    accessed: set[str]
+
+    def __init__(self, json_dict):
+        self.map = json_dict
+        self.accessed = set()
+
+    def get_module(self, name: str) -> dict[str, str]:
+        """
+        Get the utilization map for a module. `name` is a fully qualified name
+        of a module on a stack.
+        """
+        if name in self.map:
+            self.accessed.add(name)
+        return self.map.get(name, {})
+
+    def get_unaccessed(self):
+        """
+        Get a set of unaccessed modules in the utilization map.
+        """
+        module_set = set(k for k in self.map)
+        return module_set.difference(self.accessed)
+
+
+@dataclass
 class AdlMap:
     """
     Mappings from Calyx components, cells, and groups to the corresponding ADL SourceLoc.
@@ -360,7 +390,11 @@ class StackElement:
             case StackElementType.GROUP:
                 return self.name
             case StackElementType.PRIMITIVE:
-                return f"{self.name} (primitive)"
+                return (
+                    f"{self.name} (primitive)"
+                    if self.replacement_cell_name is None
+                    else f"{self.name} (primitive) -> {self.replacement_cell_name}"
+                )
             case StackElementType.CELL:
                 if self.is_main:
                     return f"{self.name}"
@@ -552,7 +586,7 @@ class UtilizationCycleTrace(CycleTrace):
     """
 
     # Reference to the global utilization map from all primitives to their utilization
-    global_utilization: dict[str, dict]
+    global_utilization: Utilization
     # Aggregated utilization of all the primitives in this cycle
     # Ex. {'Total LUTs': 21, 'Logic LUTs': 5, 'LUTRAMs': 16, 'SRLs': 0, 'FFs': 38, 'RAMB36': 0, 'RAMB18': 0, 'URAM': 0, 'DSP Blocks': 0}
     utilization: dict
@@ -565,7 +599,7 @@ class UtilizationCycleTrace(CycleTrace):
 
     def __init__(
         self,
-        utilization: dict[str, dict],
+        utilization: Utilization,
         control_metadata: ControlMetadata,
         stacks_this_cycle: list[list[StackElement]] | None = None,
     ):
@@ -600,7 +634,7 @@ class UtilizationCycleTrace(CycleTrace):
         for p in self.primitives_active:
             util = {
                 k: int(v) if v.isdigit() else v
-                for k, v in self.global_utilization.get(p, {}).items()
+                for k, v in self.global_utilization.get_module(p).items()
             }
             self.utilization_per_primitive[p] = util
         # populate aggregated cycle utilization
@@ -615,7 +649,9 @@ class UtilizationCycleTrace(CycleTrace):
         Get the fully qualified name of a stack.
         """
         return ".".join(
-            x.name
+            x.replacement_cell_name
+            if x.replacement_cell_name
+            else x.name  # we always replace cell-shared names if they exist
             for x in stack
             if x.element_type in {StackElementType.CELL, StackElementType.PRIMITIVE}
         )
@@ -664,7 +700,7 @@ class UtilizationCycleTrace(CycleTrace):
             self.utilization_per_primitive[key] = {}
 
             for prim in control_prims:
-                for k, v in self.global_utilization.get(prim, {}).items():
+                for k, v in self.global_utilization.get_module(prim).items():
                     if v.isdigit():
                         self.utilization_per_primitive[key][k] = (
                             self.utilization_per_primitive[key].get(k, 0) + int(v)
@@ -802,7 +838,7 @@ class TraceData:
         control_groups_trace: dict[int, set[str]],
         cell_metadata: CellMetadata,
         control_metadata: ControlMetadata,
-        utilization: dict[str, dict] | None = None,
+        utilization: Utilization | None = None,
     ):
         """
         Populates the field trace_with_control_groups by combining control group information (from control_groups_trace) with self.trace.
