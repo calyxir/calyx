@@ -452,7 +452,7 @@ class CycleTrace:
             for stack in stacks_this_cycle:
                 self.add_stack(stack)
 
-    def add_stack(self, stack: list[StackElement]):
+    def add_stack(self, stack: list[StackElement], main_shortname: str = "main"):
         assert len(stack) > 0
         top: StackElement = stack[-1]
         match top.element_type:
@@ -560,7 +560,7 @@ class UtilizationCycleTrace(CycleTrace):
     def __repr__(self):
         return super().__repr__() + f"\n\t{self.utilization}"
 
-    def add_stack(self, stack):
+    def add_stack(self, stack, main_shortname="main"):
         super().add_stack(stack)
         top: StackElement = stack[-1]
         fully_qualified_name = self._get_fully_qualified_name(stack)
@@ -572,7 +572,7 @@ class UtilizationCycleTrace(CycleTrace):
             self.primitives_active.add(fully_qualified_name)
         # if there are any control groups we call helper
         if any(e.element_type == StackElementType.CONTROL_GROUP for e in stack):
-            self._add_control_group_utilization(stack)
+            self._add_control_group_utilization(stack, main_shortname)
         # get primitives utilization from global utilization map.
         # the little trick here is that this skips the control primitives since
         # those are processed separately. note that self.primitives_active does
@@ -612,12 +612,14 @@ class UtilizationCycleTrace(CycleTrace):
             for primitive in control_map
         }
 
-    def _add_control_group_utilization(self, stack: list[StackElement]):
+    def _add_control_group_utilization(
+        self, stack: list[StackElement], main_shortname: str = "main"
+    ):
         """
         Add utilization of primitives in control groups on stack to utilization per primitive.
         """
         stack_string = ""
-        comp = "main"
+        comp = main_shortname
         seen_groups = set()
         # accummulate control groups seen on the stack, with their fully qualified name
         # up until that point and the component they are in.
@@ -801,7 +803,9 @@ class TraceData:
                         control_metadata,
                         control_groups_trace[i],
                     )
-                    self.trace_with_control_groups[i].add_stack(new_events_stack)
+                    self.trace_with_control_groups[i].add_stack(
+                        new_events_stack, cell_metadata.main_shortname
+                    )
             else:
                 self.trace_with_control_groups[i] = copy.copy(self.trace[i])
 
