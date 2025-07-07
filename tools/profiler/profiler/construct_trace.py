@@ -617,7 +617,8 @@ def add_primitives(
                     replacement_cell_name=shared_cell_map[component][
                         primitive_shortname
                     ]
-                    if primitive_shortname in shared_cell_map[component]
+                    if component in shared_cell_map
+                    and primitive_shortname in shared_cell_map[component]
                     else None,
                 )
             ]

@@ -29,12 +29,19 @@ def setup_metadata(args):
     shared_cells_map: dict[str, dict[str, str]] = preprocess.read_shared_cells_map(
         args.shared_cells_json
     )
+    enable_thread_data = preprocess.read_enable_thread_json(args.enable_par_tracks_json)
     control_metadata: ControlMetadata = preprocess.read_tdcc_file(
         args.fsms_json, cell_metadata
     )
     # create tracedata object here so we can use it outside of converter
     tracedata: TraceData = TraceData()
-    return cell_metadata, shared_cells_map, control_metadata, tracedata
+    return (
+        cell_metadata,
+        control_metadata,
+        tracedata,
+        shared_cells_map,
+        enable_thread_data,
+    )
 
 
 def process_vcd(
@@ -73,6 +80,7 @@ def create_visuals(
     cell_metadata: CellMetadata,
     control_metadata: ControlMetadata,
     tracedata: TraceData,
+    enable_thread_metadata: dict[str, dict[str, int]],
     control_reg_updates_per_cycle: dict[int, ControlRegUpdateType],
     out_dir: str,
     flame_out: str,
@@ -103,7 +111,7 @@ def create_visuals(
     flame.write_flame_maps(flat_flame_map, scaled_flame_map, out_dir, flame_out)
     print(f"End writing flame graphs: {datetime.now()}")
 
-    timeline.compute_timeline(tracedata, cell_metadata, out_dir)
+    timeline.compute_timeline(tracedata, cell_metadata, enable_thread_metadata, out_dir)
     print(f"End writing timeline view: {datetime.now()}")
 
     if utilization_variable:
@@ -127,8 +135,12 @@ def parse_args():
         "shared_cells_json",
         help="Records cells that are shared during cell-share pass.",
     )
+    parser.add_argument(
+        "enable_par_tracks_json",
+        help="Records statically assigned thread ids for control enables",
+    )
     parser.add_argument("out_dir", help="Output directory")
-    parser.add_argument("flame_out", help="Flame")
+    parser.add_argument("flame_out", help="Output file for flattened flame graph")
     parser.add_argument(
         "--utilization-report-json",
         dest="utilization_report_json",
@@ -159,7 +171,13 @@ def main():
     args = parse_args()
     print(f"Start time: {datetime.now()}")
 
-    cell_metadata, shared_cells_map, control_metadata, tracedata = setup_metadata(args)
+    (
+        cell_metadata,
+        control_metadata,
+        tracedata,
+        shared_cells_map,
+        enable_thread_metadata,
+    ) = setup_metadata(args)
 
     utilization: Utilization | None = None
     utilization_variable: str | None = None
@@ -195,6 +213,7 @@ def main():
         cell_metadata,
         control_metadata,
         tracedata,
+        enable_thread_metadata,
         control_reg_updates_per_cycle,
         args.out_dir,
         args.flame_out,
