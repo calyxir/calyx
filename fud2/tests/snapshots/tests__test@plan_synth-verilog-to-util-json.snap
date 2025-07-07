@@ -1,6 +1,6 @@
 ---
 source: fud2/tests/tests.rs
-description: "emit plan: synth-verilog-to-area-report"
+description: "emit plan: synth-verilog-to-util-json"
 ---
 build-tool = fud2
 rule get-rsrc
@@ -37,6 +37,6 @@ rule create-visuals
 
 build device.xdc: copy $device_xdc
 build IGNOREME: vivado | main.sv synth.tcl device.xdc
-build /output.ext: copy-area IGNOREME
+build /output.ext: extract-util-json IGNOREME
 
 default /output.ext

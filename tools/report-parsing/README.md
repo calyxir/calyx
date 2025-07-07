@@ -30,17 +30,29 @@ synthrep viz -h
 Extracts a JSON summary of synthesis and implementation resource usage, as well as timing info.
 
 ```bash
-synthrep summary [-d DIRECTORY]
+synthrep summary [-d DIRECTORY] [-m {utilization,hierarchy}]
 ```
 
 **Options:**
-- `-d`, `--directory` – specify Vivado output directory (default: `out`)
 
-This looks for reports in the specified (or default) `FutilBuild.runs` subdirectory and prints:
-- LUTs, FFs, DSPs, BRAMs
-- Carry chains, muxes
-- Timing met/not met
-- Worst slack and clock frequency
+- `-d`, `--directory` – specify Vivado output directory (default: `out`)
+- `-m`, `--mode` – set summary mode (default: `utilization`)
+
+There are two modes:
+
+- `utilization`: prints a flat summary of total resource usage and timing results:
+  - LUTs, FFs, DSPs, BRAMs
+  - Carry chains, muxes
+  - Timing met/not met
+  - Worst slack and clock frequency
+
+- `hierarchy`: prints the full utilization hierarchy, which can be passed to the profiler to obtain cycle-resource-utilization data and visualizations
+
+**Example:**
+
+```bash
+synthrep summary -m hierarchy > hierarchy.json
+```
 
 #### `viz`
 
@@ -51,6 +63,7 @@ synthrep viz [--type TYPE] [--filename FILE] [--column COL] [-v]
 ```
 
 **Options:**
+
 - `-t`, `--type` – one of `treemap`, `sunburst`, `icicle`, `flamegraph`
 - `-f`, `--filename` – path to a `.rpt` file (default: `out/hierarchical_utilization_placed.rpt`)
 - `-c`, `--column` – one of `ff`, `lut`, `llut`, `lutram` (default: `ff`)
@@ -68,6 +81,7 @@ synthrep viz -t sunburst -c lut
 - Folded stack format for flamegraphs (stdout)
 
 A clone of [Brendan Gregg's FlameGraph repository](https://github.com/brendangregg/FlameGraph) is needed to generate FlameGraph SVGs. The folded stack output can be directly chained into the FlameGraph Perl script:
+
 ```bash
 synthrep viz -c lut -t flamegraph | path/to/FlameGraph/flamegraph.pl > flamegraph.svg  
 ```

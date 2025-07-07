@@ -151,7 +151,7 @@ class ControlMetadata:
     # names of fully qualified FSMs
     fsms: set[str] = field(default_factory=set)
     # names of fully qualified par groups
-    par_groups: set[str] = field(default_factory=set)
+    ctrl_groups: set[str] = field(default_factory=set)
     # component --> { fsm in the component. NOT fully qualified }
     # components that are not in this dictionary do not contain any fsms
     component_to_fsms: defaultdict[str, set[str]] = field(
@@ -172,26 +172,34 @@ class ControlMetadata:
     )
     # fully qualified names of done registers for pars
     par_done_regs: set[str] = field(default_factory=set)
+    # component name --> { control group name --> { primitives used by control group } }
+    component_to_control_to_primitives: defaultdict[str, defaultdict[str, set[str]]] = (
+        field(default_factory=lambda: defaultdict(lambda: defaultdict(set)))
+    )
     # partial_fsm_events:
-
     cell_to_ordered_pars: defaultdict[str, list[str]] = field(
         default_factory=lambda: defaultdict(list)
     )  # cell --> ordered par group names
 
+    cell_to_tdcc_groups: defaultdict[str, set[str]] = field(
+        default_factory=lambda: defaultdict(set)
+    )  # cell --> { tdcc groups }
+
     added_signal_prefix: bool = field(default=False)
 
-    def add_par_done_reg(self, par_done_reg):
-        self.par_done_regs.add(par_done_reg)
+    def add_par_done_reg(self, component, par_group, par_done_reg, stack):
+        self.par_done_regs.add(stack)
+        self.component_to_control_to_primitives[component][par_group].add(par_done_reg)
 
-    def register_fully_qualified_par(self, fully_qualified_par):
-        self.par_groups.add(fully_qualified_par)
+    def register_fully_qualified_ctrl_gp(self, fully_qualified_gp):
+        self.ctrl_groups.add(fully_qualified_gp)
 
     def add_signal_prefix(self, signal_prefix: str):
         assert not self.added_signal_prefix
         self.fsms = {f"{signal_prefix}.{fsm}" for fsm in self.fsms}
         self.par_done_regs = {f"{signal_prefix}.{pd}" for pd in self.par_done_regs}
-        self.par_groups = {
-            f"{signal_prefix}.{par_group}" for par_group in self.par_groups
+        self.ctrl_groups = {
+            f"{signal_prefix}.{ctrl_group}" for ctrl_group in self.ctrl_groups
         }
         new_par_to_children = defaultdict(list)
         for fully_qualified_par in self.par_to_par_children:
@@ -203,6 +211,10 @@ class ControlMetadata:
             )
         self.par_to_par_children = new_par_to_children
         self.added_signal_prefix = True
+        fully_qualified_tdccs = {
+            f"{signal_prefix}.{c}": g for c, g in self.cell_to_tdcc_groups.items()
+        }
+        self.cell_to_tdcc_groups = fully_qualified_tdccs
 
     def register_fsm(self, fsm_name, component, cell_metadata: CellMetadata):
         """
@@ -217,7 +229,7 @@ class ControlMetadata:
             fully_qualified_fsm = ".".join((cell, fsm_name))
             self.fsms.add(fully_qualified_fsm)
 
-    def register_par(self, par_group, component):
+    def register_par(self, par_group: str, component: str):
         self.component_to_par_groups[component].add(par_group)
 
     def register_par_child(
@@ -440,7 +452,7 @@ class CycleTrace:
             for stack in stacks_this_cycle:
                 self.add_stack(stack)
 
-    def add_stack(self, stack: list[StackElement]):
+    def add_stack(self, stack: list[StackElement], main_shortname: str = "main"):
         assert len(stack) > 0
         top: StackElement = stack[-1]
         match top.element_type:
@@ -526,43 +538,117 @@ class UtilizationCycleTrace(CycleTrace):
     utilization: dict
     # Map between primitives in this cycle and their utilization (subset of global_utilization filtered for this cycle)
     utilization_per_primitive: dict[str, dict]
-    # List of all the primitives active in this cycle
-    primitives_active: list[str]
+    # List of all the NON-CONTROL GROUP primitives active in this cycle
+    primitives_active: set[str]
+    # Reference to the control metadata, used for checking control groups
+    control_metadata: ControlMetadata
 
     def __init__(
         self,
         utilization: dict[str, dict],
+        control_metadata: ControlMetadata,
         stacks_this_cycle: list[list[StackElement]] | None = None,
     ):
         self.global_utilization = utilization
         self.utilization = {}
-        self.primitives_active = []
+        self.primitives_active = set()
         self.utilization_per_primitive = {}
+        self.control_groups_active = []
+        self.control_metadata = control_metadata
         super().__init__(stacks_this_cycle)
 
     def __repr__(self):
         return super().__repr__() + f"\n\t{self.utilization}"
 
-    def add_stack(self, stack):
+    def add_stack(self, stack, main_shortname="main"):
         super().add_stack(stack)
         top: StackElement = stack[-1]
-        if top.element_type == StackElementType.PRIMITIVE:
-            primitive = ".".join(
-                map(
-                    lambda x: x.name,
-                    filter(
-                        lambda x: x.element_type == StackElementType.CELL or x == top,
-                        stack,
-                    ),
-                )
-            )
-            self.primitives_active.append(primitive)
-            for k, v in self.global_utilization.get(primitive, {}).items():
-                if v.isdigit():
-                    self.utilization[k] = self.utilization.get(k, 0) + int(v)
-            self.utilization_per_primitive[primitive] = self.global_utilization.get(
-                primitive, {}
-            )
+        fully_qualified_name = self._get_fully_qualified_name(stack)
+        # if primitive (but not control primitive) then add directly to primitives_active
+        if (
+            top.element_type == StackElementType.PRIMITIVE
+            and top.name not in self._flatten_control_primitives(top.component_name)
+        ):
+            self.primitives_active.add(fully_qualified_name)
+        # if there are any control groups we call helper
+        if any(e.element_type == StackElementType.CONTROL_GROUP for e in stack):
+            self._add_control_group_utilization(stack, main_shortname)
+        # get primitives utilization from global utilization map.
+        # the little trick here is that this skips the control primitives since
+        # those are processed separately. note that self.primitives_active does
+        # NOT include control primitives!
+        for p in self.primitives_active:
+            util = {
+                k: int(v) if v.isdigit() else v
+                for k, v in self.global_utilization.get(p, {}).items()
+            }
+            self.utilization_per_primitive[p] = util
+        # populate aggregated cycle utilization
+        self.utilization = {}
+        for util in self.utilization_per_primitive.values():
+            for k, v in util.items():
+                if isinstance(v, int):
+                    self.utilization[k] = self.utilization.get(k, 0) + v
+
+    def _get_fully_qualified_name(self, stack: list[StackElement]):
+        """
+        Get the fully qualified name of a stack.
+        """
+        return ".".join(
+            x.name
+            for x in stack
+            if x.element_type in {StackElementType.CELL, StackElementType.PRIMITIVE}
+        )
+
+    def _flatten_control_primitives(self, component: str):
+        """
+        Get control primitives from a component.
+        """
+        return {
+            primitive
+            for control_map in self.control_metadata.component_to_control_to_primitives.get(
+                component, {}
+            ).values()
+            for primitive in control_map
+        }
+
+    def _add_control_group_utilization(
+        self, stack: list[StackElement], main_shortname: str = "main"
+    ):
+        """
+        Add utilization of primitives in control groups on stack to utilization per primitive.
+        """
+        stack_string = ""
+        comp = main_shortname
+        seen_groups = set()
+        # accummulate control groups seen on the stack, with their fully qualified name
+        # up until that point and the component they are in.
+        for e in stack:
+            if e.element_type == StackElementType.CONTROL_GROUP:
+                seen_groups.add((stack_string, comp, e.name))
+            if e.element_type == StackElementType.CELL:
+                stack_string += f"{e.name}."
+            if e.component_name:
+                comp = e.component_name
+        # get primitives used by each control group from the control metadata and
+        # fetch their utilization from the global utilization map.
+        # NOTE: we aggregate them based on control groups, because the user doesn't
+        # really care about each individual par done register, but rather the combined
+        # utilization of that control flow construct
+        for prefix, comp, gp in seen_groups:
+            key = f"{prefix}{gp}"
+            primitives = self.control_metadata.component_to_control_to_primitives[comp][
+                gp
+            ]
+            control_prims = {f"{prefix}{p}" for p in primitives}
+            self.utilization_per_primitive[key] = {}
+
+            for prim in control_prims:
+                for k, v in self.global_utilization.get(prim, {}).items():
+                    if v.isdigit():
+                        self.utilization_per_primitive[key][k] = (
+                            self.utilization_per_primitive[key].get(k, 0) + int(v)
+                        )
 
 
 @dataclass
@@ -708,7 +794,7 @@ class TraceData:
                 self.trace_with_control_groups[i] = (
                     CycleTrace()
                     if utilization is None
-                    else UtilizationCycleTrace(utilization)
+                    else UtilizationCycleTrace(utilization, control_metadata)
                 )
                 for events_stack in self.trace[i].stacks:
                     new_events_stack = self._create_events_stack_with_control_groups(
@@ -717,7 +803,9 @@ class TraceData:
                         control_metadata,
                         control_groups_trace[i],
                     )
-                    self.trace_with_control_groups[i].add_stack(new_events_stack)
+                    self.trace_with_control_groups[i].add_stack(
+                        new_events_stack, cell_metadata.main_shortname
+                    )
             else:
                 self.trace_with_control_groups[i] = copy.copy(self.trace[i])
 
@@ -786,6 +874,13 @@ class TraceData:
                 case StackElementType.PRIMITIVE:
                     # All primitives are leaf nodes, so there is no more work left to be done.
                     break
+            if current_cell in control_metadata.cell_to_tdcc_groups:
+                for cell, gps in control_metadata.cell_to_tdcc_groups.items():
+                    for g in gps:
+                        if f"{cell}.{g}" in active_control_groups:
+                            events_stack_with_ctrl.append(
+                                StackElement(g, StackElementType.CONTROL_GROUP)
+                            )
             if current_cell in control_metadata.cell_to_ordered_pars:
                 active_from_cell = active_control_groups.intersection(
                     control_metadata.cell_to_ordered_pars[current_cell]
