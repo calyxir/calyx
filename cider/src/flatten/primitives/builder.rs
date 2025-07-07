@@ -7,16 +7,16 @@ use super::{
 use crate::{
     flatten::{
         flat_ir::{
-            base::GlobalCellIdx,
             cell_prototype::{
                 CellPrototype, DoubleWidthType, FXType, MemType,
                 SingleWidthType, TripleWidthType,
             },
+            indexes::GlobalCellIdx,
             prelude::{CellInfo, GlobalPortIdx},
         },
         structures::{
             context::Context,
-            environment::{CellLedger, clock::ClockMap},
+            environment::{CellLedger, MemoryMap, clock::ClockMap},
         },
     },
     serialization::DataDump,
@@ -24,6 +24,7 @@ use crate::{
 
 use baa::BitVecValue;
 
+#[allow(clippy::too_many_arguments)]
 pub fn build_primitive(
     prim: &CellInfo,
     base_port: GlobalPortIdx,
@@ -35,6 +36,7 @@ pub fn build_primitive(
     memories_initialized: &mut HashSet<String>,
     // if the clock map is not provided then data race checking is disabled
     mut clocks: Option<&mut ClockMap>,
+    state_map: &mut MemoryMap,
 ) -> CellLedger {
     let b: Box<dyn Primitive> = match &prim.prototype {
         CellPrototype::Constant {
@@ -43,7 +45,7 @@ pub fn build_primitive(
             c_type: _,
         } => {
             let v = BitVecValue::from_u64(*val, *width);
-            Box::new(StdConst::new(v, base_port))
+            Box::new(StdConst::new(v, base_port, state_map))
         }
 
         CellPrototype::Component(_) => unreachable!(
@@ -52,8 +54,13 @@ pub fn build_primitive(
         CellPrototype::SingleWidth { op, width } => {
             match op {
                 SingleWidthType::Reg => {
-                    let b =
-                        StdReg::new(base_port, cell_idx, *width, &mut clocks);
+                    let b = StdReg::new(
+                        base_port,
+                        cell_idx,
+                        *width,
+                        &mut clocks,
+                        state_map,
+                    );
                     if clocks.is_some() {
                         let b: Box<dyn RaceDetectionPrimitive> = Box::new(b);
                         return b.into();
@@ -201,6 +208,7 @@ pub fn build_primitive(
                             dims,
                             data,
                             &mut clocks,
+                            state_map,
                         )
                     } else {
                         SeqMemD1::new(
@@ -210,6 +218,7 @@ pub fn build_primitive(
                             false,
                             dims,
                             &mut clocks,
+                            state_map,
                         )
                     };
                     if clocks.is_some() {
@@ -232,6 +241,7 @@ pub fn build_primitive(
                             dims,
                             data,
                             &mut clocks,
+                            state_map,
                         )
                     } else {
                         CombMem::new(
@@ -241,6 +251,7 @@ pub fn build_primitive(
                             false,
                             dims,
                             &mut clocks,
+                            state_map,
                         )
                     };
                     if clocks.is_some() {

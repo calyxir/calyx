@@ -4,7 +4,9 @@ mod macros;
 mod sparse_map;
 
 pub mod maps {
-    pub use super::indexed_map::{IndexedMap, SecondaryMap};
+    pub use super::indexed_map::{
+        IndexedMap, SecondaryMap, SemiContiguousSecondaryMap,
+    };
     pub use super::sparse_map::{SecondarySparseMap, SparseMap};
 }
 

@@ -24,8 +24,8 @@ use crate::flatten::flat_ir::{
         PortRef, RefCellDefinitionIdx, RefCellInfo, RefPortDefinitionIdx,
     },
     wires::{
-        core::{AssignmentMap, GroupMap},
         guards::{Guard, GuardMap},
+        structures::{AssignmentMap, GroupMap},
     },
 };
 

@@ -87,3 +87,5 @@ frontends/queues/tests/**/*.expect
 
 primitives/float/HardFloat-1
 primitives/float/HardFloat-1.zip
+
+.envrc
