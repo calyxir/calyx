@@ -35,7 +35,7 @@ pub use control_order::ControlOrder;
 pub use control_ports::ControlPorts;
 pub use dataflow_order::DataflowOrder;
 pub use domination_analysis::DominatorMap;
-pub use fsm_call_graph::FSMCallGraph;
+pub use fsm_call_graph::{FSMCallGraph, FSMCallGraphNode, StatePossibility};
 pub use fsm_construction::{IncompleteTransition, StaticSchedule};
 pub use graph::GraphAnalysis;
 pub use graph_coloring::GraphColoring;
