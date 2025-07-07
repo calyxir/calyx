@@ -875,12 +875,11 @@ class TraceData:
                     # All primitives are leaf nodes, so there is no more work left to be done.
                     break
             if current_cell in control_metadata.cell_to_tdcc_groups:
-                for cell, gps in control_metadata.cell_to_tdcc_groups.items():
-                    for g in gps:
-                        if f"{cell}.{g}" in active_control_groups:
-                            events_stack_with_ctrl.append(
-                                StackElement(g, StackElementType.CONTROL_GROUP)
-                            )
+                for g in control_metadata.cell_to_tdcc_groups[current_cell]:
+                    if f"{current_cell}.{g}" in active_control_groups:
+                        events_stack_with_ctrl.append(
+                            StackElement(g, StackElementType.CONTROL_GROUP)
+                        )
             if current_cell in control_metadata.cell_to_ordered_pars:
                 active_from_cell = active_control_groups.intersection(
                     control_metadata.cell_to_ordered_pars[current_cell]
