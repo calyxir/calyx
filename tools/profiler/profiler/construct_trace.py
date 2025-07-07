@@ -4,6 +4,7 @@ from profiler.classes import (
     CellMetadata,
     ControlMetadata,
     CycleTrace,
+    Utilization,
     UtilizationCycleTrace,
     TraceData,
     StackElement,
@@ -170,7 +171,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self,
         shared_cells_map: dict[str, dict[str, str]],
         control_metadata: ControlMetadata | None = None,
-        utilization: dict[str, dict] | None = None,
+        utilization: Utilization | None = None,
     ):
         """
         Postprocess data mapping timestamps to events (signal changes)
@@ -486,7 +487,14 @@ def create_cycle_trace(
 
         # get primitives if requested.
         if include_primitives:
-            add_primitives(current_cell, primitive_enables, elem_name_to_stack, parents)
+            add_primitives(
+                current_cell,
+                primitive_enables,
+                elem_name_to_stack,
+                parents,
+                shared_cell_map,
+                cell_info.get_component_of_cell(current_cell),
+            )
 
         # by this point, we should have covered all groups in the same component...
         # now we need to construct stacks for any cells that are called from a group in the current component.
@@ -515,7 +523,7 @@ def create_utilization_cycle_trace(
     info_this_cycle: dict[str, str | dict[str, str]],
     shared_cell_map: dict[str, dict[str, str]],
     include_primitives: bool,
-    utilization: dict[str, dict],
+    utilization: Utilization,
 ):
     """
     Creates a UtilizationCycleTrace object for stack elements in this cycle, computing the dependencies between them.
@@ -586,6 +594,8 @@ def add_primitives(
     primitive_enables: set[str],
     elem_name_to_stack: dict[str, list[StackElement]],
     parents: set[str],
+    shared_cell_map: dict[str, dict[str, str]],
+    component: str,
 ):
     """
     Helper function called by create_cycle_trace(). Processes primitives active this cycle in `current_cell` to the stack.
@@ -600,7 +610,17 @@ def add_primitives(
             primitive_shortname = primitive_name.split(".")[-1]
             elem_name_to_stack[primitive_name] = elem_name_to_stack[
                 primitive_parent
-            ] + [StackElement(primitive_shortname, StackElementType.PRIMITIVE)]
+            ] + [
+                StackElement(
+                    primitive_shortname,
+                    StackElementType.PRIMITIVE,
+                    replacement_cell_name=shared_cell_map[component][
+                        primitive_shortname
+                    ]
+                    if primitive_shortname in shared_cell_map[component]
+                    else None,
+                )
+            ]
             parents.add(primitive_parent)
 
 
