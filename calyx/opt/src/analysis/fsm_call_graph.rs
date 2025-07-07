@@ -1,30 +1,29 @@
 use calyx_ir::{self as ir};
 
+const FSM_STATE_CUTOFF: u64 = 300;
+
 #[allow(dead_code)]
-struct FSMCallGraph {
-    graph: Vec<AbstractFSM>,
+pub struct FSMCallGraph {
+    pub graph: Vec<AbstractFSM>,
 }
 
 #[allow(dead_code)]
 impl FSMCallGraph {
     /// Empty FSMCallGraph analysis struct
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self { graph: vec![] }
     }
 
     #[inline]
-    fn new_id(&self) -> u64 {
-        self.graph.len().try_into().unwrap()
-    }
-
-    #[inline]
-    fn register_fsm(&mut self, fsm: AbstractFSM) {
+    fn register_fsm(&mut self, fsm: AbstractFSM) -> u64 {
+        let id = self.graph.len().try_into().unwrap();
         self.graph.push(fsm);
+        id
     }
 
     /// Given a reference to an `ir::StaticControl`, creates an abstract FSM if
     /// necessary and returns a pointer to that FSM.
-    fn build_from_static_control(
+    pub fn build_from_static_control(
         &mut self,
         sctrl: &ir::StaticControl,
     ) -> Option<StatePossibility> {
@@ -43,10 +42,11 @@ impl FSMCallGraph {
                         .filter_map(|stmt| self.build_from_static_control(stmt))
                         .collect(),
                 };
-                self.register_fsm(sseq_node);
+
+                let sseq_node_id = self.register_fsm(sseq_node);
                 Some(StatePossibility::Call(FSMCallGraphNode::StaticSeq {
                     latency: sseq.latency,
-                    pointer: self.new_id(),
+                    pointer: sseq_node_id,
                 }))
             }
             ir::StaticControl::Repeat(srep) => {
@@ -55,6 +55,7 @@ impl FSMCallGraph {
                         body_latency: srep.body.get_latency(),
                         pointer: Box::new(st_poss),
                         num_repeats: srep.num_repeats,
+                        annotation: NodeAnnotation::Offload, // default behavior
                     };
                     StatePossibility::Call(repeat_body_wrapper)
                 })
@@ -71,12 +72,11 @@ impl FSMCallGraph {
                 Some(StatePossibility::Call(spar_threads_wrapper))
             }
             ir::StaticControl::If(sif) => {
-                let mut map =
-                    |b| self.build_from_static_control(b).map(Box::new);
+                let mut f = |b| self.build_from_static_control(b).map(Box::new);
                 let if_branches_wrapper = FSMCallGraphNode::StaticIf {
                     max_branch_latency: sif.latency,
-                    t_branch_pointer: map(&sif.tbranch),
-                    f_branch_pointer: map(&sif.fbranch),
+                    t_branch_pointer: f(&sif.tbranch),
+                    f_branch_pointer: f(&sif.fbranch),
                 };
                 Some(StatePossibility::Call(if_branches_wrapper))
             }
@@ -88,16 +88,16 @@ impl FSMCallGraph {
 
     /// Given a reference to an `ir::Control`, creates an abstract FSM if
     /// necessary and returns a pointer to that FSM.
-    fn build_from_control(
+    pub fn build_from_control(
         &mut self,
         ctrl: &ir::Control,
     ) -> Option<StatePossibility> {
         match ctrl {
             ir::Control::Empty(_) => None,
+            ir::Control::Static(sctrl) => self.build_from_static_control(sctrl),
             ir::Control::Enable(_) => {
                 Some(StatePossibility::HardwareEnable { num_states: 1 })
             }
-
             ir::Control::FSMEnable(_) => {
                 self.register_fsm(AbstractFSM::UserDefined);
                 Some(StatePossibility::Call(FSMCallGraphNode::UserDefined))
@@ -110,9 +110,9 @@ impl FSMCallGraph {
                         .filter_map(|stmt| self.build_from_control(stmt))
                         .collect(),
                 };
-                self.register_fsm(seq_node);
+                let seq_node_id = self.register_fsm(seq_node);
                 Some(StatePossibility::Call(FSMCallGraphNode::DynamicSeq {
-                    pointer: self.new_id(),
+                    pointer: seq_node_id,
                 }))
             }
             ir::Control::Repeat(rep) => {
@@ -135,10 +135,10 @@ impl FSMCallGraph {
                 Some(StatePossibility::Call(par_threads_wrapper))
             }
             ir::Control::If(ifc) => {
-                let mut map = |b| self.build_from_control(b).map(Box::new);
+                let mut f = |b| self.build_from_control(b).map(Box::new);
                 let if_branches_wrapper = FSMCallGraphNode::DynamicIf {
-                    t_branch_pointer: map(&ifc.tbranch),
-                    f_branch_pointer: map(&ifc.fbranch),
+                    t_branch_pointer: f(&ifc.tbranch),
+                    f_branch_pointer: f(&ifc.fbranch),
                 };
                 Some(StatePossibility::Call(if_branches_wrapper))
             }
@@ -150,7 +150,6 @@ impl FSMCallGraph {
                     StatePossibility::Call(while_body_wrapper)
                 })
             }
-            ir::Control::Static(sctrl) => self.build_from_static_control(sctrl),
             ir::Control::Invoke(_) => {
                 unreachable!("Invoke nodes should have been compiled away")
             }
@@ -158,34 +157,37 @@ impl FSMCallGraph {
     }
 }
 
-impl Iterator for FSMCallGraph {
-    type Item = u64;
-
-    /// Provides AbstractFSMs in post order
-    fn next(&mut self) -> Option<Self::Item> {
-        Some(1)
-    }
-}
-
 #[allow(dead_code)]
-enum AbstractFSM {
+#[derive(Debug)]
+pub enum AbstractFSM {
     UserDefined, // need to add node_id field (i.e. pointer to actual control node)
     Generated { states: Vec<StatePossibility> },
 }
 
 #[allow(dead_code)]
-enum StatePossibility {
+#[derive(Debug)]
+pub enum StatePossibility {
     HardwareEnable { num_states: u64 },
     Call(FSMCallGraphNode),
 }
 
+#[allow(unused)]
+#[derive(Debug)]
+enum NodeAnnotation {
+    Unroll,
+    Inline,
+    Offload,
+}
+
 #[allow(dead_code)]
-enum FSMCallGraphNode {
+#[derive(Debug)]
+pub enum FSMCallGraphNode {
     UserDefined,
     StaticRepeat {
         body_latency: u64,
         pointer: Box<StatePossibility>,
         num_repeats: u64,
+        annotation: NodeAnnotation,
     },
     StaticPar {
         max_thread_latency: u64,
@@ -217,4 +219,49 @@ enum FSMCallGraphNode {
         pointer: Box<StatePossibility>,
         num_repeats: u64,
     },
+}
+
+impl FSMCallGraphNode {
+    fn postorder_analysis(&mut self) {
+        match self {
+            FSMCallGraphNode::UserDefined => (),
+            FSMCallGraphNode::StaticRepeat {
+                pointer,
+                num_repeats,
+                annotation,
+                ..
+            } => match pointer.as_mut() {
+                StatePossibility::HardwareEnable { num_states } => {
+                    if *num_repeats * *num_states < FSM_STATE_CUTOFF {
+                        *annotation = NodeAnnotation::Unroll;
+                    } else {
+                        ()
+                    }
+                }
+                StatePossibility::Call(call) => {}
+            },
+            FSMCallGraphNode::StaticPar {
+                max_thread_latency,
+                pointers,
+            } => (),
+            FSMCallGraphNode::StaticSeq { latency, pointer } => (),
+            FSMCallGraphNode::StaticIf {
+                max_branch_latency,
+                t_branch_pointer,
+                f_branch_pointer,
+            } => (),
+            FSMCallGraphNode::DynamicSeq { pointer } => (),
+            FSMCallGraphNode::DynamicPar { pointers } => (),
+
+            FSMCallGraphNode::DynamicIf {
+                t_branch_pointer,
+                f_branch_pointer,
+            } => (),
+            FSMCallGraphNode::DynamicWhile { pointer } => (),
+            FSMCallGraphNode::DynamicRepeat {
+                pointer,
+                num_repeats,
+            } => (),
+        }
+    }
 }
