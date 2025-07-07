@@ -139,6 +139,12 @@ jobs:
         command: test
         args: --manifest-path /home/calyx/cider/Cargo.toml --doc
 
+    - name: cider idx tests
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --manifest-path /home/calyx/cider/idx/Cargo.toml
+
   compiler:
     name: Test Compiler
     needs: [docker, hash]

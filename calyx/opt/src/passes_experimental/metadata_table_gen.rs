@@ -77,13 +77,22 @@ impl Visitor for Metadata {
         // components have attributes !!
         // check if file exists for component definition
         let binding = comp.attributes.copy_span();
-        let (file, _bs) = binding.get_line_num();
+        let (file, (line, _)) = binding.get_line_num();
 
         // add file to source table (if not already in)
         if !self.file_ids.contains_key(file) {
             let id = self.src_table.push_file(PathBuf::from(file));
             self.file_ids.insert(String::from(file), id);
         }
+
+        // add source position of the component itself
+        let component_file_id = self.file_ids.get(file).unwrap();
+        let component_pos = self
+            .src_table
+            .push_position(*component_file_id, LineNum::new(line as u32));
+        comp.attributes
+            .insert_set(calyx_frontend::SetAttr::Pos, component_pos.value());
+
         // visit all groups in component
         for rrcgrp in comp.groups.iter() {
             let mut grp = rrcgrp.borrow_mut();

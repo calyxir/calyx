@@ -3,7 +3,7 @@ use baa::BitVecOps;
 use cider::debugger::commands::{BreakTarget, ParsedGroupName};
 use cider::debugger::source::structures::NewSourceMap;
 use cider::debugger::{OwnedDebugger, StoppedReason};
-use cider::flatten::flat_ir::base::{GlobalCellIdx, PortValue};
+use cider::flatten::flat_ir::indexes::{GlobalCellIdx, PortValue};
 use dap::events::{Event, OutputEventBody, StoppedEventBody};
 use dap::types::{
     self, Breakpoint, Scope, Source, SourceBreakpoint, StackFrame, Thread,
