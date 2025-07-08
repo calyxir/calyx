@@ -11,6 +11,11 @@ from profiler.classes import (
     CellMetadata,
 )
 
+# import uuid
+# from perfetto.trace_builder.proto_builder import TraceProtoBuilder
+# from perfetto.protos.perfetto.trace.perfetto_trace_pb2 import TrackEvent, TrackDescriptor, ProcessDescriptor, ThreadDescriptor
+
+
 ts_multiplier = 1  # [timeline view] ms on perfetto UI that resembles a single cycle
 JSON_INDENT = "    "  # [timeline view] indentation for generating JSON on the fly
 num_timeline_events = 0  # [timeline view] recording how many events have happened
@@ -43,24 +48,29 @@ class CtrlGroupEvent:
     event_type: EventType
 
     def __repr__(self):
-        event_type_str = (
-            "TrackEvent.TYPE_SLICE_BEGIN"
-            if self.event_type == EventType.START
-            else "TrackEvent.TYPE_SLICE_END"
-        )
-        return f"add_slice_event(builder, ts={self.timestamp}, event_type={event_type_str}, event_track_uuid={self.uuid_name}, name={self.ctrl_group_name}, SID={self.sid_name})"
+        match self.event_type:
+            case EventType.START:
+                event_type_str = "TrackEvent.TYPE_SLICE_BEGIN"
+            case EventType.END:
+                event_type_str = "TrackEvent.TYPE_SLICE_END"
+
+        return f"add_slice_event(builder, ts={self.timestamp}, event_type={event_type_str}, event_track_uuid={self.uuid_name}, name=\"{self.ctrl_group_name}\", SID={self.sid_name})"
 
 
 @dataclass
 class ProtoTimelineCell:
     fully_qualified_cell_name: str
     sid_name: str
+    sid_val: int
     uuid_names: set[str] = field(default_factory=set)
     events: list[CtrlGroupEvent] = field(default_factory=list)
 
-    def __init__(self, fully_qualified_cell_name: str):
+    def __init__(self, fully_qualified_cell_name: str, sid):
         self.fully_qualified_cell_name = fully_qualified_cell_name
         self.sid_name = self.fully_qualified_cell_name.replace(".", "_").upper()
+        self.sid_val = sid
+        self.uuid_names = set()
+        self.events = list()
 
     def register_event(self, fully_qualified_ctrl_group: str, timestamp: int, event_type: EventType):
         uuid = fully_qualified_ctrl_group.replace(".", "_")
@@ -69,9 +79,10 @@ class ProtoTimelineCell:
         self.events.append(new_event)
 
     def out_str(self):
-        s = ""
+        s = f"\t# code for cell {self.fully_qualified_cell_name}\n"
+        s += f"\t{self.sid_name} = {self.sid_val}\n"
         for uuid in self.uuid_names:
-            s += f"\t{uuid} = define_track(builder, {self.sid_name})\n"
+            s += f"\t{uuid} = define_track(builder, \"{self.fully_qualified_cell_name}\")\n"
         for event in self.events:
             s += f"\t{event}\n"
         return s
@@ -141,10 +152,11 @@ def compute_ctrl_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out
     proto: ProtoTimeline = ProtoTimeline()
 
     currently_active_ctrl_groups: set[str] = set()
+    acc = 300
 
-    for i in tracedata.trace:
+    for i in tracedata.trace_with_control_groups:
         this_cycle_active_ctrl_groups: set[str] = set()
-        for stack in tracedata.trace[i].stacks:
+        for stack in tracedata.trace_with_control_groups[i].stacks:
             stack_acc = cell_metadata.main_shortname
             for stack_elem in stack:
                 match stack_elem.element_type:
@@ -153,13 +165,28 @@ def compute_ctrl_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out
                             stack_acc = f"{stack_acc}.{stack_elem.name}"
                     case StackElementType.CONTROL_GROUP:
                         this_cycle_active_ctrl_groups.add(f"{stack_acc}.{stack_elem.name}")
-        
+
+
         for new_ctrl_group in this_cycle_active_ctrl_groups.difference(currently_active_ctrl_groups):
-            proto.cell_infos[stack_acc].register_event(new_ctrl_group, i, EventType.START)
+            print(new_ctrl_group)
+            cell = ".".join(new_ctrl_group.split(".")[:-1])
+            if cell not in proto.cell_infos:
+                proto.cell_infos[cell] = ProtoTimelineCell(cell, acc)
+                acc += 1    
+            proto.cell_infos[cell].register_event(new_ctrl_group, i, EventType.START)
+
         for gone_ctrl_group in currently_active_ctrl_groups.difference(this_cycle_active_ctrl_groups):
-            proto.cell_infos[stack_acc].register_event(gone_ctrl_group, i, EventType.END)
+            cell = ".".join(gone_ctrl_group.split(".")[:-1])
+            if cell not in proto.cell_infos:
+                proto.cell_infos[cell] = ProtoTimelineCell(cell, acc)
+                acc += 1
+            proto.cell_infos[cell].register_event(gone_ctrl_group, i, EventType.END)
 
         currently_active_ctrl_groups = this_cycle_active_ctrl_groups
+    
+    for active_at_end_group in currently_active_ctrl_groups:
+        cell = ".".join(active_at_end_group.split(".")[:-1])
+        proto.cell_infos[cell].register_event(active_at_end_group, i, EventType.END)
 
     out_path = os.path.join(out_dir, "timeline-proto-gen.py")
     proto.emit(out_path)
