@@ -6,6 +6,7 @@ component main() -> () {
     @external(1) a = comb_mem_d1(32, 1, 1);
     @external(1) b = comb_mem_d1(32, 1, 1);
     @external(1) c = comb_mem_d1(32, 1, 1);
+    @external(1) d = comb_mem_d1(32, 1, 1);    
   }
 
   wires {

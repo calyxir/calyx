@@ -156,15 +156,15 @@ class CellMetadata:
         return suffix
 
 
-class ParChildType(Enum):
+class CtrlChildType(Enum):
     GROUP = 1
-    PAR = 2
+    CTRL = 2
 
 
 @dataclass(frozen=True)
-class ParChildInfo:
+class CtrlChildInfo:
     child_name: str
-    child_type: ParChildType
+    child_type: CtrlChildType
     parents: set[str] = field(default_factory=set)
 
     def register_new_parent(self, new_parent: str):
@@ -179,37 +179,41 @@ class ControlMetadata:
     """
 
     # names of fully qualified FSMs
-    fsms: set[str] = field(default_factory=set)
-    # names of fully qualified par groups
-    ctrl_groups: set[str] = field(default_factory=set)
+    fully_qualified_fsms: set[str] = field(default_factory=set)
+    # fully qualified names of done registers for pars
+    fully_qualified_par_done_regs: set[str] = field(default_factory=set)
+    # names of fully qualified control groups
+    fully_qualified_ctrl_groups: set[str] = field(default_factory=set)
+
     # component --> { fsm in the component. NOT fully qualified }
     # components that are not in this dictionary do not contain any fsms
     component_to_fsms: defaultdict[str, set[str]] = field(
         default_factory=lambda: defaultdict(set)
     )
-    # component --> { par groups in the component }
+
+    # component --> { ctrl groups in the component. NOT fully qualified }
     # components that are not in this dictionary do not contain any par groups
-    component_to_par_groups: defaultdict[str, set[str]] = field(
+    component_to_ctrl_groups: defaultdict[str, set[str]] = field(
         default_factory=lambda: defaultdict(set)
     )
-    # fully qualified par name --> [fully-qualified par children name]. Each of the children here have to be pars.
-    par_to_par_children: defaultdict[str, list[str]] = field(
+    # fully qualified ctrl group name --> [fully-qualified ctrl group children name]. Each of the children here have to be pars.
+    ctrl_to_ctrl_children: defaultdict[str, list[str]] = field(
         default_factory=lambda: defaultdict(list)
     )
     # component --> { child name --> ParChildInfo (contains parent name(s) and child type) }
-    component_to_child_to_par_parent: dict[str, dict[str, ParChildInfo]] = field(
+    component_to_child_to_ctrl_parent: dict[str, dict[str, CtrlChildInfo]] = field(
         default_factory=dict
     )
-    # fully qualified names of done registers for pars
-    par_done_regs: set[str] = field(default_factory=set)
+
     # component name --> { control group name --> { primitives used by control group } }
+    # used for utilization analysis.
     component_to_control_to_primitives: defaultdict[str, defaultdict[str, set[str]]] = (
         field(default_factory=lambda: defaultdict(lambda: defaultdict(set)))
     )
-    # partial_fsm_events:
-    cell_to_ordered_pars: defaultdict[str, list[str]] = field(
+
+    cell_to_ordered_ctrl_groups: defaultdict[str, list[str]] = field(
         default_factory=lambda: defaultdict(list)
-    )  # cell --> ordered par group names
+    )
 
     cell_to_tdcc_groups: defaultdict[str, set[str]] = field(
         default_factory=lambda: defaultdict(set)
@@ -218,33 +222,43 @@ class ControlMetadata:
     added_signal_prefix: bool = field(default=False)
 
     def add_par_done_reg(self, component, par_group, par_done_reg, stack):
-        self.par_done_regs.add(stack)
+        self.fully_qualified_par_done_regs.add(stack)
         self.component_to_control_to_primitives[component][par_group].add(par_done_reg)
 
     def register_fully_qualified_ctrl_gp(self, fully_qualified_gp):
-        self.ctrl_groups.add(fully_qualified_gp)
+        self.fully_qualified_ctrl_groups.add(fully_qualified_gp)
 
     def add_signal_prefix(self, signal_prefix: str):
         assert not self.added_signal_prefix
-        self.fsms = {f"{signal_prefix}.{fsm}" for fsm in self.fsms}
-        self.par_done_regs = {f"{signal_prefix}.{pd}" for pd in self.par_done_regs}
-        self.ctrl_groups = {
-            f"{signal_prefix}.{ctrl_group}" for ctrl_group in self.ctrl_groups
+        self.fully_qualified_fsms = {
+            f"{signal_prefix}.{fsm}" for fsm in self.fully_qualified_fsms
+        }
+        self.fully_qualified_par_done_regs = {
+            f"{signal_prefix}.{pd}" for pd in self.fully_qualified_par_done_regs
+        }
+        self.fully_qualified_ctrl_groups = {
+            f"{signal_prefix}.{ctrl_group}"
+            for ctrl_group in self.fully_qualified_ctrl_groups
         }
         new_par_to_children = defaultdict(list)
-        for fully_qualified_par in self.par_to_par_children:
+        for fully_qualified_par in self.ctrl_to_ctrl_children:
             new_par_to_children[f"{signal_prefix}.{fully_qualified_par}"] = list(
                 map(
                     lambda c: f"{signal_prefix}.{c}",
-                    self.par_to_par_children[fully_qualified_par],
+                    self.ctrl_to_ctrl_children[fully_qualified_par],
                 )
             )
-        self.par_to_par_children = new_par_to_children
+        self.ctrl_to_ctrl_children = new_par_to_children
         self.added_signal_prefix = True
         fully_qualified_tdccs = {
             f"{signal_prefix}.{c}": g for c, g in self.cell_to_tdcc_groups.items()
         }
         self.cell_to_tdcc_groups = fully_qualified_tdccs
+
+        new_cell_to_ordered_ctrl = defaultdict(list)
+        for cell in self.cell_to_ordered_ctrl_groups:
+            new_cell_to_ordered_ctrl[f"{signal_prefix}.{cell}"] = [f"{signal_prefix}.{ctrl}" for ctrl in self.cell_to_ordered_ctrl_groups[cell]]
+        self.cell_to_ordered_ctrl_groups = new_cell_to_ordered_ctrl
 
     def register_fsm(self, fsm_name, component, cell_metadata: CellMetadata):
         """
@@ -257,85 +271,44 @@ class ControlMetadata:
 
         for cell in cell_metadata.component_to_cells[component]:
             fully_qualified_fsm = ".".join((cell, fsm_name))
-            self.fsms.add(fully_qualified_fsm)
+            self.fully_qualified_fsms.add(fully_qualified_fsm)
 
     def register_par(self, par_group: str, component: str):
-        self.component_to_par_groups[component].add(par_group)
+        self.component_to_ctrl_groups[component].add(par_group)
 
-    def register_par_child(
+    def register_ctrl_child(
         self,
         component: str,
         child_name: str,
         parent: str,
-        child_type: ParChildType,
+        child_type: CtrlChildType,
         cell_metadata: CellMetadata,
     ):
         """
         Add information about a par child to the fields component_to_child_to_par_parent and par_to_children.
         """
-        if component in self.component_to_child_to_par_parent:
-            if child_name in self.component_to_child_to_par_parent[component]:
-                self.component_to_child_to_par_parent[component][
+        if component in self.component_to_child_to_ctrl_parent:
+            if child_name in self.component_to_child_to_ctrl_parent[component]:
+                self.component_to_child_to_ctrl_parent[component][
                     child_name
                 ].register_new_parent(parent)
             else:
-                child_info = ParChildInfo(child_name, child_type, {parent})
-                self.component_to_child_to_par_parent[component][child_name] = (
+                child_info = CtrlChildInfo(child_name, child_type, {parent})
+                self.component_to_child_to_ctrl_parent[component][child_name] = (
                     child_info
                 )
         else:
-            child_info = ParChildInfo(child_name, child_type, {parent})
-            self.component_to_child_to_par_parent[component] = {child_name: child_info}
+            child_info = CtrlChildInfo(child_name, child_type, {parent})
+            self.component_to_child_to_ctrl_parent[component] = {child_name: child_info}
 
-        if child_type == ParChildType.PAR:
+        if child_type == CtrlChildType.CTRL:
             for cell in cell_metadata.component_to_cells[component]:
                 fully_qualified_par = f"{cell}.{parent}"
                 fully_qualified_child = f"{cell}.{child_name}"
 
-                self.par_to_par_children[fully_qualified_par].append(
+                self.ctrl_to_ctrl_children[fully_qualified_par].append(
                     fully_qualified_child
                 )
-
-    def order_pars(self, cell_metadata: CellMetadata):
-        """
-        Give a partial ordering for pars so we know when multiple pars occur simultaneously, what order
-        we should add them to the trace.
-        (1) order based on cells
-        (2) for pars in the same cell, order based on dependencies information
-
-        Updates: - field cell_to_ordered_pars
-        """
-
-        cells_to_pars_without_parent: dict[str, set[str]] = {}
-        for component in self.component_to_par_groups:
-            pars = self.component_to_par_groups[component]
-            pars_with_parent = [
-                k
-                for k, v in self.component_to_child_to_par_parent[component].items()
-                if v.child_type == ParChildType.PAR
-            ]
-            pars_without_parent = pars.difference(pars_with_parent)
-            for cell in cell_metadata.component_to_cells[component]:
-                cells_to_pars_without_parent[cell] = pars_without_parent
-
-        for cell in sorted(
-            cells_to_pars_without_parent.keys(), key=(lambda c: c.count("."))
-        ):
-            # worklist contains pars to check whether they have children
-            # the worklist starts with pars with no parent
-            worklist: deque[str] = deque(
-                [f"{cell}.{par}" for par in cells_to_pars_without_parent[cell]]
-            )
-
-            while worklist:
-                par = worklist.pop()
-                if par not in self.cell_to_ordered_pars[cell]:
-                    self.cell_to_ordered_pars[cell].append(par)
-                if par in self.par_to_par_children:
-                    # get all the children (who are pars) of this par.
-                    # If this par is not in self.par_to_par_children, it means that it has no children who are pars.
-                    worklist.extendleft(self.par_to_par_children[par])
-
 
 class StackElementType(Enum):
     GROUP = 1
@@ -844,7 +817,6 @@ class TraceData:
         Populates the field trace_with_control_groups by combining control group information (from control_groups_trace) with self.trace.
         Does not modify self.trace.
         """
-        control_metadata.order_pars(cell_metadata)
         for i in self.trace:
             if i in control_groups_trace:
                 self.trace_with_control_groups[i] = (
@@ -893,19 +865,19 @@ class TraceData:
                     )
                     if (
                         current_component
-                        in control_metadata.component_to_child_to_par_parent
+                        in control_metadata.component_to_child_to_ctrl_parent
                         and stack_element.internal_name
-                        in control_metadata.component_to_child_to_par_parent[
+                        in control_metadata.component_to_child_to_ctrl_parent[
                             current_component
                         ]
                     ):
-                        child_parent_info: ParChildInfo = (
-                            control_metadata.component_to_child_to_par_parent[
+                        child_parent_info: CtrlChildInfo = (
+                            control_metadata.component_to_child_to_ctrl_parent[
                                 current_component
                             ][stack_element.internal_name]
                         )
                         parent_names = set()
-                        if child_parent_info.child_type == ParChildType.PAR:
+                        if child_parent_info.child_type == CtrlChildType.CTRL:
                             raise ProfilerException(
                                 "A normal group should not be stored as a par group under control_metadata.component_to_child_to_par_parent"
                             )
@@ -930,28 +902,28 @@ class TraceData:
                 case StackElementType.PRIMITIVE:
                     # All primitives are leaf nodes, so there is no more work left to be done.
                     break
-            if current_cell in control_metadata.cell_to_tdcc_groups:
-                for cell, gps in control_metadata.cell_to_tdcc_groups.items():
-                    for g in gps:
-                        if f"{cell}.{g}" in active_control_groups:
-                            events_stack_with_ctrl.append(
-                                StackElement(g, StackElementType.CONTROL_GROUP)
-                            )
-            if current_cell in control_metadata.cell_to_ordered_pars:
+            # if current_cell in control_metadata.cell_to_tdcc_groups:
+            #     for cell, gps in control_metadata.cell_to_tdcc_groups.items():
+            #         for g in gps:
+            #             if f"{cell}.{g}" in active_control_groups:
+            #                 events_stack_with_ctrl.append(
+            #                     StackElement(g, StackElementType.CONTROL_GROUP)
+            #                 )
+            if current_cell in control_metadata.cell_to_ordered_ctrl_groups:
                 active_from_cell = active_control_groups.intersection(
-                    control_metadata.cell_to_ordered_pars[current_cell]
+                    control_metadata.cell_to_ordered_ctrl_groups[current_cell]
                 )
-                for par_group_active in sorted(
+                for ctrl_group_active in sorted(
                     active_from_cell,
                     key=(
-                        lambda p: control_metadata.cell_to_ordered_pars[
+                        lambda p: control_metadata.cell_to_ordered_ctrl_groups[
                             current_cell
                         ].index(p)
                     ),
                 ):
-                    par_group_name = par_group_active.split(".")[-1]
+                    ctrl_group_name = ctrl_group_active.split(".")[-1]
                     events_stack_with_ctrl.append(
-                        StackElement(par_group_name, StackElementType.CONTROL_GROUP)
+                        StackElement(ctrl_group_name, StackElementType.CONTROL_GROUP)
                     )
         return events_stack_with_ctrl
 

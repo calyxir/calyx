@@ -95,18 +95,18 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         for name, sid in refs:
             if "probe_out" in name:
                 signal_id_dict[sid].append(name)
-            for fsm in self.control_metadata.fsms:
+            for fsm in self.control_metadata.fully_qualified_fsms:
                 if name.startswith(f"{fsm}.out["):
                     signal_id_dict[sid].append(name)
                 if name.startswith(f"{fsm}.write_en") or name.startswith(f"{fsm}.in"):
                     tdcc_signal_id_to_names[sid].append(name)
-            for par_done_reg in self.control_metadata.par_done_regs:
+            for par_done_reg in self.control_metadata.fully_qualified_par_done_regs:
                 if (
                     name.startswith(f"{par_done_reg}.in")
                     or name == f"{par_done_reg}.write_en"
                 ):
                     tdcc_signal_id_to_names[sid].append(name)
-            for ctrl_group_name in self.control_metadata.ctrl_groups:
+            for ctrl_group_name in self.control_metadata.fully_qualified_ctrl_groups:
                 if name == f"{ctrl_group_name}_go_out":
                     control_signal_id_to_names[sid].append(name)
 
@@ -193,7 +193,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
 
         # The events are "partial" because we don't know yet what the tid and pid would be.
         # (Will be filled in during create_timelines(); specifically in port_fsm_events())
-        fsm_current = {fsm: 0 for fsm in self.control_metadata.fsms}  # fsm --> value
+        fsm_current = {fsm: 0 for fsm in self.control_metadata.fully_qualified_fsms}  # fsm --> value
 
         probe_labels_to_sets = {
             "group_probe_out": group_active,
@@ -404,7 +404,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     in_signal = f"{reg_name}.in"
                     reg_new_value = events[in_signal] if in_signal in events else 0
                     if not (
-                        reg_name in self.control_metadata.par_done_regs
+                        reg_name in self.control_metadata.fully_qualified_par_done_regs
                         and reg_new_value == 0
                     ):  # ignore when pd values turn 0 since they are only useful when they are high
                         upd = f"{write_en_split[-2]}:{reg_new_value}"

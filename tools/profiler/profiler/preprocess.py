@@ -1,7 +1,9 @@
 import json
 import os
+import sys
 
-from profiler.classes import CellMetadata, ControlMetadata, ParChildType
+from collections import defaultdict, deque
+from profiler.classes import CellMetadata, ControlMetadata, CtrlChildType
 
 
 def read_shared_cells_map(shared_cells_json) -> dict[str, dict[str, str]]:
@@ -83,6 +85,88 @@ def read_component_cell_names_json(json_file):
     return CellMetadata(main_component, components_to_cells)
 
 
+# def read_tdcc_file_2(tdcc_json_file, cell_metadata: CellMetadata):
+#     json_data = json.load(open(tdcc_json_file))
+#     control_metadata = ControlMetadata()
+
+#     component_to_ctrl_groups: defaultdict[str, set[str]] = defaultdict(set)
+
+#     component_to_ctrl_group_to_children: defaultdict[str, dict[str, set[str]]] = (
+#         defaultdict(dict)
+#     )
+
+#     component_to_ordered_ctrl_groups: defaultdict[str, list[str]] = defaultdict(list)
+
+#     # get parent-child relationships
+
+#     # first pass to get names
+#     for json_entry in json_data:
+#         if "Par" in json_entry:
+#             component = json_entry["Par"]["component"]
+#             par_name = json_entry["Par"]["par_group"]
+#             component_to_ctrl_groups[component].add(par_name)
+#             component_to_ctrl_group_to_children[component][par_name] = set(
+#                 child_group_info["group"]
+#                 for child_group_info in json_entry["Par"]["child_groups"]
+#             )
+#         if "Fsm" in json_entry:
+#             component = json_entry["Fsm"]["component"]
+#             tdcc_group = json_entry["Fsm"]["group"]
+#             component_to_ctrl_groups[component].add(tdcc_group)
+#             component_to_ctrl_group_to_children[component][tdcc_group] = set(
+#                 state_info["group"]
+#                 for state_info in json_entry["Fsm"]["states"]
+#             )
+
+#     for component in component_to_ctrl_group_to_children:
+#         for ctrl_group in component_to_ctrl_group_to_children[component]:
+#             for children in component_to_ctrl_group_to_children[component]:
+        
+
+def order_control_groups(component_to_ctrl_groups: defaultdict[str, set[str]], child_ctrl_groups: set[str], cell_metadata: CellMetadata, control_metadata: ControlMetadata):
+    """
+    Give a partial ordering for control groups so we know when multiple control groups occur simultaneously, what order
+    we should add them to the trace.
+    (1) order based on cells
+    (2) for pars in the same cell, order based on dependencies information
+
+    Returns a dictionary mapping cells to ordered fully qualified control groups. (Will get set to control_metadata.cell_to_ordered_ctrl_groups)
+    """
+    cell_to_ordered_ctrl_groups: defaultdict[str, list[str]] = defaultdict(list)
+
+    cells_to_ctrl_groups_without_parent: dict[str, set[str]] = {}
+    for component in component_to_ctrl_groups:
+        ctrl_groups = component_to_ctrl_groups[component]
+        print(component)
+        print(ctrl_groups)
+        ctrl_groups_with_parent = [
+            k
+            for k, v in control_metadata.component_to_child_to_ctrl_parent[component].items()
+            if v.child_type == CtrlChildType.CTRL
+        ]
+        ctrls_without_parent = ctrl_groups.difference(ctrl_groups_with_parent)
+        for cell in cell_metadata.component_to_cells[component]:
+            cells_to_ctrl_groups_without_parent[cell] = ctrls_without_parent
+    for cell in sorted(
+        cells_to_ctrl_groups_without_parent.keys(), key=(lambda c: c.count("."))
+    ):
+        # worklist contains pars to check whether they have children
+        # the worklist starts with pars with no parent
+        worklist: deque[str] = deque(
+            [f"{cell}.{ctrl_group}" for ctrl_group in cells_to_ctrl_groups_without_parent[cell]]
+        )
+        while worklist:
+            ctrl_group = worklist.pop()
+            if ctrl_group not in cell_to_ordered_ctrl_groups[cell]:
+                cell_to_ordered_ctrl_groups[cell].append(ctrl_group)
+            if ctrl_group in control_metadata.ctrl_to_ctrl_children:
+                # get all the children (who are pars) of this par.
+                # If this par is not in self.par_to_par_children, it means that it has no children who are pars.
+                worklist.extendleft(control_metadata.ctrl_to_ctrl_children[ctrl_group])
+
+    return cell_to_ordered_ctrl_groups
+
+
 def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
     """
     Processes tdcc_json_file to produce information about control registers (FSMs, pd registers for pars)
@@ -90,24 +174,44 @@ def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
     """
     json_data = json.load(open(tdcc_json_file))
     control_metadata = ControlMetadata()
-    # pass 1: obtain names of all par groups in each component
+
+    # will be used to order later.
+    component_to_ctrl_groups: defaultdict[str, set[str]] = defaultdict(set)
+    fully_qualified_child_ctrl_groups: set[str] = set()
+
+    # pass 1: obtain names of all ctrl groups in each component
     for json_entry in json_data:
+        if "Fsm" in json_entry:
+            component = json_entry["Fsm"]["component"]
+            component_to_ctrl_groups[component].add(json_entry["Fsm"]["group"])
         if "Par" in json_entry:
-            control_metadata.register_par(
-                json_entry["Par"]["par_group"], json_entry["Par"]["component"]
-            )
+            component = json_entry["Par"]["component"]
+            component_to_ctrl_groups[component].add(json_entry["Par"]["par_group"])
+    print(component_to_ctrl_groups)
     # pass 2: obtain FSM register info, par group and child register information
     for json_entry in json_data:
         if "Fsm" in json_entry:
             entry = json_entry["Fsm"]
+            component = entry["component"]
+            tdcc_group = entry["group"]
             control_metadata.register_fsm(
-                entry["fsm"], entry["component"], cell_metadata
+                entry["fsm"], component, cell_metadata
             )
-            for cell in cell_metadata.component_to_cells[entry["component"]]:
-                control_metadata.register_fully_qualified_ctrl_gp(
-                    f"{cell}.{entry['group']}"
-                )
-                control_metadata.cell_to_tdcc_groups[cell].add(entry["group"])
+            for cell in cell_metadata.component_to_cells[component]:
+                fully_qualified_tdcc_group = ".".join((cell, tdcc_group))
+                # add information to control_metadata
+                control_metadata.register_fully_qualified_ctrl_gp(fully_qualified_tdcc_group)
+                for state in entry["states"]:
+                    child_name = state["group"]
+                    if (child_name in component_to_ctrl_groups[component]):
+                        # child is a control group
+                        control_metadata.register_ctrl_child(component, child_name, tdcc_group, CtrlChildType.CTRL, cell_metadata)
+                        fully_qualified_child_name = ".".join((cell, child_name))
+                        fully_qualified_child_ctrl_groups.add(fully_qualified_child_name)
+                    else:
+                        # normal group
+                        control_metadata.register_ctrl_child(component, child_name, tdcc_group, CtrlChildType.GROUP, cell_metadata)
+                # control_metadata.cell_to_tdcc_groups[cell].add(tdcc_group)
                 control_metadata.component_to_control_to_primitives[entry["component"]][
                     entry["group"]
                 ].add(entry["fsm"])
@@ -115,26 +219,27 @@ def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
             entry = json_entry["Par"]
             par = entry["par_group"]
             component = entry["component"]
-            child_par_groups = []
             for cell in cell_metadata.component_to_cells[component]:
                 fully_qualified_par = ".".join((cell, par))
+                # add information to control_metadata
+                control_metadata.register_fully_qualified_ctrl_gp(fully_qualified_par)
                 for child in entry["child_groups"]:
                     child_name = child["group"]
                     if (
                         child_name
-                        in control_metadata.component_to_par_groups[component]
-                    ):  # child is a par
-                        control_metadata.register_par_child(
-                            component, child_name, par, ParChildType.PAR, cell_metadata
+                        in component_to_ctrl_groups[component]
+                    ):  # child is a control group
+                        control_metadata.register_ctrl_child(
+                            component, child_name, par, CtrlChildType.CTRL, cell_metadata
                         )
                         fully_qualified_child_name = ".".join((cell, child_name))
-                        child_par_groups.append(fully_qualified_child_name)
+                        fully_qualified_child_ctrl_groups.add(fully_qualified_child_name)
                     else:  # normal group
-                        control_metadata.register_par_child(
+                        control_metadata.register_ctrl_child(
                             component,
                             child_name,
                             par,
-                            ParChildType.GROUP,
+                            CtrlChildType.GROUP,
                             cell_metadata,
                         )
                     # add par done register information
@@ -142,8 +247,8 @@ def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
                     control_metadata.add_par_done_reg(
                         component, par, child_pd_reg, ".".join((cell, child_pd_reg))
                     )
-                # add information to control_metadata
-                control_metadata.register_fully_qualified_ctrl_gp(fully_qualified_par)
+
+    control_metadata.cell_to_ordered_ctrl_groups = order_control_groups(component_to_ctrl_groups, fully_qualified_child_ctrl_groups, cell_metadata, control_metadata)
 
     return control_metadata
 
