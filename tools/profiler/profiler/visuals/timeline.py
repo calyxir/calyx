@@ -1,7 +1,9 @@
+from dataclasses import dataclass, field
 import json
 import os
 
-from dataclasses import dataclass
+from collections import defaultdict
+from enum import Enum
 from profiler.classes import (
     TraceData,
     ControlRegUpdates,
@@ -26,6 +28,141 @@ def setup_enable_to_tid(
         else {}
     )
 
+
+class EventType(Enum):
+    START = 1
+    END = 2
+
+
+@dataclass
+class CtrlGroupEvent:
+    uuid_name: str
+    sid_name: str
+    ctrl_group_name: str
+    timestamp: int
+    event_type: EventType
+
+    def __repr__(self):
+        event_type_str = (
+            "TrackEvent.TYPE_SLICE_BEGIN"
+            if self.event_type == EventType.START
+            else "TrackEvent.TYPE_SLICE_END"
+        )
+        return f"add_slice_event(builder, ts={self.timestamp}, event_type={event_type_str}, event_track_uuid={self.uuid_name}, name={self.ctrl_group_name}, SID={self.sid_name})"
+
+
+@dataclass
+class ProtoTimelineCell:
+    fully_qualified_cell_name: str
+    sid_name: str
+    uuid_names: set[str] = field(default_factory=set)
+    events: list[CtrlGroupEvent] = field(default_factory=list)
+
+    def __init__(self, fully_qualified_cell_name: str):
+        self.fully_qualified_cell_name = fully_qualified_cell_name
+        self.sid_name = self.fully_qualified_cell_name.replace(".", "_").upper()
+
+    def register_event(self, fully_qualified_ctrl_group: str, timestamp: int, event_type: EventType):
+        uuid = fully_qualified_ctrl_group.replace(".", "_")
+        self.uuid_names.add(uuid)
+        new_event = CtrlGroupEvent(uuid, self.sid_name, fully_qualified_ctrl_group, timestamp, event_type)
+        self.events.append(new_event)
+
+    def out_str(self):
+        s = ""
+        for uuid in self.uuid_names:
+            s += f"\t{uuid} = define_track(builder, {self.sid_name})\n"
+        for event in self.events:
+            s += f"\t{event}\n"
+        return s
+
+
+@dataclass
+class ProtoTimeline:
+    # very silly way to do this, but will fix this later. Best practice may be to have a preexisting
+    # template file that we replace a small part of
+    before = """
+#!/usr/bin/env python3
+import uuid
+
+from perfetto.trace_builder.proto_builder import TraceProtoBuilder
+from perfetto.protos.perfetto.trace.perfetto_trace_pb2 import TrackEvent, TrackDescriptor, ProcessDescriptor, ThreadDescriptor
+
+    # Helper to define a new track with a unique UUID
+def define_track(builder, group_name):
+    track_uuid = uuid.uuid4().int & ((1 << 63) - 1)
+    packet = builder.add_packet()
+    packet.track_descriptor.uuid = track_uuid
+    packet.track_descriptor.name = group_name
+    return track_uuid
+
+# Helper to add a begin or end slice event to a specific track
+def add_slice_event(builder, ts, event_type, event_track_uuid, name=None, SID=None):
+    packet = builder.add_packet()
+    packet.timestamp = ts
+    packet.track_event.type = event_type
+    packet.track_event.track_uuid = event_track_uuid
+    if name:
+        packet.track_event.name = name
+    packet.trusted_packet_sequence_id = SID
+
+def populate_packets(builder: TraceProtoBuilder):
+"""
+
+    after = """
+def main():
+    builder = TraceProtoBuilder()
+    populate_packets(builder)
+
+    output_filename = "my_custom_trace.pftrace"
+    with open(output_filename, 'wb') as f:
+      f.write(builder.serialize())
+
+    print(f"Trace written to {output_filename}")
+    print(f"Open with [https://ui.perfetto.dev](https://ui.perfetto.dev).")
+
+if __name__ == "__main__":
+    main()
+
+    """
+
+    cell_infos: defaultdict[str, ProtoTimelineCell] = field(default_factory=defaultdict)
+
+    def emit(self, out_file):
+        with open(out_file, "w") as out:
+            out.write(self.before)
+            for cell in self.cell_infos:
+                out.write(self.cell_infos[cell].out_str())
+            out.write(self.after)
+
+
+
+def compute_ctrl_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out_dir: str):
+    proto: ProtoTimeline = ProtoTimeline()
+
+    currently_active_ctrl_groups: set[str] = set()
+
+    for i in tracedata.trace:
+        this_cycle_active_ctrl_groups: set[str] = set()
+        for stack in tracedata.trace[i].stacks:
+            stack_acc = cell_metadata.main_shortname
+            for stack_elem in stack:
+                match stack_elem.element_type:
+                    case StackElementType.CELL:
+                        if not stack_elem.is_main:
+                            stack_acc = f"{stack_acc}.{stack_elem.name}"
+                    case StackElementType.CONTROL_GROUP:
+                        this_cycle_active_ctrl_groups.add(f"{stack_acc}.{stack_elem.name}")
+        
+        for new_ctrl_group in this_cycle_active_ctrl_groups.difference(currently_active_ctrl_groups):
+            proto.cell_infos[stack_acc].register_event(new_ctrl_group, i, EventType.START)
+        for gone_ctrl_group in currently_active_ctrl_groups.difference(this_cycle_active_ctrl_groups):
+            proto.cell_infos[stack_acc].register_event(gone_ctrl_group, i, EventType.END)
+
+        currently_active_ctrl_groups = this_cycle_active_ctrl_groups
+
+    out_path = os.path.join(out_dir, "timeline-proto-gen.py")
+    proto.emit(out_path)
 
 class TimelineCell:
     """
@@ -139,7 +276,6 @@ class ActiveCell:
 class ActiveEnable:
     enable_name: str
     cell_name: str  # cell from which enable is active from
-
 
 def compute_timeline(
     tracedata: TraceData,

@@ -112,6 +112,7 @@ def create_visuals(
     print(f"End writing flame graphs: {datetime.now()}")
 
     timeline.compute_timeline(tracedata, cell_metadata, enable_thread_metadata, out_dir)
+    timeline.compute_ctrl_timeline(tracedata, cell_metadata, out_dir)
     print(f"End writing timeline view: {datetime.now()}")
 
     if utilization_variable:
