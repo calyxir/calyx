@@ -707,9 +707,11 @@ impl RaceDetectionPrimitive for CombMem {
                                 port_map[self.write_en()].winner().unwrap(),
                             )
                             .map_err(|e| {
+                                let cell_info =
+                                    clock_map.lookup_cell(*clock).unwrap();
                                 e.add_cell_info(
-                                    self.global_idx,
-                                    Some(addr.try_into().unwrap()),
+                                    cell_info.attached_cell,
+                                    cell_info.entry_number,
                                 )
                             })?;
                     }
@@ -1087,9 +1089,11 @@ impl RaceDetectionPrimitive for SeqMem {
                             port_map[self.write_enable()].winner().unwrap(),
                         )
                         .map_err(|e| {
+                            let cell_info =
+                                clock_map.lookup_cell(clock).unwrap();
                             e.add_cell_info(
-                                self.global_idx,
-                                Some(addr.try_into().unwrap()),
+                                cell_info.attached_cell,
+                                cell_info.entry_number,
                             )
                         })?;
                 } else if port_map[self.content_enable()]
