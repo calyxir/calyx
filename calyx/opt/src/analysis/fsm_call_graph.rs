@@ -154,6 +154,7 @@ impl FSMCallGraph {
                     let while_body_wrapper = FSMCallGraphNode::DynamicWhile {
                         num_states: None,
                         pointer: Box::new(st_poss),
+                        static_body: None,
                     };
                     StatePossibility::Call(while_body_wrapper)
                 })
@@ -244,6 +245,7 @@ pub enum FSMCallGraphNode {
     DynamicWhile {
         num_states: Option<u64>,
         pointer: Box<StatePossibility>,
+        static_body: Option<bool>,
     },
     DynamicRepeat {
         num_states: Option<u64>,
@@ -270,10 +272,17 @@ impl FSMCallGraphNode {
         }
     }
 
+    /// At every repeat node, decide whether to Unroll, Offload, or just Inline
+    /// its body.
+    ///
+    /// At every while node, determine whether its body is Static.
+    ///
+    /// Every thread in a Par and If will get offloaded for now. Can revisit
+    /// after first implementation.
     pub fn postorder_analysis(&mut self) {
         match self {
-            FSMCallGraphNode::UserDefined { .. } => (),
-            FSMCallGraphNode::StaticRepeat {
+            Self::UserDefined { .. } => (),
+            Self::StaticRepeat {
                 num_states, // None, at this point
                 pointer,
                 num_repeats,
@@ -284,7 +293,7 @@ impl FSMCallGraphNode {
                 // given the number of states in the repeat body, determine
                 // whether current level's body should be unrolled, inlined, or
                 // completely offloaded.
-                let impl_repeat = |num_states_body| {
+                let f = |num_states_body| {
                     if *num_repeats * num_states_body < FSM_STATE_CUTOFF {
                         (
                             RepeatNodeAnnotation::Unroll,
@@ -298,39 +307,44 @@ impl FSMCallGraphNode {
                 };
 
                 // decide on implementation of body before implementing current level
-                match pointer.as_mut() {
+                (*annotation, *num_states_repeat_body) = match pointer.as_mut()
+                {
                     StatePossibility::HardwareEnable { num_states } => {
-                        let (node_annotation, states_in_body) =
-                            impl_repeat(*num_states);
-                        *annotation = node_annotation;
-                        *num_states_repeat_body = states_in_body;
+                        f(*num_states)
                     }
                     StatePossibility::Call(call) => {
                         call.postorder_analysis();
-                        let (node_annotation, states_in_body) =
-                            impl_repeat(call.get_states());
-                        *annotation = node_annotation;
-                        *num_states_repeat_body = states_in_body;
+                        f(call.get_states())
+                    }
+                };
+            }
+            Self::StaticPar {
+                pointers,
+                num_states,
+            } => {
+                for thread in pointers.iter_mut() {
+                    if let StatePossibility::Call(call) = thread {
+                        call.postorder_analysis();
                     }
                 }
+                *num_states = Some(1);
             }
-            FSMCallGraphNode::StaticPar { pointers, .. } => (),
-            FSMCallGraphNode::StaticSeq { pointer, .. } => (),
-            FSMCallGraphNode::StaticIf {
+            Self::StaticSeq { pointer, .. } => (),
+            Self::StaticIf {
                 t_branch_pointer,
                 f_branch_pointer,
                 ..
             } => (),
-            FSMCallGraphNode::DynamicSeq { pointer, .. } => (),
-            FSMCallGraphNode::DynamicPar { pointers, .. } => (),
+            Self::DynamicSeq { pointer, .. } => (),
+            Self::DynamicPar { pointers, .. } => (),
 
-            FSMCallGraphNode::DynamicIf {
+            Self::DynamicIf {
                 t_branch_pointer,
                 f_branch_pointer,
                 ..
             } => (),
-            FSMCallGraphNode::DynamicWhile { pointer, .. } => (),
-            FSMCallGraphNode::DynamicRepeat {
+            Self::DynamicWhile { pointer, .. } => (),
+            Self::DynamicRepeat {
                 pointer,
                 num_repeats,
                 ..

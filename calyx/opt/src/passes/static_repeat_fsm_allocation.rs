@@ -29,6 +29,7 @@ impl StaticSchedule<'_, '_> {
     /// preparation to replace the `StaticControl` node with an instance of `ir::FSM`.
     /// Every static assignment collected into `state2assigns` will have its existing guard
     /// "anded" with `guard`.
+
     fn build_abstract_fsm(
         &mut self,
         scon: &ir::StaticControl,
