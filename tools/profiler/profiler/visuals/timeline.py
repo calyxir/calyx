@@ -2,6 +2,11 @@ from dataclasses import dataclass, field
 import json
 import os
 
+import uuid
+
+from perfetto.trace_builder.proto_builder import TraceProtoBuilder
+from perfetto.protos.perfetto.trace.perfetto_trace_pb2 import TrackEvent, TrackDescriptor, ProcessDescriptor, ThreadDescriptor
+
 from collections import defaultdict
 from enum import Enum
 from profiler.classes import (
@@ -10,11 +15,6 @@ from profiler.classes import (
     StackElementType,
     CellMetadata,
 )
-
-# import uuid
-# from perfetto.trace_builder.proto_builder import TraceProtoBuilder
-# from perfetto.protos.perfetto.trace.perfetto_trace_pb2 import TrackEvent, TrackDescriptor, ProcessDescriptor, ThreadDescriptor
-
 
 ts_multiplier = 1  # [timeline view] ms on perfetto UI that resembles a single cycle
 JSON_INDENT = "    "  # [timeline view] indentation for generating JSON on the fly
@@ -40,122 +40,89 @@ class EventType(Enum):
 
 
 @dataclass
-class CtrlGroupEvent:
-    uuid_name: str
-    sid_name: str
-    ctrl_group_name: str
-    timestamp: int
-    event_type: EventType
-
-    def __repr__(self):
-        match self.event_type:
-            case EventType.START:
-                event_type_str = "TrackEvent.TYPE_SLICE_BEGIN"
-            case EventType.END:
-                event_type_str = "TrackEvent.TYPE_SLICE_END"
-
-        return f"add_slice_event(builder, ts={self.timestamp}, event_type={event_type_str}, event_track_uuid={self.uuid_name}, name=\"{self.ctrl_group_name}\", SID={self.sid_name})"
-
-
-@dataclass
 class ProtoTimelineCell:
+    builder: TraceProtoBuilder
     fully_qualified_cell_name: str
     sid_name: str
     sid_val: int
-    uuid_names: set[str] = field(default_factory=set)
-    events: list[CtrlGroupEvent] = field(default_factory=list)
+    uuid_names: set[str]
+    group_to_uuid: dict[str, int]
 
-    def __init__(self, fully_qualified_cell_name: str, sid):
+    def __init__(self, builder: TraceProtoBuilder, fully_qualified_cell_name: str, sid: int):
+        self.builder = builder
         self.fully_qualified_cell_name = fully_qualified_cell_name
         self.sid_name = self.fully_qualified_cell_name.replace(".", "_").upper()
         self.sid_val = sid
         self.uuid_names = set()
         self.events = list()
+        self.group_to_uuid = {}
 
-    def register_event(self, fully_qualified_ctrl_group: str, timestamp: int, event_type: EventType):
-        uuid = fully_qualified_ctrl_group.replace(".", "_")
-        self.uuid_names.add(uuid)
-        new_event = CtrlGroupEvent(uuid, self.sid_name, fully_qualified_ctrl_group, timestamp, event_type)
-        self.events.append(new_event)
+    # Helper to define a new track with a unique UUID
+    def _define_track(self, group_name):
+        track_uuid = uuid.uuid4().int & ((1 << 63) - 1)
+        packet = self.builder.add_packet()
+        packet.track_descriptor.uuid = track_uuid
+        packet.track_descriptor.name = self.fully_qualified_cell_name
+        self.group_to_uuid[group_name] = track_uuid
+        return track_uuid
 
-    def out_str(self):
-        s = f"\t# code for cell {self.fully_qualified_cell_name}\n"
-        s += f"\t{self.sid_name} = {self.sid_val}\n"
-        for uuid in self.uuid_names:
-            s += f"\t{uuid} = define_track(builder, \"{self.fully_qualified_cell_name}\")\n"
-        for event in self.events:
-            s += f"\t{event}\n"
-        return s
+    # Helper to add a begin or end slice event to a specific track
+    def _add_slice_event(self, ts, event_type, event_track_uuid, name):
+        packet = self.builder.add_packet()
+        packet.timestamp = ts
+        packet.track_event.type = event_type
+        packet.track_event.track_uuid = event_track_uuid
+        if name:
+            packet.track_event.name = name
+        packet.trusted_packet_sequence_id = self.sid_val
+
+    def register_event(self, fully_qualified_ctrl_group: str, timestamp: int, event_type: TrackEvent.Type):
+        if fully_qualified_ctrl_group not in self.group_to_uuid:
+            track_uuid = self._define_track(fully_qualified_ctrl_group)
+        else:
+            track_uuid = self.group_to_uuid[fully_qualified_ctrl_group]
+        
+        self._add_slice_event(timestamp, event_type, track_uuid, fully_qualified_ctrl_group)
 
 
 @dataclass
 class ProtoTimeline:
-    # very silly way to do this, but will fix this later. Best practice may be to have a preexisting
-    # template file that we replace a small part of
-    before = """
-#!/usr/bin/env python3
-import uuid
+    builder: TraceProtoBuilder
+    cell_infos: dict[str, ProtoTimelineCell]
+    sid_acc: int
 
-from perfetto.trace_builder.proto_builder import TraceProtoBuilder
-from perfetto.protos.perfetto.trace.perfetto_trace_pb2 import TrackEvent, TrackDescriptor, ProcessDescriptor, ThreadDescriptor
+    def __init__(self):
+        self.builder = TraceProtoBuilder()
+        self.cell_infos = {}
+        self.sid_acc = 300 # some arbitrary number
+        
+    def register_cell_event(self, cell, timestamp, event_type):
+        if cell not in self.cell_infos:
+            self.cell_infos[cell] = ProtoTimelineCell(self.builder, cell, self.sid_acc)
+            self.sid_acc += 1
+        self.cell_infos[cell].register_event(cell, timestamp, event_type)
 
-    # Helper to define a new track with a unique UUID
-def define_track(builder, group_name):
-    track_uuid = uuid.uuid4().int & ((1 << 63) - 1)
-    packet = builder.add_packet()
-    packet.track_descriptor.uuid = track_uuid
-    packet.track_descriptor.name = group_name
-    return track_uuid
+    def register_event(self, fully_qualified_ctrl_group: str, timestamp: int, event_type: TrackEvent.Type):
+        cell = ".".join(fully_qualified_ctrl_group.split(".")[:-1])
+        if cell not in self.cell_infos:
+            self.cell_infos[cell] = ProtoTimelineCell(self.builder, cell, self.sid_acc)
+            self.sid_acc += 1
+        self.cell_infos[cell].register_event(fully_qualified_ctrl_group, timestamp, event_type)
 
-# Helper to add a begin or end slice event to a specific track
-def add_slice_event(builder, ts, event_type, event_track_uuid, name=None, SID=None):
-    packet = builder.add_packet()
-    packet.timestamp = ts
-    packet.track_event.type = event_type
-    packet.track_event.track_uuid = event_track_uuid
-    if name:
-        packet.track_event.name = name
-    packet.trusted_packet_sequence_id = SID
-
-def populate_packets(builder: TraceProtoBuilder):
-"""
-
-    after = """
-def main():
-    builder = TraceProtoBuilder()
-    populate_packets(builder)
-
-    output_filename = "my_custom_trace.pftrace"
-    with open(output_filename, 'wb') as f:
-      f.write(builder.serialize())
-
-    print(f"Trace written to {output_filename}")
-    print(f"Open with [https://ui.perfetto.dev](https://ui.perfetto.dev).")
-
-if __name__ == "__main__":
-    main()
-
-    """
-
-    cell_infos: defaultdict[str, ProtoTimelineCell] = field(default_factory=defaultdict)
-
-    def emit(self, out_file):
-        with open(out_file, "w") as out:
-            out.write(self.before)
-            for cell in self.cell_infos:
-                out.write(self.cell_infos[cell].out_str())
-            out.write(self.after)
-
+    def emit(self, output_filename):
+        with open(output_filename, 'wb') as f:
+            f.write(self.builder.serialize())
 
 
 def compute_ctrl_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out_dir: str):
     proto: ProtoTimeline = ProtoTimeline()
 
     currently_active_ctrl_groups: set[str] = set()
-    acc = 300
+    currently_active_cells: set[str] = set()
 
     for i in tracedata.trace_with_control_groups:
         this_cycle_active_ctrl_groups: set[str] = set()
+        this_cycle_active_cells: set[str] = set()
         for stack in tracedata.trace_with_control_groups[i].stacks:
             stack_acc = cell_metadata.main_shortname
             for stack_elem in stack:
@@ -163,32 +130,33 @@ def compute_ctrl_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out
                     case StackElementType.CELL:
                         if not stack_elem.is_main:
                             stack_acc = f"{stack_acc}.{stack_elem.name}"
+                        this_cycle_active_cells.add(stack_acc)
                     case StackElementType.CONTROL_GROUP:
                         this_cycle_active_ctrl_groups.add(f"{stack_acc}.{stack_elem.name}")
 
+        for new_cell in this_cycle_active_cells.difference(currently_active_cells):
+            proto.register_cell_event(new_cell, i, TrackEvent.TYPE_SLICE_BEGIN)
 
         for new_ctrl_group in this_cycle_active_ctrl_groups.difference(currently_active_ctrl_groups):
-            print(new_ctrl_group)
-            cell = ".".join(new_ctrl_group.split(".")[:-1])
-            if cell not in proto.cell_infos:
-                proto.cell_infos[cell] = ProtoTimelineCell(cell, acc)
-                acc += 1    
-            proto.cell_infos[cell].register_event(new_ctrl_group, i, EventType.START)
+            proto.register_event(new_ctrl_group, i, TrackEvent.TYPE_SLICE_BEGIN)
+
+
+        for done_cell in currently_active_cells.difference(this_cycle_active_cells):
+            proto.register_cell_event(done_cell, i, TrackEvent.TYPE_SLICE_END)
 
         for gone_ctrl_group in currently_active_ctrl_groups.difference(this_cycle_active_ctrl_groups):
-            cell = ".".join(gone_ctrl_group.split(".")[:-1])
-            if cell not in proto.cell_infos:
-                proto.cell_infos[cell] = ProtoTimelineCell(cell, acc)
-                acc += 1
-            proto.cell_infos[cell].register_event(gone_ctrl_group, i, EventType.END)
+            proto.register_event(gone_ctrl_group, i, TrackEvent.TYPE_SLICE_END)
 
+        currently_active_cells = this_cycle_active_cells
         currently_active_ctrl_groups = this_cycle_active_ctrl_groups
     
-    for active_at_end_group in currently_active_ctrl_groups:
-        cell = ".".join(active_at_end_group.split(".")[:-1])
-        proto.cell_infos[cell].register_event(active_at_end_group, i, EventType.END)
+    for active_at_end_cell in currently_active_cells:
+        proto.register_cell_event(active_at_end_cell, i, TrackEvent.TYPE_SLICE_END)
 
-    out_path = os.path.join(out_dir, "timeline-proto-gen.py")
+    for active_at_end_group in currently_active_ctrl_groups:
+        proto.register_event(active_at_end_group, i, TrackEvent.TYPE_SLICE_END)
+
+    out_path = os.path.join(out_dir, "timeline_trace.pftrace")
     proto.emit(out_path)
 
 class TimelineCell:
