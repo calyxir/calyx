@@ -148,7 +148,7 @@ pub enum FXType {
 }
 
 /// An enum for encoding memory primitives operator types
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum MemType {
     /// Sequential memory (`seq_mem_dX`)
     Seq,
@@ -157,7 +157,7 @@ pub enum MemType {
 }
 
 /// The dimensions of a memory primitive
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum MemoryDimensions {
     /// 1-dimensional memory
     D1 {
@@ -280,6 +280,19 @@ impl MemoryDimensions {
 /// A type alias to allow potential space hacks
 pub type ParamWidth = u32;
 
+#[derive(Debug, Clone, PartialEq)]
+/// This cell is a memory primitive. Either a combinational or sequential memory.
+pub struct MemoryPrototype {
+    /// The type of memory
+    pub mem_type: MemType,
+    /// The width of the values in the memory
+    pub width: ParamWidth,
+    /// The dimensions of the memory
+    pub dims: MemoryDimensions,
+    /// Is the memory external?
+    pub is_external: bool,
+}
+
 /// Represents the type of a Calyx cell and contains its definition information
 #[derive(Debug, Clone)]
 pub enum CellPrototype {
@@ -336,17 +349,7 @@ pub enum CellPrototype {
         /// The width of the fractional part
         frac_width: ParamWidth,
     },
-    /// This cell is a memory primitive. Either a combinational or sequential memory.
-    Memory {
-        /// The type of memory
-        mem_type: MemType,
-        /// The width of the values in the memory
-        width: ParamWidth,
-        /// The dimensions of the memory
-        dims: MemoryDimensions,
-        /// Is the memory external?
-        is_external: bool,
-    },
+    Memory(MemoryPrototype),
 
     /// This cell is a primitive that lacks an implementation in Cider. Its name
     /// and parameter bindings are stored for use in error messages.
@@ -686,7 +689,7 @@ impl CellPrototype {
                         size: "SIZE",
                         idx_size: "IDX_SIZE"
                     ];
-                    Self::Memory {
+                    Self::Memory(MemoryPrototype {
                         mem_type: if n == "comb_mem_d1" {
                             MemType::Std
                         } else {
@@ -700,7 +703,7 @@ impl CellPrototype {
                         is_external: cell
                             .get_attribute(BoolAttr::External)
                             .is_some(),
-                    }
+                    })
                 }
                 n @ ("comb_mem_d2" | "seq_mem_d2") => {
                     get_params![params;
@@ -710,7 +713,7 @@ impl CellPrototype {
                         d0_idx_size: "D0_IDX_SIZE",
                         d1_idx_size: "D1_IDX_SIZE"
                     ];
-                    Self::Memory {
+                    Self::Memory(MemoryPrototype {
                         mem_type: if n == "comb_mem_d2" {
                             MemType::Std
                         } else {
@@ -726,7 +729,7 @@ impl CellPrototype {
                         is_external: cell
                             .get_attribute(BoolAttr::External)
                             .is_some(),
-                    }
+                    })
                 }
                 n @ ("comb_mem_d3" | "seq_mem_d3") => {
                     get_params![params;
@@ -738,7 +741,7 @@ impl CellPrototype {
                         d1_idx_size: "D1_IDX_SIZE",
                         d2_idx_size: "D2_IDX_SIZE"
                     ];
-                    Self::Memory {
+                    Self::Memory(MemoryPrototype {
                         mem_type: if n == "comb_mem_d3" {
                             MemType::Std
                         } else {
@@ -756,7 +759,7 @@ impl CellPrototype {
                         is_external: cell
                             .get_attribute(BoolAttr::External)
                             .is_some(),
-                    }
+                    })
                 }
                 n @ ("comb_mem_d4" | "seq_mem_d4") => {
                     get_params![params;
@@ -771,7 +774,7 @@ impl CellPrototype {
                         d3_idx_size: "D3_IDX_SIZE"
                     ];
 
-                    Self::Memory {
+                    Self::Memory(MemoryPrototype {
                         mem_type: if n == "comb_mem_d4" {
                             MemType::Std
                         } else {
@@ -791,7 +794,7 @@ impl CellPrototype {
                         is_external: cell
                             .get_attribute(BoolAttr::External)
                             .is_some(),
-                    }
+                    })
                 }
                 n @ ("std_unsyn_mult" | "std_unsyn_div" | "std_unsyn_smult"
                 | "std_unsyn_sdiv" | "std_unsyn_mod"
@@ -862,5 +865,14 @@ impl CellPrototype {
                 ..
             }
         )
+    }
+
+    #[must_use]
+    pub fn as_memory(&self) -> Option<&MemoryPrototype> {
+        if let Self::Memory(v) = self {
+            Some(v)
+        } else {
+            None
+        }
     }
 }

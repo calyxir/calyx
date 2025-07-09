@@ -145,6 +145,11 @@ pub enum CiderError {
     GenericError(String),
 }
 
+impl CiderError {
+    pub fn generic_error<S: Into<String>>(msg: S) -> Self {
+        Self::GenericError(msg.into())
+    }
+}
 pub type RuntimeResult<T> = Result<T, BoxedRuntimeError>;
 
 #[derive(Debug, Error)]
