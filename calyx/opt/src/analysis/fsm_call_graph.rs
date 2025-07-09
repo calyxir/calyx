@@ -166,6 +166,12 @@ impl FSMCallGraph {
     }
 }
 
+impl Default for FSMCallGraph {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum AbstractFSM {
@@ -195,7 +201,6 @@ pub enum StatePossibility {
 /// )))
 ///
 ///
-
 #[allow(unused)]
 #[derive(Debug)]
 pub enum RepeatNodeAnnotation {
@@ -279,6 +284,7 @@ impl FSMCallGraphNode {
     ///
     /// Every thread in a Par and If will get offloaded for now. Can revisit
     /// after first implementation.
+    #[allow(unused)]
     pub fn postorder_analysis(&mut self) {
         match self {
             Self::UserDefined { .. } => (),
