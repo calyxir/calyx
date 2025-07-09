@@ -16,25 +16,15 @@ The explanation on this page is relatively brief; see the [frontend tutorial][fr
 Install
 -------
 
-First, install the [calyx-py](../calyx-py.md) library.
+You can run the MrXL implementation using [uv][].
+Type this in the `mrxl` directory:
 
-The MrXL implementation is in Python and uses [Flit][].
-Install Flit (`pip install flit` or similar), and then type the
-following after changing your directory to `frontends/mrxl`:
+    uv run mrxl --help
 
-    flit install --symlink
+[fud2][] also comes with an op for compiling MrXL programs to Calyx.
 
-This creates a symbolic link to the present directory and installs the `mrxl` command line tool.
-
-By default, [fud](../running-calyx/fud) looks for the `mrxl` executable to enable
-the `mrxl` compilation stage.
-Type `fud check` to make sure `fud` reports that the `mrxl` compiler has been
-found. If it does not, run the following while still in `frontends/mrxl`.
-
-    fud register mrxl -p fud/mrxl.py
-
-Run `fud check` again to ensure that `fud` sees `mrxl`.
-
+[uv]: https://docs.astral.sh/uv/
+[fud2]: ../running-calyx/fud2
 
 Interpreting MrXL
 -----------------
@@ -64,16 +54,16 @@ To run the compiler and see the Calyx code your MrXL program generates, just dro
 
 In order to run the compiler through `fud`, pass the `--from mrxl` and `--to calyx` flags:
 
-    fud e --from mrxl <prog.mrxl> --to calyx
+    fud2 --from mrxl <prog.mrxl> --to calyx
 
 And finally, the real prize.
 In order to compile MrXL to Calyx and then simulate the Calyx code in Verilog, run:
 
-    fud e --from mrxl <prog>.mrxl --to dat --through verilog -s mrxl.data <prog>.mrxl.data
+    mrxl --convert --data <prog>.mrxl.data > something.dat
+    fud2 --from mrxl <prog>.mrxl --to dat --through verilator -s sim.data=something.dat
 
 An aside: MrXL permits a simplified data format, which is what we have been looking at in our `<prog>.mrxl.data` files.
 Files of this form need to be beefed up with additional information so that Verilog (and similar simulators) can work with them.
-We did this beefing up "on the fly" in the incantation above, but it is interesting to see the changes we made.
 
 See this with:
 
