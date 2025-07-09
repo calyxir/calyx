@@ -46,7 +46,8 @@ fn compile(
 #[wasm_bindgen]
 pub fn run(passes: &JsValue, library: &str, namespace: &str) -> String {
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-    let test: Vec<String> = passes.into_serde().unwrap();
+    let test: Vec<String> =
+        serde_wasm_bindgen::from_value(passes.clone()).unwrap();
     match compile(&test, library, namespace) {
         Ok(s) => s,
         Err(e) => format!("Error:\n{:?}", e),
