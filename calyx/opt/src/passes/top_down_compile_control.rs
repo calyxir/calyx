@@ -4,8 +4,8 @@ use crate::traversal::{
 };
 use calyx_frontend::SetAttr;
 use calyx_ir::{
-    self as ir, Attributes, BoolAttr, Cell, GetAttributes, Id,
-    LibrarySignatures, Printer, RRC, build_assignments, guard, structure,
+    self as ir, BoolAttr, Cell, GetAttributes, Id, LibrarySignatures, Printer,
+    RRC, build_assignments, guard, structure,
 };
 use calyx_utils::{CalyxResult, Error, OutputFile, math::bits_needed_for};
 use ir::Nothing;
@@ -292,6 +292,7 @@ struct Schedule<'b, 'a: 'b> {
     /// The component builder. The reference has a shorter lifetime than the builder itself
     /// to allow multiple schedules to use the same builder.
     pub builder: &'b mut ir::Builder<'a>,
+    pub topmost_node_pos: HashSet<u32>,
 }
 
 /// Information to serialize for profiling purposes
@@ -340,6 +341,7 @@ struct FSMInfo {
     #[serde(serialize_with = "id_serialize_passthrough")]
     pub fsm: Id,
     pub states: Vec<FSMStateInfo>,
+    pub pos: Vec<u32>,
 }
 
 /// Mapping of FSM state ids to corresponding group names
@@ -365,6 +367,7 @@ impl<'b, 'a> From<&'b mut ir::Builder<'a>> for Schedule<'b, 'a> {
             fsm_enables: HashMap::new(),
             transitions: Vec::new(),
             builder,
+            topmost_node_pos: HashSet::new(),
         }
     }
 }
@@ -592,6 +595,7 @@ impl Schedule<'_, '_> {
             fsm: fsm1.borrow().name(),
             group: group.borrow().name(),
             states,
+            pos: self.topmost_node_pos.into_iter().collect(),
         }));
 
         // keep track of used slicers if using one hot encoding. one for each register
@@ -833,6 +837,15 @@ impl Schedule<'_, '_> {
         // True if the `@fast` attribute has successfully been applied to the parent of this control
         has_fast_guarantee: bool,
     ) -> CalyxResult<Vec<PredEdge>> {
+        if self.topmost_node_pos.is_empty() {
+            let attrs = get_top_level_attrs(con)?;
+            if let Some(pos_set) = attrs.get_set(SetAttr::Pos) {
+                for pos in pos_set.iter() {
+                    self.topmost_node_pos.insert(*pos);
+                }
+            }
+        }
+
         match con {
             ir::Control::FSMEnable(ir::FSMEnable { fsm, attributes }) => {
                 let cur_state = attributes.get(NODE_ID).unwrap_or_else(|| {
@@ -1749,16 +1762,16 @@ impl Visitor for TopDownCompileControl {
                 &mut self.profiling_info,
                 fsm_rep,
             );
-            let ctrl = &control.borrow();
-            let attrs = get_top_level_attrs(ctrl)?;
-            if let Some(pos_set) = attrs.get_set(SetAttr::Pos) {
-                for pos in pos_set.iter() {
-                    control_group
-                        .borrow_mut()
-                        .attributes
-                        .insert_set(SetAttr::Pos, pos.clone());
-                }
-            }
+            // let ctrl = &control.borrow();
+            // let attrs = get_top_level_attrs(ctrl)?;
+            // if let Some(pos_set) = attrs.get_set(SetAttr::Pos) {
+            //     for pos in pos_set.iter() {
+            //         control_group
+            //             .borrow_mut()
+            //             .attributes
+            //             .insert_set(SetAttr::Pos, pos.clone());
+            //     }
+            // }
             ir::Control::enable(control_group)
             // Retaining set attributes from original control node in the generated Par group
         };
