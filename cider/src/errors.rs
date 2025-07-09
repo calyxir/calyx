@@ -441,6 +441,7 @@ impl RuntimeError {
                     dims.as_string()
                 ))
             }
+            RuntimeError::AssertionError => todo!(),
             RuntimeError::OverflowError => todo!(),
         }
     }
