@@ -298,3 +298,12 @@ cat {}.commands | fud2 --to cider-debug {} \
          -s calyx.args="--log off" \
          -s cider.flags="--force-color off"
 """
+
+#  some shell trickery here to make the errors not include filepaths
+[[tests]]
+name = "Entangled Memories"
+paths = ["entangled/*.futil"]
+cmd = """
+flags="$(head -n 1 {} | cut -c 3-)"
+fud2 --to dat --through cider {} -s cider.flags="--check-data-race $flags --force-color off -q" 2> {}.tmp_err_file || tail -n +3 {}.tmp_err_file 1>&2; rm {}.tmp_err_file
+"""
