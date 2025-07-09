@@ -446,60 +446,12 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         return (control_group_events, control_reg_per_cycle)
 
     def postprocess_cont(self):
-        cont_assignments_active: defaultdict[int, set[str]] = defaultdict(
-            set
-        )  # cycle count --> [continuous assignments that are active that cycle]
-        self.signal_id_to_names
-
-        for cycle in self.timestamps_to_clock_cycles.values():
-            for lst in self.timestamps_to_cont_assignments.values():
-                for event in lst:
-                    split = event.signal.split(DELIMITER)[:-1][0]
-                    cont_assignments_active[cycle].add(split)
-        # track updates to control registers
-        # for ts in self.timestamps_to_cont_assignments:
-        #     if ts in self.timestamps_to_clock_cycles:
-        #         clock_cycle = self.timestamps_to_clock_cycles[ts]
-        #         events = self.timestamps_to_cont_assignments[ts]
-        #         cell_to_val_changes = {}
-        #         # for each cell active in this clock cycle, what kinds of ctrl reg updates happened?
-        #         # we will only store the ContrlRegUpdateType of the leaf cell (the cell on the top of the stack) since that's what is "currently active"
-        #         # into control_reg_update_type
-        #         # FIXME: is there a corner case I'm missing here?
-        #         cell_to_change_type: dict[str, ControlRegUpdateType] = {}
-        #         # we only care about registers when their write_enables are fired.
-        #         for write_en in filter(
-        #             lambda e: e.endswith("write_en") and events[e] == 1, events.keys()
-        #         ):
-        #             write_en_split = write_en.split(".")
-        #             reg_name = ".".join(write_en_split[:-1])
-        #             cell_name = ".".join(write_en_split[:-2])
-        #             in_signal = f"{reg_name}.in"
-        #             reg_new_value = events[in_signal] if in_signal in events else 0
-        #             if not (
-        #                 reg_name in self.control_metadata.par_done_regs
-        #                 and reg_new_value == 0
-        #             ):  # ignore when pd values turn 0 since they are only useful when they are high
-        #                 upd = f"{write_en_split[-2]}:{reg_new_value}"
-        #                 if cell_name in cell_to_val_changes:
-        #                     cell_to_val_changes[cell_name] += f", {upd}"
-        #                 else:
-        #                     cell_to_val_changes[cell_name] = upd
-
-        #                 cell_to_change_type[cell_name] = get_new_cell_to_change_type(
-        #                     reg_name, cell_name, cell_to_change_type
-        #                 )
-
-        #         for cell in cell_to_val_changes:
-        #             self.tracedata.register_control_reg_update(
-        #                 cell, clock_cycle, cell_to_val_changes[cell]
-        #             )
-        #         if len(cell_to_change_type) > 0:
-        #             leaf_cell = sorted(
-        #                 cell_to_change_type.keys(), key=(lambda k: k.count("."))
-        #             )[-1]
-        #             control_reg_per_cycle[clock_cycle] = cell_to_change_type[leaf_cell]
-        return cont_assignments_active
+        cont_assignments_active: set[str] = set()
+        for lst in self.timestamps_to_cont_assignments.values():
+            for event in lst:
+                split = event.signal.split(DELIMITER)[:-1][0]
+                cont_assignments_active.add(split)
+        self.tracedata.cont_assignments = cont_assignments_active
 
 
 def create_cycle_trace(

@@ -66,7 +66,7 @@ def process_vcd(
         control_groups_trace,
         control_reg_updates_per_cycle,
     ) = converter.postprocess_control()
-    print(converter.postprocess_cont())
+    converter.postprocess_cont()
     del converter
     tracedata.create_trace_with_control_groups(
         control_groups_trace, cell_metadata, control_metadata, utilization
