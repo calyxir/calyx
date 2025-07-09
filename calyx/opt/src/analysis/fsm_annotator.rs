@@ -1,16 +1,21 @@
-use std::os::macos::raw::stat;
-
 use calyx_ir::{self as ir};
-use itertools::Itertools;
 
+#[allow(unused)]
 const FSM_STATE_CUTOFF: u64 = 300;
 
+/// A type to encode the fact that, at the point of translation from an
+/// `ir::Control` object to a `StatePossibility` object, the implementation and
+/// specific decisions regarding FSM structure is unknown. Only at the point of
+/// traversal from leaf to root can we begin to decide the FSM structure (e.g.
+/// unrolled, inlined, offloaded bodies of repeat nodes). Equivalent to Option<T>.
 #[derive(Copy, Clone)]
+#[allow(unused)]
 enum Deferred<T> {
     Pending,
     Computed(T),
 }
 
+#[allow(unused)]
 impl<T: Copy> Deferred<T> {
     fn unwrap(&self) -> T {
         match self {
@@ -20,6 +25,7 @@ impl<T: Copy> Deferred<T> {
     }
 }
 
+#[allow(unused)]
 impl<T> Deferred<T> {
     fn map<S, F>(&self, f: F) -> Deferred<S>
     where
@@ -32,6 +38,7 @@ impl<T> Deferred<T> {
     }
 }
 
+#[allow(unused)]
 enum StatePossibility {
     UserDefined {
         num_states: u64, // known at time of construction, no need for deferred computation
@@ -58,7 +65,7 @@ enum StatePossibility {
         num_states: Deferred<u64>,
     },
     StaticSeq {
-        states: Vec<StatePossibility>,
+        stmts: Vec<StatePossibility>,
         lockstep: Deferred<LockStepAnnotation>,
         num_states: Deferred<u64>,
     },
@@ -93,6 +100,7 @@ enum StatePossibility {
     },
 }
 
+#[allow(unused)]
 /// Implementation for analysis on control tree
 impl StatePossibility {
     fn post_order_analysis(&mut self) {
@@ -132,41 +140,85 @@ impl StatePossibility {
                 );
             }
             Self::StaticSeq {
-                states,
+                stmts,
                 num_states,
                 lockstep,
             } => {
-                let states_analyses = states
-                    .iter_mut()
-                    .map(|state| {
-                        state.post_order_analysis();
-                        (
-                            state.num_states().unwrap(),
-                            state.is_lockstep().unwrap(),
-                        )
-                    })
-                    .collect_vec();
-                let num_states_seq = states_analyses
-                    .iter()
-                    .fold(0, |sum, (stmt_num_states, _)| sum + stmt_num_states);
-                let lockstep_seq = states_analyses.iter().all(|(_, l)| *l);
-                *num_states = Deferred::Computed(num_states_seq);
-                *lockstep =
-                    Deferred::Computed(LockStepAnnotation::from(lockstep_seq))
+                let (stmts_num_states, stmts_lockstep): (Vec<_>, Vec<_>) =
+                    stmts
+                        .iter_mut()
+                        .map(|stmt| {
+                            stmt.post_order_analysis();
+                            (
+                                stmt.num_states().unwrap(),
+                                stmt.is_lockstep().unwrap(),
+                            )
+                        })
+                        .unzip();
+
+                // policy: number of states allocated for the seq is a summation of
+                // the number of states allocated for the individual statements
+                *num_states =
+                    Deferred::Computed(stmts_num_states.into_iter().sum());
+
+                // policy: a seq proceeds in lockstep iff its individual statements
+                // are all also lockstep
+                *lockstep = Deferred::Computed(LockStepAnnotation::from(
+                    stmts_lockstep.into_iter().all(|l| l),
+                ))
             }
             Self::StaticPar {
                 latency,
                 threads,
                 lockstep,
                 num_states,
-            } => (),
+            } => {
+                // policy: the fsms implementing the threads of a static par are
+                // be merged when every thread is lockstep (i.e. no threads
+                // have backedges)
+                (*lockstep, *num_states) = if threads.iter_mut().all(|thread| {
+                    thread.post_order_analysis();
+                    thread.is_lockstep().unwrap()
+                }) {
+                    (
+                        Deferred::Computed(LockStepAnnotation::True),
+                        Deferred::Computed(*latency),
+                    )
+                } else {
+                    (
+                        Deferred::Computed(LockStepAnnotation::False),
+                        Deferred::Computed(1),
+                    )
+                };
+            }
             Self::StaticIf {
                 latency,
                 true_thread,
                 false_thread,
                 lockstep,
                 num_states,
-            } => (),
+            } => {
+                (*lockstep, *num_states) = if vec![true_thread, false_thread]
+                    .into_iter()
+                    .filter_map(|branch_opt| {
+                        branch_opt.as_mut().map(|branch| {
+                            branch.post_order_analysis();
+                            branch.is_lockstep().unwrap()
+                        })
+                    })
+                    .all(|b| b)
+                {
+                    (
+                        Deferred::Computed(LockStepAnnotation::True),
+                        Deferred::Computed(*latency),
+                    )
+                } else {
+                    (
+                        Deferred::Computed(LockStepAnnotation::False),
+                        Deferred::Computed(1),
+                    )
+                };
+            }
             Self::DynamicRepeat {
                 num_repeats,
                 body,
@@ -188,6 +240,7 @@ impl StatePossibility {
     }
 }
 
+#[allow(unused)]
 /// Implementation for transforming traditional ir::Control into StatePossibility tree.
 impl StatePossibility {
     fn build_from_static_control(sctrl: &ir::StaticControl) -> Option<Self> {
@@ -208,7 +261,7 @@ impl StatePossibility {
                     .filter_map(Self::build_from_static_control)
                     .collect();
                 let static_seq = Self::StaticSeq {
-                    states: static_seq_states,
+                    stmts: static_seq_states,
                     num_states: Deferred::Pending,
                     lockstep: Deferred::Pending,
                 };
@@ -326,6 +379,7 @@ impl StatePossibility {
     }
 }
 
+#[allow(unused)]
 /// Implementation of helper functions
 impl StatePossibility {
     /// Given a control node, returns the number of states allocated for its
@@ -369,6 +423,7 @@ impl StatePossibility {
     }
 }
 
+#[allow(unused)]
 /// Implementations for policy (i.e. determining annotations on control nodes)
 impl StatePossibility {
     /// Given the latency of a static enable, find the number of states allocated
@@ -416,6 +471,7 @@ impl StatePossibility {
     }
 }
 
+#[allow(unused)]
 enum RepeatNodeAnnotation {
     Offload,
     Unroll,
@@ -432,7 +488,7 @@ impl From<bool> for LockStepAnnotation {
         if b { Self::True } else { Self::False }
     }
 }
-
+#[allow(unused)]
 enum WhileNodeAnnotation {
     Inline,
     Offload,
