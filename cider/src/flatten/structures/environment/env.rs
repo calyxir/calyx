@@ -16,7 +16,7 @@ use crate::{
     errors::*,
     flatten::{
         flat_ir::{
-            cell_prototype::{CellPrototype, SingleWidthType},
+            cell_prototype::{CellPrototype, MemoryPrototype, SingleWidthType},
             indexes::{
                 LocalCellOffset, LocalPortOffset, LocalRefCellOffset,
                 LocalRefPortOffset,
@@ -181,6 +181,8 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 )
             }
 
+            let mut memory_entangle_map = HashMap::new();
+
             for (cell_off, def_idx) in comp_aux.cell_offset_map.iter() {
                 let info = &ctx.secondary[*def_idx];
                 if !info.prototype.is_component() {
@@ -204,7 +206,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                         }
                     }
                     let cell_dyn = primitives::build_primitive(
-                        info,
+                        *def_idx,
                         port_base,
                         env.cells.peek_next_idx(),
                         ctx,
@@ -212,6 +214,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                         memories_initialized,
                         check_race.then_some(&mut env.clocks),
                         &mut env.state_map,
+                        &mut memory_entangle_map,
                     );
                     let cell = env.cells.push(cell_dyn);
 
@@ -2983,12 +2986,12 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             let cell_index = &root.index_bases + offset;
             let name = ctx.resolve_id(cell_info.name).clone();
             match &cell_info.prototype {
-                CellPrototype::Memory {
+                CellPrototype::Memory(MemoryPrototype {
                     width,
                     dims,
                     is_external,
                     ..
-                } if *is_external | all_mems => {
+                }) if *is_external | all_mems => {
                     let declaration =
                         if *is_external && self.env.memory_header.is_some() {
                             if let Some(dec) = self
