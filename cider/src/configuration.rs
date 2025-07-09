@@ -1,5 +1,5 @@
 use argh::FromArgValue;
-use bon::{bon, Builder};
+use bon::{Builder, bon};
 
 use crate::flatten::text_utils;
 
