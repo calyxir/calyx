@@ -35,7 +35,8 @@ fn synth_setup(e) {
 
     // Python scripts for parsing reports for visualization and extracting JSON summary
     e.rule("parse-rpt", "synthrep viz -t flamegraph -f $in > $out");
-    e.rule("extract-rpt", "synthrep summary > $out");
+    e.rule("extract-util-json", "synthrep summary -m utilization > $out");
+    e.rule("extract-hierarchy-json", "synthrep summary -m hierarchy > $out");
 
     // Bash script to create a FlameGraph
     e.config_var("flamegraph-script", "flamegraph.script");
@@ -61,7 +62,7 @@ fn synth_verilog_to_report(e, input, output, rtype) {
 
 // Op to get utilization report from synth-ready SV
 op(
-    "synth-verilog-to-utilization-report",
+    "synth-verilog-to-util-report",
     [synth_setup],
     csv::synth_verilog_state,
     utilization_report_state,
@@ -94,7 +95,7 @@ op(
 
 // Op to get synthesis JSON summary from synth-ready SV
 op(
-    "synth-verilog-to-synthesis-json",
+    "synth-verilog-to-util-json",
     [synth_setup],
     csv::synth_verilog_state,
     json_report_state,
@@ -102,7 +103,21 @@ op(
         synth_verilog_through_vivado(e, input, output);
         // Similarly IGNOREME is needed here as a dependency so that Ninja threads this command
         // with the Vivado synthesis command
-        e.build_cmd([output], "extract-rpt", ["IGNOREME"], []);
+        e.build_cmd([output], "extract-util-json", ["IGNOREME"], []);
+    }
+);
+
+// Op to get hierarchical utilization JSON summary from synth-ready SV
+op(
+    "synth-verilog-to-hierarchy-json",
+    [synth_setup],
+    csv::synth_verilog_state,
+    json_report_state,
+    |e, input, output| {
+        synth_verilog_through_vivado(e, input, output);
+        // Similarly IGNOREME is needed here as a dependency so that Ninja threads this command
+        // with the Vivado synthesis command
+        e.build_cmd([output], "extract-hierarchy-json", ["IGNOREME"], []);
     }
 );
 

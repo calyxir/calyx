@@ -4,6 +4,7 @@ from profiler.classes import (
     CellMetadata,
     ControlMetadata,
     CycleTrace,
+    Utilization,
     UtilizationCycleTrace,
     TraceData,
     StackElement,
@@ -82,7 +83,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.control_metadata.add_signal_prefix(self.signal_prefix)
 
         # get go and done for cells (the signals are exactly {cell}.go and {cell}.done)
-        print(self.cell_metadata.cells)
         for cell in self.cell_metadata.cells:
             cell_go = cell + ".go"
             cell_done = cell + ".done"
@@ -106,8 +106,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     or name == f"{par_done_reg}.write_en"
                 ):
                     tdcc_signal_id_to_names[sid].append(name)
-            for par_group_name in self.control_metadata.par_groups:
-                if name == f"{par_group_name}_go_out":
+            for ctrl_group_name in self.control_metadata.ctrl_groups:
+                if name == f"{ctrl_group_name}_go_out":
                     control_signal_id_to_names[sid].append(name)
 
         # don't need to check for signal ids that don't pertain to signals we're interested in
@@ -170,7 +170,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
     def postprocess(
         self,
         shared_cells_map: dict[str, dict[str, str]],
-        utilization: dict[str, dict] | None = None,
+        control_metadata: ControlMetadata | None = None,
+        utilization: Utilization | None = None,
     ):
         """
         Postprocess data mapping timestamps to events (signal changes)
@@ -333,6 +334,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     if utilization is None
                     else create_utilization_cycle_trace(
                         self.cell_metadata,
+                        control_metadata,
                         info_this_cycle,
                         shared_cells_map,
                         True,
@@ -373,10 +375,14 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         active_range = range(
                             control_group_start_cycles[group_name], clock_cycle
                         )
+                        del control_group_start_cycles[group_name]
                         self.tracedata.control_group_interval(group_name, active_range)
                         for i in active_range:
                             control_group_events[i].add(group_name)
-
+        for k, v in control_group_start_cycles.items():
+            end_cycle = len(self.tracedata.trace)
+            for i in range(v, end_cycle):
+                control_group_events[i].add(k)
         # track updates to control registers
         for ts in self.timestamps_to_control_reg_changes:
             if ts in self.timestamps_to_clock_cycles:
@@ -481,7 +487,14 @@ def create_cycle_trace(
 
         # get primitives if requested.
         if include_primitives:
-            add_primitives(current_cell, primitive_enables, elem_name_to_stack, parents)
+            add_primitives(
+                current_cell,
+                primitive_enables,
+                elem_name_to_stack,
+                parents,
+                shared_cell_map,
+                cell_info.get_component_of_cell(current_cell),
+            )
 
         # by this point, we should have covered all groups in the same component...
         # now we need to construct stacks for any cells that are called from a group in the current component.
@@ -506,10 +519,11 @@ def create_cycle_trace(
 
 def create_utilization_cycle_trace(
     cell_info: CellMetadata,
+    control_metadata: ControlMetadata,
     info_this_cycle: dict[str, str | dict[str, str]],
     shared_cell_map: dict[str, dict[str, str]],
     include_primitives: bool,
-    utilization: dict[str, dict],
+    utilization: Utilization,
 ):
     """
     Creates a UtilizationCycleTrace object for stack elements in this cycle, computing the dependencies between them.
@@ -517,7 +531,7 @@ def create_utilization_cycle_trace(
     cycle_trace = create_cycle_trace(
         cell_info, info_this_cycle, shared_cell_map, include_primitives
     )
-    return UtilizationCycleTrace(utilization, cycle_trace.stacks)
+    return UtilizationCycleTrace(utilization, control_metadata, cycle_trace.stacks)
 
 
 def add_control_enables(
@@ -580,6 +594,8 @@ def add_primitives(
     primitive_enables: set[str],
     elem_name_to_stack: dict[str, list[StackElement]],
     parents: set[str],
+    shared_cell_map: dict[str, dict[str, str]],
+    component: str,
 ):
     """
     Helper function called by create_cycle_trace(). Processes primitives active this cycle in `current_cell` to the stack.
@@ -594,7 +610,18 @@ def add_primitives(
             primitive_shortname = primitive_name.split(".")[-1]
             elem_name_to_stack[primitive_name] = elem_name_to_stack[
                 primitive_parent
-            ] + [StackElement(primitive_shortname, StackElementType.PRIMITIVE)]
+            ] + [
+                StackElement(
+                    primitive_shortname,
+                    StackElementType.PRIMITIVE,
+                    replacement_cell_name=shared_cell_map[component][
+                        primitive_shortname
+                    ]
+                    if component in shared_cell_map
+                    and primitive_shortname in shared_cell_map[component]
+                    else None,
+                )
+            ]
             parents.add(primitive_parent)
 
 

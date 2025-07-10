@@ -158,7 +158,7 @@ source: fud2/tests/tests.rs
         "area-report",
     ),
     (
-        "synth-verilog-to-synthesis-json",
+        "synth-verilog-to-hierarchy-json",
         "synth-verilog",
         "json-report",
     ),
@@ -168,7 +168,12 @@ source: fud2/tests/tests.rs
         "timing-report",
     ),
     (
-        "synth-verilog-to-utilization-report",
+        "synth-verilog-to-util-json",
+        "synth-verilog",
+        "json-report",
+    ),
+    (
+        "synth-verilog-to-util-report",
         "synth-verilog",
         "utilization-report",
     ),
