@@ -1,5 +1,5 @@
 use crate::{
-    analysis::{FSMCallGraph, StatePossibility},
+    analysis::StatePossibility,
     traversal::{Action, ConstructVisitor, Named, VisResult, Visitor},
 };
 use calyx_ir::{self as ir};
@@ -8,10 +8,10 @@ pub struct CompileFSM {}
 
 impl Named for CompileFSM {
     fn name() -> &'static str {
-        "compile-fsm"
+        "annotate-fsms"
     }
     fn description() -> &'static str {
-        "compiles a static repeat into an FSM construct"
+        "annotate a control program, determining how FSMs should be allocated"
     }
 }
 impl ConstructVisitor for CompileFSM {
@@ -28,28 +28,20 @@ impl Visitor for CompileFSM {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let mut call_graph = FSMCallGraph::new();
+        let ctrl_ref = comp.control.borrow();
+        let mut st_poss = StatePossibility::from(&*ctrl_ref);
 
         println!("BEFORE");
 
-        println!("top level pointer:");
-        let mut top_level = call_graph
-            .build_from_control(&comp.control.borrow())
-            .unwrap();
-        println!("{:?}", top_level);
-
-        println!();
-        println!("fsms:");
-        call_graph.graph.iter().enumerate().for_each(|(i, afsm)| {
-            println!("fsm {i}: {:?}", afsm);
-        });
+        println!("{:?}", st_poss);
 
         println!();
         println!("AFTER");
-        if let StatePossibility::Call(call) = &mut top_level {
-            call.postorder_analysis();
-        }
-        println!("{:?}", top_level);
+
+        st_poss.post_order_analysis();
+
+        println!("{:?}", st_poss);
+        println!();
 
         Ok(Action::Continue)
     }

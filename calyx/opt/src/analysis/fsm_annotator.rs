@@ -8,15 +8,19 @@ const FSM_STATE_CUTOFF: u64 = 300;
 /// specific decisions regarding FSM structure is unknown. Only at the point of
 /// traversal from leaf to root can we begin to decide the FSM structure (e.g.
 /// unrolled, inlined, offloaded bodies of repeat nodes). Equivalent to Option<T>.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 #[allow(unused)]
-enum Deferred<T> {
+pub enum Deferred<T> {
     Pending,
     Computed(T),
 }
 
 #[allow(unused)]
-impl<T: Copy> Deferred<T> {
+
+impl<T> Deferred<T>
+where
+    T: Copy,
+{
     fn unwrap(&self) -> T {
         match self {
             Self::Pending => panic!(),
@@ -39,7 +43,9 @@ impl<T> Deferred<T> {
 }
 
 #[allow(unused)]
-enum StatePossibility {
+#[derive(Debug)]
+pub enum StatePossibility {
+    Empty,
     UserDefined {
         num_states: u64, // known at time of construction, no need for deferred computation
     },
@@ -71,8 +77,8 @@ enum StatePossibility {
     },
     StaticIf {
         latency: u64,
-        true_thread: Option<Box<StatePossibility>>,
-        false_thread: Option<Box<StatePossibility>>,
+        true_thread: Box<StatePossibility>,
+        false_thread: Box<StatePossibility>,
         lockstep: Deferred<LockStepAnnotation>,
         num_states: Deferred<u64>,
     },
@@ -90,11 +96,11 @@ enum StatePossibility {
         num_states: Deferred<u64>,
     },
     DynamicIf {
-        true_thread: Option<Box<StatePossibility>>,
-        false_thread: Option<Box<StatePossibility>>,
+        true_thread: Box<StatePossibility>,
+        false_thread: Box<StatePossibility>,
     },
     DynamicWhile {
-        body_opt: Option<Box<StatePossibility>>,
+        body: Box<StatePossibility>,
         num_states: Deferred<u64>,
         annotation: Deferred<WhileNodeAnnotation>,
     },
@@ -103,9 +109,9 @@ enum StatePossibility {
 #[allow(unused)]
 /// Implementation for analysis on control tree
 impl StatePossibility {
-    fn post_order_analysis(&mut self) {
+    pub fn post_order_analysis(&mut self) {
         match self {
-            Self::UserDefined { .. } => (),
+            Self::Empty | Self::UserDefined { .. } => (),
             Self::HardwareEnable { num_states } => {
                 // policy: dynamic enables get one state in parent fsm
                 *num_states = Deferred::Computed(1);
@@ -198,31 +204,26 @@ impl StatePossibility {
                 true_thread,
                 false_thread,
             } => {
-                vec![true_thread, false_thread]
-                    .into_iter()
-                    .for_each(|b_opt| {
-                        if let Some(b) = b_opt {
-                            b.post_order_analysis();
-                        }
-                    })
+                vec![true_thread, false_thread].into_iter().for_each(
+                    |branch| {
+                        branch.post_order_analysis();
+                    },
+                );
             }
             Self::DynamicWhile {
-                body_opt,
+                body,
                 num_states,
                 annotation,
             } => {
-                let (num_states_ann, node_ann) = body_opt.as_mut().map_or(
-                    (0, WhileNodeAnnotation::Inline),
-                    |body| {
-                        body.post_order_analysis();
-                        let body_num_states = body.num_states().unwrap();
-                        if body_num_states < FSM_STATE_CUTOFF {
-                            (body_num_states, WhileNodeAnnotation::Inline)
-                        } else {
-                            (1, WhileNodeAnnotation::Offload)
-                        }
-                    },
-                );
+                body.post_order_analysis();
+                let (num_states_ann, node_ann) = {
+                    let body_num_states = body.num_states().unwrap();
+                    if body_num_states < FSM_STATE_CUTOFF {
+                        (body_num_states, WhileNodeAnnotation::Inline)
+                    } else {
+                        (1, WhileNodeAnnotation::Offload)
+                    }
+                };
                 *num_states = Deferred::Computed(num_states_ann);
                 *annotation = Deferred::Computed(node_ann);
             }
@@ -230,137 +231,123 @@ impl StatePossibility {
     }
 }
 
-#[allow(unused)]
-/// Implementation for transforming traditional ir::Control into StatePossibility tree.
-impl StatePossibility {
-    fn build_from_static_control(sctrl: &ir::StaticControl) -> Option<Self> {
+impl From<&ir::StaticControl> for StatePossibility {
+    fn from(sctrl: &ir::StaticControl) -> Self {
         match sctrl {
-            ir::StaticControl::Empty(_) => None,
+            ir::StaticControl::Empty(_) => Self::Empty,
             ir::StaticControl::Enable(sen) => {
                 let hardware_enable = Self::StaticHardwareEnable {
                     latency: sen.group.borrow().get_latency(),
                     num_states: Deferred::Pending,
                     lockstep: Deferred::Pending,
                 };
-                Some(hardware_enable)
+                hardware_enable
             }
             ir::StaticControl::Seq(sseq) => {
-                let static_seq_states = sseq
-                    .stmts
-                    .iter()
-                    .filter_map(Self::build_from_static_control)
-                    .collect();
+                let static_seq_states =
+                    sseq.stmts.iter().map(Self::from).collect();
                 let static_seq = Self::StaticSeq {
                     stmts: static_seq_states,
                     num_states: Deferred::Pending,
                     lockstep: Deferred::Pending,
                 };
-                Some(static_seq)
+                static_seq
             }
             ir::StaticControl::Par(spar) => {
-                let static_par_threads = spar
-                    .stmts
-                    .iter()
-                    .filter_map(Self::build_from_static_control)
-                    .collect();
+                let static_par_threads =
+                    spar.stmts.iter().map(Self::from).collect();
                 let static_par = Self::StaticPar {
                     latency: spar.latency,
                     threads: static_par_threads,
                     lockstep: Deferred::Pending,
                     num_states: Deferred::Pending,
                 };
-                Some(static_par)
+                static_par
             }
             ir::StaticControl::If(sif) => {
-                let f = |b| Self::build_from_static_control(b).map(Box::new);
                 let static_if = Self::StaticIf {
                     latency: sif.latency,
-                    true_thread: f(&sif.tbranch),
-                    false_thread: f(&sif.tbranch),
+                    true_thread: Box::new(Self::from(sif.tbranch.as_ref())),
+                    false_thread: Box::new(Self::from(sif.fbranch.as_ref())),
                     lockstep: Deferred::Pending,
                     num_states: Deferred::Pending,
                 };
-                Some(static_if)
+                static_if
             }
             ir::StaticControl::Repeat(srep) => {
-                // if body is ir::SC::Empty, will return None
-                Self::build_from_static_control(&srep.body).map(|st_poss| {
-                    Self::StaticRepeat {
-                        num_repeats: srep.num_repeats,
-                        body: Box::new(st_poss),
-                        num_states: Deferred::Pending,
-                        annotation: Deferred::Pending,
-                        lockstep: Deferred::Pending,
-                    }
-                })
+                let static_rep = Self::StaticRepeat {
+                    num_repeats: srep.num_repeats,
+                    body: Box::new(Self::from(srep.body.as_ref())),
+                    num_states: Deferred::Pending,
+                    annotation: Deferred::Pending,
+                    lockstep: Deferred::Pending,
+                };
+                static_rep
             }
             ir::StaticControl::Invoke(_) => {
                 unreachable!("Invoke nodes should have been compiled away")
             }
         }
     }
+}
 
-    fn build_from_control(ctrl: &ir::Control) -> Option<Self> {
-        let f = |b| Self::build_from_control(b).map(Box::new);
+impl From<&ir::Control> for StatePossibility {
+    fn from(ctrl: &ir::Control) -> Self {
         match ctrl {
-            ir::Control::Empty(_) => None,
-            ir::Control::Static(sc) => Self::build_from_static_control(sc),
+            ir::Control::Empty(_) => Self::Empty,
+            ir::Control::Static(sc) => Self::from(sc),
             ir::Control::Enable(_) => {
                 let hardware_enable = Self::HardwareEnable {
                     num_states: Deferred::Pending,
                 };
-                Some(hardware_enable)
+                hardware_enable
             }
             ir::Control::FSMEnable(fsm_en) => {
                 let user_defined = Self::UserDefined {
                     num_states: fsm_en.fsm.borrow().num_states(),
                 };
-                Some(user_defined)
+                user_defined
             }
             ir::Control::Seq(dseq) => {
-                let dynamic_seq_states = dseq
-                    .stmts
-                    .iter()
-                    .filter_map(Self::build_from_control)
-                    .collect();
+                let dynamic_seq_states =
+                    dseq.stmts.iter().map(Self::from).collect();
                 let dymamic_seq = Self::DynamicSeq {
                     stmts: dynamic_seq_states,
                     num_states: Deferred::Pending,
                 };
-                Some(dymamic_seq)
+                dymamic_seq
             }
             ir::Control::Par(dpar) => {
-                let dynamic_par_threads = dpar
-                    .stmts
-                    .iter()
-                    .filter_map(Self::build_from_control)
-                    .collect();
+                let dynamic_par_threads =
+                    dpar.stmts.iter().map(Self::from).collect();
                 let dynamic_par = Self::DynamicPar {
                     threads: dynamic_par_threads,
                 };
-                Some(dynamic_par)
+                dynamic_par
             }
             ir::Control::If(dif) => {
                 let dynamic_if = Self::DynamicIf {
-                    true_thread: f(&dif.tbranch),
-                    false_thread: f(&dif.fbranch),
+                    true_thread: Box::new(Self::from(dif.tbranch.as_ref())),
+                    false_thread: Box::new(Self::from(dif.fbranch.as_ref())),
                 };
-                Some(dynamic_if)
+                dynamic_if
             }
-            ir::Control::Repeat(drep) => Self::build_from_control(&drep.body)
-                .map(|st_poss| Self::DynamicRepeat {
+            ir::Control::Repeat(drep) => {
+                let dynamic_rep = Self::DynamicRepeat {
                     num_repeats: drep.num_repeats,
-                    body: Box::new(st_poss),
+                    body: Box::new(Self::from(drep.body.as_ref())),
                     num_states: Deferred::Pending,
                     annotation: Deferred::Pending,
-                }),
+                };
+                dynamic_rep
+            }
             ir::Control::While(dwhile) => {
                 let dynamic_while = Self::DynamicWhile {
-                    body_opt: f(&dwhile.body),
+                    body: Box::new(Self::from(dwhile.body.as_ref())),
                     num_states: Deferred::Pending,
                     annotation: Deferred::Pending,
                 };
-                Some(dynamic_while)
+                dynamic_while
             }
             ir::Control::Invoke(_) => {
                 unreachable!("Invoke nodes should have been compiled away")
@@ -376,6 +363,7 @@ impl StatePossibility {
     /// child schedule if it has been resolved.
     fn num_states(&self) -> Deferred<u64> {
         match self {
+            Self::Empty => Deferred::Computed(0),
             Self::UserDefined { num_states } => Deferred::Computed(*num_states),
             Self::DynamicIf { .. } | Self::DynamicPar { .. } => {
                 Deferred::Computed(1)
@@ -394,6 +382,7 @@ impl StatePossibility {
 
     fn is_lockstep(&self) -> Deferred<bool> {
         match self {
+            Self::Empty => Deferred::Computed(true),
             Self::HardwareEnable { .. }
             | Self::UserDefined { .. }
             | Self::DynamicIf { .. }
@@ -464,9 +453,7 @@ impl StatePossibility {
     /// the number of states allocated for the individual statements
     /// policy: a seq proceeds in lockstep iff its individual statements
     /// are all also lockstep
-    fn seq_policy(
-        stmts: &mut Vec<StatePossibility>,
-    ) -> (LockStepAnnotation, u64) {
+    fn seq_policy(stmts: &mut [StatePossibility]) -> (LockStepAnnotation, u64) {
         let (stmts_num_states, stmts_lockstep): (Vec<_>, Vec<_>) = stmts
             .iter_mut()
             .map(|stmt| {
@@ -483,7 +470,7 @@ impl StatePossibility {
     }
 
     fn static_par_policy(
-        threads: &mut Vec<StatePossibility>,
+        threads: &mut [StatePossibility],
         latency: u64,
     ) -> (LockStepAnnotation, u64) {
         if threads.iter_mut().all(|thread| {
@@ -497,17 +484,15 @@ impl StatePossibility {
     }
 
     fn static_if_policy(
-        true_branch: &mut Option<Box<StatePossibility>>,
-        false_branch: &mut Option<Box<StatePossibility>>,
+        true_branch: &mut Box<StatePossibility>,
+        false_branch: &mut Box<StatePossibility>,
         latency: u64,
     ) -> (LockStepAnnotation, u64) {
         if vec![true_branch, false_branch]
             .into_iter()
-            .filter_map(|branch_opt| {
-                branch_opt.as_mut().map(|branch| {
-                    branch.post_order_analysis();
-                    branch.is_lockstep().unwrap()
-                })
+            .map(|branch| {
+                branch.post_order_analysis();
+                branch.is_lockstep().unwrap()
             })
             .all(|b| b)
         {
@@ -519,13 +504,14 @@ impl StatePossibility {
 }
 
 #[allow(unused)]
-enum RepeatNodeAnnotation {
+#[derive(Debug)]
+pub enum RepeatNodeAnnotation {
     Offload,
     Unroll,
     Inline,
 }
-
-enum LockStepAnnotation {
+#[derive(Debug)]
+pub enum LockStepAnnotation {
     False,
     True,
 }
@@ -536,7 +522,8 @@ impl From<bool> for LockStepAnnotation {
     }
 }
 #[allow(unused)]
-enum WhileNodeAnnotation {
+#[derive(Debug)]
+pub enum WhileNodeAnnotation {
     Inline,
     Offload,
 }
