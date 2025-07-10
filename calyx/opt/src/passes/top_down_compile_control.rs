@@ -573,6 +573,10 @@ impl Schedule<'_, '_> {
                 group.borrow().name()
             ));
         }
+        // add position attributes to generated tdcc group
+        for pos in &self.topmost_node_pos {
+            group.borrow_mut().attributes.insert_set(SetAttr::Pos, *pos);
+        }
 
         // build necessary primitives dependent on encoding and spread
         let signal_on = self.builder.add_constant(1, 1);
@@ -837,15 +841,6 @@ impl Schedule<'_, '_> {
         // True if the `@fast` attribute has successfully been applied to the parent of this control
         has_fast_guarantee: bool,
     ) -> CalyxResult<Vec<PredEdge>> {
-        if self.topmost_node_pos.is_empty() {
-            let attrs = get_top_level_attrs(con)?;
-            if let Some(pos_set) = attrs.get_set(SetAttr::Pos) {
-                for pos in pos_set.iter() {
-                    self.topmost_node_pos.insert(*pos);
-                }
-            }
-        }
-
         match con {
             ir::Control::FSMEnable(ir::FSMEnable { fsm, attributes }) => {
                 let cur_state = attributes.get(NODE_ID).unwrap_or_else(|| {
@@ -1196,6 +1191,14 @@ impl Schedule<'_, '_> {
         con: &ir::Control,
         early_transitions: bool,
     ) -> CalyxResult<()> {
+        if self.topmost_node_pos.is_empty() {
+            let attrs = get_top_level_attrs(con)?;
+            if let Some(pos_set) = attrs.get_set(SetAttr::Pos) {
+                for pos in pos_set.iter() {
+                    self.topmost_node_pos.insert(*pos);
+                }
+            }
+        }
         let first_state = (0, ir::Guard::True);
         // We create an empty first state in case the control program starts with
         // a branch (if, while).
