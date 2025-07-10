@@ -86,7 +86,7 @@ enum StatePossibility {
         threads: Vec<StatePossibility>,
     },
     DynamicSeq {
-        states: Vec<StatePossibility>,
+        stmts: Vec<StatePossibility>,
         num_states: Deferred<u64>,
     },
     DynamicIf {
@@ -94,7 +94,7 @@ enum StatePossibility {
         false_thread: Option<Box<StatePossibility>>,
     },
     DynamicWhile {
-        body: Option<Box<StatePossibility>>,
+        body_opt: Option<Box<StatePossibility>>,
         num_states: Deferred<u64>,
         annotation: Deferred<WhileNodeAnnotation>,
     },
@@ -127,12 +127,12 @@ impl StatePossibility {
                 annotation,
                 lockstep,
             } => {
-                body.as_mut().post_order_analysis();
+                body.post_order_analysis();
                 let (
                     num_states_allocated,
                     repeat_node_annotation,
                     lockstep_annotation,
-                ) = body.as_ref().static_repeat_policy(*num_repeats);
+                ) = body.repeat_policy(*num_repeats);
                 (*num_states, *annotation, *lockstep) = (
                     Deferred::Computed(num_states_allocated),
                     Deferred::Computed(repeat_node_annotation),
@@ -144,28 +144,10 @@ impl StatePossibility {
                 num_states,
                 lockstep,
             } => {
-                let (stmts_num_states, stmts_lockstep): (Vec<_>, Vec<_>) =
-                    stmts
-                        .iter_mut()
-                        .map(|stmt| {
-                            stmt.post_order_analysis();
-                            (
-                                stmt.num_states().unwrap(),
-                                stmt.is_lockstep().unwrap(),
-                            )
-                        })
-                        .unzip();
+                let (lockstep_ann, num_states_ann) = Self::seq_policy(stmts);
 
-                // policy: number of states allocated for the seq is a summation of
-                // the number of states allocated for the individual statements
-                *num_states =
-                    Deferred::Computed(stmts_num_states.into_iter().sum());
-
-                // policy: a seq proceeds in lockstep iff its individual statements
-                // are all also lockstep
-                *lockstep = Deferred::Computed(LockStepAnnotation::from(
-                    stmts_lockstep.into_iter().all(|l| l),
-                ))
+                *num_states = Deferred::Computed(num_states_ann);
+                *lockstep = Deferred::Computed(lockstep_ann)
             }
             Self::StaticPar {
                 latency,
@@ -176,20 +158,10 @@ impl StatePossibility {
                 // policy: the fsms implementing the threads of a static par are
                 // be merged when every thread is lockstep (i.e. no threads
                 // have backedges)
-                (*lockstep, *num_states) = if threads.iter_mut().all(|thread| {
-                    thread.post_order_analysis();
-                    thread.is_lockstep().unwrap()
-                }) {
-                    (
-                        Deferred::Computed(LockStepAnnotation::True),
-                        Deferred::Computed(*latency),
-                    )
-                } else {
-                    (
-                        Deferred::Computed(LockStepAnnotation::False),
-                        Deferred::Computed(1),
-                    )
-                };
+                let (lockstep_ann, num_states_ann) =
+                    Self::static_par_policy(threads, *latency);
+                *lockstep = Deferred::Computed(lockstep_ann);
+                *num_states = Deferred::Computed(num_states_ann);
             }
             Self::StaticIf {
                 latency,
@@ -198,44 +170,62 @@ impl StatePossibility {
                 lockstep,
                 num_states,
             } => {
-                (*lockstep, *num_states) = if vec![true_thread, false_thread]
-                    .into_iter()
-                    .filter_map(|branch_opt| {
-                        branch_opt.as_mut().map(|branch| {
-                            branch.post_order_analysis();
-                            branch.is_lockstep().unwrap()
-                        })
-                    })
-                    .all(|b| b)
-                {
-                    (
-                        Deferred::Computed(LockStepAnnotation::True),
-                        Deferred::Computed(*latency),
-                    )
-                } else {
-                    (
-                        Deferred::Computed(LockStepAnnotation::False),
-                        Deferred::Computed(1),
-                    )
-                };
+                let (lockstep_ann, num_states_ann) =
+                    Self::static_if_policy(true_thread, false_thread, *latency);
+                *lockstep = Deferred::Computed(lockstep_ann);
+                *num_states = Deferred::Computed(num_states_ann);
             }
             Self::DynamicRepeat {
                 num_repeats,
                 body,
                 num_states,
                 annotation,
-            } => (),
-            Self::DynamicPar { threads } => (),
-            Self::DynamicSeq { states, num_states } => (),
+            } => {
+                body.post_order_analysis();
+                let (num_states_ann, node_ann, _) =
+                    body.repeat_policy(*num_repeats);
+                *num_states = Deferred::Computed(num_states_ann);
+                *annotation = Deferred::Computed(node_ann);
+            }
+            Self::DynamicPar { threads } => {
+                threads.iter_mut().for_each(Self::post_order_analysis)
+            }
+            Self::DynamicSeq { stmts, num_states } => {
+                let (_, num_states_ann) = Self::seq_policy(stmts);
+                *num_states = Deferred::Computed(num_states_ann);
+            }
             Self::DynamicIf {
                 true_thread,
                 false_thread,
-            } => (),
+            } => {
+                vec![true_thread, false_thread]
+                    .into_iter()
+                    .for_each(|b_opt| {
+                        if let Some(b) = b_opt {
+                            b.post_order_analysis();
+                        }
+                    })
+            }
             Self::DynamicWhile {
-                body,
+                body_opt,
                 num_states,
                 annotation,
-            } => (),
+            } => {
+                let (num_states_ann, node_ann) = body_opt.as_mut().map_or(
+                    (0, WhileNodeAnnotation::Inline),
+                    |body| {
+                        body.post_order_analysis();
+                        let body_num_states = body.num_states().unwrap();
+                        if body_num_states < FSM_STATE_CUTOFF {
+                            (body_num_states, WhileNodeAnnotation::Inline)
+                        } else {
+                            (1, WhileNodeAnnotation::Offload)
+                        }
+                    },
+                );
+                *num_states = Deferred::Computed(num_states_ann);
+                *annotation = Deferred::Computed(node_ann);
+            }
         }
     }
 }
@@ -334,7 +324,7 @@ impl StatePossibility {
                     .filter_map(Self::build_from_control)
                     .collect();
                 let dymamic_seq = Self::DynamicSeq {
-                    states: dynamic_seq_states,
+                    stmts: dynamic_seq_states,
                     num_states: Deferred::Pending,
                 };
                 Some(dymamic_seq)
@@ -366,7 +356,7 @@ impl StatePossibility {
                 }),
             ir::Control::While(dwhile) => {
                 let dynamic_while = Self::DynamicWhile {
-                    body: f(&dwhile.body),
+                    body_opt: f(&dwhile.body),
                     num_states: Deferred::Pending,
                     annotation: Deferred::Pending,
                 };
@@ -445,7 +435,7 @@ impl StatePossibility {
     /// (if there are self-loops in the body, then unrolling might allocate too
     /// many registers )
     #[inline]
-    fn static_repeat_policy(
+    fn repeat_policy(
         &self,
         num_repeats: u64,
     ) -> (u64, RepeatNodeAnnotation, LockStepAnnotation) {
@@ -467,6 +457,63 @@ impl StatePossibility {
             )
         } else {
             (1, RepeatNodeAnnotation::Offload, LockStepAnnotation::False)
+        }
+    }
+
+    /// policy: number of states allocated for the seq is a summation of
+    /// the number of states allocated for the individual statements
+    /// policy: a seq proceeds in lockstep iff its individual statements
+    /// are all also lockstep
+    fn seq_policy(
+        stmts: &mut Vec<StatePossibility>,
+    ) -> (LockStepAnnotation, u64) {
+        let (stmts_num_states, stmts_lockstep): (Vec<_>, Vec<_>) = stmts
+            .iter_mut()
+            .map(|stmt| {
+                stmt.post_order_analysis();
+                (stmt.num_states().unwrap(), stmt.is_lockstep().unwrap())
+            })
+            .unzip();
+
+        let lockstep =
+            LockStepAnnotation::from(stmts_lockstep.into_iter().all(|l| l));
+        let num_states = stmts_num_states.into_iter().sum();
+
+        (lockstep, num_states)
+    }
+
+    fn static_par_policy(
+        threads: &mut Vec<StatePossibility>,
+        latency: u64,
+    ) -> (LockStepAnnotation, u64) {
+        if threads.iter_mut().all(|thread| {
+            thread.post_order_analysis();
+            thread.is_lockstep().unwrap()
+        }) {
+            (LockStepAnnotation::True, latency)
+        } else {
+            (LockStepAnnotation::False, 1)
+        }
+    }
+
+    fn static_if_policy(
+        true_branch: &mut Option<Box<StatePossibility>>,
+        false_branch: &mut Option<Box<StatePossibility>>,
+        latency: u64,
+    ) -> (LockStepAnnotation, u64) {
+        if vec![true_branch, false_branch]
+            .into_iter()
+            .filter_map(|branch_opt| {
+                branch_opt.as_mut().map(|branch| {
+                    branch.post_order_analysis();
+                    branch.is_lockstep().unwrap()
+                })
+            })
+            .all(|b| b)
+        {
+            (LockStepAnnotation::True, latency)
+        } else {
+            (LockStepAnnotation::False, 1)
         }
     }
 }
