@@ -1,6 +1,5 @@
 use calyx_ir::{self as ir};
 
-#[allow(unused)]
 const FSM_STATE_CUTOFF: u64 = 300;
 
 /// A type to encode the fact that, at the point of translation from an
@@ -9,13 +8,11 @@ const FSM_STATE_CUTOFF: u64 = 300;
 /// traversal from leaf to root can we begin to decide the FSM structure (e.g.
 /// unrolled, inlined, offloaded bodies of repeat nodes). Equivalent to Option<T>.
 #[derive(Copy, Clone, Debug)]
-#[allow(unused)]
+
 pub enum Deferred<T> {
     Pending,
     Computed(T),
 }
-
-#[allow(unused)]
 
 impl<T> Deferred<T>
 where
@@ -29,7 +26,6 @@ where
     }
 }
 
-#[allow(unused)]
 impl<T> Deferred<T> {
     fn map<S, F>(&self, f: F) -> Deferred<S>
     where
@@ -42,7 +38,6 @@ impl<T> Deferred<T> {
     }
 }
 
-#[allow(unused)]
 #[derive(Debug)]
 pub enum StatePossibility {
     Empty,
@@ -106,9 +101,11 @@ pub enum StatePossibility {
     },
 }
 
-#[allow(unused)]
 /// Implementation for analysis on control tree
 impl StatePossibility {
+    /// Provide annotations on the control nodes present in `self`. These annotations
+    /// will have a one-to-one mapping onto the `ir::Control` node from which `self`
+    /// was built.
     pub fn post_order_analysis(&mut self) {
         match self {
             Self::Empty | Self::UserDefined { .. } => (),
@@ -161,9 +158,6 @@ impl StatePossibility {
                 lockstep,
                 num_states,
             } => {
-                // policy: the fsms implementing the threads of a static par are
-                // be merged when every thread is lockstep (i.e. no threads
-                // have backedges)
                 let (lockstep_ann, num_states_ann) =
                     Self::static_par_policy(threads, *latency);
                 *lockstep = Deferred::Computed(lockstep_ann);
@@ -235,55 +229,44 @@ impl From<&ir::StaticControl> for StatePossibility {
     fn from(sctrl: &ir::StaticControl) -> Self {
         match sctrl {
             ir::StaticControl::Empty(_) => Self::Empty,
-            ir::StaticControl::Enable(sen) => {
-                let hardware_enable = Self::StaticHardwareEnable {
-                    latency: sen.group.borrow().get_latency(),
-                    num_states: Deferred::Pending,
-                    lockstep: Deferred::Pending,
-                };
-                hardware_enable
-            }
+            ir::StaticControl::Enable(sen) => Self::StaticHardwareEnable {
+                latency: sen.group.borrow().get_latency(),
+                num_states: Deferred::Pending,
+                lockstep: Deferred::Pending,
+            },
             ir::StaticControl::Seq(sseq) => {
                 let static_seq_states =
                     sseq.stmts.iter().map(Self::from).collect();
-                let static_seq = Self::StaticSeq {
+                Self::StaticSeq {
                     stmts: static_seq_states,
                     num_states: Deferred::Pending,
                     lockstep: Deferred::Pending,
-                };
-                static_seq
+                }
             }
             ir::StaticControl::Par(spar) => {
                 let static_par_threads =
                     spar.stmts.iter().map(Self::from).collect();
-                let static_par = Self::StaticPar {
+                Self::StaticPar {
                     latency: spar.latency,
                     threads: static_par_threads,
                     lockstep: Deferred::Pending,
                     num_states: Deferred::Pending,
-                };
-                static_par
+                }
             }
-            ir::StaticControl::If(sif) => {
-                let static_if = Self::StaticIf {
-                    latency: sif.latency,
-                    true_thread: Box::new(Self::from(sif.tbranch.as_ref())),
-                    false_thread: Box::new(Self::from(sif.fbranch.as_ref())),
-                    lockstep: Deferred::Pending,
-                    num_states: Deferred::Pending,
-                };
-                static_if
-            }
-            ir::StaticControl::Repeat(srep) => {
-                let static_rep = Self::StaticRepeat {
-                    num_repeats: srep.num_repeats,
-                    body: Box::new(Self::from(srep.body.as_ref())),
-                    num_states: Deferred::Pending,
-                    annotation: Deferred::Pending,
-                    lockstep: Deferred::Pending,
-                };
-                static_rep
-            }
+            ir::StaticControl::If(sif) => Self::StaticIf {
+                latency: sif.latency,
+                true_thread: Box::new(Self::from(sif.tbranch.as_ref())),
+                false_thread: Box::new(Self::from(sif.fbranch.as_ref())),
+                lockstep: Deferred::Pending,
+                num_states: Deferred::Pending,
+            },
+            ir::StaticControl::Repeat(srep) => Self::StaticRepeat {
+                num_repeats: srep.num_repeats,
+                body: Box::new(Self::from(srep.body.as_ref())),
+                num_states: Deferred::Pending,
+                annotation: Deferred::Pending,
+                lockstep: Deferred::Pending,
+            },
             ir::StaticControl::Invoke(_) => {
                 unreachable!("Invoke nodes should have been compiled away")
             }
@@ -296,59 +279,42 @@ impl From<&ir::Control> for StatePossibility {
         match ctrl {
             ir::Control::Empty(_) => Self::Empty,
             ir::Control::Static(sc) => Self::from(sc),
-            ir::Control::Enable(_) => {
-                let hardware_enable = Self::HardwareEnable {
-                    num_states: Deferred::Pending,
-                };
-                hardware_enable
-            }
-            ir::Control::FSMEnable(fsm_en) => {
-                let user_defined = Self::UserDefined {
-                    num_states: fsm_en.fsm.borrow().num_states(),
-                };
-                user_defined
-            }
+            ir::Control::Enable(_) => Self::HardwareEnable {
+                num_states: Deferred::Pending,
+            },
+            ir::Control::FSMEnable(fsm_en) => Self::UserDefined {
+                num_states: fsm_en.fsm.borrow().num_states(),
+            },
             ir::Control::Seq(dseq) => {
                 let dynamic_seq_states =
                     dseq.stmts.iter().map(Self::from).collect();
-                let dymamic_seq = Self::DynamicSeq {
+                Self::DynamicSeq {
                     stmts: dynamic_seq_states,
                     num_states: Deferred::Pending,
-                };
-                dymamic_seq
+                }
             }
             ir::Control::Par(dpar) => {
                 let dynamic_par_threads =
                     dpar.stmts.iter().map(Self::from).collect();
-                let dynamic_par = Self::DynamicPar {
+                Self::DynamicPar {
                     threads: dynamic_par_threads,
-                };
-                dynamic_par
+                }
             }
-            ir::Control::If(dif) => {
-                let dynamic_if = Self::DynamicIf {
-                    true_thread: Box::new(Self::from(dif.tbranch.as_ref())),
-                    false_thread: Box::new(Self::from(dif.fbranch.as_ref())),
-                };
-                dynamic_if
-            }
-            ir::Control::Repeat(drep) => {
-                let dynamic_rep = Self::DynamicRepeat {
-                    num_repeats: drep.num_repeats,
-                    body: Box::new(Self::from(drep.body.as_ref())),
-                    num_states: Deferred::Pending,
-                    annotation: Deferred::Pending,
-                };
-                dynamic_rep
-            }
-            ir::Control::While(dwhile) => {
-                let dynamic_while = Self::DynamicWhile {
-                    body: Box::new(Self::from(dwhile.body.as_ref())),
-                    num_states: Deferred::Pending,
-                    annotation: Deferred::Pending,
-                };
-                dynamic_while
-            }
+            ir::Control::If(dif) => Self::DynamicIf {
+                true_thread: Box::new(Self::from(dif.tbranch.as_ref())),
+                false_thread: Box::new(Self::from(dif.fbranch.as_ref())),
+            },
+            ir::Control::Repeat(drep) => Self::DynamicRepeat {
+                num_repeats: drep.num_repeats,
+                body: Box::new(Self::from(drep.body.as_ref())),
+                num_states: Deferred::Pending,
+                annotation: Deferred::Pending,
+            },
+            ir::Control::While(dwhile) => Self::DynamicWhile {
+                body: Box::new(Self::from(dwhile.body.as_ref())),
+                num_states: Deferred::Pending,
+                annotation: Deferred::Pending,
+            },
             ir::Control::Invoke(_) => {
                 unreachable!("Invoke nodes should have been compiled away")
             }
@@ -356,7 +322,6 @@ impl From<&ir::Control> for StatePossibility {
     }
 }
 
-#[allow(unused)]
 /// Implementation of helper functions
 impl StatePossibility {
     /// Given a control node, returns the number of states allocated for its
@@ -402,7 +367,6 @@ impl StatePossibility {
     }
 }
 
-#[allow(unused)]
 /// Implementations for policy (i.e. determining annotations on control nodes)
 impl StatePossibility {
     /// Given the latency of a static enable, find the number of states allocated
@@ -453,6 +417,7 @@ impl StatePossibility {
     /// the number of states allocated for the individual statements
     /// policy: a seq proceeds in lockstep iff its individual statements
     /// are all also lockstep
+    #[inline]
     fn seq_policy(stmts: &mut [StatePossibility]) -> (LockStepAnnotation, u64) {
         let (stmts_num_states, stmts_lockstep): (Vec<_>, Vec<_>) = stmts
             .iter_mut()
@@ -469,6 +434,10 @@ impl StatePossibility {
         (lockstep, num_states)
     }
 
+    /// policy: the fsms implementing the threads of a static par will
+    /// be merged exactly when every thread is lockstep (e.g. no threads
+    /// have backedges)
+    #[inline]
     fn static_par_policy(
         threads: &mut [StatePossibility],
         latency: u64,
@@ -482,20 +451,18 @@ impl StatePossibility {
             (LockStepAnnotation::False, 1)
         }
     }
-
+    /// Merge FSMs implmementing threads of the static_if exactly when each
+    /// thread is in lockstep (similar to static_par)
+    #[inline]
     fn static_if_policy(
         true_branch: &mut Box<StatePossibility>,
         false_branch: &mut Box<StatePossibility>,
         latency: u64,
     ) -> (LockStepAnnotation, u64) {
-        if vec![true_branch, false_branch]
-            .into_iter()
-            .map(|branch| {
-                branch.post_order_analysis();
-                branch.is_lockstep().unwrap()
-            })
-            .all(|b| b)
-        {
+        if vec![true_branch, false_branch].into_iter().all(|branch| {
+            branch.post_order_analysis();
+            branch.is_lockstep().unwrap()
+        }) {
             (LockStepAnnotation::True, latency)
         } else {
             (LockStepAnnotation::False, 1)
@@ -503,7 +470,6 @@ impl StatePossibility {
     }
 }
 
-#[allow(unused)]
 #[derive(Debug)]
 pub enum RepeatNodeAnnotation {
     Offload,
@@ -521,7 +487,7 @@ impl From<bool> for LockStepAnnotation {
         if b { Self::True } else { Self::False }
     }
 }
-#[allow(unused)]
+
 #[derive(Debug)]
 pub enum WhileNodeAnnotation {
     Inline,
