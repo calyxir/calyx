@@ -612,7 +612,10 @@ class UtilizationCycleTrace(CycleTrace):
         super().__init__(stacks_this_cycle)
 
     def __repr__(self):
-        return super().__repr__() + f"\n\t{self.utilization}"
+        return (
+            super().__repr__()
+            + f"\n\tUTIL: {', '.join(f'{k}: {v}' for k, v in self.utilization.items())}"
+        )
 
     def add_stack(self, stack, main_shortname="main"):
         super().add_stack(stack)
@@ -781,6 +784,8 @@ class ControlRegUpdates:
 
 @dataclass
 class TraceData:
+    # Set of all primitives and cells with continuous assignments
+    cont_assignments: set[str] = field(default_factory=set)
     trace: dict[int, CycleTrace] = field(default_factory=dict)
     trace_classified: dict[int, CycleType] = field(default_factory=dict)
     cell_to_active_cycles: dict[str, Summary] = field(default_factory=dict)
@@ -809,6 +814,8 @@ class TraceData:
                 return
             print(i)
             print(trace[i])
+        if self.cont_assignments:
+            print(f"\nCONT\t{', '.join(self.cont_assignments)}\n")
 
     @staticmethod
     def incr_num_times_active(name: str, d: dict[str, Summary]):
