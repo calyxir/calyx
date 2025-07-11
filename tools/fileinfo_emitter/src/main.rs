@@ -1,15 +1,17 @@
 use argh::FromArgs;
 use calyx_frontend::ast::Control;
 use calyx_frontend::{
-    self as frontend, SetAttr, SetAttribute, source_info::PositionId,
-    source_info::SourceInfoTable, source_info::SourceLocation,
+    self as frontend, SetAttr, SetAttribute, source_info::FileId,
+    source_info::PositionId, source_info::SourceInfoTable,
+    source_info::SourceLocation,
 };
 use calyx_ir::GetAttributes;
 use calyx_ir::{self as ir, Id, source_info::LineNum};
 use calyx_utils::WithPos;
 use calyx_utils::{CalyxResult, OutputFile};
+use core::panic;
 use serde::Serialize;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs::read_to_string;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -17,6 +19,13 @@ use std::path::{Path, PathBuf};
 // Emits a JSON mapping components, cells, and groups to their @pos filenames and line numbers.
 // Used by the profiler when the source code is written in the calyx-py eDSL.
 // NOTE: Assumes that any @pos{} is a singleton set.
+
+#[derive(PartialEq, Eq, Hash, Clone)]
+enum Adl {
+    Calyx,
+    Py,
+    Dahlia,
+}
 
 #[derive(FromArgs)]
 /// Path for library and path for file to read from
@@ -46,6 +55,22 @@ where
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Serialize)]
+enum MetadataInfo {
+    Adl(ComponentInfo),
+    CalyxControl(CalyxControlInfo),
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
+struct CalyxControlInfo {
+    pub components: BTreeSet<CalyxControlComponentInfo>,
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
+struct CalyxControlComponentInfo {
+    pub component: Id,
+    pub control_pos_info: Vec<ControlCalyxPosInfo>,
+}
+#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
 struct ComponentInfo {
     #[serde(serialize_with = "id_serialize_passthrough")]
     pub component: Id,
@@ -57,7 +82,6 @@ struct ComponentInfo {
     pub varname: Option<String>,
     pub cells: Vec<PosInfo>,
     pub groups: Vec<PosInfo>,
-    pub control: Vec<ControlCalyxPosInfo>,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Serialize)]
@@ -77,13 +101,17 @@ struct ControlCalyxPosInfo {
     // pub filename: String,
     pub pos_num: u32,
     pub linenum: u32,
+    pub ctrl_node: String,
 }
 
 struct ComponentPosIds {
     pub component_pos_id: Option<u32>,
+    // cell name to positions
     pub cells: HashMap<Id, u32>,
+    // group name to positions
     pub groups: HashMap<Id, u32>,
-    pub control: HashMap<u32, u32>,
+    // position to the type of control node
+    pub control: HashMap<u32, String>,
 }
 
 fn collect_control_info(
@@ -138,7 +166,7 @@ fn gen_component_info(
         component_pos_id: component_pos,
         cells: HashMap::new(),
         groups: HashMap::new(),
-        control: HashMap::new(),
+        control: HashMap::new(), // pos -->
     };
 
     // get pos for groups
@@ -178,7 +206,7 @@ fn gen_component_info(
     }
 
     let ctrl = comp.control.borrow();
-    collect_control_info(&ctrl, &mut component_pos_id.control)?;
+    // collect_control_info(&ctrl, &mut component_pos_id.control)?;
 
     component_info.insert(comp.name, component_pos_id);
     Ok(())
@@ -253,6 +281,10 @@ fn get_adl_var_name(
     }
 }
 
+fn resolve_calyx_files() -> CalyxResult<()> {
+    Ok(())
+}
+
 /// Resolves all position Ids with their corresponding file names, line numbers, and ADL-level variable names.
 fn resolve(
     source_info_table: &SourceInfoTable,
@@ -284,7 +316,6 @@ fn resolve(
                     varname: Some(varname),
                     cells: Vec::new(),
                     groups: Vec::new(),
-                    control: Vec::new(),
                 }
             } else {
                 ComponentInfo {
@@ -294,7 +325,6 @@ fn resolve(
                     varname: None,
                     cells: Vec::new(),
                     groups: Vec::new(),
-                    control: Vec::new(),
                 }
             };
         for (cell_name, cell_pos_id) in curr_component_pos_ids.cells.iter() {
@@ -318,12 +348,6 @@ fn resolve(
             }
         }
 
-        for (ctrl_line, ctrl_pos_id) in curr_component_pos_ids.control.iter() {
-            curr_component_info.control.push(ControlCalyxPosInfo {
-                linenum: *ctrl_line,
-                pos_num: *ctrl_pos_id,
-            });
-        }
         component_info.insert(curr_component_info);
     }
     Ok(())
@@ -356,6 +380,169 @@ fn create_file_map(
     toplevel_file_map
 }
 
+fn create_lang_to_posid_map(
+    source_info_table: &SourceInfoTable,
+) -> CalyxResult<HashMap<Adl, HashMap<u32, u32>>> {
+    let mut fileid_to_lang: HashMap<FileId, Adl> = HashMap::new();
+    let mut lang_to_posids_to_fileids: HashMap<Adl, HashMap<u32, u32>> =
+        HashMap::new();
+
+    // iterate through fileids to find the corresponding Adl
+    for (fileid, path) in source_info_table.iter_file_map() {
+        if let Some(path_ext) = path.extension() {
+            if let Some(path_ext_str) = path_ext.to_str() {
+                match path_ext_str {
+                    "futil" => {
+                        fileid_to_lang.insert(fileid.clone(), Adl::Calyx);
+                    }
+                    "py" => {
+                        fileid_to_lang.insert(fileid.clone(), Adl::Py);
+                    }
+                    "fuse" => {
+                        fileid_to_lang.insert(fileid.clone(), Adl::Dahlia);
+                    }
+                    _ => println!("Unsupported file extension: {path_ext_str}"),
+                }
+            }
+        }
+    }
+
+    for (posid, source_loc) in source_info_table.iter_position_map() {
+        let fileid = source_loc.file;
+        let linenum = source_loc.line.as_usize() as u32;
+        if let Some(adl) = fileid_to_lang.get(&fileid) {
+            match lang_to_posids_to_fileids.get_mut(adl) {
+                Some(set_ref) => {
+                    set_ref.insert(posid.value(), linenum);
+                }
+                None => {
+                    let mut item_set = HashMap::new();
+                    item_set.insert(posid.value(), linenum);
+                    lang_to_posids_to_fileids.insert(adl.clone(), item_set);
+                }
+            }
+        }
+    }
+
+    Ok(lang_to_posids_to_fileids)
+}
+
+fn get_control_name(control: &ir::Control) -> CalyxResult<Option<&str>> {
+    let out_str = match control {
+        ir::Control::Seq(_) => Some("seq"),
+        ir::Control::Par(_) => Some("par"),
+        ir::Control::If(_) => Some("if"),
+        ir::Control::While(_) => Some("while"),
+        ir::Control::Repeat(_) => Some("repeat"),
+        _ => None,
+    };
+    Ok(out_str)
+}
+
+fn gen_control_info_helper(
+    control: &ir::Control,
+    calyx_posids_to_linenums: &HashMap<u32, u32>,
+    control_pos_infos: &mut Vec<ControlCalyxPosInfo>,
+) -> CalyxResult<()> {
+    // add information from this particular control node.
+
+    let control_name = get_control_name(control)?;
+    if let Some(control_id) = control_name {
+        if let Some(pos_set) = control
+            .get_attributes()
+            .get_set(SetAttribute::Set(SetAttr::Pos))
+        {
+            for calyx_pos in pos_set
+                .iter()
+                .filter(|pos| calyx_posids_to_linenums.contains_key(pos))
+            {
+                // theoretically there should only be one, but let's consider all positions
+                let calyx_linenum =
+                    calyx_posids_to_linenums.get(calyx_pos).unwrap();
+                control_pos_infos.push(ControlCalyxPosInfo {
+                    pos_num: *calyx_pos,
+                    linenum: *calyx_linenum,
+                    ctrl_node: String::from(control_id),
+                })
+            }
+        }
+    }
+
+    // recurse into child control nodes.
+    match control {
+        ir::Control::Seq(ir::Seq { stmts, .. })
+        | ir::Control::Par(ir::Par { stmts, .. }) => {
+            for stmt in stmts {
+                gen_control_info_helper(
+                    &stmt,
+                    calyx_posids_to_linenums,
+                    control_pos_infos,
+                )?;
+            }
+        }
+        ir::Control::If(ir::If {
+            tbranch, fbranch, ..
+        }) => {
+            gen_control_info_helper(
+                &tbranch,
+                calyx_posids_to_linenums,
+                control_pos_infos,
+            )?;
+            gen_control_info_helper(
+                &fbranch,
+                calyx_posids_to_linenums,
+                control_pos_infos,
+            )?;
+        }
+        ir::Control::While(ir::While { body, .. })
+        | ir::Control::Repeat(ir::Repeat { body, .. }) => {
+            gen_control_info_helper(
+                &body,
+                calyx_posids_to_linenums,
+                control_pos_infos,
+            );
+        }
+        ir::Control::Static(_) => todo!(),
+        _ => (),
+    }
+
+    Ok(())
+}
+
+/// Recursively populates component_info with ControlCalyxPosInfos for each component.
+/// For each control node in the component, generate information about the control node's identifier,
+/// the Calyx-file position Id, and the Calyx-file line number.
+fn gen_control_info(
+    ctx: &ir::Context,
+    adl_to_posids_to_linenums: &HashMap<Adl, HashMap<u32, u32>>,
+    component_info: &mut HashMap<Id, Vec<ControlCalyxPosInfo>>,
+) -> CalyxResult<()> {
+    for comp in ctx.components.iter() {
+        let mut component_control_info: Vec<ControlCalyxPosInfo> = Vec::new();
+
+        // gather information about this component.
+        let control = comp.control.borrow();
+        match adl_to_posids_to_linenums.get(&Adl::Calyx) {
+            Some(calyx_posid_map) => {
+                gen_control_info_helper(
+                    &control,
+                    calyx_posid_map,
+                    &mut component_control_info,
+                )?;
+            }
+            None => {
+                println!(
+                    "Calyx-level metadata not given! Run `-p metadata-table-generation`"
+                );
+            }
+        }
+
+        component_info.insert(comp.name, component_control_info);
+    }
+
+    Ok(())
+}
+
 fn main() -> CalyxResult<()> {
     let p: Args = argh::from_env();
 
@@ -363,23 +550,38 @@ fn main() -> CalyxResult<()> {
 
     let ctx: ir::Context = ir::from_ast::ast_to_ir(ws)?;
 
-    let main_comp = ctx.entrypoint();
+    // let main_comp = ctx.entrypoint();
 
-    let mut component_pos_ids: HashMap<Id, ComponentPosIds> = HashMap::new();
-
-    let mut component_info: HashSet<ComponentInfo> = HashSet::new();
-    gen_component_info(&ctx, main_comp, &mut component_pos_ids)?;
+    // let mut component_pos_ids: HashMap<Id, ComponentPosIds> = HashMap::new();
+    // let mut component_info: HashSet<ComponentInfo> = HashSet::new();
+    // gen_component_info(&ctx, main_comp, &mut component_pos_ids)?;
 
     match &ctx.source_info_table {
         Some(source_info_table) => {
+            let adl_to_posids_to_linenums =
+                create_lang_to_posid_map(source_info_table)?;
             let file_lines_map = create_file_map(source_info_table);
-            resolve(
-                source_info_table,
-                &component_pos_ids,
-                &mut component_info,
-                &file_lines_map,
+            let mut component_to_calyx_control_info = HashMap::new();
+            gen_control_info(
+                &ctx,
+                &adl_to_posids_to_linenums,
+                &mut component_to_calyx_control_info,
             )?;
-            write_json(component_info.clone(), p.output)?;
+
+            let mut file = p.output;
+            serde_json::to_writer_pretty(
+                file.get_write(),
+                &component_to_calyx_control_info,
+            )?;
+
+            // resolve_calyx_files(source_info_table, &file_lines_map)?;
+            // resolve(
+            //     source_info_table,
+            //     &component_pos_ids,
+            //     &mut component_info,
+            //     &file_lines_map,
+            // )?;
+            // write_json(component_info.clone(), p.output)?;
             Ok(())
         }
         None => panic!("No fileinfo table to read from!"),
