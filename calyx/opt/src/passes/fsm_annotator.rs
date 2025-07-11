@@ -4,24 +4,26 @@ use crate::{
 };
 use calyx_ir::{self as ir};
 use calyx_utils::CalyxResult;
-pub struct CompileFSM {}
+pub struct FSMAnnotator {}
 
-impl Named for CompileFSM {
+impl Named for FSMAnnotator {
     fn name() -> &'static str {
-        "annotate-fsms"
+        "fsm-annotator"
     }
     fn description() -> &'static str {
         "annotate a control program, determining how FSMs should be allocated"
     }
 }
-impl ConstructVisitor for CompileFSM {
+impl ConstructVisitor for FSMAnnotator {
     fn from(_ctx: &ir::Context) -> CalyxResult<Self> {
-        Ok(CompileFSM {})
+        Ok(FSMAnnotator {})
     }
     fn clear_data(&mut self) {}
 }
 
-impl Visitor for CompileFSM {
+fn step_control(ctrl: &mut ir::Control, annotated: &StatePossibility) {}
+
+impl Visitor for FSMAnnotator {
     fn start(
         &mut self,
         comp: &mut ir::Component,

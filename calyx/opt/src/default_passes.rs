@@ -2,10 +2,10 @@
 use crate::pass_manager::PassResult;
 use crate::passes::{
     AddGuard, Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
-    CompileFSM, CompileInvoke, CompileRepeat, CompileStatic, ComponentInliner,
+    CompileInvoke, CompileRepeat, CompileStatic, ComponentInliner,
     ConstantPortProp, DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval,
-    DeadGroupRemoval, DefaultAssigns, Externalize, GoInsertion, GroupToInvoke,
-    GroupToSeq, InferShare, LowerGuards, MergeAssign, Papercut,
+    DeadGroupRemoval, DefaultAssigns, Externalize, FSMAnnotator, GoInsertion,
+    GroupToInvoke, GroupToSeq, InferShare, LowerGuards, MergeAssign, Papercut,
     ProfilerInstrumentation, RemoveIds, ResetInsertion, SimplifyStaticGuards,
     SimplifyWithControl, StaticFSMAllocation, StaticFSMOpts, StaticInference,
     StaticInliner, StaticPromotion, StaticRepeatFSMAllocation,
@@ -57,7 +57,7 @@ impl PassManager {
         pm.register_pass::<CompileSync>()?;
         pm.register_pass::<CompileSyncWithoutSyncReg>()?;
         pm.register_pass::<AddGuard>()?;
-        pm.register_pass::<CompileFSM>()?;
+        pm.register_pass::<FSMAnnotator>()?;
 
         // Lowering passes
         pm.register_pass::<GoInsertion>()?;
@@ -166,7 +166,7 @@ impl PassManager {
                 StaticPromotion,
                 DeadGroupRemoval,
                 CollapseControl,
-                CompileFSM,
+                FSMAnnotator,
             ]
         );
 
