@@ -784,6 +784,7 @@ class ControlRegUpdates:
 
 @dataclass
 class TraceData:
+    # Set of all primitives and cells with continuous assignments
     cont_assignments: set[str] = field(default_factory=set)
     trace: dict[int, CycleTrace] = field(default_factory=dict)
     trace_classified: dict[int, CycleType] = field(default_factory=dict)
