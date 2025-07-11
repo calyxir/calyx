@@ -253,7 +253,7 @@ impl StatePossibility {
 }
 
 impl StatePossibility {
-    fn build_from_static_control(
+    pub fn build_from_static_control(
         sctrl: &mut ir::StaticControl,
         id: u64,
     ) -> (Self, u64) {
@@ -325,7 +325,7 @@ impl StatePossibility {
                 sif.attributes.insert(NODE_ID, id);
                 let mut branch_id = id + 1;
                 let branches: (Self, Self) =
-                    vec![&mut sif.tbranch, &mut sif.fbranch]
+                    [&mut sif.tbranch, &mut sif.fbranch]
                         .iter_mut()
                         .map(|branch| {
                             let (child, upd_branch_id) =
@@ -372,7 +372,7 @@ impl StatePossibility {
         }
     }
 
-    fn build_from_control(ctrl: &mut ir::Control, id: u64) -> (Self, u64) {
+    pub fn build_from_control(ctrl: &mut ir::Control, id: u64) -> (Self, u64) {
         match ctrl {
             ir::Control::Empty(empty) => {
                 empty.attributes.insert(NODE_ID, id);
@@ -446,7 +446,7 @@ impl StatePossibility {
                 dif.attributes.insert(NODE_ID, id);
                 let mut branch_id = id + 1;
                 let branches: (Self, Self) =
-                    vec![dif.tbranch.as_mut(), dif.fbranch.as_mut()]
+                    [dif.tbranch.as_mut(), dif.fbranch.as_mut()]
                         .iter_mut()
                         .map(|branch| {
                             let (child, upd_branch_id) =

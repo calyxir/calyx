@@ -591,6 +591,13 @@ impl Control {
         })
     }
 
+    pub fn insert_attribute<A>(&mut self, attr: A, attr_value: u64)
+    where
+        A: Into<Attribute>,
+    {
+        self.get_mut_attributes().insert(attr, attr_value);
+    }
+
     /// Returns the value of an attribute if present
     pub fn get_attribute<A>(&self, attr: A) -> Option<u64>
     where
