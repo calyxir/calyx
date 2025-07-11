@@ -30,11 +30,14 @@ def setup_metadata(args):
         args.shared_cells_json
     )
     enable_thread_data = preprocess.read_enable_thread_json(args.enable_par_tracks_json)
-    control_metadata: ControlMetadata = preprocess.read_tdcc_file(
-        args.fsms_json, cell_metadata
-    )
     if args.ctrl_mapping_file is not None:
-        preprocess.read_ctrl_metadata_file(args.ctrl_mapping_file, control_metadata)
+        component_to_pos_to_loc_str = preprocess.read_ctrl_metadata_file(args.ctrl_mapping_file)
+    else:
+        component_to_pos_to_loc_str = None
+    
+    control_metadata: ControlMetadata = preprocess.read_tdcc_file(
+        args.fsms_json, component_to_pos_to_loc_str, cell_metadata
+    )
     # create tracedata object here so we can use it outside of converter
     tracedata: TraceData = TraceData()
     return (

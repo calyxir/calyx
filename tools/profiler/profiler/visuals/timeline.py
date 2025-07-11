@@ -156,7 +156,7 @@ def compute_ctrl_timeline(
                         this_cycle_active_cells.add(stack_acc)
                     case StackElementType.CONTROL_GROUP:
                         this_cycle_active_ctrl_groups.add(
-                            f"{stack_acc}.{stack_elem.name}"
+                            f"{stack_acc}.{stack_elem}"
                         )
 
         for new_cell in this_cycle_active_cells.difference(currently_active_cells):

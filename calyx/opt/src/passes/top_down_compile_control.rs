@@ -377,10 +377,7 @@ fn get_top_level_attrs(
 ) -> CalyxResult<Option<&ir::Attributes>> {
     let attr_opt = match c {
         ir::Control::Seq(ir::Seq { attributes, .. })
-        | ir::Control::While(ir::While { attributes, .. }) => {
-            println!("hi!");
-            Some(attributes)
-        }
+        | ir::Control::While(ir::While { attributes, .. }) => Some(attributes),
         _ => None,
     };
     Ok(attr_opt)

@@ -83,26 +83,42 @@ def read_component_cell_names_json(json_file):
 
     return CellMetadata(main_component, components_to_cells)
 
+
 def read_ctrl_metadata_file(ctrl_map_file: str):
     component_to_pos_to_loc_str: defaultdict[str, defaultdict[int, str]] = defaultdict()
 
-    json_data = json.load(ctrl_map_file)
+    json_data = json.load(open(ctrl_map_file, "r"))
     for component in json_data:
+        component_to_pos_to_loc_str[component] = defaultdict(str)
+        print(component)
         for entry in json_data[component]:
             pos_num = entry["pos_num"]
             line_num = entry["linenum"]
-            ctrl_node_name = entry["seq"]
-            component_to_pos_to_loc_str[component][pos_num] = f"{ctrl_node_name}@L{line_num}"
+            ctrl_node_name = entry["ctrl_node"]
+            print(component_to_pos_to_loc_str[component])
+            component_to_pos_to_loc_str[component][pos_num] = (
+                f"{ctrl_node_name}@L{line_num}"
+            )
 
     return component_to_pos_to_loc_str
 
-def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
+
+def read_tdcc_file(
+    tdcc_json_file: str,
+    component_to_pos_to_loc_str: defaultdict[str, defaultdict[int, str]] | None,
+    cell_metadata: CellMetadata,
+):
     """
     Processes tdcc_json_file to produce information about control registers (FSMs, pd registers for pars)
     and par groups.
     """
     json_data = json.load(open(tdcc_json_file))
     control_metadata = ControlMetadata()
+    if component_to_pos_to_loc_str is not None:
+        print(f"component_to_pos_to_loc_str: {component_to_pos_to_loc_str}")
+        control_metadata.component_to_ctrl_group_to_pos_str = defaultdict()
+        for component in cell_metadata.component_to_cells.keys():
+            control_metadata.component_to_ctrl_group_to_pos_str[component] = defaultdict(str)
     # pass 1: obtain names of all par groups in each component
     for json_entry in json_data:
         if "Par" in json_entry:
@@ -113,14 +129,32 @@ def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
     for json_entry in json_data:
         if "Fsm" in json_entry:
             entry = json_entry["Fsm"]
+            ctrl_group = entry["group"]
+            component = entry["component"]
+            pos_list = entry["pos"]
+            print(f"FSM! {ctrl_group} {component} {pos_list}")
             control_metadata.register_fsm(
                 entry["fsm"], entry["component"], cell_metadata
             )
+            calyx_pos_list: list[int] = list(filter(
+                lambda x: component_to_pos_to_loc_str is not None
+                and x in component_to_pos_to_loc_str[component],
+                pos_list,
+            ))
+            assert(len(calyx_pos_list) <= 1)
+            if len(calyx_pos_list) == 1:
+                print(calyx_pos_list)
+                # if we have a control position, look up its corresponding
+                loc_str = component_to_pos_to_loc_str[component][calyx_pos_list[0]]
+                # if component not in control_metadata.component_to_ctrl_group_to_pos_str:
+                #     control_metadata.component_to_ctrl_group_to_pos_str[component] = defaultdict(str)
+                print(control_metadata.component_to_ctrl_group_to_pos_str)
+                control_metadata.component_to_ctrl_group_to_pos_str[component][ctrl_group] = loc_str
             for cell in cell_metadata.component_to_cells[entry["component"]]:
                 control_metadata.register_fully_qualified_ctrl_gp(
-                    f"{cell}.{entry['group']}"
+                    f"{cell}.{ctrl_group}"
                 )
-                control_metadata.cell_to_tdcc_groups[cell].add(entry["group"])
+                control_metadata.cell_to_tdcc_groups[cell].add(ctrl_group)
                 control_metadata.component_to_control_to_primitives[entry["component"]][
                     entry["group"]
                 ].add(entry["fsm"])
