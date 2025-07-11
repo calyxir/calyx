@@ -4,6 +4,9 @@ use crate::{
 };
 use calyx_ir::{self as ir};
 use calyx_utils::CalyxResult;
+
+const NODE_ID: ir::Attribute =
+    ir::Attribute::Internal(ir::InternalAttr::NODE_ID);
 pub struct FSMAnnotator {}
 
 impl Named for FSMAnnotator {
@@ -21,7 +24,22 @@ impl ConstructVisitor for FSMAnnotator {
     fn clear_data(&mut self) {}
 }
 
-fn step_control(ctrl: &mut ir::Control, annotated: &StatePossibility) {}
+impl FSMAnnotator {
+    fn update_node_with_id(
+        ctrl: &mut ir::Control,
+        id: u64,
+        (attr, attr_val): (ir::Attribute, u64),
+    ) {
+        if let Some(node_id_val) = ctrl.get_attribute(NODE_ID) {
+            if node_id_val == id {
+                ctrl.insert_attribute(attr, attr_val);
+                return;
+            }
+        }
+
+        return;
+    }
+}
 
 impl Visitor for FSMAnnotator {
     fn start(
@@ -30,8 +48,10 @@ impl Visitor for FSMAnnotator {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let ctrl_ref = comp.control.borrow();
-        let mut st_poss = StatePossibility::from(&*ctrl_ref);
+        //
+        let mut ctrl_ref = comp.control.borrow_mut();
+        let (mut st_poss, _) =
+            StatePossibility::build_from_control(&mut ctrl_ref, 0);
 
         println!("BEFORE");
 
