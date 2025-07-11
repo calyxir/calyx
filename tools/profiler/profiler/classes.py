@@ -215,6 +215,8 @@ class ControlMetadata:
         default_factory=lambda: defaultdict(set)
     )  # cell --> { tdcc groups }
 
+    component_to_ctrl_group_to_pos_str: defaultdict[str, defaultdict[str, str]] | None = None
+
     added_signal_prefix: bool = field(default=False)
 
     def add_par_done_reg(self, component, par_group, par_done_reg, stack):

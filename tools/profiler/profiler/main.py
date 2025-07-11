@@ -33,6 +33,8 @@ def setup_metadata(args):
     control_metadata: ControlMetadata = preprocess.read_tdcc_file(
         args.fsms_json, cell_metadata
     )
+    if args.ctrl_mapping_file is not None:
+        preprocess.read_ctrl_metadata_file(args.ctrl_mapping_file, control_metadata)
     # create tracedata object here so we can use it outside of converter
     tracedata: TraceData = TraceData()
     return (
@@ -153,6 +155,9 @@ def parse_args():
         help="utilization variable to visualize (default: %(default)s)",
         default="ff",
         choices=["ff", "lut", "llut", "lutram"],
+    )
+    parser.add_argument(
+        "--ctrl-mapping-file", dest="ctrl_mapping_file", help="json containing components to the pos and locations of their ctrl nodes"
     )
     parser.add_argument(
         "--adl-mapping-file", dest="adl_mapping_file", help="adl mapping file"

@@ -372,11 +372,16 @@ impl<'b, 'a> From<&'b mut ir::Builder<'a>> for Schedule<'b, 'a> {
     }
 }
 
-fn get_top_level_attrs(c: &ir::Control) -> CalyxResult<&ir::Attributes> {
+fn get_top_level_attrs(
+    c: &ir::Control,
+) -> CalyxResult<Option<&ir::Attributes>> {
     let attr_opt = match c {
-        ir::Control::Seq(ir::Seq { attributes, .. }) => attributes,
-        ir::Control::While(ir::While { attributes, .. }) => attributes,
-        _ => todo!(),
+        ir::Control::Seq(ir::Seq { attributes, .. })
+        | ir::Control::While(ir::While { attributes, .. }) => {
+            println!("hi!");
+            Some(attributes)
+        }
+        _ => None,
     };
     Ok(attr_opt)
 }
@@ -1192,10 +1197,12 @@ impl Schedule<'_, '_> {
         early_transitions: bool,
     ) -> CalyxResult<()> {
         if self.topmost_node_pos.is_empty() {
-            let attrs = get_top_level_attrs(con)?;
-            if let Some(pos_set) = attrs.get_set(SetAttr::Pos) {
-                for pos in pos_set.iter() {
-                    self.topmost_node_pos.insert(*pos);
+            let attrs_opt = get_top_level_attrs(con)?;
+            if let Some(attrs) = attrs_opt {
+                if let Some(pos_set) = attrs.get_set(SetAttr::Pos) {
+                    for pos in pos_set.iter() {
+                        self.topmost_node_pos.insert(*pos);
+                    }
                 }
             }
         }

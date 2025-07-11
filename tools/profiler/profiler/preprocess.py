@@ -1,6 +1,7 @@
 import json
 import os
 
+from collections import defaultdict
 from profiler.classes import CellMetadata, ControlMetadata, ParChildType
 
 
@@ -82,6 +83,18 @@ def read_component_cell_names_json(json_file):
 
     return CellMetadata(main_component, components_to_cells)
 
+def read_ctrl_metadata_file(ctrl_map_file: str):
+    component_to_pos_to_loc_str: defaultdict[str, defaultdict[int, str]] = defaultdict()
+
+    json_data = json.load(ctrl_map_file)
+    for component in json_data:
+        for entry in json_data[component]:
+            pos_num = entry["pos_num"]
+            line_num = entry["linenum"]
+            ctrl_node_name = entry["seq"]
+            component_to_pos_to_loc_str[component][pos_num] = f"{ctrl_node_name}@L{line_num}"
+
+    return component_to_pos_to_loc_str
 
 def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
     """
