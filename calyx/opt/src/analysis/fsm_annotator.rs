@@ -1,6 +1,9 @@
 use calyx_ir::{self as ir};
+use itertools::Itertools;
 
 const FSM_STATE_CUTOFF: u64 = 300;
+const NODE_ID: ir::Attribute =
+    ir::Attribute::Internal(ir::InternalAttr::NODE_ID);
 
 /// A type to encode the fact that, at the point of translation from an
 /// `ir::Control` object to a `StatePossibility` object, the implementation and
@@ -40,19 +43,25 @@ impl<T> Deferred<T> {
 
 #[derive(Debug)]
 pub enum StatePossibility {
-    Empty,
+    Empty {
+        id: u64,
+    },
     UserDefined {
+        id: u64,
         num_states: u64, // known at time of construction, no need for deferred computation
     },
     HardwareEnable {
+        id: u64,
         num_states: Deferred<u64>,
     },
     StaticHardwareEnable {
+        id: u64,
         latency: u64,
         num_states: Deferred<u64>,
         lockstep: Deferred<LockStepAnnotation>,
     },
     StaticRepeat {
+        id: u64,
         num_repeats: u64,
         body: Box<StatePossibility>,
         annotation: Deferred<RepeatNodeAnnotation>,
@@ -60,17 +69,20 @@ pub enum StatePossibility {
         num_states: Deferred<u64>,
     },
     StaticPar {
+        id: u64,
         latency: u64,
         threads: Vec<StatePossibility>,
         lockstep: Deferred<LockStepAnnotation>,
         num_states: Deferred<u64>,
     },
     StaticSeq {
+        id: u64,
         stmts: Vec<StatePossibility>,
         lockstep: Deferred<LockStepAnnotation>,
         num_states: Deferred<u64>,
     },
     StaticIf {
+        id: u64,
         latency: u64,
         true_thread: Box<StatePossibility>,
         false_thread: Box<StatePossibility>,
@@ -78,23 +90,28 @@ pub enum StatePossibility {
         num_states: Deferred<u64>,
     },
     DynamicRepeat {
+        id: u64,
         num_repeats: u64,
         body: Box<StatePossibility>,
         num_states: Deferred<u64>,
         annotation: Deferred<RepeatNodeAnnotation>,
     },
     DynamicPar {
+        id: u64,
         threads: Vec<StatePossibility>,
     },
     DynamicSeq {
+        id: u64,
         stmts: Vec<StatePossibility>,
         num_states: Deferred<u64>,
     },
     DynamicIf {
+        id: u64,
         true_thread: Box<StatePossibility>,
         false_thread: Box<StatePossibility>,
     },
     DynamicWhile {
+        id: u64,
         body: Box<StatePossibility>,
         num_states: Deferred<u64>,
         annotation: Deferred<WhileNodeAnnotation>,
@@ -108,8 +125,8 @@ impl StatePossibility {
     /// was built.
     pub fn post_order_analysis(&mut self) {
         match self {
-            Self::Empty | Self::UserDefined { .. } => (),
-            Self::HardwareEnable { num_states } => {
+            Self::Empty { .. } | Self::UserDefined { .. } => (),
+            Self::HardwareEnable { num_states, .. } => {
                 // policy: dynamic enables get one state in parent fsm
                 *num_states = Deferred::Computed(1);
             }
@@ -117,6 +134,7 @@ impl StatePossibility {
                 latency,
                 num_states,
                 lockstep,
+                ..
             } => {
                 let (num_states_allocated, lockstep_allocated) =
                     Self::static_hardware_enable_policy(*latency);
@@ -129,6 +147,7 @@ impl StatePossibility {
                 num_states,
                 annotation,
                 lockstep,
+                ..
             } => {
                 body.post_order_analysis();
                 let (
@@ -146,6 +165,7 @@ impl StatePossibility {
                 stmts,
                 num_states,
                 lockstep,
+                ..
             } => {
                 let (lockstep_ann, num_states_ann) = Self::seq_policy(stmts);
 
@@ -157,6 +177,7 @@ impl StatePossibility {
                 threads,
                 lockstep,
                 num_states,
+                ..
             } => {
                 let (lockstep_ann, num_states_ann) =
                     Self::static_par_policy(threads, *latency);
@@ -169,6 +190,7 @@ impl StatePossibility {
                 false_thread,
                 lockstep,
                 num_states,
+                ..
             } => {
                 let (lockstep_ann, num_states_ann) =
                     Self::static_if_policy(true_thread, false_thread, *latency);
@@ -180,6 +202,7 @@ impl StatePossibility {
                 body,
                 num_states,
                 annotation,
+                ..
             } => {
                 body.post_order_analysis();
                 let (num_states_ann, node_ann, _) =
@@ -187,16 +210,19 @@ impl StatePossibility {
                 *num_states = Deferred::Computed(num_states_ann);
                 *annotation = Deferred::Computed(node_ann);
             }
-            Self::DynamicPar { threads } => {
+            Self::DynamicPar { threads, .. } => {
                 threads.iter_mut().for_each(Self::post_order_analysis)
             }
-            Self::DynamicSeq { stmts, num_states } => {
+            Self::DynamicSeq {
+                stmts, num_states, ..
+            } => {
                 let (_, num_states_ann) = Self::seq_policy(stmts);
                 *num_states = Deferred::Computed(num_states_ann);
             }
             Self::DynamicIf {
                 true_thread,
                 false_thread,
+                ..
             } => {
                 vec![true_thread, false_thread].into_iter().for_each(
                     |branch| {
@@ -208,6 +234,7 @@ impl StatePossibility {
                 body,
                 num_states,
                 annotation,
+                ..
             } => {
                 body.post_order_analysis();
                 let (num_states_ann, node_ann) = {
@@ -225,96 +252,248 @@ impl StatePossibility {
     }
 }
 
-impl From<&ir::StaticControl> for StatePossibility {
-    fn from(sctrl: &ir::StaticControl) -> Self {
+impl StatePossibility {
+    fn build_from_static_control(
+        sctrl: &mut ir::StaticControl,
+        id: u64,
+    ) -> (Self, u64) {
         match sctrl {
-            ir::StaticControl::Empty(_) => Self::Empty,
-            ir::StaticControl::Enable(sen) => Self::StaticHardwareEnable {
-                latency: sen.group.borrow().get_latency(),
-                num_states: Deferred::Pending,
-                lockstep: Deferred::Pending,
-            },
+            ir::StaticControl::Empty(empty) => {
+                empty.attributes.insert(NODE_ID, id);
+                (Self::Empty { id }, id + 1)
+            }
+            ir::StaticControl::Enable(sen) => {
+                sen.attributes.insert(NODE_ID, id);
+                (
+                    Self::StaticHardwareEnable {
+                        id,
+                        latency: sen.group.borrow().get_latency(),
+                        num_states: Deferred::Pending,
+                        lockstep: Deferred::Pending,
+                    },
+                    id + 1,
+                )
+            }
             ir::StaticControl::Seq(sseq) => {
-                let static_seq_states =
-                    sseq.stmts.iter().map(Self::from).collect();
-                Self::StaticSeq {
-                    stmts: static_seq_states,
-                    num_states: Deferred::Pending,
-                    lockstep: Deferred::Pending,
-                }
+                sseq.attributes.insert(NODE_ID, id);
+                let mut stmt_id = id + 1;
+                let stmts = sseq
+                    .stmts
+                    .iter_mut()
+                    .map(|stmt| {
+                        let (child, upd_stmt_id) =
+                            Self::build_from_static_control(stmt, stmt_id);
+                        stmt_id = upd_stmt_id;
+                        child
+                    })
+                    .collect();
+                (
+                    Self::StaticSeq {
+                        id,
+                        stmts,
+                        num_states: Deferred::Pending,
+                        lockstep: Deferred::Pending,
+                    },
+                    stmt_id,
+                )
             }
             ir::StaticControl::Par(spar) => {
-                let static_par_threads =
-                    spar.stmts.iter().map(Self::from).collect();
-                Self::StaticPar {
-                    latency: spar.latency,
-                    threads: static_par_threads,
-                    lockstep: Deferred::Pending,
-                    num_states: Deferred::Pending,
-                }
+                spar.attributes.insert(NODE_ID, id);
+                let mut thread_id = id + 1;
+                let threads = spar
+                    .stmts
+                    .iter_mut()
+                    .map(|thread| {
+                        let (child, upd_thread_id) =
+                            Self::build_from_static_control(thread, thread_id);
+                        thread_id = upd_thread_id;
+                        child
+                    })
+                    .collect();
+                (
+                    Self::StaticPar {
+                        id,
+                        latency: spar.latency,
+                        threads,
+                        lockstep: Deferred::Pending,
+                        num_states: Deferred::Pending,
+                    },
+                    thread_id,
+                )
             }
-            ir::StaticControl::If(sif) => Self::StaticIf {
-                latency: sif.latency,
-                true_thread: Box::new(Self::from(sif.tbranch.as_ref())),
-                false_thread: Box::new(Self::from(sif.fbranch.as_ref())),
-                lockstep: Deferred::Pending,
-                num_states: Deferred::Pending,
-            },
-            ir::StaticControl::Repeat(srep) => Self::StaticRepeat {
-                num_repeats: srep.num_repeats,
-                body: Box::new(Self::from(srep.body.as_ref())),
-                num_states: Deferred::Pending,
-                annotation: Deferred::Pending,
-                lockstep: Deferred::Pending,
-            },
+            ir::StaticControl::If(sif) => {
+                sif.attributes.insert(NODE_ID, id);
+                let mut branch_id = id + 1;
+                let branches: (Self, Self) =
+                    vec![&mut sif.tbranch, &mut sif.fbranch]
+                        .iter_mut()
+                        .map(|branch| {
+                            let (child, upd_branch_id) =
+                                Self::build_from_static_control(
+                                    branch, branch_id,
+                                );
+                            branch_id = upd_branch_id;
+                            child
+                        })
+                        .collect_tuple()
+                        .unwrap();
+
+                (
+                    Self::StaticIf {
+                        id,
+                        latency: sif.latency,
+                        true_thread: Box::new(branches.0),
+                        false_thread: Box::new(branches.1),
+                        lockstep: Deferred::Pending,
+                        num_states: Deferred::Pending,
+                    },
+                    branch_id,
+                )
+            }
+            ir::StaticControl::Repeat(srep) => {
+                srep.attributes.insert(NODE_ID, id);
+                let (child, new_id) =
+                    Self::build_from_static_control(&mut srep.body, id + 1);
+                (
+                    Self::StaticRepeat {
+                        id,
+                        num_repeats: srep.num_repeats,
+                        body: Box::new(child),
+                        num_states: Deferred::Pending,
+                        annotation: Deferred::Pending,
+                        lockstep: Deferred::Pending,
+                    },
+                    new_id,
+                )
+            }
             ir::StaticControl::Invoke(_) => {
                 unreachable!("Invoke nodes should have been compiled away")
             }
         }
     }
-}
 
-impl From<&ir::Control> for StatePossibility {
-    fn from(ctrl: &ir::Control) -> Self {
+    fn build_from_control(ctrl: &mut ir::Control, id: u64) -> (Self, u64) {
         match ctrl {
-            ir::Control::Empty(_) => Self::Empty,
-            ir::Control::Static(sc) => Self::from(sc),
-            ir::Control::Enable(_) => Self::HardwareEnable {
-                num_states: Deferred::Pending,
-            },
-            ir::Control::FSMEnable(fsm_en) => Self::UserDefined {
-                num_states: fsm_en.fsm.borrow().num_states(),
-            },
+            ir::Control::Empty(empty) => {
+                empty.attributes.insert(NODE_ID, id);
+                (Self::Empty { id }, id + 1)
+            }
+            ir::Control::Static(sc) => Self::build_from_static_control(sc, id),
+            ir::Control::Enable(den) => {
+                den.attributes.insert(NODE_ID, id);
+                (
+                    Self::HardwareEnable {
+                        id,
+                        num_states: Deferred::Pending,
+                    },
+                    id + 1,
+                )
+            }
+            ir::Control::FSMEnable(fsm_en) => {
+                fsm_en.attributes.insert(NODE_ID, id);
+                (
+                    Self::UserDefined {
+                        id,
+                        num_states: fsm_en.fsm.borrow().num_states(),
+                    },
+                    id + 1,
+                )
+            }
             ir::Control::Seq(dseq) => {
-                let dynamic_seq_states =
-                    dseq.stmts.iter().map(Self::from).collect();
-                Self::DynamicSeq {
-                    stmts: dynamic_seq_states,
-                    num_states: Deferred::Pending,
-                }
+                dseq.attributes.insert(NODE_ID, id);
+                let mut stmt_id = id + 1;
+                let dynamic_seq_states = dseq
+                    .stmts
+                    .iter_mut()
+                    .map(|stmt| {
+                        let (child, upd_stmt_id) =
+                            Self::build_from_control(stmt, stmt_id);
+                        stmt_id = upd_stmt_id;
+                        child
+                    })
+                    .collect();
+                (
+                    Self::DynamicSeq {
+                        id,
+                        stmts: dynamic_seq_states,
+                        num_states: Deferred::Pending,
+                    },
+                    stmt_id,
+                )
             }
             ir::Control::Par(dpar) => {
-                let dynamic_par_threads =
-                    dpar.stmts.iter().map(Self::from).collect();
-                Self::DynamicPar {
-                    threads: dynamic_par_threads,
-                }
+                dpar.attributes.insert(NODE_ID, id);
+                let mut thread_id = id + 1;
+                let dynamic_par_threads = dpar
+                    .stmts
+                    .iter_mut()
+                    .map(|thread| {
+                        let (child, upd_thread_id) =
+                            Self::build_from_control(thread, thread_id);
+                        thread_id = upd_thread_id;
+                        child
+                    })
+                    .collect();
+                (
+                    Self::DynamicPar {
+                        id,
+                        threads: dynamic_par_threads,
+                    },
+                    thread_id,
+                )
             }
-            ir::Control::If(dif) => Self::DynamicIf {
-                true_thread: Box::new(Self::from(dif.tbranch.as_ref())),
-                false_thread: Box::new(Self::from(dif.fbranch.as_ref())),
-            },
-            ir::Control::Repeat(drep) => Self::DynamicRepeat {
-                num_repeats: drep.num_repeats,
-                body: Box::new(Self::from(drep.body.as_ref())),
-                num_states: Deferred::Pending,
-                annotation: Deferred::Pending,
-            },
-            ir::Control::While(dwhile) => Self::DynamicWhile {
-                body: Box::new(Self::from(dwhile.body.as_ref())),
-                num_states: Deferred::Pending,
-                annotation: Deferred::Pending,
-            },
+            ir::Control::If(dif) => {
+                dif.attributes.insert(NODE_ID, id);
+                let mut branch_id = id + 1;
+                let branches: (Self, Self) =
+                    vec![dif.tbranch.as_mut(), dif.fbranch.as_mut()]
+                        .iter_mut()
+                        .map(|branch| {
+                            let (child, upd_branch_id) =
+                                Self::build_from_control(branch, branch_id);
+                            branch_id = upd_branch_id;
+                            child
+                        })
+                        .collect_tuple()
+                        .unwrap();
+                (
+                    Self::DynamicIf {
+                        id,
+                        true_thread: Box::new(branches.0),
+                        false_thread: Box::new(branches.1),
+                    },
+                    branch_id,
+                )
+            }
+            ir::Control::Repeat(drep) => {
+                drep.attributes.insert(NODE_ID, id);
+                let (child, new_id) =
+                    Self::build_from_control(&mut drep.body, id + 1);
+                (
+                    Self::DynamicRepeat {
+                        id,
+                        num_repeats: drep.num_repeats,
+                        body: Box::new(child),
+                        num_states: Deferred::Pending,
+                        annotation: Deferred::Pending,
+                    },
+                    new_id,
+                )
+            }
+            ir::Control::While(dwhile) => {
+                dwhile.attributes.insert(NODE_ID, id);
+                let (child, new_id) =
+                    Self::build_from_control(&mut dwhile.body, id + 1);
+                (
+                    Self::DynamicWhile {
+                        id,
+                        body: Box::new(child),
+                        num_states: Deferred::Pending,
+                        annotation: Deferred::Pending,
+                    },
+                    new_id,
+                )
+            }
             ir::Control::Invoke(_) => {
                 unreachable!("Invoke nodes should have been compiled away")
             }
@@ -328,12 +507,14 @@ impl StatePossibility {
     /// child schedule if it has been resolved.
     fn num_states(&self) -> Deferred<u64> {
         match self {
-            Self::Empty => Deferred::Computed(0),
-            Self::UserDefined { num_states } => Deferred::Computed(*num_states),
+            Self::Empty { .. } => Deferred::Computed(0),
+            Self::UserDefined { num_states, .. } => {
+                Deferred::Computed(*num_states)
+            }
             Self::DynamicIf { .. } | Self::DynamicPar { .. } => {
                 Deferred::Computed(1)
             }
-            Self::HardwareEnable { num_states }
+            Self::HardwareEnable { num_states, .. }
             | Self::StaticHardwareEnable { num_states, .. }
             | Self::StaticRepeat { num_states, .. }
             | Self::StaticIf { num_states, .. }
@@ -347,7 +528,7 @@ impl StatePossibility {
 
     fn is_lockstep(&self) -> Deferred<bool> {
         match self {
-            Self::Empty => Deferred::Computed(true),
+            Self::Empty { .. } => Deferred::Computed(true),
             Self::HardwareEnable { .. }
             | Self::UserDefined { .. }
             | Self::DynamicIf { .. }

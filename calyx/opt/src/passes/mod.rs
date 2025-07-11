@@ -85,7 +85,7 @@ pub use unroll_bound::UnrollBounded;
 // pub use simplify_guards::SimplifyGuards;
 pub use add_guard::AddGuard;
 pub use default_assigns::DefaultAssigns;
-pub use fsm_annotator::CompileFSM;
+pub use fsm_annotator::FSMAnnotator;
 pub use synthesis_papercut::SynthesisPapercut;
 pub use top_down_compile_control::TopDownCompileControl;
 pub use well_formed::WellFormed;
