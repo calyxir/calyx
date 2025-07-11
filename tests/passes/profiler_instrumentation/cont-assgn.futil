@@ -1,3 +1,4 @@
+// -p profiler-instrumentation
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
