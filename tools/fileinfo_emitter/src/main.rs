@@ -1,21 +1,18 @@
 use argh::FromArgs;
-use calyx_frontend::ast::Control;
 use calyx_frontend::{
     self as frontend, SetAttr, SetAttribute, source_info::FileId,
     source_info::PositionId, source_info::SourceInfoTable,
     source_info::SourceLocation,
 };
 use calyx_ir::GetAttributes;
-use calyx_ir::{self as ir, Id, source_info::LineNum};
-use calyx_utils::WithPos;
+use calyx_ir::{self as ir, Id};
 use calyx_utils::{CalyxResult, OutputFile};
 use core::panic;
 use serde::Serialize;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::fs::read_to_string;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::process::Output;
 
 // Emits a JSON mapping components, cells, and groups to their @pos filenames and line numbers.
 // Used by the profiler when the source code is written in the calyx-py eDSL.
@@ -59,22 +56,6 @@ where
     id.to_string().serialize(ser)
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
-enum MetadataInfo {
-    Adl(ComponentInfo),
-    CalyxControl(CalyxControlInfo),
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
-struct CalyxControlInfo {
-    pub components: BTreeSet<CalyxControlComponentInfo>,
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
-struct CalyxControlComponentInfo {
-    pub component: Id,
-    pub control_pos_info: Vec<ControlCalyxPosInfo>,
-}
 #[derive(PartialEq, Eq, Hash, Clone, Serialize)]
 struct ComponentInfo {
     #[serde(serialize_with = "id_serialize_passthrough")]
@@ -124,20 +105,15 @@ fn gen_component_info(
     adl_posids: &HashSet<u32>,
     component_info: &mut HashMap<Id, ComponentPosIds>,
 ) -> CalyxResult<()> {
+    // FIXME: currently assumes that there is a one-to-one mapping between groups and ADL posids
+
     // get pos for component
-    let component_pos = if let Some(pos_set) =
-        comp.attributes.get_set(SetAttribute::Set(SetAttr::Pos))
-    {
-        Some(
-            *pos_set
-                .iter()
-                .filter(|x| adl_posids.contains(x))
-                .next()
-                .unwrap(),
-        )
-    } else {
-        None
-    };
+    let component_pos = comp
+        .attributes
+        .get_set(SetAttribute::Set(SetAttr::Pos))
+        .map(|pos_set| {
+            *pos_set.iter().find(|x| adl_posids.contains(x)).unwrap()
+        });
     let mut component_pos_id = ComponentPosIds {
         component_pos_id: component_pos,
         cells: HashMap::new(),
@@ -153,8 +129,7 @@ fn gen_component_info(
             .unwrap();
         let group_pos = group_set_attr
             .iter()
-            .filter(|x| adl_posids.contains(x))
-            .next()
+            .find(|x| adl_posids.contains(x))
             .unwrap();
         component_pos_id
             .groups
@@ -172,8 +147,7 @@ fn gen_component_info(
             Some(cell_set_attr) => {
                 let cell_pos = cell_set_attr
                     .iter()
-                    .filter(|x| adl_posids.contains(x))
-                    .next()
+                    .find(|x| adl_posids.contains(x))
                     .unwrap();
                 component_pos_id.cells.insert(cell_ref.name(), *cell_pos);
                 if let ir::CellType::Component { name } = cell_ref.prototype {
@@ -264,10 +238,6 @@ fn get_adl_var_name(
     } else {
         unnamed
     }
-}
-
-fn resolve_calyx_files() -> CalyxResult<()> {
-    Ok(())
 }
 
 /// Resolves all position Ids with their corresponding file names, line numbers, and ADL-level variable names.
@@ -378,13 +348,13 @@ fn create_lang_to_posid_map(
             if let Some(path_ext_str) = path_ext.to_str() {
                 match path_ext_str {
                     "futil" => {
-                        fileid_to_lang.insert(fileid.clone(), Adl::Calyx);
+                        fileid_to_lang.insert(*fileid, Adl::Calyx);
                     }
                     "py" => {
-                        fileid_to_lang.insert(fileid.clone(), Adl::Py);
+                        fileid_to_lang.insert(*fileid, Adl::Py);
                     }
                     "fuse" => {
-                        fileid_to_lang.insert(fileid.clone(), Adl::Dahlia);
+                        fileid_to_lang.insert(*fileid, Adl::Dahlia);
                     }
                     _ => println!("Unsupported file extension: {path_ext_str}"),
                 }
@@ -459,7 +429,7 @@ fn gen_control_info_helper(
         | ir::Control::Par(ir::Par { stmts, .. }) => {
             for stmt in stmts {
                 gen_control_info_helper(
-                    &stmt,
+                    stmt,
                     calyx_posids_to_linenums,
                     control_pos_infos,
                 )?;
@@ -469,12 +439,12 @@ fn gen_control_info_helper(
             tbranch, fbranch, ..
         }) => {
             gen_control_info_helper(
-                &tbranch,
+                tbranch,
                 calyx_posids_to_linenums,
                 control_pos_infos,
             )?;
             gen_control_info_helper(
-                &fbranch,
+                fbranch,
                 calyx_posids_to_linenums,
                 control_pos_infos,
             )?;
@@ -482,10 +452,10 @@ fn gen_control_info_helper(
         ir::Control::While(ir::While { body, .. })
         | ir::Control::Repeat(ir::Repeat { body, .. }) => {
             gen_control_info_helper(
-                &body,
+                body,
                 calyx_posids_to_linenums,
                 control_pos_infos,
-            );
+            )?;
         }
         ir::Control::Static(_) => todo!(),
         _ => (),
@@ -567,7 +537,7 @@ fn adl_wrapper(
             let py_posids: HashSet<u32> =
                 py_posid_map.keys().cloned().collect();
             gen_component_info(
-                &ctx,
+                ctx,
                 main_comp,
                 &py_posids,
                 &mut component_pos_ids,
@@ -577,7 +547,7 @@ fn adl_wrapper(
                 source_info_table,
                 &component_pos_ids,
                 &mut component_info,
-                &file_lines_map,
+                file_lines_map,
             )?;
             write_json(component_info.clone(), file)?;
         }
@@ -613,7 +583,7 @@ fn main() -> CalyxResult<()> {
 
             adl_wrapper(
                 &ctx,
-                &source_info_table,
+                source_info_table,
                 &adl_to_posids_to_linenums,
                 &file_lines_map,
                 p.output,

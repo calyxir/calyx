@@ -1512,7 +1512,7 @@ impl Visitor for TopDownCompileControl {
                     seq_group
                         .borrow_mut()
                         .attributes
-                        .insert_set(calyx_frontend::SetAttr::Pos, pos.clone());
+                        .insert_set(calyx_frontend::SetAttr::Pos, *pos);
                 }
             }
             seq_group.borrow_mut().attributes = s.attributes.clone();
@@ -1696,7 +1696,7 @@ impl Visitor for TopDownCompileControl {
         let pos = if let Some(pos_set) =
             s.get_mut_attributes().get_set(calyx_frontend::SetAttr::Pos)
         {
-            pos_set.iter().map(|p| *p).collect::<Vec<_>>()
+            pos_set.iter().copied().collect::<Vec<_>>()
         } else {
             Vec::new()
         };
@@ -1705,7 +1705,7 @@ impl Visitor for TopDownCompileControl {
             component: builder.component.name,
             par_group: par_group.borrow().name(),
             child_groups: child_infos,
-            pos: pos,
+            pos,
         }));
 
         // Done condition for this group
