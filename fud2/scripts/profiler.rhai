@@ -11,6 +11,7 @@ fn profiling_setup(e) {
     e.var_("fsm-json", "fsm.json");
     e.var_("cell-share-json", "shared-cells.json");
     e.var_("enable-par-track-json", "enable-par-track.json");
+    e.var_("ctrl-pos-json", "ctrl-pos.json");
 
     // series of passes after validation and instrumentation
     e.config_var_or("passes", "profiler.compilation-passes", "-p pre-opt -p compile -p post-opt -p lower"); // set passes="-p compile-sync -p simplify-with-control -p compile-invoke -p compile -p lower" to run without optimizations
@@ -37,12 +38,13 @@ fn profiling_setup(e) {
 
     e.var_("metadata-mapping-json", "metadata-map.json");
     e.config_var_or("fileinfo_emitter", "fileinfo_emitter", "$calyx-base/target/debug/fileinfo_emitter");
-    e.rule("parse-metadata", "$fileinfo_emitter -l $calyx-base $in > $metadata-mapping-json");
+    // e.rule("parse-metadata", "$fileinfo_emitter -l $calyx-base $in > $metadata-mapping-json");
+    e.rule("parse-metadata", "$fileinfo_emitter -l $calyx-base $in -o $ctrl-pos-json");
 }
 
 fn profiler_non_synth_setup(e) {
     // script to process vcd and produce folded representation of flame graph
-    e.rule("parse-vcd", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --print-trace-threshold 100");
+    e.rule("parse-vcd", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --print-trace-threshold 100 --ctrl-pos-file $ctrl-pos-json");
     e.rule("parse-vcd-from-adl", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --adl-mapping-file $metadata-mapping-json --print-trace-threshold 100");
 }
 
@@ -104,6 +106,15 @@ fn edsl_to_flamegraph(e, input, output) {
 }
 
 fn calyx_to_flamegraph(e, input, output) {
+    // First pass: obtain control metadata information by running metadata-table-generation
+    // on the original program and then running the metadata tool on it.
+    let metadata_calyx = "metadata.calyx";
+    e.build_cmd([metadata_calyx], "calyx-pass", [input], []);
+    e.arg("pass", "metadata-table-generation");
+    
+    // generate ctrl-pos-json by running the metadata emitter on it
+    e.build_cmd(["$ctrl-pos-json"], "parse-metadata", [metadata_calyx], []);
+
     // instrument calyx and produce verilog
     let instrumented_verilog = "instrumented.sv";
     e.build_cmd(["$cell-json"], "component-cells", [input], []);
@@ -139,7 +150,7 @@ fn calyx_to_flamegraph(e, input, output) {
     // vcd --> flamegraph
     let elems_profiled_json = "elems-profiled.json";
     let flamegraph_folded = "flamegraph.folded";
-    e.build_cmd([flamegraph_folded], "parse-vcd", [instrumented_vcd], ["$cell-json"]);
+    e.build_cmd([flamegraph_folded], "parse-vcd", [instrumented_vcd], ["$cell-json", "$ctrl-pos-json"]);
     e.build_cmd([output], "create-visuals", [flamegraph_folded], []);
 }
 

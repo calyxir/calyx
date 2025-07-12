@@ -160,7 +160,7 @@ def parse_args():
         choices=["ff", "lut", "llut", "lutram"],
     )
     parser.add_argument(
-        "--ctrl-mapping-file", dest="ctrl_mapping_file", help="json containing components to the pos and locations of their ctrl nodes"
+        "--ctrl-pos-file", dest="ctrl_mapping_file", help="json containing components to the pos and locations of their ctrl nodes"
     )
     parser.add_argument(
         "--adl-mapping-file", dest="adl_mapping_file", help="adl mapping file"
