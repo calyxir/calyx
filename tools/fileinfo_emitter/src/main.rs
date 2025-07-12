@@ -15,6 +15,7 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs::read_to_string;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::process::Output;
 
 // Emits a JSON mapping components, cells, and groups to their @pos filenames and line numbers.
 // Used by the profiler when the source code is written in the calyx-py eDSL.
@@ -38,7 +39,11 @@ struct Args {
     #[argh(option, short = 'l', default = "Path::new(\".\").into()")]
     pub lib_path: PathBuf,
 
-    /// output file
+    /// output file for Calyx control nodes
+    #[argh(option, short = 'c', default = "OutputFile::Stdout")]
+    pub control_output: OutputFile,
+
+    /// output file for ADLs
     #[argh(option, short = 'o', default = "OutputFile::Stdout")]
     pub output: OutputFile,
 }
@@ -110,55 +115,26 @@ struct ComponentPosIds {
     pub cells: HashMap<Id, u32>,
     // group name to positions
     pub groups: HashMap<Id, u32>,
-    // position to the type of control node
-    pub control: HashMap<u32, String>,
-}
-
-fn collect_control_info(
-    ctrl: &ir::Control,
-    c_map: &mut HashMap<u32, u32>,
-) -> CalyxResult<()> {
-    let attr = ctrl.get_attributes();
-    if let Some(pos_set) = attr.get_set(SetAttr::Pos) {
-        let pos = pos_set.iter().next().unwrap();
-        let temp = attr.copy_span();
-        let (_, (line, _)) = temp.get_line_num();
-        c_map.insert(line as u32, *pos);
-    }
-    match ctrl {
-        ir::Control::Seq(ir::Seq { stmts, .. })
-        | ir::Control::Par(ir::Par { stmts, .. }) => {
-            for stmt in stmts {
-                collect_control_info(&stmt, c_map)?;
-            }
-        }
-        ir::Control::While(ir::While { body, .. })
-        | ir::Control::Repeat(ir::Repeat { body, .. }) => {
-            collect_control_info(&body, c_map)?;
-        }
-        ir::Control::If(ir::If {
-            tbranch, fbranch, ..
-        }) => {
-            collect_control_info(&tbranch, c_map)?;
-            collect_control_info(&fbranch, c_map)?;
-        }
-        _ => (),
-    }
-
-    Ok(())
 }
 
 /// Collects @pos{} attributes for each component, group, and cell.
 fn gen_component_info(
     ctx: &ir::Context,
     comp: &ir::Component,
+    adl_posids: &HashSet<u32>,
     component_info: &mut HashMap<Id, ComponentPosIds>,
 ) -> CalyxResult<()> {
     // get pos for component
     let component_pos = if let Some(pos_set) =
         comp.attributes.get_set(SetAttribute::Set(SetAttr::Pos))
     {
-        Some(*pos_set.iter().next().unwrap())
+        Some(
+            *pos_set
+                .iter()
+                .filter(|x| adl_posids.contains(x))
+                .next()
+                .unwrap(),
+        )
     } else {
         None
     };
@@ -166,7 +142,6 @@ fn gen_component_info(
         component_pos_id: component_pos,
         cells: HashMap::new(),
         groups: HashMap::new(),
-        control: HashMap::new(), // pos -->
     };
 
     // get pos for groups
@@ -176,7 +151,11 @@ fn gen_component_info(
             .attributes
             .get_set(SetAttribute::Set(SetAttr::Pos))
             .unwrap();
-        let group_pos = group_set_attr.iter().next().unwrap();
+        let group_pos = group_set_attr
+            .iter()
+            .filter(|x| adl_posids.contains(x))
+            .next()
+            .unwrap();
         component_pos_id
             .groups
             .insert(group.borrow().name(), *group_pos);
@@ -191,7 +170,11 @@ fn gen_component_info(
                 continue;
             }
             Some(cell_set_attr) => {
-                let cell_pos = cell_set_attr.iter().next().unwrap();
+                let cell_pos = cell_set_attr
+                    .iter()
+                    .filter(|x| adl_posids.contains(x))
+                    .next()
+                    .unwrap();
                 component_pos_id.cells.insert(cell_ref.name(), *cell_pos);
                 if let ir::CellType::Component { name } = cell_ref.prototype {
                     let component = ctx
@@ -199,14 +182,16 @@ fn gen_component_info(
                         .iter()
                         .find(|comp| comp.name == name)
                         .unwrap();
-                    gen_component_info(ctx, component, component_info)?;
+                    gen_component_info(
+                        ctx,
+                        component,
+                        adl_posids,
+                        component_info,
+                    )?;
                 }
             }
         }
     }
-
-    let ctrl = comp.control.borrow();
-    // collect_control_info(&ctrl, &mut component_pos_id.control)?;
 
     component_info.insert(comp.name, component_pos_id);
     Ok(())
@@ -517,27 +502,88 @@ fn gen_control_info(
     adl_to_posids_to_linenums: &HashMap<Adl, HashMap<u32, u32>>,
     component_info: &mut HashMap<Id, Vec<ControlCalyxPosInfo>>,
 ) -> CalyxResult<()> {
-    for comp in ctx.components.iter() {
-        let mut component_control_info: Vec<ControlCalyxPosInfo> = Vec::new();
+    match adl_to_posids_to_linenums.get(&Adl::Calyx) {
+        Some(calyx_posid_map) => {
+            for comp in ctx.components.iter() {
+                let mut component_control_info: Vec<ControlCalyxPosInfo> =
+                    Vec::new();
 
-        // gather information about this component.
-        let control = comp.control.borrow();
-        match adl_to_posids_to_linenums.get(&Adl::Calyx) {
-            Some(calyx_posid_map) => {
+                // gather information about this component.
+                let control = comp.control.borrow();
+
                 gen_control_info_helper(
                     &control,
                     calyx_posid_map,
                     &mut component_control_info,
                 )?;
-            }
-            None => {
-                println!(
-                    "Calyx-level metadata not given! Run `-p metadata-table-generation`"
-                );
+                component_info.insert(comp.name, component_control_info);
             }
         }
 
-        component_info.insert(comp.name, component_control_info);
+        None => {
+            println!(
+                "Calyx-level metadata not given! Run `-p metadata-table-generation`"
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn calyx_ctrl_wrapper(
+    ctx: &ir::Context,
+    adl_to_posids_to_linenums: &HashMap<Adl, HashMap<u32, u32>>,
+    mut file: OutputFile,
+) -> CalyxResult<()> {
+    let mut component_to_calyx_control_info = HashMap::new();
+    gen_control_info(
+        ctx,
+        adl_to_posids_to_linenums,
+        &mut component_to_calyx_control_info,
+    )?;
+
+    serde_json::to_writer_pretty(
+        file.get_write(),
+        &component_to_calyx_control_info,
+    )?;
+
+    Ok(())
+}
+
+fn adl_wrapper(
+    ctx: &ir::Context,
+    source_info_table: &SourceInfoTable,
+    adl_to_posids_to_linenums: &HashMap<Adl, HashMap<u32, u32>>,
+    file_lines_map: &HashMap<String, Vec<String>>,
+    file: OutputFile,
+) -> CalyxResult<()> {
+    let main_comp = ctx.entrypoint();
+
+    let mut component_pos_ids: HashMap<Id, ComponentPosIds> = HashMap::new();
+    let mut component_info: HashSet<ComponentInfo> = HashSet::new();
+
+    match adl_to_posids_to_linenums.get(&Adl::Py) {
+        Some(py_posid_map) => {
+            let py_posids: HashSet<u32> =
+                py_posid_map.keys().cloned().collect();
+            gen_component_info(
+                &ctx,
+                main_comp,
+                &py_posids,
+                &mut component_pos_ids,
+            )?;
+
+            resolve(
+                source_info_table,
+                &component_pos_ids,
+                &mut component_info,
+                &file_lines_map,
+            )?;
+            write_json(component_info.clone(), file)?;
+        }
+        None => {
+            println!("Python-level metadata not given!");
+        }
     }
 
     Ok(())
@@ -550,38 +596,29 @@ fn main() -> CalyxResult<()> {
 
     let ctx: ir::Context = ir::from_ast::ast_to_ir(ws)?;
 
-    // let main_comp = ctx.entrypoint();
-
-    // let mut component_pos_ids: HashMap<Id, ComponentPosIds> = HashMap::new();
-    // let mut component_info: HashSet<ComponentInfo> = HashSet::new();
-    // gen_component_info(&ctx, main_comp, &mut component_pos_ids)?;
+    // FIXME: should provide argument(s) about what ADLs to look out for, if any
 
     match &ctx.source_info_table {
         Some(source_info_table) => {
             let adl_to_posids_to_linenums =
                 create_lang_to_posid_map(source_info_table)?;
+
             let file_lines_map = create_file_map(source_info_table);
-            let mut component_to_calyx_control_info = HashMap::new();
-            gen_control_info(
+
+            calyx_ctrl_wrapper(
                 &ctx,
                 &adl_to_posids_to_linenums,
-                &mut component_to_calyx_control_info,
+                p.control_output,
             )?;
 
-            let mut file = p.output;
-            serde_json::to_writer_pretty(
-                file.get_write(),
-                &component_to_calyx_control_info,
+            adl_wrapper(
+                &ctx,
+                &source_info_table,
+                &adl_to_posids_to_linenums,
+                &file_lines_map,
+                p.output,
             )?;
 
-            // resolve_calyx_files(source_info_table, &file_lines_map)?;
-            // resolve(
-            //     source_info_table,
-            //     &component_pos_ids,
-            //     &mut component_info,
-            //     &file_lines_map,
-            // )?;
-            // write_json(component_info.clone(), p.output)?;
             Ok(())
         }
         None => panic!("No fileinfo table to read from!"),
