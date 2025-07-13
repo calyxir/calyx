@@ -1,6 +1,12 @@
-# The *original* axi generator which implement a read-compute-write sequence
+# NOTE: The `dynamic_axi_generator`, which wraps `dyn` memories, is much more up-to-date
+# than this original axi generator which implement a read-compute-write sequence
 # to get data in and out of the computational kernel.
-# A `dynamic_axi_generator` also exists
+
+# A partial list of things to update to get this working:
+# 1. The cocotb AXI testbench expects the clk signal to be called `ap_clk`
+# 2. The cocotb AXI testbench expects toplevel wires to start with a prefix of `m_axi_`
+# 3. To interface correctly with Xilinx/XRT, we need to add subordinate axi controller logic from add_control_subordinate.py
+
 
 from calyx.builder import (
     Builder,
@@ -461,6 +467,10 @@ def add_main_comp(prog, mems):
     )
     # Naming the clock signal `ap_clk` ensures Xilinx tool compatability
     wrapper_comp.input("ap_clk", 1, ["clk"])
+
+    # TODO: To get these ports to interface with XRT and our current xml_generator.py we need to add a
+    # `prefixed_mem_name = f"m_axi_{mem[name_key]}"`
+    # and replace most (but not all) usages of {mem_name} with `prefixed_mem_name`.
 
     for mem in mems:
         mem_name = mem[name_key]

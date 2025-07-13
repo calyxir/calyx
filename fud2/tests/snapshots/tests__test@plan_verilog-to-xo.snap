@@ -1,6 +1,6 @@
 ---
 source: fud2/tests/tests.rs
-description: "emit plan: xo"
+description: "emit plan: verilog-to-xo"
 ---
 build-tool = fud2
 rule get-rsrc
@@ -37,13 +37,8 @@ xml-generator = $calyx-base/yxi/xml/xml_generator.py
 rule gen-kernel-xml
   command = $python $xml-generator $in > $out
 
-build main.sv: calyx /input.ext
-  backend = verilog
-  args = --synthesis -p external
-build toplevel.v: calyx /input.ext
-  backend = xilinx
-build kernel.xml: calyx /input.ext
-  backend = xilinx-xml
-build /output.ext: gen-xo | main.sv toplevel.v kernel.xml gen_xo.tcl get-ports.py
+build kernel.xml: gen-kernel-xml /test/yxi/file | $xml-generator
+build input.ext: copy /input.ext
+build /output.ext: gen-xo | input.ext /test/yxi/file gen_xo.tcl get-ports.py kernel.xml
 
 default /output.ext
