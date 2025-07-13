@@ -1,0 +1,102 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    a_reg = std_reg(32);
+    b_reg = std_reg(32);
+    c_reg = std_reg(32);
+    d_reg = std_reg(32);
+    e_reg = std_reg(32);
+    f_reg = std_reg(32);
+    g_reg = std_reg(32);
+  }
+  wires {
+    group a {
+      a_reg.write_en = 1'd1;
+      a_reg.in = 32'd4;
+      a[done] = a_reg.done;
+    }
+    group b {
+      b_reg.write_en = 1'd1;
+      b_reg.in = 32'd4;
+      b[done] = b_reg.done;
+    }
+    group c {
+      c_reg.write_en = 1'd1;
+      c_reg.in = 32'd4;
+      c[done] = c_reg.done;
+    }
+    group d {
+      d_reg.write_en = 1'd1;
+      d_reg.in = 32'd4;
+      d[done] = d_reg.done;
+    }
+    group e {
+      e_reg.write_en = 1'd1;
+      e_reg.in = 32'd4;
+      e[done] = e_reg.done;
+    }
+    group f {
+      f_reg.write_en = 1'd1;
+      f_reg.in = 32'd4;
+      f[done] = f_reg.done;
+    }
+    group g {
+      g_reg.write_en = 1'd1;
+      g_reg.in = 32'd4;
+      g[done] = g_reg.done;
+    }
+    group gUG {
+      g_reg.write_en = 1'd1;
+      g_reg.in = 32'd4;
+      gUG[done] = g_reg.done;
+    }
+    group aUG {
+      a_reg.write_en = 1'd1;
+      a_reg.in = 32'd4;
+      aUG[done] = a_reg.done;
+    }
+    group bUG {
+      b_reg.write_en = 1'd1;
+      b_reg.in = 32'd4;
+      bUG[done] = b_reg.done;
+    }
+    group cUG {
+      c_reg.write_en = 1'd1;
+      c_reg.in = 32'd4;
+      cUG[done] = c_reg.done;
+    }
+    group dUG {
+      d_reg.write_en = 1'd1;
+      d_reg.in = 32'd4;
+      dUG[done] = d_reg.done;
+    }
+    group eUG {
+      e_reg.write_en = 1'd1;
+      e_reg.in = 32'd4;
+      eUG[done] = e_reg.done;
+    }
+    group fUG {
+      f_reg.write_en = 1'd1;
+      f_reg.in = 32'd4;
+      fUG[done] = f_reg.done;
+    }
+  }
+  control {
+    par {
+      seq {
+        gUG;
+        par {
+          aUG;
+          bUG;
+        }
+        cUG;
+      }
+      par {
+        dUG;
+        eUG;
+        fUG;
+      }
+    }
+  }
+}

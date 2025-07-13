@@ -1,0 +1,125 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    a_reg = std_reg(32);
+    b_reg = std_reg(32);
+    c_reg = std_reg(32);
+    d_reg = std_reg(32);
+    e_reg = std_reg(32);
+    f_reg = std_reg(32);
+    g_reg = std_reg(32);
+    lt = std_lt(32);
+  }
+  wires {
+    group a {
+      a_reg.write_en = 1'd1;
+      a_reg.in = 32'd4;
+      a[done] = a_reg.done;
+    }
+    group b {
+      b_reg.write_en = 1'd1;
+      b_reg.in = 32'd4;
+      b[done] = b_reg.done;
+    }
+    group c {
+      c_reg.write_en = 1'd1;
+      c_reg.in = 32'd4;
+      c[done] = c_reg.done;
+    }
+    group d {
+      d_reg.write_en = 1'd1;
+      d_reg.in = 32'd4;
+      d[done] = d_reg.done;
+    }
+    group e {
+      e_reg.write_en = 1'd1;
+      e_reg.in = 32'd4;
+      e[done] = e_reg.done;
+    }
+    group f {
+      f_reg.write_en = 1'd1;
+      f_reg.in = 32'd4;
+      f[done] = f_reg.done;
+    }
+    group aUG {
+      a_reg.write_en = 1'd1;
+      a_reg.in = 32'd4;
+      aUG[done] = a_reg.done;
+    }
+    group bUG {
+      b_reg.write_en = 1'd1;
+      b_reg.in = 32'd4;
+      bUG[done] = b_reg.done;
+    }
+    group cUG {
+      c_reg.write_en = 1'd1;
+      c_reg.in = 32'd4;
+      cUG[done] = c_reg.done;
+    }
+    group dUG {
+      d_reg.write_en = 1'd1;
+      d_reg.in = 32'd4;
+      dUG[done] = d_reg.done;
+    }
+    group dUG0 {
+      d_reg.write_en = 1'd1;
+      d_reg.in = 32'd4;
+      dUG0[done] = d_reg.done;
+    }
+    group eUG {
+      e_reg.write_en = 1'd1;
+      e_reg.in = 32'd4;
+      eUG[done] = e_reg.done;
+    }
+    comb group cond {
+      lt.left = a_reg.out;
+      lt.right = 32'd8;
+    }
+  }
+  control {
+    seq {
+      aUG;
+      par {
+        seq {
+          bUG;
+          cUG;
+        }
+        if lt.out with cond {
+          dUG;
+        } else {
+          par {
+            dUG0;
+            eUG;
+          }
+        }
+      }
+    }
+  }
+}
+---STDERR---
+{
+  "main": {
+    "enables": {
+      "aUG": "main.-0",
+      "bUG": "main.-1-0-0",
+      "cUG": "main.-1-0-1",
+      "dUG": "main.-1-1-t",
+      "dUG0": "main.-1-1-f-0",
+      "eUG": "main.-1-1-f-1"
+    },
+    "pars": [
+      "main.-1-",
+      "main.-1-1-f-"
+    ]
+  }
+}{
+  "main": {
+    "aUG": 0,
+    "bUG": 1,
+    "cUG": 1,
+    "dUG": 2,
+    "dUG0": 3,
+    "eUG": 4
+  }
+}

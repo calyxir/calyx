@@ -503,26 +503,35 @@ mod tests {
     }
 
     use crate::flatten::{
-        flat_ir::{base::GlobalCellIdx, prelude::GlobalPortIdx},
-        primitives::stateful::{CombMemD1, SeqMemD1},
+        flat_ir::{indexes::GlobalCellIdx, prelude::GlobalPortIdx},
+        primitives::{
+            Primitive,
+            stateful::{CombMemD1, MemConfigInfo, SeqMemD1},
+        },
+        structures::environment::MemoryMap,
     };
     use cider_idx::IndexRef;
 
     proptest! {
         #[test]
         fn comb_roundtrip(dump in arb_data_dump()) {
+            let mut state_map = MemoryMap::new();
             for mem in &dump.header.memories {
-                let memory_prim = CombMemD1::new_with_init(GlobalPortIdx::new(0), GlobalCellIdx::new(0), mem.width(), false, mem.size(), dump.get_data(&mem.name).unwrap(), &mut None);
-                let data = memory_prim.dump_data();
+                let memory_config = MemConfigInfo::new(GlobalPortIdx::new(0), GlobalCellIdx::new(0), mem.width(), false, mem.size());
+                let memory_prim = CombMemD1::new_with_init(memory_config, dump.get_data(&mem.name).unwrap(), &mut None, &mut state_map);
+                let data = memory_prim.serializer().unwrap().dump_data(&state_map);
                 prop_assert_eq!(dump.get_data(&mem.name).unwrap(), data);
             }
         }
 
         #[test]
         fn seq_roundtrip(dump in arb_data_dump()) {
+            let mut state_map = MemoryMap::new();
+
             for mem in &dump.header.memories {
-                let memory_prim = SeqMemD1::new_with_init(GlobalPortIdx::new(0), GlobalCellIdx::new(0), mem.width(), false, mem.size(), dump.get_data(&mem.name).unwrap(), &mut None);
-                let data = memory_prim.dump_data();
+                let memory_config = MemConfigInfo::new(GlobalPortIdx::new(0), GlobalCellIdx::new(0), mem.width(), false, mem.size());
+                let memory_prim = SeqMemD1::new_with_init(memory_config, dump.get_data(&mem.name).unwrap(), &mut None, &mut state_map);
+                let data = memory_prim.serializer().unwrap().dump_data(&state_map);
                 prop_assert_eq!(dump.get_data(&mem.name).unwrap(), data);
             }
         }

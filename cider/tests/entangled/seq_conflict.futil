@@ -1,0 +1,55 @@
+// --entangle 'a,c' --entangle 'b,c,d'
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+
+component main() -> () {
+  cells {
+    @external a = seq_mem_d1(32, 4, 32);
+    @external b = seq_mem_d1(32, 4, 32);
+    @external c = seq_mem_d1(32, 4, 32);
+    @external d = seq_mem_d1(32, 4, 32);
+  }
+
+  wires {
+    group wr_a {
+      a.addr0 = 32'd0;
+      a.write_en = 1'b1;
+      a.content_en = 1'd1;
+      a.write_data = 32'd1;
+      wr_a[done] = a.done;
+    }
+
+    group wr_b {
+      b.addr0 = 32'd1;
+      b.write_en = 1'b1;
+      b.content_en = 1'd1;
+      b.write_data = 32'd2;
+      wr_b[done] = b.done;
+    }
+
+    group wr_c {
+      c.addr0 = 32'd2;
+      c.write_en = 1'b1;
+      c.content_en = 1'd1;
+      c.write_data = 32'd3;
+      wr_c[done] = c.done;
+    }
+
+    group wr_d {
+      d.addr0 = 32'd0;
+      d.write_en = 1'b1;
+      d.content_en = 1'd1;
+      d.write_data = 32'd4;
+      wr_d[done] = d.done;
+    }
+  }
+
+  control {
+    par {
+      wr_a;
+      wr_b;
+      wr_c;
+      wr_d;
+    }
+  }
+}

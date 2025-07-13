@@ -1,7 +1,7 @@
 use crate::flatten::{
     flat_ir::{
-        base::ComponentIdx,
         cell_prototype::CellPrototype,
+        indexes::ComponentIdx,
         prelude::{
             CellRef, GlobalCellIdx, GlobalPortIdx, GlobalRefCellIdx, PortRef,
         },

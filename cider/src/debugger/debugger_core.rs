@@ -15,7 +15,7 @@ use crate::{
     errors::{BoxedCiderError, CiderError, CiderResult},
     flatten::{
         flat_ir::{
-            base::{GlobalCellIdx, PortValue},
+            indexes::{GlobalCellIdx, PortValue},
             prelude::{Control, ControlIdx, GroupIdx},
         },
         setup_simulation_with_metadata,
