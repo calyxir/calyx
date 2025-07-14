@@ -21,7 +21,7 @@ impl<T> Deferred<T>
 where
     T: Copy,
 {
-    fn unwrap(&self) -> T {
+    pub fn unwrap(&self) -> T {
         match self {
             Self::Pending => panic!(),
             Self::Computed(v) => *v,
@@ -651,13 +651,13 @@ impl StatePossibility {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum RepeatNodeAnnotation {
     Offload,
     Unroll,
     Inline,
 }
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum LockStepAnnotation {
     False,
     True,
