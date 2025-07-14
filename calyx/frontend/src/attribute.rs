@@ -161,13 +161,10 @@ pub enum InternalAttr {
     START,
     END,
     SCHEDULE_ID,
-
-    // fsm analysis
     UNROLL,
     INLINE,
     OFFLOAD,
-    ACYCLIC,
-    NUM_STATES,
+    LOCKSTEP,
 }
 impl From<InternalAttr> for Attribute {
     fn from(attr: InternalAttr) -> Self {

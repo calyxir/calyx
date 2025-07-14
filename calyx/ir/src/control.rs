@@ -591,6 +591,8 @@ impl Control {
         })
     }
 
+    /// Given abstract control node, add attribute `attr` with value `attr_value`
+    /// to the attributes of that node
     pub fn insert_attribute<A>(&mut self, attr: A, attr_value: u64)
     where
         A: Into<Attribute>,
