@@ -15,6 +15,7 @@ use crate::passes::{
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
     HoleInliner, Metadata, ParToSeq, RegisterUnsharing,
+    StaticDynamicFSMAllocation,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -48,6 +49,7 @@ impl PassManager {
         pm.register_pass::<StaticInliner>()?;
         pm.register_pass::<StaticFSMAllocation>()?;
         pm.register_pass::<StaticRepeatFSMAllocation>()?;
+        pm.register_pass::<StaticDynamicFSMAllocation>()?;
         pm.register_pass::<StaticFSMOpts>()?;
         pm.register_pass::<CompileStatic>()?;
         pm.register_pass::<CompileInvoke>()?;

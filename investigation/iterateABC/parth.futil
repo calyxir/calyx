@@ -1,0 +1,199 @@
+extern "/home/cynyu_s/.calyx/primitives/memories/comb.sv" {
+  primitive comb_mem_d1[WIDTH, SIZE, IDX_SIZE](@read_together addr0: IDX_SIZE, @write_together @data write_data: WIDTH, @write_together @interval @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@read_together read_data: WIDTH, @done done: 1);
+  primitive comb_mem_d2[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE](@read_together @write_together(2) addr0: D0_IDX_SIZE, @read_together @write_together(2) addr1: D1_IDX_SIZE, @write_together @data write_data: WIDTH, @write_together @interval @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@read_together read_data: WIDTH, @done done: 1);
+  primitive comb_mem_d3[WIDTH, D0_SIZE, D1_SIZE, D2_SIZE, D0_IDX_SIZE, D1_IDX_SIZE, D2_IDX_SIZE](@read_together @write_together(2) addr0: D0_IDX_SIZE, @read_together @write_together(2) addr1: D1_IDX_SIZE, @read_together @write_together(2) addr2: D2_IDX_SIZE, @write_together @data write_data: WIDTH, @write_together @interval @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@read_together read_data: WIDTH, @done done: 1);
+  primitive comb_mem_d4[WIDTH, D0_SIZE, D1_SIZE, D2_SIZE, D3_SIZE, D0_IDX_SIZE, D1_IDX_SIZE, D2_IDX_SIZE, D3_IDX_SIZE](@read_together @write_together(2) addr0: D0_IDX_SIZE, @read_together @write_together(2) addr1: D1_IDX_SIZE, @read_together @write_together(2) addr2: D2_IDX_SIZE, @read_together @write_together(2) addr3: D3_IDX_SIZE, @write_together @data write_data: WIDTH, @write_together @interval @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@read_together read_data: WIDTH, @done done: 1);
+}
+extern "/home/cynyu_s/.calyx/primitives/core.sv" {
+  comb primitive std_slice<"share"=1>[IN_WIDTH, OUT_WIDTH](@data in: IN_WIDTH) -> (out: OUT_WIDTH);
+  comb primitive std_pad<"share"=1>[IN_WIDTH, OUT_WIDTH](@data in: IN_WIDTH) -> (out: OUT_WIDTH);
+  comb primitive std_cat<"share"=1>[LEFT_WIDTH, RIGHT_WIDTH, OUT_WIDTH](@data left: LEFT_WIDTH, @data right: RIGHT_WIDTH) -> (out: OUT_WIDTH);
+  comb primitive std_bit_slice<"share"=1>[IN_WIDTH, START_IDX, END_IDX, OUT_WIDTH](@data in: IN_WIDTH) -> (out: OUT_WIDTH);
+  comb primitive std_not<"share"=1>[WIDTH](@data in: WIDTH) -> (out: WIDTH);
+  comb primitive std_and<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_or<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_xor<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_sub<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_gt<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_lt<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_eq<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_neq<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_ge<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_le<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_rsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_mux<"share"=1>[WIDTH](@data cond: 1, @data tru: WIDTH, @data fal: WIDTH) -> (out: WIDTH);
+  primitive std_skid_buffer<"share"=1>[WIDTH](@data in: WIDTH, i_valid: 1, i_ready: 1, @clk clk: 1, @reset reset: 1) -> (@stable out: WIDTH, o_valid: 1, o_ready: 1);
+  primitive std_bypass_reg<"share"=1>[WIDTH](@data in: WIDTH, @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@stable out: WIDTH, @done done: 1);
+}
+primitive undef<"share"=1>[WIDTH]() -> (out: WIDTH) {
+  assign out = 'x;
+}
+comb primitive std_const<"share"=1>[WIDTH, VALUE]() -> (out: WIDTH) {
+  assign out = VALUE;
+}
+comb primitive std_wire<"share"=1>[WIDTH](@data in: WIDTH) -> (out: WIDTH) {
+  assign out = in;
+}
+comb primitive std_add<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH) {
+  assign out = left + right;
+}
+comb primitive std_lsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH) {
+  assign out = left << right;
+}
+primitive std_reg<"state_share"=1>[WIDTH](@write_together @data in: WIDTH, @write_together @interval @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@stable out: WIDTH, @done done: 1) {
+  always_ff @(posedge clk) begin
+    if (reset) begin
+       out <= 0;
+       done <= 0;
+    end else if (write_en) begin
+      out <= in;
+      done <= 1'd1;
+    end else done <= 1'd0;
+  end
+}
+primitive init_one_reg<"state_share"=1>[WIDTH](@write_together @data in: WIDTH, @write_together @interval @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@stable out: WIDTH, @done done: 1) {
+  always_ff @(posedge clk) begin
+    if (reset) begin
+       out <= 1;
+       done <= 0;
+    end else if (write_en) begin
+      out <= in;
+      done <= 1'd1;
+    end else done <= 1'd0;
+  end
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @external @data mem = comb_mem_d1(32, 1, 1);
+    @data val = std_reg(32);
+    @data add = std_add(32);
+    @data counter = std_reg(32);
+    @data add2 = std_add(32);
+    @control lt = std_lt(32);
+    @generated comb_reg = std_reg(1);
+    @generated comb_reg0 = std_reg(32);
+    @generated comb_reg1 = std_reg(32);
+    @generated fsm_0 = std_wire(1);
+    @generated fsm_1 = std_wire(1);
+    @generated fsm_2 = std_wire(1);
+    @generated fsm0_0 = std_wire(1);
+    @generated fsm1_0 = std_wire(1);
+    @generated @fsm_control looped_once = std_reg(1);
+    @generated group_counter = std_reg(2);
+    @generated const2_2_ = std_wire(2);
+    @generated adder = std_add(2);
+    @generated fsm2_0 = std_wire(1);
+    @generated fsm2_1 = std_wire(1);
+    @generated @fsm_control looped_once0 = std_reg(1);
+  }
+  wires {
+    group invoke0<"promotable"=1> {
+      counter.write_en = 1'd1;
+      counter.in = 32'd0;
+      invoke0[done] = counter.done;
+    }
+    fsm fsm {
+      0 : {
+        fsm_0.in = fsm[start] ? 1'd1;
+      } => {
+        fsm[start] -> 1,
+        default -> 0,
+      },
+      1 : {
+        fsm_1.in = 1'd1;
+      } => 2,
+      2 : {
+        fsm_2.in = 1'd1;
+      } => 0,
+    }
+    fsm fsm0 {
+      0 : {
+        fsm0_0.in = fsm0[start] ? 1'd1;
+      } => {
+        fsm0[start] -> 0,
+        default -> 0,
+      },
+    }
+    fsm fsm1 {
+      0 : {
+        fsm1_0.in = fsm1[start] ? 1'd1;
+        looped_once.in = fsm1[start] ? 1'd1;
+        looped_once.write_en = 1'd1;
+        fsm1[done] = looped_once.out;
+      } => {
+        fsm1[start] -> 0,
+        default -> 0,
+      },
+    }
+    fsm fsm2 {
+      0 : {
+        fsm2_0.in = fsm2[start] ? 1'd1;
+        looped_once0.in = fsm2[start] & group_counter.out == const2_2_.out ? 1'd1;
+        looped_once0.write_en = 1'd1;
+        fsm2[done] = looped_once0.out;
+      } => {
+        group_counter.out == const2_2_.out & fsm2[start] -> 1,
+        default -> 0,
+      },
+      1 : {
+        fsm2_1.in = 1'd1;
+      } => 0,
+    }
+    fsm fsm3 {
+      0 : {} => {
+        fsm3[start] -> 1,
+        default -> 0,
+      },
+      1 : {
+        invoke0[go] = !invoke0[done] ? 1'd1;
+      } => {
+        invoke0[done] -> 2,
+        default -> 1,
+      },
+      2 : {
+        fsm1[start] = !fsm1[done] ? 1'd1;
+      } => {
+        fsm1[done] & comb_reg.out -> 3,
+        fsm1[done] & !comb_reg.out -> 4,
+        default -> 2,
+      },
+      3 : {
+        fsm2[start] = !fsm2[done] ? 1'd1;
+      } => {
+        fsm2[done] & comb_reg.out -> 3,
+        fsm2[done] & !comb_reg.out -> 4,
+        default -> 3,
+      },
+      4 : {
+        fsm3[done] = 1'd1;
+      } => 0,
+    }
+    fsm[start] = fsm2_0.out ? 1'd1;
+    adder.left = fsm2_0.out ? group_counter.out;
+    adder.right = fsm2_0.out ? 2'd1;
+    add2.left = fsm0_0.out ? counter.out;
+    add2.right = fsm0_0.out ? 32'd1;
+    comb_reg.write_en = fsm1_0.out | fsm2_1.out ? 1'd1;
+    comb_reg.in = fsm1_0.out | fsm2_1.out ? lt.out;
+    const2_2_.in = fsm2_0.out ? 2'd2;
+    val.write_en = fsm_1.out | fsm_0.out ? 1'd1;
+    val.in = fsm_1.out ? add.out;
+    val.in = fsm_0.out ? mem.read_data;
+    counter.write_en = fsm0_0.out ? 1'd1;
+    counter.in = fsm0_0.out ? add2.out;
+    fsm0[start] = group_counter.out == 2'd0 & fsm2_0.out ? 1'd1;
+    group_counter.write_en = fsm2_0.out ? 1'd1;
+    group_counter.in = group_counter.out != const2_2_.out & fsm2_0.out ? adder.out;
+    group_counter.in = group_counter.out == const2_2_.out & fsm2_0.out ? 2'd0;
+    add.left = fsm_1.out ? val.out;
+    add.right = fsm_1.out ? 32'd4;
+    mem.write_en = fsm_2.out ? 1'd1;
+    mem.addr0 = fsm_2.out | fsm_0.out ? 1'd0;
+    mem.write_data = fsm_2.out ? val.out;
+    lt.left = fsm1_0.out | fsm2_1.out ? counter.out;
+    lt.right = fsm1_0.out | fsm2_1.out ? 32'd8;
+  }
+  control {
+    fsm3;
+  }
+}

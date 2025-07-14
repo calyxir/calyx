@@ -1,0 +1,31 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main(@go go: 1) -> (@done done: 1) {
+  // ANCHOR: cells
+  cells {
+    @external(1) mem = comb_mem_d1(32, 1, 1);
+  }
+  // ANCHOR_END: cells
+  // ANCHOR: wires
+  wires {
+    fsm fsm0 {
+      0: {
+        mem.addr0 = 1'b0;
+        mem.write_data = 32'd42;
+        mem.write_en = 1'b1;
+        fsm0[done] = mem.done;
+      } => 1,
+      1: {} => {
+        fsm0[start] -> 1,
+        default -> 0,
+        },
+    }
+  }
+  // ANCHOR_END: wires
+  // ANCHOR: control
+  control {
+    fsm0;
+  }
+  // ANCHOR_END: control
+}

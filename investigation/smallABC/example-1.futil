@@ -1,0 +1,43 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+  cells {
+    @external(1) mem = comb_mem_d1(32, 1, 1);
+
+    // ANCHOR: new_cells
+    counter = std_reg(32);
+    add2 = std_add(32);
+    lt = std_lt(32);
+    // ANCHOR_END: new_cells
+  }
+
+  wires {
+    // ANCHOR: incr
+    group incr {
+      add2.left = counter.out;
+      add2.right = 32'd1;
+      counter.in = add2.out;
+      counter.write_en = 1'b1;
+      incr[done] = counter.done;
+    }
+    // ANCHOR_END: incr
+
+    // ANCHOR: cond
+    comb group cond {
+      lt.left = counter.out;
+      lt.right = 32'd8;
+    }
+    // ANCHOR_END: cond
+  }
+
+  // ANCHOR: control
+  control {
+    seq {
+      while lt.out with cond { // fsm3 state 3
+          incr; // fsm0
+      }
+    }
+  }
+  // ANCHOR_END: control
+}
