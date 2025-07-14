@@ -1,5 +1,8 @@
 use crate::{
-    analysis::{LockStepAnnotation, RepeatNodeAnnotation, StatePossibility},
+    analysis::{
+        LockStepAnnotation, RepeatNodeAnnotation, StatePossibility,
+        WhileNodeAnnotation,
+    },
     traversal::{Action, ConstructVisitor, Named, VisResult, Visitor},
 };
 use calyx_ir::{self as ir};
@@ -74,10 +77,8 @@ impl FSMAnnotator {
         control: &mut ir::Control,
     ) {
         match abstract_control {
-            StatePossibility::Empty { .. }
-            | StatePossibility::HardwareEnable { .. }
-            | StatePossibility::StaticHardwareEnable { .. } => (),
-            StatePossibility::StaticSeq { stmts, .. } => stmts
+            StatePossibility::StaticSeq { stmts, .. }
+            | StatePossibility::DynamicSeq { stmts, .. } => stmts
                 .iter()
                 .for_each(|stmt| Self::project_onto_control(stmt, control)),
             StatePossibility::StaticPar {
@@ -115,6 +116,12 @@ impl FSMAnnotator {
                 body,
                 annotation,
                 ..
+            }
+            | StatePossibility::DynamicRepeat {
+                id,
+                body,
+                annotation,
+                ..
             } => {
                 let body_attr =
                     ir::Attribute::Internal(match annotation.unwrap() {
@@ -130,6 +137,33 @@ impl FSMAnnotator {
                     });
                 Self::update_node_with_id(control, *id, (body_attr, 1));
                 Self::project_onto_control(body, control);
+            }
+            StatePossibility::DynamicWhile {
+                id,
+                body,
+                annotation,
+                ..
+            } => {
+                let body_attr =
+                    ir::Attribute::Internal(match annotation.unwrap() {
+                        WhileNodeAnnotation::Inline => ir::InternalAttr::INLINE,
+                        WhileNodeAnnotation::Offload => {
+                            ir::InternalAttr::OFFLOAD
+                        }
+                    });
+                Self::update_node_with_id(control, *id, (body_attr, 1));
+                Self::project_onto_control(body, control);
+            }
+            StatePossibility::DynamicPar { threads, .. } => threads
+                .iter()
+                .for_each(|thread| Self::project_onto_control(thread, control)),
+            StatePossibility::DynamicIf {
+                true_thread,
+                false_thread,
+                ..
+            } => {
+                Self::project_onto_control(true_thread, control);
+                Self::project_onto_control(false_thread, control);
             }
 
             _ => (),
@@ -240,23 +274,13 @@ impl Visitor for FSMAnnotator {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        //
         let mut ctrl_ref = comp.control.borrow_mut();
+
         let (mut st_poss, _) =
             StatePossibility::build_from_control(&mut ctrl_ref, 0);
-        Self::project_onto_control(&st_poss, &mut ctrl_ref);
-
-        println!("BEFORE");
-
-        println!("{:?}", st_poss);
-
-        println!();
-        println!("AFTER");
 
         st_poss.post_order_analysis();
-
-        println!("{:?}", st_poss);
-        println!();
+        Self::project_onto_control(&st_poss, &mut ctrl_ref);
 
         Ok(Action::Continue)
     }
