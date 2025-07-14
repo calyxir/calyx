@@ -669,7 +669,7 @@ impl From<bool> for LockStepAnnotation {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum WhileNodeAnnotation {
     Inline,
     Offload,
