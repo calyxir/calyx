@@ -7,7 +7,14 @@ use itertools::Itertools;
 
 pub struct StaticDynamicFSMAllocation {
     non_promoted_static_component: bool,
+    // phase: CompilationPhase,
 }
+
+// #[derive(Debug, Clone, Copy)]
+// enum CompilationPhase {
+//     RepeatFSM, // Handle repeat, if, par
+//     StaticFSM, // Handle final FSM construction
+// }
 
 impl Named for StaticDynamicFSMAllocation {
     fn name() -> &'static str {
@@ -619,6 +626,7 @@ impl Visitor for StaticDynamicFSMAllocation {
 
         Ok(Action::static_change(enable))
     }
+
     fn start_static_control(
         &mut self,
         s: &mut calyx_ir::StaticControl,
@@ -626,28 +634,37 @@ impl Visitor for StaticDynamicFSMAllocation {
         sigs: &calyx_ir::LibrarySignatures,
         _comps: &[calyx_ir::Component],
     ) -> crate::traversal::VisResult {
-        self.non_promoted_static_component = comp.is_static()
-            && !(comp
-                .attributes
-                .has(ir::Attribute::Bool(ir::BoolAttr::Promoted)));
-        let mut builder = ir::Builder::new(comp, sigs);
+        if self.only_contains_enables_and_seq(s) {
+            self.non_promoted_static_component = comp.is_static()
+                && !(comp
+                    .attributes
+                    .has(ir::Attribute::Bool(ir::BoolAttr::Promoted)));
+            let mut builder = ir::Builder::new(comp, sigs);
 
-        let mut ssch = StaticSchedule::from(&mut builder);
+            let mut ssch = StaticSchedule::from(&mut builder);
 
-        Ok(Action::change(ir::Control::fsm_enable(
-            ssch.construct_fsm(s, self.non_promoted_static_component),
-        )))
+            Ok(Action::change(ir::Control::fsm_enable(
+                ssch.construct_fsm(s, self.non_promoted_static_component),
+            )))
+        } else {
+            Ok(Action::Continue)
+        }
     }
-    fn finish(
+    fn finish_static_control(
         &mut self,
+        s: &mut calyx_ir::StaticControl,
         _comp: &mut ir::Component,
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> crate::traversal::VisResult {
-        // If the component is static, get rid of all control components;
-        // all assignments should already exist in the `wires` section
-        if self.non_promoted_static_component {
-            Ok(Action::Change(Box::new(ir::Control::empty())))
+        if self.only_contains_enables_and_seq(s) {
+            // If the component is static, get rid of all control components;
+            // all assignments should already exist in the `wires` section
+            if self.non_promoted_static_component {
+                Ok(Action::Change(Box::new(ir::Control::empty())))
+            } else {
+                Ok(Action::Continue)
+            }
         } else {
             Ok(Action::Continue)
         }
@@ -662,5 +679,24 @@ impl ConstructVisitor for StaticDynamicFSMAllocation {
     }
     fn clear_data(&mut self) {
         self.non_promoted_static_component = false
+    }
+}
+
+impl StaticDynamicFSMAllocation {
+    /// helper to check which phase in the compilation we are in
+    /// the static-fsm-repeat-alloc pass gets rid of all if, repeat, par and invokes,
+    /// and the static-fsm-alloc pass expects that, so we need to check if the
+    fn only_contains_enables_and_seq(&self, scon: &ir::StaticControl) -> bool {
+        match scon {
+            ir::StaticControl::Empty(_) | ir::StaticControl::Enable(_) => true,
+            ir::StaticControl::Seq(sseq) => sseq
+                .stmts
+                .iter()
+                .all(|stmt| self.only_contains_enables_and_seq(stmt)),
+            ir::StaticControl::If(_)
+            | ir::StaticControl::Repeat(_)
+            | ir::StaticControl::Par(_)
+            | ir::StaticControl::Invoke(_) => false,
+        }
     }
 }

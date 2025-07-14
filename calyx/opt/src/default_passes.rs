@@ -139,12 +139,13 @@ impl PassManager {
                 StaticPromotion,
                 DeadGroupRemoval,
                 CollapseControl,
-                StaticRepeatFSMAllocation,
-                StaticFSMAllocation,
+                StaticDynamicFSMAllocation,
+                // StaticRepeatFSMAllocation,
+                // StaticFSMAllocation,
                 DeadGroupRemoval,
                 MergeAssign,
-                CompileRepeat,
-                TopDownCompileControl,
+                // CompileRepeat,
+                // TopDownCompileControl,
             ]
         );
 
