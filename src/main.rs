@@ -36,8 +36,8 @@ fn main() -> PassResult<()> {
 
     let pm = PassManager::default_passes()?;
 
-    // list all the avaliable pass options when pass-help subcommand is used
-    if let Some(sub) = opts.sub {
+    // handle pass-help and format
+    if let Some(ref sub) = opts.sub {
         match sub {
             cmdline::Subcommand::Help(cmdline::Help { name }) => {
                 match name {
@@ -52,6 +52,28 @@ fn main() -> PassResult<()> {
                 }
                 return Ok(());
             }
+            cmdline::Subcommand::Format(cmdline::Format { file }) => {
+                let mut ws = frontend::Workspace::construct(
+                    &Some(file.clone()),
+                    &opts.lib_path,
+                )?;
+                let imports = ws.original_imports.drain(..).collect_vec();
+                // Build the IR representation
+                let ctx = ir::from_ast::ast_to_ir(
+                    ws,
+                    ir::from_ast::AstConversionConfig {
+                        extend_signatures: false,
+                    },
+                )?;
+                let out = &mut opts.output.get_write();
+
+                // Print out the original imports for this file.
+                for import in imports {
+                    writeln!(out, "import \"{}\";", import)?;
+                }
+                ir::Printer::write_context(&ctx, true, out)?;
+                return Ok(());
+            }
         }
     }
 
@@ -61,7 +83,10 @@ fn main() -> PassResult<()> {
     let imports = ws.original_imports.drain(..).collect_vec();
 
     // Build the IR representation
-    let mut ctx = ir::from_ast::ast_to_ir(ws)?;
+    let mut ctx = ir::from_ast::ast_to_ir(
+        ws,
+        ir::from_ast::AstConversionConfig::default(),
+    )?;
     // Configuration for the backend
     ctx.bc = ir::BackendConf {
         synthesis_mode: opts.enable_synthesis,
