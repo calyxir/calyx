@@ -4,8 +4,8 @@ use crate::passes::{
     AddGuard, Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
     CompileInvoke, CompileRepeat, CompileStatic, ComponentInliner,
     ConstantPortProp, DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval,
-    DeadGroupRemoval, DefaultAssigns, Externalize, FSMAnnotator, GoInsertion,
-    GroupToInvoke, GroupToSeq, InferShare, LowerGuards, MergeAssign, Papercut,
+    DeadGroupRemoval, DefaultAssigns, Externalize, GoInsertion, GroupToInvoke,
+    GroupToSeq, InferShare, LowerGuards, MergeAssign, Papercut,
     ProfilerInstrumentation, RemoveIds, ResetInsertion, SimplifyStaticGuards,
     SimplifyWithControl, StaticFSMAllocation, StaticFSMOpts, StaticInference,
     StaticInliner, StaticPromotion, StaticRepeatFSMAllocation,
@@ -14,7 +14,7 @@ use crate::passes::{
 };
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
-    HoleInliner, Metadata, ParToSeq, RegisterUnsharing,
+    FSMAnnotator, HoleInliner, Metadata, ParToSeq, RegisterUnsharing,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
