@@ -1,6 +1,6 @@
 use crate::{
     analysis::{
-        LockStepAnnotation, RepeatNodeAnnotation, StatePossibility,
+        AcyclicAnnotation, AnnotatedControlNode, RepeatNodeAnnotation,
         WhileNodeAnnotation,
     },
     traversal::{Action, ConstructVisitor, Named, VisResult, Visitor},
@@ -21,14 +21,15 @@ impl Named for FSMAnnotator {
     }
 }
 impl ConstructVisitor for FSMAnnotator {
-    fn from(_ctx: &ir::Context) -> CalyxResult<Self> {
+    fn from(_: &ir::Context) -> CalyxResult<Self> {
         Ok(FSMAnnotator {})
     }
     fn clear_data(&mut self) {}
 }
 
 impl<'a> FSMAnnotator {
-    /// Small code re-use
+    /// Code abstraction: given an iterator over mutable references to
+    /// ir::Control nodes, apply `Self::update_node_with_id`.
     fn map_update_across<I>(
         mut iter: I,
         id: u64,
@@ -49,7 +50,8 @@ impl<'a> FSMAnnotator {
         }
     }
 
-    /// Small code re-use for static control
+    /// Code abstraction: given an iterator over mutable references to
+    /// ir::StaticControl nodes, apply `Self::update_static_node_with_id`.
     fn map_update_across_static<I>(
         mut iter: I,
         id: u64,
@@ -72,104 +74,8 @@ impl<'a> FSMAnnotator {
 }
 
 impl FSMAnnotator {
-    fn project_onto_control(
-        abstract_control: &StatePossibility,
-        control: &mut ir::Control,
-    ) {
-        match abstract_control {
-            StatePossibility::StaticSeq { stmts, .. }
-            | StatePossibility::DynamicSeq { stmts, .. } => stmts
-                .iter()
-                .for_each(|stmt| Self::project_onto_control(stmt, control)),
-            StatePossibility::StaticPar {
-                id,
-                threads,
-                lockstep,
-                ..
-            } => {
-                if matches!(lockstep.unwrap(), LockStepAnnotation::True) {
-                    let attr =
-                        ir::Attribute::Internal(ir::InternalAttr::LOCKSTEP);
-                    Self::update_node_with_id(control, *id, (attr, 1));
-                }
-                threads.iter().for_each(|thread| {
-                    Self::project_onto_control(thread, control)
-                })
-            }
-            StatePossibility::StaticIf {
-                id,
-                true_thread,
-                false_thread,
-                lockstep,
-                ..
-            } => {
-                if matches!(lockstep.unwrap(), LockStepAnnotation::True) {
-                    let attr =
-                        ir::Attribute::Internal(ir::InternalAttr::LOCKSTEP);
-                    Self::update_node_with_id(control, *id, (attr, 1));
-                }
-                Self::project_onto_control(true_thread, control);
-                Self::project_onto_control(false_thread, control);
-            }
-            StatePossibility::StaticRepeat {
-                id,
-                body,
-                annotation,
-                ..
-            }
-            | StatePossibility::DynamicRepeat {
-                id,
-                body,
-                annotation,
-                ..
-            } => {
-                let body_attr =
-                    ir::Attribute::Internal(match annotation.unwrap() {
-                        RepeatNodeAnnotation::Inline => {
-                            ir::InternalAttr::INLINE
-                        }
-                        RepeatNodeAnnotation::Offload => {
-                            ir::InternalAttr::OFFLOAD
-                        }
-                        RepeatNodeAnnotation::Unroll => {
-                            ir::InternalAttr::UNROLL
-                        }
-                    });
-                Self::update_node_with_id(control, *id, (body_attr, 1));
-                Self::project_onto_control(body, control);
-            }
-            StatePossibility::DynamicWhile {
-                id,
-                body,
-                annotation,
-                ..
-            } => {
-                let body_attr =
-                    ir::Attribute::Internal(match annotation.unwrap() {
-                        WhileNodeAnnotation::Inline => ir::InternalAttr::INLINE,
-                        WhileNodeAnnotation::Offload => {
-                            ir::InternalAttr::OFFLOAD
-                        }
-                    });
-                Self::update_node_with_id(control, *id, (body_attr, 1));
-                Self::project_onto_control(body, control);
-            }
-            StatePossibility::DynamicPar { threads, .. } => threads
-                .iter()
-                .for_each(|thread| Self::project_onto_control(thread, control)),
-            StatePossibility::DynamicIf {
-                true_thread,
-                false_thread,
-                ..
-            } => {
-                Self::project_onto_control(true_thread, control);
-                Self::project_onto_control(false_thread, control);
-            }
-
-            _ => (),
-        }
-    }
-
+    /// Given a mutable reference to an `ir::Control` tree, update a specifc node
+    /// (identified by `id`) with an attribute.
     fn update_node_with_id(
         ctrl: &mut ir::Control,
         id: u64,
@@ -222,6 +128,8 @@ impl FSMAnnotator {
         }
     }
 
+    /// Given a mutable reference to an `ir::StaticControl` tree, update a specifc
+    /// node (identified by `id`) with an attribute.
     fn update_static_node_with_id(
         sctrl: &mut ir::StaticControl,
         id: u64,
@@ -265,6 +173,106 @@ impl FSMAnnotator {
             },
         }
     }
+
+    /// Given a reference to the data structure on which analysis occurs,
+    /// translate these annotations into the Calyx IR data structure.
+    fn project_onto_control(
+        abstract_control: &AnnotatedControlNode,
+        control: &mut ir::Control,
+    ) {
+        match abstract_control {
+            AnnotatedControlNode::StaticSeq { stmts, .. }
+            | AnnotatedControlNode::DynamicSeq { stmts, .. } => stmts
+                .iter()
+                .for_each(|stmt| Self::project_onto_control(stmt, control)),
+            AnnotatedControlNode::StaticPar {
+                id,
+                threads,
+                acyclic,
+                ..
+            } => {
+                if matches!(acyclic.unwrap(), AcyclicAnnotation::True) {
+                    let attr =
+                        ir::Attribute::Internal(ir::InternalAttr::LOCKSTEP);
+                    Self::update_node_with_id(control, *id, (attr, 1));
+                }
+                threads.iter().for_each(|thread| {
+                    Self::project_onto_control(thread, control)
+                })
+            }
+            AnnotatedControlNode::StaticIf {
+                id,
+                true_thread,
+                false_thread,
+                acyclic,
+                ..
+            } => {
+                if matches!(acyclic.unwrap(), AcyclicAnnotation::True) {
+                    let attr =
+                        ir::Attribute::Internal(ir::InternalAttr::LOCKSTEP);
+                    Self::update_node_with_id(control, *id, (attr, 1));
+                }
+                Self::project_onto_control(true_thread, control);
+                Self::project_onto_control(false_thread, control);
+            }
+            AnnotatedControlNode::StaticRepeat {
+                id,
+                body,
+                annotation,
+                ..
+            }
+            | AnnotatedControlNode::DynamicRepeat {
+                id,
+                body,
+                annotation,
+                ..
+            } => {
+                let body_attr =
+                    ir::Attribute::Internal(match annotation.unwrap() {
+                        RepeatNodeAnnotation::Inline => {
+                            ir::InternalAttr::INLINE
+                        }
+                        RepeatNodeAnnotation::Offload => {
+                            ir::InternalAttr::OFFLOAD
+                        }
+                        RepeatNodeAnnotation::Unroll => {
+                            ir::InternalAttr::UNROLL
+                        }
+                    });
+                Self::update_node_with_id(control, *id, (body_attr, 1));
+                Self::project_onto_control(body, control);
+            }
+            AnnotatedControlNode::DynamicWhile {
+                id,
+                body,
+                annotation,
+                ..
+            } => {
+                let body_attr =
+                    ir::Attribute::Internal(match annotation.unwrap() {
+                        WhileNodeAnnotation::Inline => ir::InternalAttr::INLINE,
+                        WhileNodeAnnotation::Offload => {
+                            ir::InternalAttr::OFFLOAD
+                        }
+                    });
+                Self::update_node_with_id(control, *id, (body_attr, 1));
+                Self::project_onto_control(body, control);
+            }
+            AnnotatedControlNode::DynamicPar { threads, .. } => threads
+                .iter()
+                .for_each(|thread| Self::project_onto_control(thread, control)),
+            AnnotatedControlNode::DynamicIf {
+                true_thread,
+                false_thread,
+                ..
+            } => {
+                Self::project_onto_control(true_thread, control);
+                Self::project_onto_control(false_thread, control);
+            }
+
+            _ => (),
+        }
+    }
 }
 
 impl Visitor for FSMAnnotator {
@@ -274,13 +282,14 @@ impl Visitor for FSMAnnotator {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let mut ctrl_ref = comp.control.borrow_mut();
+        // Build the abstract data structure and analyze nodes at which
+        // the annotations should take place
+        let mut node: AnnotatedControlNode =
+            AnnotatedControlNode::from(&mut *comp.control.borrow_mut());
+        node.post_order_analysis();
 
-        let (mut st_poss, _) =
-            StatePossibility::build_from_control(&mut ctrl_ref, 0);
-
-        st_poss.post_order_analysis();
-        Self::project_onto_control(&st_poss, &mut ctrl_ref);
+        // translate these annotations onto ir::Control
+        Self::project_onto_control(&node, &mut comp.control.borrow_mut());
 
         Ok(Action::Continue)
     }

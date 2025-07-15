@@ -6,21 +6,17 @@ const NODE_ID: ir::Attribute =
     ir::Attribute::Internal(ir::InternalAttr::NODE_ID);
 
 /// A type to encode the fact that, at the point of translation from an
-/// `ir::Control` object to a `StatePossibility` object, the implementation and
+/// `ir::Control` object to a `AnnotatedControlNode` object, the implementation and
 /// specific decisions regarding FSM structure is unknown. Only at the point of
 /// traversal from leaf to root can we begin to decide the FSM structure (e.g.
 /// unrolled, inlined, offloaded bodies of repeat nodes). Equivalent to Option<T>.
 #[derive(Copy, Clone, Debug)]
-
 pub enum Deferred<T> {
     Pending,
     Computed(T),
 }
 
-impl<T> Deferred<T>
-where
-    T: Copy,
-{
+impl<T: Copy> Deferred<T> {
     pub fn unwrap(&self) -> T {
         match self {
             Self::Pending => panic!(),
@@ -41,8 +37,9 @@ impl<T> Deferred<T> {
     }
 }
 
+/// Encodes the Calyx control tree, along with important metadata.
 #[derive(Debug)]
-pub enum StatePossibility {
+pub enum AnnotatedControlNode {
     Empty {
         id: u64,
     },
@@ -50,7 +47,7 @@ pub enum StatePossibility {
         id: u64,
         num_states: u64, // known at time of construction, no need for deferred computation
     },
-    HardwareEnable {
+    DynamicHardwareEnable {
         id: u64,
         num_states: Deferred<u64>,
     },
@@ -58,143 +55,148 @@ pub enum StatePossibility {
         id: u64,
         latency: u64,
         num_states: Deferred<u64>,
-        lockstep: Deferred<LockStepAnnotation>,
+        acyclic: Deferred<AcyclicAnnotation>,
     },
     StaticRepeat {
         id: u64,
         num_repeats: u64,
-        body: Box<StatePossibility>,
+        body: Box<AnnotatedControlNode>,
         annotation: Deferred<RepeatNodeAnnotation>,
-        lockstep: Deferred<LockStepAnnotation>,
+        acyclic: Deferred<AcyclicAnnotation>,
         num_states: Deferred<u64>,
     },
     StaticPar {
         id: u64,
         latency: u64,
-        threads: Vec<StatePossibility>,
-        lockstep: Deferred<LockStepAnnotation>,
+        threads: Vec<AnnotatedControlNode>,
+        acyclic: Deferred<AcyclicAnnotation>,
         num_states: Deferred<u64>,
     },
     StaticSeq {
         id: u64,
-        stmts: Vec<StatePossibility>,
-        lockstep: Deferred<LockStepAnnotation>,
+        stmts: Vec<AnnotatedControlNode>,
+        acyclic: Deferred<AcyclicAnnotation>,
         num_states: Deferred<u64>,
     },
     StaticIf {
         id: u64,
         latency: u64,
-        true_thread: Box<StatePossibility>,
-        false_thread: Box<StatePossibility>,
-        lockstep: Deferred<LockStepAnnotation>,
+        true_thread: Box<AnnotatedControlNode>,
+        false_thread: Box<AnnotatedControlNode>,
+        acyclic: Deferred<AcyclicAnnotation>,
         num_states: Deferred<u64>,
     },
     DynamicRepeat {
         id: u64,
         num_repeats: u64,
-        body: Box<StatePossibility>,
+        body: Box<AnnotatedControlNode>,
         num_states: Deferred<u64>,
         annotation: Deferred<RepeatNodeAnnotation>,
     },
     DynamicPar {
         id: u64,
-        threads: Vec<StatePossibility>,
+        threads: Vec<AnnotatedControlNode>,
     },
     DynamicSeq {
         id: u64,
-        stmts: Vec<StatePossibility>,
+        stmts: Vec<AnnotatedControlNode>,
         num_states: Deferred<u64>,
     },
     DynamicIf {
         id: u64,
-        true_thread: Box<StatePossibility>,
-        false_thread: Box<StatePossibility>,
+        true_thread: Box<AnnotatedControlNode>,
+        false_thread: Box<AnnotatedControlNode>,
     },
     DynamicWhile {
         id: u64,
-        body: Box<StatePossibility>,
+        body: Box<AnnotatedControlNode>,
         num_states: Deferred<u64>,
         annotation: Deferred<WhileNodeAnnotation>,
     },
 }
 
+impl From<&mut ir::Control> for AnnotatedControlNode {
+    fn from(value: &mut ir::Control) -> Self {
+        Self::build_from_control(value, 0).0
+    }
+}
+
 /// Implementation for analysis on control tree
-impl StatePossibility {
-    /// Provide annotations on the control nodes present in `self`. These annotations
-    /// will have a one-to-one mapping onto the `ir::Control` node from which `self`
-    /// was built.
+impl AnnotatedControlNode {
+    /// Build annotations on `self`. These annotations will have a one-to-one
+    /// mapping onto the `ir::Control` node from which `self` was built.
+    /// This functions fills in all fields with `Deferred` values.
     pub fn post_order_analysis(&mut self) {
         match self {
             Self::Empty { .. } | Self::UserDefined { .. } => (),
-            Self::HardwareEnable { num_states, .. } => {
+            Self::DynamicHardwareEnable { num_states, .. } => {
                 // policy: dynamic enables get one state in parent fsm
                 *num_states = Deferred::Computed(1);
             }
             Self::StaticHardwareEnable {
                 latency,
                 num_states,
-                lockstep,
+                acyclic,
                 ..
             } => {
-                let (num_states_allocated, lockstep_allocated) =
+                let (num_states_allocated, acyclic_allocated) =
                     Self::static_hardware_enable_policy(*latency);
                 *num_states = Deferred::Computed(num_states_allocated);
-                *lockstep = Deferred::Computed(lockstep_allocated);
+                *acyclic = Deferred::Computed(acyclic_allocated);
             }
             Self::StaticRepeat {
                 num_repeats,
                 body,
                 num_states,
                 annotation,
-                lockstep,
+                acyclic,
                 ..
             } => {
                 body.post_order_analysis();
                 let (
                     num_states_allocated,
                     repeat_node_annotation,
-                    lockstep_annotation,
+                    acyclic_annotation,
                 ) = body.repeat_policy(*num_repeats);
-                (*num_states, *annotation, *lockstep) = (
+                (*num_states, *annotation, *acyclic) = (
                     Deferred::Computed(num_states_allocated),
                     Deferred::Computed(repeat_node_annotation),
-                    Deferred::Computed(lockstep_annotation),
+                    Deferred::Computed(acyclic_annotation),
                 );
             }
             Self::StaticSeq {
                 stmts,
                 num_states,
-                lockstep,
+                acyclic,
                 ..
             } => {
-                let (lockstep_ann, num_states_ann) = Self::seq_policy(stmts);
-
+                let (acyclic_ann, num_states_ann) = Self::seq_policy(stmts);
                 *num_states = Deferred::Computed(num_states_ann);
-                *lockstep = Deferred::Computed(lockstep_ann)
+                *acyclic = Deferred::Computed(acyclic_ann)
             }
             Self::StaticPar {
                 latency,
                 threads,
-                lockstep,
+                acyclic,
                 num_states,
                 ..
             } => {
-                let (lockstep_ann, num_states_ann) =
+                let (acyclic_ann, num_states_ann) =
                     Self::static_par_policy(threads, *latency);
-                *lockstep = Deferred::Computed(lockstep_ann);
+                *acyclic = Deferred::Computed(acyclic_ann);
                 *num_states = Deferred::Computed(num_states_ann);
             }
             Self::StaticIf {
                 latency,
                 true_thread,
                 false_thread,
-                lockstep,
+                acyclic,
                 num_states,
                 ..
             } => {
-                let (lockstep_ann, num_states_ann) =
+                let (acyclic_ann, num_states_ann) =
                     Self::static_if_policy(true_thread, false_thread, *latency);
-                *lockstep = Deferred::Computed(lockstep_ann);
+                *acyclic = Deferred::Computed(acyclic_ann);
                 *num_states = Deferred::Computed(num_states_ann);
             }
             Self::DynamicRepeat {
@@ -211,6 +213,7 @@ impl StatePossibility {
                 *annotation = Deferred::Computed(node_ann);
             }
             Self::DynamicPar { threads, .. } => {
+                // every dynamic par thread gets its own FSM
                 threads.iter_mut().for_each(Self::post_order_analysis)
             }
             Self::DynamicSeq {
@@ -224,11 +227,8 @@ impl StatePossibility {
                 false_thread,
                 ..
             } => {
-                vec![true_thread, false_thread].into_iter().for_each(
-                    |branch| {
-                        branch.post_order_analysis();
-                    },
-                );
+                true_thread.post_order_analysis();
+                false_thread.post_order_analysis();
             }
             Self::DynamicWhile {
                 body,
@@ -252,7 +252,9 @@ impl StatePossibility {
     }
 }
 
-impl StatePossibility {
+impl AnnotatedControlNode {
+    /// Given an `ir::StaticControl` tree, build an instance of
+    /// `AnnotatedControlNode` with none of its `Deferred` fields filled out.
     pub fn build_from_static_control(
         sctrl: &mut ir::StaticControl,
         id: u64,
@@ -269,7 +271,7 @@ impl StatePossibility {
                         id,
                         latency: sen.group.borrow().get_latency(),
                         num_states: Deferred::Pending,
-                        lockstep: Deferred::Pending,
+                        acyclic: Deferred::Pending,
                     },
                     id + 1,
                 )
@@ -292,7 +294,7 @@ impl StatePossibility {
                         id,
                         stmts,
                         num_states: Deferred::Pending,
-                        lockstep: Deferred::Pending,
+                        acyclic: Deferred::Pending,
                     },
                     stmt_id,
                 )
@@ -315,7 +317,7 @@ impl StatePossibility {
                         id,
                         latency: spar.latency,
                         threads,
-                        lockstep: Deferred::Pending,
+                        acyclic: Deferred::Pending,
                         num_states: Deferred::Pending,
                     },
                     thread_id,
@@ -344,7 +346,7 @@ impl StatePossibility {
                         latency: sif.latency,
                         true_thread: Box::new(branches.0),
                         false_thread: Box::new(branches.1),
-                        lockstep: Deferred::Pending,
+                        acyclic: Deferred::Pending,
                         num_states: Deferred::Pending,
                     },
                     branch_id,
@@ -361,7 +363,7 @@ impl StatePossibility {
                         body: Box::new(child),
                         num_states: Deferred::Pending,
                         annotation: Deferred::Pending,
-                        lockstep: Deferred::Pending,
+                        acyclic: Deferred::Pending,
                     },
                     new_id,
                 )
@@ -372,6 +374,8 @@ impl StatePossibility {
         }
     }
 
+    /// Given an `ir::Control` tree, build an instance of
+    /// `AnnotatedControlNode` with none of its `Deferred` fields filled out.
     pub fn build_from_control(ctrl: &mut ir::Control, id: u64) -> (Self, u64) {
         match ctrl {
             ir::Control::Empty(empty) => {
@@ -382,7 +386,7 @@ impl StatePossibility {
             ir::Control::Enable(den) => {
                 den.attributes.insert(NODE_ID, id);
                 (
-                    Self::HardwareEnable {
+                    Self::DynamicHardwareEnable {
                         id,
                         num_states: Deferred::Pending,
                     },
@@ -502,8 +506,8 @@ impl StatePossibility {
 }
 
 /// Implementation of helper functions
-impl StatePossibility {
-    /// Given a control node, returns the number of states allocated for its
+impl AnnotatedControlNode {
+    /// Given a node, returns the number of states allocated for its
     /// child schedule if it has been resolved.
     fn num_states(&self) -> Deferred<u64> {
         match self {
@@ -514,7 +518,7 @@ impl StatePossibility {
             Self::DynamicIf { .. } | Self::DynamicPar { .. } => {
                 Deferred::Computed(1)
             }
-            Self::HardwareEnable { num_states, .. }
+            Self::DynamicHardwareEnable { num_states, .. }
             | Self::StaticHardwareEnable { num_states, .. }
             | Self::StaticRepeat { num_states, .. }
             | Self::StaticIf { num_states, .. }
@@ -526,40 +530,40 @@ impl StatePossibility {
         }
     }
 
-    fn is_lockstep(&self) -> Deferred<bool> {
+    /// Given a node, returns the whether this node should be implemented
+    /// without cycles.
+    fn is_acyclic(&self) -> Deferred<bool> {
         match self {
             Self::Empty { .. } => Deferred::Computed(true),
-            Self::HardwareEnable { .. }
+            Self::DynamicHardwareEnable { .. }
             | Self::UserDefined { .. }
             | Self::DynamicIf { .. }
             | Self::DynamicPar { .. }
             | Self::DynamicRepeat { .. }
             | Self::DynamicSeq { .. }
             | Self::DynamicWhile { .. } => Deferred::Computed(false),
-            Self::StaticHardwareEnable { lockstep, .. }
-            | Self::StaticRepeat { lockstep, .. }
-            | Self::StaticIf { lockstep, .. }
-            | Self::StaticPar { lockstep, .. }
-            | Self::StaticSeq { lockstep, .. } => lockstep.map(|l| match l {
-                LockStepAnnotation::True => true,
-                LockStepAnnotation::False => false,
+            Self::StaticHardwareEnable { acyclic, .. }
+            | Self::StaticRepeat { acyclic, .. }
+            | Self::StaticIf { acyclic, .. }
+            | Self::StaticPar { acyclic, .. }
+            | Self::StaticSeq { acyclic, .. } => acyclic.map(|l| match l {
+                AcyclicAnnotation::True => true,
+                AcyclicAnnotation::False => false,
             }),
         }
     }
 }
 
 /// Implementations for policy (i.e. determining annotations on control nodes)
-impl StatePossibility {
+impl AnnotatedControlNode {
     /// Given the latency of a static enable, find the number of states allocated
     /// for this enable and whether state progression corresponds to cycle increment.
     #[inline]
-    fn static_hardware_enable_policy(
-        latency: u64,
-    ) -> (u64, LockStepAnnotation) {
+    fn static_hardware_enable_policy(latency: u64) -> (u64, AcyclicAnnotation) {
         if latency < FSM_STATE_CUTOFF {
-            (latency, LockStepAnnotation::True)
+            (latency, AcyclicAnnotation::True)
         } else {
-            (1, LockStepAnnotation::False)
+            (1, AcyclicAnnotation::False)
         }
     }
 
@@ -572,81 +576,82 @@ impl StatePossibility {
     fn repeat_policy(
         &self,
         num_repeats: u64,
-    ) -> (u64, RepeatNodeAnnotation, LockStepAnnotation) {
-        let (body_num_states, body_in_lockstep) =
-            (self.num_states().unwrap(), self.is_lockstep().unwrap());
+    ) -> (u64, RepeatNodeAnnotation, AcyclicAnnotation) {
+        let (body_num_states, body_is_acyclic) =
+            (self.num_states().unwrap(), self.is_acyclic().unwrap());
         if ((num_repeats * body_num_states) < FSM_STATE_CUTOFF)
-            && (body_in_lockstep)
+            && (body_is_acyclic)
         {
             (
                 num_repeats * body_num_states,
                 RepeatNodeAnnotation::Unroll,
-                LockStepAnnotation::True,
+                AcyclicAnnotation::True,
             )
         } else if body_num_states < FSM_STATE_CUTOFF {
             (
                 body_num_states,
                 RepeatNodeAnnotation::Inline,
-                LockStepAnnotation::False,
+                AcyclicAnnotation::False,
             )
         } else {
-            (1, RepeatNodeAnnotation::Offload, LockStepAnnotation::False)
+            (1, RepeatNodeAnnotation::Offload, AcyclicAnnotation::False)
         }
     }
 
-    /// policy: number of states allocated for the seq is a summation of
-    /// the number of states allocated for the individual statements
-    /// policy: a seq proceeds in lockstep iff its individual statements
-    /// are all also lockstep
+    /// Policy: number of states allocated for the seq is a summation of
+    /// the number of states allocated for the individual statements. Further,
+    /// a seq is acyclic iff its individual statements are all also acyclic.
     #[inline]
-    fn seq_policy(stmts: &mut [StatePossibility]) -> (LockStepAnnotation, u64) {
-        let (stmts_num_states, stmts_lockstep): (Vec<_>, Vec<_>) = stmts
+    fn seq_policy(
+        stmts: &mut [AnnotatedControlNode],
+    ) -> (AcyclicAnnotation, u64) {
+        let (stmts_num_states, stmts_acyclic): (Vec<_>, Vec<_>) = stmts
             .iter_mut()
             .map(|stmt| {
                 stmt.post_order_analysis();
-                (stmt.num_states().unwrap(), stmt.is_lockstep().unwrap())
+                (stmt.num_states().unwrap(), stmt.is_acyclic().unwrap())
             })
             .unzip();
 
-        let lockstep =
-            LockStepAnnotation::from(stmts_lockstep.into_iter().all(|l| l));
+        let acyclic =
+            AcyclicAnnotation::from(stmts_acyclic.into_iter().all(|l| l));
         let num_states = stmts_num_states.into_iter().sum();
 
-        (lockstep, num_states)
+        (acyclic, num_states)
     }
 
-    /// policy: the fsms implementing the threads of a static par will
-    /// be merged exactly when every thread is lockstep (e.g. no threads
+    /// Policy: the fsms implementing the threads of a static par will
+    /// be merged exactly when every thread is acyclic (i.e. no threads
     /// have backedges)
     #[inline]
     fn static_par_policy(
-        threads: &mut [StatePossibility],
+        threads: &mut [AnnotatedControlNode],
         latency: u64,
-    ) -> (LockStepAnnotation, u64) {
+    ) -> (AcyclicAnnotation, u64) {
         if threads.iter_mut().all(|thread| {
             thread.post_order_analysis();
-            thread.is_lockstep().unwrap()
+            thread.is_acyclic().unwrap()
         }) {
-            (LockStepAnnotation::True, latency)
+            (AcyclicAnnotation::True, latency)
         } else {
-            (LockStepAnnotation::False, 1)
+            (AcyclicAnnotation::False, 1)
         }
     }
-    /// Merge FSMs implmementing threads of the static_if exactly when each
-    /// thread is in lockstep (similar to static_par)
+    /// Policy: merge FSMs implmementing threads of the static_if exactly when each
+    /// thread is acyclic (similar to static_par)
     #[inline]
     fn static_if_policy(
-        true_branch: &mut Box<StatePossibility>,
-        false_branch: &mut Box<StatePossibility>,
+        true_branch: &mut Box<AnnotatedControlNode>,
+        false_branch: &mut Box<AnnotatedControlNode>,
         latency: u64,
-    ) -> (LockStepAnnotation, u64) {
+    ) -> (AcyclicAnnotation, u64) {
         if vec![true_branch, false_branch].into_iter().all(|branch| {
             branch.post_order_analysis();
-            branch.is_lockstep().unwrap()
+            branch.is_acyclic().unwrap()
         }) {
-            (LockStepAnnotation::True, latency)
+            (AcyclicAnnotation::True, latency)
         } else {
-            (LockStepAnnotation::False, 1)
+            (AcyclicAnnotation::False, 1)
         }
     }
 }
@@ -658,12 +663,12 @@ pub enum RepeatNodeAnnotation {
     Inline,
 }
 #[derive(Debug, Copy, Clone)]
-pub enum LockStepAnnotation {
+pub enum AcyclicAnnotation {
     False,
     True,
 }
 
-impl From<bool> for LockStepAnnotation {
+impl From<bool> for AcyclicAnnotation {
     fn from(b: bool) -> Self {
         if b { Self::True } else { Self::False }
     }

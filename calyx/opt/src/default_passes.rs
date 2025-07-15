@@ -149,12 +149,12 @@ impl PassManager {
 
         register_alias!(
             pm,
-            "compile-fsm-pipeline",
+            "compile-fsm",
             [
                 DataPathInfer,
                 CollapseControl,
                 CompileSyncWithoutSyncReg,
-                GroupToSeq, // FIXME: may make programs *slower*
+                GroupToSeq,
                 DeadAssignmentRemoval,
                 GroupToInvoke,
                 ComponentInliner,
