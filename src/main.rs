@@ -42,7 +42,7 @@ fn main() -> PassResult<()> {
             cmdline::Subcommand::Help(cmdline::Help { name }) => {
                 match name {
                     Some(n) => {
-                        if let Some(help) = pm.specific_help(&n) {
+                        if let Some(help) = pm.specific_help(n) {
                             println!("{}", help);
                         } else {
                             println!("Unknown pass or alias: {}", n);
