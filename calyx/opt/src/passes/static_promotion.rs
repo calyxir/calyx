@@ -5,6 +5,7 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, Order, ParseVal, PassOpt, VisResult,
     Visitor,
 };
+use calyx_frontend::SetAttr;
 use calyx_ir::{self as ir, BoolAttr, LibrarySignatures};
 use calyx_utils::CalyxResult;
 use ir::GetAttributes;
@@ -492,6 +493,11 @@ impl Visitor for StaticPromotion {
                 attributes: ir::Attributes::default(),
             })
         };
+        if let Some(pos_set) = s.attributes.get_set(SetAttr::Pos) {
+            for pos in pos_set.iter() {
+                new_ctrl.get_mut_attributes().insert_set(SetAttr::Pos, *pos);
+            }
+        }
         self.inference_analysis.fixup_ctrl(&mut new_ctrl);
 
         // this might be part of a larger issue where passes remove some attributes they shouldn't
@@ -546,10 +552,15 @@ impl Visitor for StaticPromotion {
             .partition(PromotionAnalysis::can_be_promoted);
         new_stmts.extend(self.promote_vec_par_heuristic(&mut builder, s_stmts));
         new_stmts.extend(d_stmts);
-        let new_par = ir::Control::Par(ir::Par {
+        let mut new_par = ir::Control::Par(ir::Par {
             stmts: new_stmts,
             attributes: ir::Attributes::default(),
         });
+        if let Some(pos_set) = s.attributes.get_set(SetAttr::Pos) {
+            for pos in pos_set.iter() {
+                new_par.get_mut_attributes().insert_set(SetAttr::Pos, *pos);
+            }
+        }
         Ok(Action::change(new_par))
     }
 
