@@ -37,7 +37,7 @@ pub use control_ports::ControlPorts;
 pub use dataflow_order::DataflowOrder;
 pub use domination_analysis::DominatorMap;
 pub use fsm_annotator::{
-    LockStepAnnotation, RepeatNodeAnnotation, StatePossibility,
+    AcyclicAnnotation, AnnotatedControlNode, RepeatNodeAnnotation,
     WhileNodeAnnotation,
 };
 pub use fsm_construction::{IncompleteTransition, StaticSchedule};
