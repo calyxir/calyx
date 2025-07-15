@@ -1,16 +1,20 @@
 use baa::BitVecValue;
-use cider_idx::{IndexRef, iter::IndexRange, maps::IndexedMap};
-use std::collections::HashMap;
-use std::fmt::Debug;
+use cider_idx::{
+    IndexRef,
+    iter::IndexRange,
+    maps::{IndexedMap, SemiContiguousSecondaryMap},
+};
+use std::{collections::HashMap, ops::Index};
+use std::{fmt::Debug, ops::IndexMut};
 
 use crate::{
     errors::{ConflictingAssignments, RuntimeError, RuntimeResult},
     flatten::{
-        flat_ir::base::{
+        flat_ir::indexes::{
             AssignedValue, AssignmentIdx, AssignmentWinner, BaseIndices,
             CellRef, ComponentIdx, GlobalCellIdx, GlobalCellRef, GlobalPortIdx,
-            GlobalPortRef, GlobalRefCellIdx, GlobalRefPortIdx, PortRef,
-            PortValue,
+            GlobalPortRef, GlobalRefCellIdx, GlobalRefPortIdx, MemoryLocation,
+            MemoryRegion, PortRef, PortValue,
         },
         primitives::{
             Primitive,
@@ -20,7 +24,10 @@ use crate::{
     },
 };
 
-use super::Environment;
+use super::{
+    Environment,
+    clock::{ClockMap, ClockPair, new_clock_pair},
+};
 
 #[derive(Debug, Clone)]
 pub struct PortMap(IndexedMap<GlobalPortIdx, PortValue>);
@@ -331,5 +338,117 @@ impl PinnedPorts {
 
     pub fn remove(&mut self, port: GlobalPortIdx) {
         self.map.remove(&port);
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MemoryMap {
+    data: IndexedMap<MemoryLocation, BitVecValue>,
+    clocks: SemiContiguousSecondaryMap<MemoryLocation, ClockPair>,
+}
+
+impl IndexMut<MemoryLocation> for MemoryMap {
+    fn index_mut(&mut self, index: MemoryLocation) -> &mut Self::Output {
+        &mut self.data[index]
+    }
+}
+
+impl Index<MemoryLocation> for MemoryMap {
+    type Output = BitVecValue;
+
+    fn index(&self, index: MemoryLocation) -> &Self::Output {
+        &self.data[index]
+    }
+}
+
+impl Default for MemoryMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl MemoryMap {
+    pub fn new() -> Self {
+        Self {
+            data: IndexedMap::new(),
+            clocks: SemiContiguousSecondaryMap::new(),
+        }
+    }
+
+    pub fn push_clockless(&mut self, val: BitVecValue) -> MemoryLocation {
+        self.data.push(val)
+    }
+
+    pub fn push_clocked(
+        &mut self,
+        val: BitVecValue,
+        clock: ClockPair,
+    ) -> MemoryLocation {
+        let mem_loc = self.data.push(val);
+        self.clocks.monotonic_insert(mem_loc, clock);
+        mem_loc
+    }
+
+    pub fn get_clock(&self, key: MemoryLocation) -> Option<ClockPair> {
+        self.clocks.get(key).copied()
+    }
+
+    pub fn get_clock_or_default(&self, key: MemoryLocation) -> ClockPair {
+        self.clocks.get(key).copied().unwrap_or_default()
+    }
+
+    pub fn allocate_memory_location(
+        &mut self,
+        val: BitVecValue,
+        cell: GlobalCellIdx,
+        entry: Option<u32>,
+        clock_map: &mut Option<&mut ClockMap>,
+    ) -> MemoryLocation {
+        if let Some(clock) = clock_map {
+            self.push_clocked(val, new_clock_pair(clock, cell, entry))
+        } else {
+            self.push_clockless(val)
+        }
+    }
+
+    pub fn peek_next_memory_location(&self) -> MemoryLocation {
+        self.data.peek_next_idx()
+    }
+
+    /// Allocates a region of memory values.
+    ///
+    /// The iterator is assumed to cover the full range of memory values
+    /// allocated for the given cell.
+    pub fn allocate_region<I>(
+        &mut self,
+        iterator: I,
+        cell: GlobalCellIdx,
+        clock_map: &mut Option<&mut ClockMap>,
+    ) -> MemoryRegion
+    where
+        I: Iterator<Item = BitVecValue>,
+    {
+        let mem_region_start = self.peek_next_memory_location();
+        for (index, item) in iterator.enumerate() {
+            self.allocate_memory_location(
+                item,
+                cell,
+                Some(index.try_into().unwrap()),
+                clock_map,
+            );
+        }
+        let mem_region_end = self.peek_next_memory_location();
+        MemoryRegion::new(mem_region_start, mem_region_end)
+    }
+
+    pub fn map_region<F, D>(
+        &self,
+        region: MemoryRegion,
+        func: F,
+    ) -> impl Iterator<Item = D>
+    where
+        F: Fn(&BitVecValue) -> D,
+    {
+        region.into_iter().map(move |i| func(&self.data[i]))
     }
 }

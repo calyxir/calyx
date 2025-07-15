@@ -9,6 +9,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @control @generated @protected false___main_group_probe = std_wire(1);
     @control @generated @protected mem___false___main_primitive_probe = std_wire(1);
     @control @generated @protected cond___main_group_probe = std_wire(1);
+    @control @generated @protected lt___cond___main_primitive_probe = std_wire(1);
   }
   wires {
     group true<"static"=1> {
@@ -31,6 +32,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       lt.left = 32'd5;
       lt.right = 32'd9;
       cond___main_group_probe.in = 1'd1;
+      lt___cond___main_primitive_probe.in = 1'd1;
     }
   }
   control {

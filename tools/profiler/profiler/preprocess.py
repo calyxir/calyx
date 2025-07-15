@@ -103,6 +103,14 @@ def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
             control_metadata.register_fsm(
                 entry["fsm"], entry["component"], cell_metadata
             )
+            for cell in cell_metadata.component_to_cells[entry["component"]]:
+                control_metadata.register_fully_qualified_ctrl_gp(
+                    f"{cell}.{entry['group']}"
+                )
+                control_metadata.cell_to_tdcc_groups[cell].add(entry["group"])
+                control_metadata.component_to_control_to_primitives[entry["component"]][
+                    entry["group"]
+                ].add(entry["fsm"])
         if "Par" in json_entry:
             entry = json_entry["Par"]
             par = entry["par_group"]
@@ -131,8 +139,18 @@ def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
                         )
                     # add par done register information
                     child_pd_reg = child["register"]
-                    control_metadata.add_par_done_reg(".".join((cell, child_pd_reg)))
+                    control_metadata.add_par_done_reg(
+                        component, par, child_pd_reg, ".".join((cell, child_pd_reg))
+                    )
                 # add information to control_metadata
-                control_metadata.register_fully_qualified_par(fully_qualified_par)
+                control_metadata.register_fully_qualified_ctrl_gp(fully_qualified_par)
 
     return control_metadata
+
+
+def read_enable_thread_json(enable_thread_json):
+    """
+    Returns the contents of the JSON file that maps enables to thread ids.
+    """
+    json_data = json.load(open(enable_thread_json))
+    return json_data

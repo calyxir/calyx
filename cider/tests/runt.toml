@@ -134,7 +134,7 @@ fud2 --from calyx --to dat \
 name = "data-race detection"
 paths = ["data-race/*.futil"]
 cmd = """
-../../target/debug/cider {} -l ../../  --check-data-race
+../../target/debug/cider {} -l ../../  --check-data-race --force-color off
 """
 
 [[tests]]
@@ -295,5 +295,17 @@ name = "Debugger Interaction"
 paths = ["debugger/*.futil"]
 cmd = """
 cat {}.commands | fud2 --to cider-debug {} \
-         -s calyx.args="--log off"
+         -s calyx.args="--log off" \
+         -s cider.flags="--force-color off"
+"""
+
+#  some shell trickery here to make the errors not include filepaths. the lib
+#  thing is needed to keep CI from dumping out an error backtrace from anyhow
+#  which it does by default for some reason
+[[tests]]
+name = "Entangled Memories"
+paths = ["entangled/*.futil"]
+cmd = """
+flags="$(head -n 1 {} | cut -c 3-)"
+RUST_LIB_BACKTRACE=0 fud2 --to dat --through cider {} -s cider.flags="--check-data-race $flags --force-color off -q" 2> {}.tmp_err_file || tail -n +3 {}.tmp_err_file 1>&2; rm {}.tmp_err_file
 """

@@ -10,6 +10,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @control @generated @protected read___main_group_probe = std_wire(1);
     @control @generated @protected val___read___main_primitive_probe = std_wire(1);
     @control @generated @protected upd___main_group_probe = std_wire(1);
+    @control @generated @protected add___upd___main_primitive_probe = std_wire(1);
+    @control @generated @protected val___upd___main_primitive_probe = std_wire(1);
   }
   wires {
     group write {
@@ -34,6 +36,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       val.in = add.out;
       val.write_en = 1'd1;
       upd___main_group_probe.in = 1'd1;
+      add___upd___main_primitive_probe.in = 1'd1;
+      val___upd___main_primitive_probe.in = 1'd1;
     }
   }
   control {
