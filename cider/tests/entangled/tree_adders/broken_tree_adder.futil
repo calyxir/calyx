@@ -1,3 +1,5 @@
+// --entangle 'input_array, lane_one_mem, lane_two_mem'
+
 import "primitives/core.futil";
 import "primitives/memories/seq.futil";
 import "primitives/binary_operators.futil";

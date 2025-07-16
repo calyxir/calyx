@@ -1,3 +1,5 @@
+// --entangle 'input_array, lane_mem__0,lane_mem__1,lane_mem__2,lane_mem__3,lane_mem__4,lane_mem__5,lane_mem__6,lane_mem__7,lane_mem__8,lane_mem__9,lane_mem__10,lane_mem__11,lane_mem__12,lane_mem__13,lane_mem__14,lane_mem__15,lane_mem__16,lane_mem__17,lane_mem__18,lane_mem__19,lane_mem__20,lane_mem__21,lane_mem__22,lane_mem__23,lane_mem__24,lane_mem__25,lane_mem__26,lane_mem__27,lane_mem__28,lane_mem__29,lane_mem__30,lane_mem__31'
+
 import "primitives/core.futil";
 import "primitives/memories/seq.futil";
 import "primitives/binary_operators.futil";
