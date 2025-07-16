@@ -140,11 +140,7 @@ impl FSMPolicy<ir::Enable> for ir::Enable {
 impl FSMPolicy<ir::Seq> for ir::Seq {
     fn policy(ctrl: &mut ir::Seq) -> FSMImplementation {
         FSMImplementation {
-            num_states: ctrl
-                .stmts
-                .iter()
-                .map(|stmt| get_num_states(stmt))
-                .sum(),
+            num_states: ctrl.stmts.iter().map(get_num_states).sum(),
             acyclic: false,
             loop_attr: None,
         }
