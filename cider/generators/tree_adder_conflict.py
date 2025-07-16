@@ -92,6 +92,10 @@ while current_unroll > 0:
             )
         )
     )
+    # Uncomment the below and remove the write__{idx} line from the above par
+    # control_list.append(
+    #     par(*(comp.get_group(f"write__{idx}") for idx in range(current_unroll)))
+    # )
     current_unroll = current_unroll >> 1
 
 
