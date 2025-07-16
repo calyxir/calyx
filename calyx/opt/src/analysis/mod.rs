@@ -10,7 +10,6 @@ mod control_order;
 mod control_ports;
 mod dataflow_order;
 mod domination_analysis;
-mod fsm_annotator;
 mod fsm_construction;
 mod graph;
 mod graph_coloring;
@@ -35,10 +34,6 @@ pub use control_order::ControlOrder;
 pub use control_ports::ControlPorts;
 pub use dataflow_order::DataflowOrder;
 pub use domination_analysis::DominatorMap;
-pub use fsm_annotator::{
-    AcyclicAnnotation, AnnotatedControlNode, RepeatNodeAnnotation,
-    WhileNodeAnnotation,
-};
 pub use fsm_construction::{IncompleteTransition, StaticSchedule};
 pub use graph::GraphAnalysis;
 pub use graph_coloring::GraphColoring;
