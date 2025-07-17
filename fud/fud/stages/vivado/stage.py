@@ -139,6 +139,7 @@ class VivadoStage(VivadoBaseStage):
             tcl = root / "fud" / "synth" / "synth.tcl"
         return [tcl, constraints]
 
+
 class VivadoStageFSMs(VivadoBaseStage):
     name = "fsms-synth-verilog"
 
