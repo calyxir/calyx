@@ -1,14 +1,24 @@
 // re-export for convenience
 pub use slog::Logger;
 #[allow(unused_imports)]
-pub(crate) use slog::{debug, error, info, o, trace, warn};
+pub use slog::{debug, error, info, o, trace, warn};
 
 use slog::{Drain, Level};
 
 use crate::configuration::LoggingConfig;
 
 pub fn initialize_logger(conf: LoggingConfig) -> Logger {
-    let decorator = slog_term::TermDecorator::new().stderr().build();
+    let decorator = slog_term::TermDecorator::new().stderr();
+    let decorator = match conf.color_config {
+        crate::configuration::ColorConfig::On => {
+            decorator.force_color().build()
+        }
+        crate::configuration::ColorConfig::Off => {
+            decorator.force_plain().build()
+        }
+        crate::configuration::ColorConfig::Auto => decorator.build(),
+    };
+
     let drain = slog_term::FullFormat::new(decorator).build();
     let filter_level = if conf.quiet && !conf.debug_logging {
         Level::Error

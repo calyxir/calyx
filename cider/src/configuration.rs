@@ -1,4 +1,5 @@
-use bon::Builder;
+use argh::FromArgValue;
+use bon::{Builder, bon};
 
 use crate::flatten::text_utils;
 
@@ -14,7 +15,7 @@ pub struct Config {
 
 /// Configuration struct containing options affecting the simulation time
 /// decisions.
-#[derive(Debug, Default, Clone, Copy, Builder)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct RuntimeConfig {
     /// enables data race checking
     pub check_data_race: bool,
@@ -29,18 +30,45 @@ pub struct RuntimeConfig {
     pub error_on_overflow: bool,
     /// Check undefined guards
     pub undef_guard_check: bool,
+    /// Color Config
+    pub color_config: ColorConfig,
 }
-
+#[bon]
 impl RuntimeConfig {
+    #[builder]
+    pub fn new(
+        check_data_race: bool,
+        debug_logging: bool,
+        quiet: bool,
+        allow_invalid_memory_access: bool,
+        error_on_overflow: bool,
+        undef_guard_check: bool,
+        color_config: ColorConfig,
+    ) -> Self {
+        let out = Self {
+            check_data_race,
+            debug_logging,
+            quiet,
+            allow_invalid_memory_access,
+            error_on_overflow,
+            undef_guard_check,
+            color_config,
+        };
+
+        out.configure_color_setting();
+        out
+    }
+
     pub fn get_logging_config(&self) -> LoggingConfig {
         LoggingConfig {
             quiet: self.quiet,
             debug_logging: self.debug_logging,
+            color_config: self.color_config,
         }
     }
 
-    pub fn set_force_color(self, force_color: bool) {
-        text_utils::force_color(force_color);
+    fn configure_color_setting(&self) {
+        text_utils::force_color(self.color_config);
     }
 }
 
@@ -53,4 +81,31 @@ pub struct LoggingConfig {
     /// Whether or not to enable debug logging. If set to true, will override
     /// `quiet`.
     pub debug_logging: bool,
+    /// How to configure color for the logger
+    pub color_config: ColorConfig,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub enum ColorConfig {
+    /// Force use of color output.
+    #[default]
+    On,
+    /// Force no color output.
+    Off,
+    /// Infer color support
+    Auto,
+}
+
+impl FromArgValue for ColorConfig {
+    fn from_arg_value(value: &str) -> Result<Self, String> {
+        match value.to_lowercase().as_str() {
+            "true" | "1" | "on" => Ok(ColorConfig::On),
+            "false" | "0" | "off" => Ok(ColorConfig::Off),
+            "infer" | "auto " => Ok(ColorConfig::Auto),
+            _ => Err(format!(
+                "Invalid color configuration: '{}'. Expected 'on', 'off', or 'auto'.",
+                value
+            )),
+        }
+    }
 }

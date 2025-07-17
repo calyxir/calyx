@@ -1,4 +1,4 @@
-use std::iter::repeat;
+use std::iter::repeat_n;
 
 use cider_idx::{IndexRef, iter::SplitIndexRange, maps::IndexedMap};
 
@@ -29,7 +29,7 @@ use crate::{
     serialization::{Entry, PrintCode, Serializable, Shape},
 };
 
-use baa::{BitVecOps, BitVecValue, WidthInt};
+use baa::{BitVecOps, BitVecValue};
 
 #[derive(Clone)]
 pub struct StdReg {
@@ -465,73 +465,66 @@ impl CombMem {
         done: Self::DONE
     ];
 
-    pub fn new<T>(
-        base: GlobalPortIdx,
-        global_idx: GlobalCellIdx,
-        width: u32,
-        allow_invalid: bool,
-        size: T,
-        clocks: &mut Option<&mut ClockMap>,
-        state_map: &mut MemoryMap,
-    ) -> Self
-    where
-        T: Into<Shape>,
-    {
-        let shape = size.into();
-        let iterator = repeat(BitVecValue::zero(width)).take(shape.size());
-        let internal_state =
-            state_map.allocate_region(iterator, global_idx, clocks);
-
+    fn build(
+        MemConfigInfo {
+            base,
+            global_idx,
+            width,
+            allow_invalid,
+            size,
+        }: MemConfigInfo,
+        internal_state: MemoryRegion,
+    ) -> Self {
         Self {
             base_port: base,
             internal_state,
             _allow_invalid_access: allow_invalid,
-            _width: width,
-            addresser: MemDx::new(shape),
+            addresser: MemDx::new(size),
             done_is_high: false,
             global_idx,
+            _width: width,
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub fn new_with_init<T>(
-        base_port: GlobalPortIdx,
-        global_idx: GlobalCellIdx,
-        width: WidthInt,
-        allow_invalid: bool,
-        size: T,
+    pub fn new(
+        info: MemConfigInfo,
+        clocks: &mut Option<&mut ClockMap>,
+        state_map: &mut MemoryMap,
+    ) -> Self {
+        let iterator =
+            repeat_n(BitVecValue::zero(info.width), info.size.size());
+        let internal_state =
+            state_map.allocate_region(iterator, info.global_idx, clocks);
+
+        Self::build(info, internal_state)
+    }
+
+    pub fn new_with_init(
+        info: MemConfigInfo,
         data: &[u8],
         clocks: &mut Option<&mut ClockMap>,
         state_map: &mut MemoryMap,
-    ) -> Self
-    where
-        T: Into<Shape>,
-    {
-        let byte_count = width.div_ceil(8);
-        let size = size.into();
+    ) -> Self {
+        let byte_count = info.width.div_ceil(8);
         let iterator = data
             .chunks_exact(byte_count as usize)
-            .map(|x| BitVecValue::from_bytes_le(x, width));
+            .map(|x| BitVecValue::from_bytes_le(x, info.width));
 
         let internal_state =
-            state_map.allocate_region(iterator, global_idx, clocks);
+            state_map.allocate_region(iterator, info.global_idx, clocks);
 
-        assert_eq!(internal_state.size(), size.size());
+        assert_eq!(internal_state.size(), info.size.size());
         assert!(
             data.chunks_exact(byte_count as usize)
                 .remainder()
                 .is_empty()
         );
 
-        Self {
-            base_port,
-            internal_state,
-            _allow_invalid_access: allow_invalid,
-            _width: width,
-            addresser: MemDx::new(size),
-            done_is_high: false,
-            global_idx,
-        }
+        Self::build(info, internal_state)
+    }
+
+    pub fn new_with_region(info: MemConfigInfo, region: MemoryRegion) -> Self {
+        Self::build(info, region)
     }
 
     fn infer_thread(&self, port_map: &mut PortMap) -> Option<ThreadIdx> {
@@ -714,9 +707,11 @@ impl RaceDetectionPrimitive for CombMem {
                                 port_map[self.write_en()].winner().unwrap(),
                             )
                             .map_err(|e| {
+                                let cell_info =
+                                    clock_map.lookup_cell(*clock).unwrap();
                                 e.add_cell_info(
-                                    self.global_idx,
-                                    Some(addr.try_into().unwrap()),
+                                    cell_info.attached_cell,
+                                    cell_info.entry_number,
                                 )
                             })?;
                     }
@@ -761,6 +756,32 @@ impl MemOut {
     }
 }
 
+pub struct MemConfigInfo {
+    base: GlobalPortIdx,
+    global_idx: GlobalCellIdx,
+    width: u32,
+    allow_invalid: bool,
+    size: Shape,
+}
+
+impl MemConfigInfo {
+    pub fn new<T: Into<Shape>>(
+        base: GlobalPortIdx,
+        global_idx: GlobalCellIdx,
+        width: u32,
+        allow_invalid: bool,
+        size: T,
+    ) -> Self {
+        Self {
+            base,
+            global_idx,
+            width,
+            allow_invalid,
+            size: size.into(),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct SeqMem {
     base_port: GlobalPortIdx,
@@ -777,64 +798,18 @@ pub struct SeqMem {
 }
 
 impl SeqMem {
-    pub fn new<T: Into<Shape>>(
-        base: GlobalPortIdx,
-        global_idx: GlobalCellIdx,
-        width: u32,
-        allow_invalid: bool,
-        size: T,
-        clocks: &mut Option<&mut ClockMap>,
-        state_map: &mut MemoryMap,
-    ) -> Self {
-        let shape = size.into();
-        let iterator = repeat(BitVecValue::zero(width)).take(shape.size());
-        let internal_state =
-            state_map.allocate_region(iterator, global_idx, clocks);
-
-        Self {
-            base_port: base,
-            internal_state,
-            _allow_invalid_access: allow_invalid,
-            addresser: MemDx::new(shape),
-            done_is_high: false,
-            read_out: MemOut::Undef,
+    fn build(
+        MemConfigInfo {
+            base,
             global_idx,
             width,
-        }
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub fn new_with_init<T>(
-        base_port: GlobalPortIdx,
-        global_idx: GlobalCellIdx,
-        width: u32,
-        allow_invalid: bool,
-        size: T,
-        data: &[u8],
-        clocks: &mut Option<&mut ClockMap>,
-        state_map: &mut MemoryMap,
-    ) -> Self
-    where
-        T: Into<Shape>,
-    {
-        let byte_count = width.div_ceil(8);
-        let size = size.into();
-        let iterator = data
-            .chunks_exact(byte_count as usize)
-            .map(|x| BitVecValue::from_bytes_le(x, width));
-
-        let internal_state =
-            state_map.allocate_region(iterator, global_idx, clocks);
-
-        assert_eq!(internal_state.size(), size.size());
-        assert!(
-            data.chunks_exact(byte_count as usize)
-                .remainder()
-                .is_empty()
-        );
-
+            allow_invalid,
+            size,
+        }: MemConfigInfo,
+        internal_state: MemoryRegion,
+    ) -> Self {
         Self {
-            base_port,
+            base_port: base,
             internal_state,
             _allow_invalid_access: allow_invalid,
             addresser: MemDx::new(size),
@@ -843,6 +818,48 @@ impl SeqMem {
             global_idx,
             width,
         }
+    }
+    pub fn new(
+        info: MemConfigInfo,
+        clocks: &mut Option<&mut ClockMap>,
+        state_map: &mut MemoryMap,
+    ) -> Self {
+        let iterator = std::iter::repeat_n(
+            BitVecValue::zero(info.width),
+            info.size.size(),
+        );
+        let internal_state =
+            state_map.allocate_region(iterator, info.global_idx, clocks);
+
+        Self::build(info, internal_state)
+    }
+
+    pub fn new_with_init(
+        info: MemConfigInfo,
+        data: &[u8],
+        clocks: &mut Option<&mut ClockMap>,
+        state_map: &mut MemoryMap,
+    ) -> Self {
+        let byte_count = info.width.div_ceil(8);
+        let iterator = data
+            .chunks_exact(byte_count as usize)
+            .map(|x| BitVecValue::from_bytes_le(x, info.width));
+
+        let internal_state =
+            state_map.allocate_region(iterator, info.global_idx, clocks);
+
+        assert_eq!(internal_state.size(), info.size.size());
+        assert!(
+            data.chunks_exact(byte_count as usize)
+                .remainder()
+                .is_empty()
+        );
+
+        Self::build(info, internal_state)
+    }
+
+    pub fn new_with_region(info: MemConfigInfo, region: MemoryRegion) -> Self {
+        Self::build(info, region)
     }
 
     declare_ports_no_signature![
@@ -1072,9 +1089,11 @@ impl RaceDetectionPrimitive for SeqMem {
                             port_map[self.write_enable()].winner().unwrap(),
                         )
                         .map_err(|e| {
+                            let cell_info =
+                                clock_map.lookup_cell(clock).unwrap();
                             e.add_cell_info(
-                                self.global_idx,
-                                Some(addr.try_into().unwrap()),
+                                cell_info.attached_cell,
+                                cell_info.entry_number,
                             )
                         })?;
                 } else if port_map[self.content_enable()]

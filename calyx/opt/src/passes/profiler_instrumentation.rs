@@ -261,10 +261,82 @@ fn static_group(comp: &mut ir::Component, sigs: &ir::LibrarySignatures) {
         .map(|group| group.borrow().name())
         .collect::<Vec<_>>();
 
-    // TODO: create probes for structural enables, cell invokes, and primitive invokes
+    // groups to groups that they enabled
+    let mut structural_enable_map: CallsFromGroupMap<ir::StaticTiming> =
+        HashMap::new();
+    // groups to cells (from non-primitive components) that they invoked
+    let mut cell_invoke_map: CallsFromGroupMap<ir::StaticTiming> =
+        HashMap::new();
+    // groups to primitives that they invoked
+    let mut primitive_invoke_map: CallsFromGroupMap<ir::StaticTiming> =
+        HashMap::new();
 
-    let group_name_assign_and_cell =
-        create_assignments(comp, sigs, &group_names, None, None, None);
+    for group_ref in comp.static_groups.iter() {
+        let group = &group_ref.borrow();
+        // set to prevent adding multiple probes for a combinational primitive enabled by the group
+        let mut comb_primitives_covered = HashSet::new();
+        let mut primitive_vec: Vec<(Id, ir::Guard<ir::StaticTiming>)> =
+            Vec::new();
+        for assignment_ref in group.assignments.iter() {
+            let dst_borrow = assignment_ref.dst.borrow();
+            if let ir::PortParent::Group(parent_group_ref) = &dst_borrow.parent
+            {
+                if dst_borrow.name == "go" {
+                    // found an invocation of go
+                    let invoked_group_name =
+                        parent_group_ref.upgrade().borrow().name();
+                    let guard = *(assignment_ref.guard).clone();
+                    structural_enable_map
+                        .entry(invoked_group_name)
+                        .or_default()
+                        .push((group.name(), guard));
+                }
+            }
+            if let ir::PortParent::Cell(cell_ref) = &dst_borrow.parent {
+                match cell_ref.upgrade().borrow().prototype.clone() {
+                    calyx_ir::CellType::Primitive { is_comb, .. } => {
+                        let cell_name = cell_ref.upgrade().borrow().name();
+                        if is_comb {
+                            // collecting primitives for area utilization; we want to avoid adding the same primitive twice!
+                            if comb_primitives_covered.insert(cell_name) {
+                                primitive_vec.push((cell_name, Guard::True));
+                            }
+                        } else if dst_borrow.has_attribute(NumAttr::Go) {
+                            // non-combinational primitives
+                            let guard = Guard::and(
+                                *(assignment_ref.guard).clone(),
+                                Guard::port(ir::rrc(
+                                    assignment_ref.src.borrow().clone(),
+                                )),
+                            );
+                            primitive_vec.push((cell_name, guard));
+                        }
+                    }
+                    calyx_ir::CellType::Component { name: _ } => {
+                        if dst_borrow.has_attribute(NumAttr::Go) {
+                            let cell_name = cell_ref.upgrade().borrow().name();
+                            let guard = *(assignment_ref.guard.clone());
+                            cell_invoke_map
+                                .entry(group.name())
+                                .or_default()
+                                .push((cell_name, guard));
+                        }
+                    }
+                    _ => (),
+                }
+            }
+        }
+        primitive_invoke_map.insert(group_ref.borrow().name(), primitive_vec);
+    }
+
+    let group_name_assign_and_cell = create_assignments(
+        comp,
+        sigs,
+        &group_names,
+        Some(structural_enable_map),
+        Some(cell_invoke_map),
+        Some(primitive_invoke_map),
+    );
 
     // Add created assignments to each group
     for static_group in comp.static_groups.iter() {
@@ -417,6 +489,92 @@ fn create_assignments<T: Clone>(
     group_name_assign_and_cell
 }
 
+/// Creates probes for continuous assignments outside of groups. For every cell
+/// or primitive involved in a continuous assignment, this function will generate
+/// "contprimitive" and "contcell" wires as probes.
+fn continuous_assignments(
+    comp: &mut ir::Component,
+    sigs: &ir::LibrarySignatures,
+) {
+    // vector of cells (non-primitives) invoked
+    let mut cell_invoke_vec: Vec<(Id, ir::Guard<Nothing>)> = Vec::new();
+    // vector of primitives invoked
+    let mut primitive_invoke_vec: Vec<(Id, ir::Guard<Nothing>)> = Vec::new();
+
+    // set to prevent adding multiple probes for a combinational primitive
+    let mut comb_primitives_covered = HashSet::new();
+    let mut comb_cells_covered = HashSet::new();
+    for assignment_ref in comp.continuous_assignments.iter() {
+        let dst_borrow = assignment_ref.dst.borrow();
+        let guard = *(assignment_ref.guard).clone();
+        if let ir::PortParent::Cell(cell_ref) = &dst_borrow.parent {
+            match cell_ref.upgrade().borrow().prototype.clone() {
+                calyx_ir::CellType::Primitive { .. } => {
+                    let cell_name = cell_ref.upgrade().borrow().name();
+                    // collecting primitives for area utilization; we want to avoid adding the same primitive twice!
+                    if comb_primitives_covered.insert(cell_name) {
+                        primitive_invoke_vec.push((cell_name, guard));
+                    }
+                }
+                calyx_ir::CellType::Component { .. } => {
+                    let cell_name = cell_ref.upgrade().borrow().name();
+                    if comb_cells_covered.insert(cell_name) {
+                        cell_invoke_vec.push((cell_name, guard));
+                    }
+                }
+                _ => (),
+            }
+        }
+    }
+
+    // add probes for primitives in continuous assignment
+    let delimiter = "___";
+    let comp_name = comp.name;
+    let mut builder = ir::Builder::new(comp, sigs);
+    let one = builder.add_constant(1, 1);
+    let mut assign_and_cell = Vec::new();
+    for (primitive_cell_name, guard) in primitive_invoke_vec.iter() {
+        let probe_cell_name = format!(
+            "{primitive_cell_name}{delimiter}{comp_name}_contprimitive_probe"
+        );
+        let probe_cell =
+            builder.add_primitive(probe_cell_name, "std_wire", &[1]);
+        probe_cell.borrow_mut().add_attribute(BoolAttr::Control, 1);
+        probe_cell
+            .borrow_mut()
+            .add_attribute(BoolAttr::Protected, 1);
+        let probe_asgn: ir::Assignment<Nothing> = builder.build_assignment(
+            probe_cell.borrow().get("in"),
+            one.borrow().get("out"),
+            guard.clone(),
+        );
+        assign_and_cell.push((probe_asgn, probe_cell));
+    }
+    // add probes for cells (non-primitives) in continuous assignment
+    for (cell_name, guard) in cell_invoke_vec.iter() {
+        let probe_cell_name =
+            format!("{cell_name}{delimiter}{comp_name}_contcell_probe");
+        let probe_cell =
+            builder.add_primitive(probe_cell_name, "std_wire", &[1]);
+        probe_cell.borrow_mut().add_attribute(BoolAttr::Control, 1);
+        probe_cell
+            .borrow_mut()
+            .add_attribute(BoolAttr::Protected, 1);
+        let probe_asgn: ir::Assignment<Nothing> = builder.build_assignment(
+            probe_cell.borrow().get("in"),
+            one.borrow().get("out"),
+            guard.clone(),
+        );
+        assign_and_cell.push((probe_asgn, probe_cell));
+    }
+
+    // Add created assignments to continuous assignments
+    for (asgn, cell) in assign_and_cell.iter() {
+        comp.continuous_assignments.push(asgn.clone());
+        comp.cells.add(cell.to_owned());
+    }
+}
+
 impl Visitor for ProfilerInstrumentation {
     fn start(
         &mut self,
@@ -427,6 +585,7 @@ impl Visitor for ProfilerInstrumentation {
         group(comp, sigs);
         combinational_group(comp, sigs);
         static_group(comp, sigs);
+        continuous_assignments(comp, sigs);
         Ok(Action::Continue)
     }
 }

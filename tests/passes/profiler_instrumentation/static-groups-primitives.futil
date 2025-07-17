@@ -1,0 +1,40 @@
+// -p profiler-instrumentation
+
+import "primitives/core.futil";
+import "primitives/pipelined.futil";
+import "primitives/memories/comb.futil";
+
+component main(@go go: 1) -> (@done done: 1) {
+  cells {
+    @external(1) mem = comb_mem_d1(32, 1, 1);
+    val = std_reg(32);
+    mult = pipelined_mult(32);
+  }
+  wires {
+    group write {
+      mem.addr0 = 1'b0;
+      mem.write_en = 1'b1;
+      mem.write_data = val.out;
+      write[done] = mem.done;
+    }
+    group read {
+      mem.addr0 = 1'b0;
+      val.in = mem.read_data;
+      val.write_en = 1'b1;
+      read[done] = val.done;
+    }
+    static<5> group upd {
+      mult.left = val.out;
+      mult.right = 32'd4;
+      val.in = mult.out;
+      val.write_en = 1'b1;
+    }
+  }
+  control {
+    seq {
+      read;
+      upd;
+      write;
+    }
+  }
+}

@@ -39,6 +39,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.control_metadata: ControlMetadata = control_metadata
         self.tracedata: TraceData = tracedata
         self.timestamps_to_events: dict[int, list[WaveformEvent]] = {}  # timestamps to
+        self.timestamps_to_cont_assignments: dict[int, list[WaveformEvent]] = {}
         self.timestamps_to_clock_cycles: dict[int, int] = {}
         self.timestamps_to_control_reg_changes = {}
         self.timestamps_to_control_group_events: dict[int, list[WaveformEvent]] = {}
@@ -57,6 +58,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         signal_id_dict = {
             sid: [] for sid in vcd.references_to_ids.values()
         }  # one id can map to multiple signal names since wires are connected
+        cont_signal_id_dict = {
+            sid: [] for sid in vcd.references_to_ids.values()
+        }  # same as signal_id_dict, but just the probes that manage continuous assignments
         tdcc_signal_id_to_names = {
             sid: [] for sid in vcd.references_to_ids.values()
         }  # same as signal_id_dict, but just the registers that manage control (fsm, pd)
@@ -93,6 +97,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             signal_id_dict[vcd.references_to_ids[cell_done]].append(cell_done)
 
         for name, sid in refs:
+            if "contprimitive_probe_out" in name or "contcell_probe_out" in name:
+                cont_signal_id_dict[sid].append(name)
             if "probe_out" in name:
                 signal_id_dict[sid].append(name)
             for fsm in self.control_metadata.fsms:
@@ -115,6 +121,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         # control-signal-free version of the trace.
         self.signal_id_to_names = {
             k: v for k, v in signal_id_dict.items() if len(v) > 0
+        }
+        self.cont_signal_id_dict = {
+            k: v for k, v in cont_signal_id_dict.items() if len(v) > 0
         }
         self.tdcc_signal_id_to_names = {
             k: v for k, v in tdcc_signal_id_to_names.items() if len(v) > 0
@@ -143,6 +152,14 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     self.timestamps_to_events[time] = [event]
                 else:
                     self.timestamps_to_events[time].append(event)
+        if identifier_code in self.cont_signal_id_dict:
+            signal_names = self.cont_signal_id_dict[identifier_code]
+            for signal_name in signal_names:
+                event: WaveformEvent = WaveformEvent(signal_name, int_value)
+                if time not in self.timestamps_to_cont_assignments:
+                    self.timestamps_to_cont_assignments[time] = [event]
+                else:
+                    self.timestamps_to_cont_assignments[time].append(event)
         if identifier_code in self.control_signal_id_to_names:
             signal_names = self.control_signal_id_to_names[identifier_code]
             for signal_name in signal_names:
@@ -427,6 +444,14 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     )[-1]
                     control_reg_per_cycle[clock_cycle] = cell_to_change_type[leaf_cell]
         return (control_group_events, control_reg_per_cycle)
+
+    def postprocess_cont(self):
+        cont_assignments_active: set[str] = set()
+        for lst in self.timestamps_to_cont_assignments.values():
+            for event in lst:
+                split = event.signal.split(DELIMITER)[:-1][0]
+                cont_assignments_active.add(split)
+        self.tracedata.cont_assignments = cont_assignments_active
 
 
 def create_cycle_trace(
