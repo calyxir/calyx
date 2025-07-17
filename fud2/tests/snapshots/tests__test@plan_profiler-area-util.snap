@@ -23,6 +23,8 @@ cell-json = cells.json
 fsm-json = fsm.json
 cell-share-json = shared-cells.json
 enable-par-track-json = enable-par-track.json
+ctrl-pos-json = ctrl-pos.json
+adl-metadata-json = adl-metadata.json
 passes = -p pre-opt -p compile -p post-opt -p lower
 edsl-args = 
 component_cells = $calyx-base/target/debug/component_cells
@@ -38,7 +40,9 @@ rule edsl-to-calyx
 metadata-mapping-json = metadata-map.json
 fileinfo_emitter = $calyx-base/target/debug/fileinfo_emitter
 rule parse-metadata
-  command = $fileinfo_emitter -l $calyx-base $in > $metadata-mapping-json
+  command = $fileinfo_emitter -l $calyx-base $in -c $ctrl-pos-json
+rule parse-metadata-with-adl
+  command = $fileinfo_emitter -l $calyx-base $in -c $ctrl-pos-json -o $adl-metadata-json
 
 hierarchy = /test/calyx/non-existent.json
 variable = ff
@@ -67,17 +71,20 @@ rule sim-run
   command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out || (cat $out >&2 && false)
 cycle-limit = 500000000
 
+build metadata-calyx.futil: calyx-pass /input.ext
+  pass = metadata-table-generation
+build $ctrl-pos-json: parse-metadata metadata-calyx.futil
 build $cell-json: component-cells /input.ext
 build instrumented.sv: calyx /input.ext
   backend = verilog
-  args = -d group2seq -p validate -p compile-invoke -p uniquefy-enables -p profiler-instrumentation -p dead-group-removal $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json
+  args = -d group2seq -p metadata-table-generation -p validate -p compile-invoke -p uniquefy-enables -p profiler-instrumentation -p dead-group-removal $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json
 build verilator-out/Vtoplevel: verilator-compile-standalone-tb instrumented.sv | tb.sv
   out-dir = verilator-out
 build instrumented.exe: cp verilator-out/Vtoplevel
 build sim.log instrumented.vcd: sim-run instrumented.exe $datadir
   bin = instrumented.exe
   args = +NOTRACE=0 +OUT=instrumented.vcd
-build flamegraph.folded: parse-vcd instrumented.vcd | $cell-json
+build flamegraph.folded: parse-vcd instrumented.vcd | $cell-json $ctrl-pos-json
 build /output.ext: create-visuals flamegraph.folded
 
 default /output.ext
