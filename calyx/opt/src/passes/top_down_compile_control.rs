@@ -1765,22 +1765,11 @@ impl Visitor for TopDownCompileControl {
             ir::Control::fsm_enable(sch.realize_fsm(self.dump_fsm))
         } else {
             let fsm_rep = self.get_representation(&sch, &attrs);
-            let control_group = sch.realize_schedule(
+            ir::Control::enable(sch.realize_schedule(
                 self.dump_fsm,
                 &mut self.profiling_info,
                 fsm_rep,
-            );
-            // let ctrl = &control.borrow();
-            // let attrs = get_top_level_attrs(ctrl)?;
-            // if let Some(pos_set) = attrs.get_set(SetAttr::Pos) {
-            //     for pos in pos_set.iter() {
-            //         control_group
-            //             .borrow_mut()
-            //             .attributes
-            //             .insert_set(SetAttr::Pos, pos.clone());
-            //     }
-            // }
-            ir::Control::enable(control_group)
+            ))
             // Retaining set attributes from original control node in the generated Par group
         };
 

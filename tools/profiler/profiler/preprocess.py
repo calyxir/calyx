@@ -115,7 +115,9 @@ def read_tdcc_file(
     if component_to_pos_to_loc_str is not None:
         control_metadata.component_to_ctrl_group_to_pos_str = defaultdict()
         for component in cell_metadata.component_to_cells.keys():
-            control_metadata.component_to_ctrl_group_to_pos_str[component] = defaultdict(str)
+            control_metadata.component_to_ctrl_group_to_pos_str[component] = (
+                defaultdict(str)
+            )
     # pass 1: obtain names of all par groups in each component
     for json_entry in json_data:
         if "Par" in json_entry:
@@ -132,16 +134,20 @@ def read_tdcc_file(
             control_metadata.register_fsm(
                 entry["fsm"], entry["component"], cell_metadata
             )
-            calyx_pos_list: list[int] = list(filter(
-                lambda x: component_to_pos_to_loc_str is not None
-                and x in component_to_pos_to_loc_str[component],
-                pos_list,
-            ))
-            assert(len(calyx_pos_list) <= 1)
+            calyx_pos_list: list[int] = list(
+                filter(
+                    lambda x: component_to_pos_to_loc_str is not None
+                    and x in component_to_pos_to_loc_str[component],
+                    pos_list,
+                )
+            )
+            assert len(calyx_pos_list) <= 1
             if len(calyx_pos_list) == 1:
                 # if we have a control position, look up its corresponding
                 loc_str = component_to_pos_to_loc_str[component][calyx_pos_list[0]]
-                control_metadata.component_to_ctrl_group_to_pos_str[component][ctrl_group] = loc_str
+                control_metadata.component_to_ctrl_group_to_pos_str[component][
+                    ctrl_group
+                ] = loc_str
             for cell in cell_metadata.component_to_cells[entry["component"]]:
                 control_metadata.register_fully_qualified_ctrl_gp(
                     f"{cell}.{ctrl_group}"
@@ -155,16 +161,20 @@ def read_tdcc_file(
             par = entry["par_group"]
             component = entry["component"]
             # TODO: remove code clone
-            calyx_pos_list: list[int] = list(filter(
-                lambda x: component_to_pos_to_loc_str is not None
-                and x in component_to_pos_to_loc_str[component],
-                entry["pos"],
-            ))
-            assert(len(calyx_pos_list) <= 1)
+            calyx_pos_list: list[int] = list(
+                filter(
+                    lambda x: component_to_pos_to_loc_str is not None
+                    and x in component_to_pos_to_loc_str[component],
+                    entry["pos"],
+                )
+            )
+            assert len(calyx_pos_list) <= 1
             if len(calyx_pos_list) == 1:
                 # if we have a control position, look up its corresponding
                 loc_str = component_to_pos_to_loc_str[component][calyx_pos_list[0]]
-                control_metadata.component_to_ctrl_group_to_pos_str[component][par] = loc_str
+                control_metadata.component_to_ctrl_group_to_pos_str[component][par] = (
+                    loc_str
+                )
 
             child_par_groups = []
             for cell in cell_metadata.component_to_cells[component]:

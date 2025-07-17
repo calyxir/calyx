@@ -31,10 +31,12 @@ def setup_metadata(args):
     )
     enable_thread_data = preprocess.read_enable_thread_json(args.enable_par_tracks_json)
     if args.ctrl_mapping_file is not None:
-        component_to_pos_to_loc_str = preprocess.read_ctrl_metadata_file(args.ctrl_mapping_file)
+        component_to_pos_to_loc_str = preprocess.read_ctrl_metadata_file(
+            args.ctrl_mapping_file
+        )
     else:
         component_to_pos_to_loc_str = None
-    
+
     control_metadata: ControlMetadata = preprocess.read_tdcc_file(
         args.fsms_json, component_to_pos_to_loc_str, cell_metadata
     )
@@ -161,7 +163,9 @@ def parse_args():
         choices=["ff", "lut", "llut", "lutram"],
     )
     parser.add_argument(
-        "--ctrl-pos-file", dest="ctrl_mapping_file", help="json containing components to the pos and locations of their ctrl nodes"
+        "--ctrl-pos-file",
+        dest="ctrl_mapping_file",
+        help="json containing components to the pos and locations of their ctrl nodes",
     )
     parser.add_argument(
         "--adl-mapping-file", dest="adl_mapping_file", help="adl mapping file"

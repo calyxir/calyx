@@ -411,7 +411,9 @@ class StackElement:
                 else:
                     return f"{self.name} [{self.component_name}]"
             case StackElementType.CONTROL_GROUP:
-                ctrl_string = f" ~ {self.ctrl_loc_str}" if self.ctrl_loc_str is not None else ""
+                ctrl_string = (
+                    f" ~ {self.ctrl_loc_str}" if self.ctrl_loc_str is not None else ""
+                )
                 return f"{self.name}{ctrl_string} (ctrl)"
 
     def adl_str(self):
