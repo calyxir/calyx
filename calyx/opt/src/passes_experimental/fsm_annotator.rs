@@ -32,13 +32,13 @@ struct FSMImplementation {
     loop_attr: Option<LoopAnnotation>,
 }
 
-trait FSMPolicy<T> {
+trait FSMPolicy {
     /// Given a control node, returns a number of states allocated for the FSM,
     /// along with whether there exist backedges in the FSM.
-    fn policy(ctrl: &mut T) -> FSMImplementation;
+    fn policy(ctrl: &mut Self) -> FSMImplementation;
 }
 
-impl FSMPolicy<ir::StaticEnable> for ir::StaticEnable {
+impl FSMPolicy for ir::StaticEnable {
     fn policy(ctrl: &mut ir::StaticEnable) -> FSMImplementation {
         let (num_states, acyclic) = {
             let latency = ctrl.group.borrow().get_latency();
@@ -56,7 +56,7 @@ impl FSMPolicy<ir::StaticEnable> for ir::StaticEnable {
     }
 }
 
-impl FSMPolicy<ir::StaticSeq> for ir::StaticSeq {
+impl FSMPolicy for ir::StaticSeq {
     fn policy(ctrl: &mut ir::StaticSeq) -> FSMImplementation {
         let (num_states, acyclic) =
             ctrl.stmts
@@ -74,7 +74,7 @@ impl FSMPolicy<ir::StaticSeq> for ir::StaticSeq {
     }
 }
 
-impl FSMPolicy<ir::StaticPar> for ir::StaticPar {
+impl FSMPolicy for ir::StaticPar {
     fn policy(ctrl: &mut ir::StaticPar) -> FSMImplementation {
         let (num_states, acyclic) = if ctrl.stmts.iter().all(is_acyclic) {
             (ctrl.latency, true)
@@ -89,7 +89,7 @@ impl FSMPolicy<ir::StaticPar> for ir::StaticPar {
     }
 }
 
-impl FSMPolicy<ir::StaticRepeat> for ir::StaticRepeat {
+impl FSMPolicy for ir::StaticRepeat {
     fn policy(ctrl: &mut ir::StaticRepeat) -> FSMImplementation {
         let (num_states, acyclic, loop_attr) = {
             let (body_num_states, body_is_acyclic) =
@@ -111,7 +111,7 @@ impl FSMPolicy<ir::StaticRepeat> for ir::StaticRepeat {
     }
 }
 
-impl FSMPolicy<ir::StaticIf> for ir::StaticIf {
+impl FSMPolicy for ir::StaticIf {
     fn policy(ctrl: &mut ir::StaticIf) -> FSMImplementation {
         let (num_states, acyclic) =
             if is_acyclic(&ctrl.tbranch) && is_acyclic(&ctrl.fbranch) {
@@ -127,7 +127,7 @@ impl FSMPolicy<ir::StaticIf> for ir::StaticIf {
     }
 }
 
-impl FSMPolicy<ir::Enable> for ir::Enable {
+impl FSMPolicy for ir::Enable {
     fn policy(_ctrl: &mut ir::Enable) -> FSMImplementation {
         FSMImplementation {
             num_states: 1,
@@ -137,7 +137,7 @@ impl FSMPolicy<ir::Enable> for ir::Enable {
     }
 }
 
-impl FSMPolicy<ir::Seq> for ir::Seq {
+impl FSMPolicy for ir::Seq {
     fn policy(ctrl: &mut ir::Seq) -> FSMImplementation {
         FSMImplementation {
             num_states: ctrl.stmts.iter().map(get_num_states).sum(),
@@ -147,7 +147,7 @@ impl FSMPolicy<ir::Seq> for ir::Seq {
     }
 }
 
-impl FSMPolicy<ir::Par> for ir::Par {
+impl FSMPolicy for ir::Par {
     fn policy(_ctrl: &mut ir::Par) -> FSMImplementation {
         FSMImplementation {
             num_states: 1,
@@ -157,7 +157,7 @@ impl FSMPolicy<ir::Par> for ir::Par {
     }
 }
 
-impl FSMPolicy<ir::If> for ir::If {
+impl FSMPolicy for ir::If {
     fn policy(_ctrl: &mut ir::If) -> FSMImplementation {
         FSMImplementation {
             num_states: 1,
@@ -167,7 +167,7 @@ impl FSMPolicy<ir::If> for ir::If {
     }
 }
 
-impl FSMPolicy<ir::While> for ir::While {
+impl FSMPolicy for ir::While {
     fn policy(ctrl: &mut ir::While) -> FSMImplementation {
         let num_states = ctrl.body.get_attribute(NUM_STATES).unwrap();
         let loop_attr = Some(if num_states < FSM_STATE_CUTOFF {
@@ -183,7 +183,7 @@ impl FSMPolicy<ir::While> for ir::While {
     }
 }
 
-impl FSMPolicy<ir::Repeat> for ir::Repeat {
+impl FSMPolicy for ir::Repeat {
     fn policy(ctrl: &mut ir::Repeat) -> FSMImplementation {
         let num_states = ctrl.body.get_attribute(NUM_STATES).unwrap();
         let loop_attr = Some(if num_states < FSM_STATE_CUTOFF {
