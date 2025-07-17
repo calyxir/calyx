@@ -856,6 +856,11 @@ impl FSM {
         }
     }
 
+    /// Gets the number of states in the FSM.
+    pub fn num_states(&self) -> u64 {
+        self.assignments.len().try_into().unwrap()
+    }
+
     /// Get a reference to the named hole if it exists.
     pub fn find<S>(&self, name: S) -> Option<RRC<Port>>
     where
