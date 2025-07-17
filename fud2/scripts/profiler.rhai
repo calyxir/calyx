@@ -39,7 +39,7 @@ fn profiling_setup(e) {
     e.var_("metadata-mapping-json", "metadata-map.json");
     e.config_var_or("fileinfo_emitter", "fileinfo_emitter", "$calyx-base/target/debug/fileinfo_emitter");
     // e.rule("parse-metadata", "$fileinfo_emitter -l $calyx-base $in > $metadata-mapping-json");
-    e.rule("parse-metadata", "$fileinfo_emitter -l $calyx-base $in -o $ctrl-pos-json");
+    e.rule("parse-metadata", "$fileinfo_emitter -l $calyx-base $in -c $ctrl-pos-json");
 }
 
 fn profiler_non_synth_setup(e) {

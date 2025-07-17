@@ -853,7 +853,6 @@ class TraceData:
         Populates the field trace_with_control_groups by combining control group information (from control_groups_trace) with self.trace.
         Does not modify self.trace.
         """
-        print(control_metadata.component_to_ctrl_group_to_pos_str)
         control_metadata.order_pars(cell_metadata)
         for i in self.trace:
             if i in control_groups_trace:

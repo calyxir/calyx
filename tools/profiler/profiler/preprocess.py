@@ -90,12 +90,10 @@ def read_ctrl_metadata_file(ctrl_map_file: str):
     json_data = json.load(open(ctrl_map_file, "r"))
     for component in json_data:
         component_to_pos_to_loc_str[component] = defaultdict(str)
-        print(component)
         for entry in json_data[component]:
             pos_num = entry["pos_num"]
             line_num = entry["linenum"]
             ctrl_node_name = entry["ctrl_node"]
-            print(component_to_pos_to_loc_str[component])
             component_to_pos_to_loc_str[component][pos_num] = (
                 f"{ctrl_node_name}@L{line_num}"
             )
@@ -115,7 +113,6 @@ def read_tdcc_file(
     json_data = json.load(open(tdcc_json_file))
     control_metadata = ControlMetadata()
     if component_to_pos_to_loc_str is not None:
-        print(f"component_to_pos_to_loc_str: {component_to_pos_to_loc_str}")
         control_metadata.component_to_ctrl_group_to_pos_str = defaultdict()
         for component in cell_metadata.component_to_cells.keys():
             control_metadata.component_to_ctrl_group_to_pos_str[component] = defaultdict(str)
@@ -132,7 +129,6 @@ def read_tdcc_file(
             ctrl_group = entry["group"]
             component = entry["component"]
             pos_list = entry["pos"]
-            print(f"FSM! {ctrl_group} {component} {pos_list}")
             control_metadata.register_fsm(
                 entry["fsm"], entry["component"], cell_metadata
             )
@@ -143,12 +139,8 @@ def read_tdcc_file(
             ))
             assert(len(calyx_pos_list) <= 1)
             if len(calyx_pos_list) == 1:
-                print(calyx_pos_list)
                 # if we have a control position, look up its corresponding
                 loc_str = component_to_pos_to_loc_str[component][calyx_pos_list[0]]
-                # if component not in control_metadata.component_to_ctrl_group_to_pos_str:
-                #     control_metadata.component_to_ctrl_group_to_pos_str[component] = defaultdict(str)
-                print(control_metadata.component_to_ctrl_group_to_pos_str)
                 control_metadata.component_to_ctrl_group_to_pos_str[component][ctrl_group] = loc_str
             for cell in cell_metadata.component_to_cells[entry["component"]]:
                 control_metadata.register_fully_qualified_ctrl_gp(
@@ -162,6 +154,18 @@ def read_tdcc_file(
             entry = json_entry["Par"]
             par = entry["par_group"]
             component = entry["component"]
+            # TODO: remove code clone
+            calyx_pos_list: list[int] = list(filter(
+                lambda x: component_to_pos_to_loc_str is not None
+                and x in component_to_pos_to_loc_str[component],
+                entry["pos"],
+            ))
+            assert(len(calyx_pos_list) <= 1)
+            if len(calyx_pos_list) == 1:
+                # if we have a control position, look up its corresponding
+                loc_str = component_to_pos_to_loc_str[component][calyx_pos_list[0]]
+                control_metadata.component_to_ctrl_group_to_pos_str[component][par] = loc_str
+
             child_par_groups = []
             for cell in cell_metadata.component_to_cells[component]:
                 fully_qualified_par = ".".join((cell, par))
