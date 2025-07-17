@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import json
 import os
 
@@ -7,12 +7,8 @@ import uuid
 from perfetto.trace_builder.proto_builder import TraceProtoBuilder
 from perfetto.protos.perfetto.trace.perfetto_trace_pb2 import (
     TrackEvent,
-    TrackDescriptor,
-    ProcessDescriptor,
-    ThreadDescriptor,
 )
 
-from collections import defaultdict
 from enum import Enum
 from profiler.classes import (
     TraceData,
@@ -155,9 +151,7 @@ def compute_ctrl_timeline(
                             stack_acc = f"{stack_acc}.{stack_elem.name}"
                         this_cycle_active_cells.add(stack_acc)
                     case StackElementType.CONTROL_GROUP:
-                        this_cycle_active_ctrl_groups.add(
-                            f"{stack_acc}.{stack_elem}"
-                        )
+                        this_cycle_active_ctrl_groups.add(f"{stack_acc}.{stack_elem}")
 
         for new_cell in this_cycle_active_cells.difference(currently_active_cells):
             proto.register_cell_event(new_cell, i, TrackEvent.TYPE_SLICE_BEGIN)
