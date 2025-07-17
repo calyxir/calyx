@@ -189,10 +189,7 @@ impl PassManager {
         register_alias!(
             pm,
             "all",
-            [
-                "validate", Metadata, "pre-opt", "compile", "post-opt",
-                "lower",
-            ]
+            ["validate", "pre-opt", "compile", "post-opt", "lower",]
         );
 
         // profiler flow for pass explorer access
@@ -236,7 +233,6 @@ impl PassManager {
             "no-opt",
             [
                 "validate",
-                Metadata,
                 CompileSync,
                 SimplifyWithControl,
                 CompileInvoke,
