@@ -1,5 +1,6 @@
 from .stage import (
     VivadoStage,
+    VivadoStageFSMs,
     VivadoExtractStage,
     VivadoHLSStage,
     VivadoHLSExtractStage,
@@ -9,6 +10,7 @@ from .stage import (
 
 __all__ = [
     "VivadoStage",
+    "VivadoStageFSMs",
     "VivadoExtractStage",
     "VivadoHLSStage",
     "VivadoHLSExtractStage",

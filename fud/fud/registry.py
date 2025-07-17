@@ -109,7 +109,13 @@ class Registry:
                     stage_paths.append(stage_path)
 
         if len(stage_paths) > 1:
-            raise MultiplePaths(start, dest, self.paths_str(all_paths))
+            # There are two version of the Calyx compiler that can be used to produce
+            # synthesizable verilog. For backwards-compatibility reasons, default
+            # to the non-fsm Calyx compiler instead of throwing a multiple paths error.
+            if start == "calyx" and (dest == "resource-estimate" or dest == "synth-files"):
+                return stage_paths[0]
+            else:
+                raise MultiplePaths(start, dest, self.paths_str(all_paths))
         elif len(stage_paths) == 0:
             raise errors.NoPathFound(start, dest, through)
         else:
