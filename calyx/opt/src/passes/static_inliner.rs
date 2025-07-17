@@ -2,10 +2,12 @@ use crate::analysis::GraphColoring;
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
+use calyx_frontend::SetAttr;
 use calyx_ir::LibrarySignatures;
 use calyx_ir::structure;
 use calyx_ir::{self as ir, StaticTiming};
 use calyx_utils::CalyxResult;
+use ir::GetAttributes;
 use ir::build_assignments;
 use itertools::Itertools;
 use std::collections::{BTreeMap, HashMap};
@@ -749,6 +751,31 @@ impl StaticInliner {
     }
 }
 
+/// Propagate the original control node's pos attributes to the newly created control node.
+fn port_pos_attribute(
+    s: &mut ir::StaticControl,
+    replacement_ctrl: &mut ir::Control,
+) -> CalyxResult<()> {
+    match s {
+        ir::StaticControl::Repeat(ir::StaticRepeat { attributes, .. })
+        | ir::StaticControl::Enable(ir::StaticEnable { attributes, .. })
+        | ir::StaticControl::Par(ir::StaticPar { attributes, .. })
+        | ir::StaticControl::Seq(ir::StaticSeq { attributes, .. })
+        | ir::StaticControl::If(ir::StaticIf { attributes, .. })
+        | ir::StaticControl::Invoke(ir::StaticInvoke { attributes, .. }) => {
+            if let Some(pos_set) = attributes.get_set(SetAttr::Pos) {
+                for pos in pos_set.iter() {
+                    replacement_ctrl
+                        .get_mut_attributes()
+                        .insert_set(SetAttr::Pos, *pos);
+                }
+            }
+        }
+        _ => (),
+    }
+    Ok(())
+}
+
 impl Visitor for StaticInliner {
     /// Executed after visiting the children of a [ir::Static] node.
     fn start_static_control(
@@ -760,8 +787,10 @@ impl Visitor for StaticInliner {
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
         let replacement_group = self.inline_static_control(s, &mut builder);
-        Ok(Action::Change(Box::new(ir::Control::from(
-            ir::StaticControl::from(replacement_group),
-        ))))
+        // the replacement group should inherit the original control's position attributes
+        let mut replacement_ctrl =
+            ir::Control::from(ir::StaticControl::from(replacement_group));
+        port_pos_attribute(s, &mut replacement_ctrl)?;
+        Ok(Action::Change(Box::new(replacement_ctrl)))
     }
 }
