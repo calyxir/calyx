@@ -119,8 +119,10 @@ def create_visuals(
     flame.write_flame_maps(flat_flame_map, scaled_flame_map, out_dir, flame_out)
     print(f"End writing flame graphs: {datetime.now()}")
 
+    timeline.compute_protobuf_timeline(
+        tracedata, cell_metadata, enable_thread_metadata, out_dir
+    )
     timeline.compute_timeline(tracedata, cell_metadata, enable_thread_metadata, out_dir)
-    timeline.compute_ctrl_timeline(tracedata, cell_metadata, out_dir)
     print(f"End writing timeline view: {datetime.now()}")
 
     if utilization_variable:
