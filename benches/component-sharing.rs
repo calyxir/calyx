@@ -27,7 +27,11 @@ fn cell_share_bench(c: &mut Criterion) {
                         )
                         .unwrap();
 
-                        let mut rep = ir::from_ast::ast_to_ir(ws).unwrap();
+                        let mut rep = ir::from_ast::ast_to_ir(
+                            ws,
+                            ir::from_ast::AstConversionConfig::default(),
+                        )
+                        .unwrap();
 
                         passes::SimplifyWithControl::do_pass_default(&mut rep)
                             .unwrap();

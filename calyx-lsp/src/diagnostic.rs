@@ -29,7 +29,12 @@ impl Diagnostic {
             &Some(path.to_path_buf()),
             lib_paths,
         )
-        .and_then(calyx_ir::from_ast::ast_to_ir)
+        .and_then(|ws| {
+            calyx_ir::from_ast::ast_to_ir(
+                ws,
+                calyx_ir::from_ast::AstConversionConfig::default(),
+            )
+        })
         .and_then(|mut ctx| {
             let mut wellformed = <WellFormed as ConstructVisitor>::from(&ctx)?;
             wellformed.do_pass(&mut ctx)?;

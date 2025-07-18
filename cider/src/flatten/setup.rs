@@ -17,7 +17,10 @@ fn do_setup(
 ) -> CiderResult<(Context, CiderResult<NewSourceMap>)> {
     // Construct IR
     let ws = frontend::Workspace::construct(file, &[lib_path.to_path_buf()])?;
-    let mut ctx = ir::from_ast::ast_to_ir(ws)?;
+    let mut ctx = ir::from_ast::ast_to_ir(
+        ws,
+        ir::from_ast::AstConversionConfig::default(),
+    )?;
     let pm = PassManager::default_passes()?;
 
     if !skip_verification {
