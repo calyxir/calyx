@@ -15,14 +15,15 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 // Emits a JSON mapping components, cells, and groups to their @pos filenames and line numbers.
-// Used by the profiler when the source code is written in the calyx-py eDSL.
-// NOTE: Assumes that any @pos{} is a singleton set.
+// Used by the profiler to (1) map Calyx components/cells/groups to ADLs (currently only)
+
+// NOTE: Current implementation is hacky because it uses the
+//
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 enum Adl {
     Calyx,
     Py,
-    Dahlia,
 }
 
 #[derive(FromArgs)]
@@ -335,6 +336,10 @@ fn create_file_map(
     toplevel_file_map
 }
 
+/// Categorizes position ids and file ids based on the ADL signified by the
+/// file id's extension.
+/// FIXME: In the future we maybe have two versions of the tool and inputs,
+/// one that deals with ADL positions and another to deal with Calyx positions?
 fn create_lang_to_posid_map(
     source_info_table: &SourceInfoTable,
 ) -> CalyxResult<HashMap<Adl, HashMap<u32, u32>>> {
@@ -352,9 +357,6 @@ fn create_lang_to_posid_map(
                     }
                     "py" => {
                         fileid_to_lang.insert(*fileid, Adl::Py);
-                    }
-                    "fuse" => {
-                        fileid_to_lang.insert(*fileid, Adl::Dahlia);
                     }
                     _ => println!("Unsupported file extension: {path_ext_str}"),
                 }

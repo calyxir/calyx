@@ -556,6 +556,7 @@ impl Visitor for StaticPromotion {
             stmts: new_stmts,
             attributes: ir::Attributes::default(),
         });
+        // port position attribute of original par node to the new par node
         if let Some(pos_set) = s.attributes.get_set(SetAttr::Pos) {
             for pos in pos_set.iter() {
                 new_par.get_mut_attributes().insert_set(SetAttr::Pos, *pos);

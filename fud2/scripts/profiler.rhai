@@ -11,7 +11,9 @@ fn profiling_setup(e) {
     e.var_("fsm-json", "fsm.json");
     e.var_("cell-share-json", "shared-cells.json");
     e.var_("enable-par-track-json", "enable-par-track.json");
+    /// Control group position (from Calyx file), line number, and type of control node.
     e.var_("ctrl-pos-json", "ctrl-pos.json");
+    /// ADL source mapping.
     e.var_("adl-metadata-json", "adl-metadata.json");
 
     // series of passes after validation and instrumentation
