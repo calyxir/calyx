@@ -3,7 +3,8 @@ use std::{cmp, collections::BTreeMap, collections::BTreeSet};
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
-use calyx_ir::{self as ir, Nothing};
+use calyx_frontend::SetAttr;
+use calyx_ir::{self as ir, Attribute, Nothing};
 use calyx_utils::{CalyxResult, OutputFile};
 use serde::Serialize;
 
@@ -49,8 +50,12 @@ impl Named for UniquefyEnables {
 /// Information to serialize for locating path descriptors
 #[derive(Serialize)]
 struct PathDescriptorInfo {
+    /// enable id --> descriptor
     pub enables: BTreeMap<String, String>,
-    pub pars: BTreeSet<String>,
+    /// descriptor --> position set
+    /// (Ideally I'd do a position set --> descriptor mapping but
+    /// a set shouldn't be a key.)
+    pub control_pos: BTreeMap<String, BTreeSet<u32>>,
 }
 
 impl ConstructVisitor for UniquefyEnables {
@@ -197,7 +202,7 @@ fn assign_par_threads(
             enable_to_track,
         ),
         ir::Control::Invoke(_) => {
-            panic!("compile-invoke should be run before unique-control!")
+            panic!("compile-invoke should be run before uniquefy-enables!")
         }
         _ => next_idx,
     }
@@ -210,14 +215,23 @@ fn compute_path_descriptors_static(
     parent_is_component: bool,
 ) {
     match control {
-        ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
-            let body_id = format!("{}-b", current_id);
+        ir::StaticControl::Repeat(ir::StaticRepeat {
+            body,
+            attributes,
+            ..
+        }) => {
+            let repeat_id = format!("{}-", current_id);
+            let body_id = format!("{}b", repeat_id);
             compute_path_descriptors_static(
                 body,
                 body_id,
                 path_descriptor_info,
                 false,
             );
+            let new_pos_set = retrieve_pos_set(attributes);
+            path_descriptor_info
+                .control_pos
+                .insert(repeat_id, new_pos_set);
         }
         ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
             let group_id = if parent_is_component {
@@ -231,7 +245,9 @@ fn compute_path_descriptors_static(
                 .enables
                 .insert(group_name.to_string(), group_id);
         }
-        ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+        ir::StaticControl::Par(ir::StaticPar {
+            stmts, attributes, ..
+        }) => {
             let par_id = format!("{}-", current_id);
             for (acc, stmt) in stmts.iter().enumerate() {
                 let stmt_id = format!("{}{}", par_id, acc);
@@ -242,11 +258,15 @@ fn compute_path_descriptors_static(
                     false,
                 );
             }
-            path_descriptor_info.pars.insert(par_id);
+            let new_pos_set: BTreeSet<u32> = retrieve_pos_set(attributes);
+            path_descriptor_info.control_pos.insert(par_id, new_pos_set);
         }
-        ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => {
+        ir::StaticControl::Seq(ir::StaticSeq {
+            stmts, attributes, ..
+        }) => {
+            let seq_id = format!("{}-", current_id);
             for (acc, stmt) in stmts.iter().enumerate() {
-                let stmt_id = format!("{}-{}", current_id, acc);
+                let stmt_id = format!("{}{}", seq_id, acc);
                 compute_path_descriptors_static(
                     stmt,
                     stmt_id,
@@ -254,12 +274,18 @@ fn compute_path_descriptors_static(
                     false,
                 );
             }
+            let new_pos_set: BTreeSet<u32> = retrieve_pos_set(attributes);
+            path_descriptor_info.control_pos.insert(seq_id, new_pos_set);
         }
         ir::StaticControl::If(ir::StaticIf {
-            tbranch, fbranch, ..
+            tbranch,
+            fbranch,
+            attributes,
+            ..
         }) => {
+            let if_id = format!("{}-", current_id);
             // process true branch
-            let true_id = format!("{}-t", current_id);
+            let true_id = format!("{}t", if_id);
             compute_path_descriptors_static(
                 tbranch,
                 true_id,
@@ -267,13 +293,16 @@ fn compute_path_descriptors_static(
                 false,
             );
             // process false branch
-            let false_id = format!("{}-f", current_id);
+            let false_id = format!("{}f", if_id);
             compute_path_descriptors_static(
                 fbranch,
                 false_id,
                 path_descriptor_info,
                 false,
             );
+            path_descriptor_info
+                .control_pos
+                .insert(if_id, retrieve_pos_set(attributes));
         }
         ir::StaticControl::Empty(_empty) => (),
         ir::StaticControl::Invoke(_static_invoke) => {
@@ -289,7 +318,10 @@ fn compute_path_descriptors(
     parent_is_component: bool,
 ) {
     match control {
-        ir::Control::Seq(ir::Seq { stmts, .. }) => {
+        ir::Control::Seq(ir::Seq {
+            stmts, attributes, ..
+        }) => {
+            let seq_id = format!("{}-", current_id);
             for (acc, stmt) in stmts.iter().enumerate() {
                 let stmt_id = format!("{}-{}", current_id, acc);
                 compute_path_descriptors(
@@ -299,8 +331,12 @@ fn compute_path_descriptors(
                     false,
                 );
             }
+            let new_pos_set = retrieve_pos_set(attributes);
+            path_descriptor_info.control_pos.insert(seq_id, new_pos_set);
         }
-        ir::Control::Par(ir::Par { stmts, .. }) => {
+        ir::Control::Par(ir::Par {
+            stmts, attributes, ..
+        }) => {
             let par_id = format!("{}-", current_id);
             for (acc, stmt) in stmts.iter().enumerate() {
                 let stmt_id = format!("{}{}", par_id, acc);
@@ -311,13 +347,19 @@ fn compute_path_descriptors(
                     false,
                 );
             }
-            path_descriptor_info.pars.insert(par_id);
+            // add this node to path_descriptor_info
+            let new_pos_set = retrieve_pos_set(attributes);
+            path_descriptor_info.control_pos.insert(par_id, new_pos_set);
         }
         ir::Control::If(ir::If {
-            tbranch, fbranch, ..
+            tbranch,
+            fbranch,
+            attributes,
+            ..
         }) => {
+            let if_id = format!("{}-", current_id);
             // process true branch
-            let true_id = format!("{}-t", current_id);
+            let true_id = format!("{}t", if_id);
             compute_path_descriptors(
                 tbranch,
                 true_id,
@@ -325,22 +367,33 @@ fn compute_path_descriptors(
                 false,
             );
             // process false branch
-            let false_id = format!("{}-f", current_id);
+            let false_id = format!("{}f", if_id);
             compute_path_descriptors(
                 fbranch,
                 false_id,
                 path_descriptor_info,
                 false,
             );
+            // add this node to path_descriptor_info
+            let new_pos_set = retrieve_pos_set(attributes);
+            path_descriptor_info.control_pos.insert(if_id, new_pos_set);
         }
-        ir::Control::While(ir::While { body, .. }) => {
-            let body_id = format!("{}-b", current_id);
+        ir::Control::While(ir::While {
+            body, attributes, ..
+        }) => {
+            let while_id = format!("{}-", current_id);
+            let body_id = format!("{}b", while_id);
             compute_path_descriptors(
                 body,
                 body_id,
                 path_descriptor_info,
                 false,
             );
+            // add this node to path_descriptor_info
+            let new_pos_set = retrieve_pos_set(attributes);
+            path_descriptor_info
+                .control_pos
+                .insert(while_id, new_pos_set);
         }
         ir::Control::Enable(ir::Enable { group, .. }) => {
             let group_id = if parent_is_component {
@@ -354,14 +407,22 @@ fn compute_path_descriptors(
                 .enables
                 .insert(group_name.to_string(), group_id);
         }
-        ir::Control::Repeat(ir::Repeat { body, .. }) => {
-            let body_id = format!("{}-b", current_id);
+        ir::Control::Repeat(ir::Repeat {
+            body, attributes, ..
+        }) => {
+            let repeat_id = format!("{}-", current_id);
+            let body_id = format!("{}b", repeat_id);
             compute_path_descriptors(
                 body,
                 body_id,
                 path_descriptor_info,
                 false,
             );
+            // add this node to path_descriptor_info
+            let new_pos_set = retrieve_pos_set(attributes);
+            path_descriptor_info
+                .control_pos
+                .insert(repeat_id, new_pos_set);
         }
         ir::Control::Static(static_control) => {
             compute_path_descriptors_static(
@@ -377,6 +438,16 @@ fn compute_path_descriptors(
             panic!("compile-invoke should be run before unique-control!")
         }
     }
+}
+
+fn retrieve_pos_set(attributes: &calyx_ir::Attributes) -> BTreeSet<u32> {
+    let new_pos_set: BTreeSet<u32> =
+        if let Some(pos_set) = attributes.get_set(SetAttr::Pos) {
+            pos_set.iter().map(|p| *p).collect()
+        } else {
+            BTreeSet::new()
+        };
+    new_pos_set
 }
 
 impl Visitor for UniquefyEnables {
@@ -458,7 +529,7 @@ impl Visitor for UniquefyEnables {
         let control = comp.control.borrow();
         let mut path_descriptor_info = PathDescriptorInfo {
             enables: BTreeMap::new(),
-            pars: BTreeSet::new(),
+            control_pos: BTreeMap::new(),
         };
         compute_path_descriptors(
             &control,
