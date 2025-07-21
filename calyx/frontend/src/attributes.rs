@@ -4,7 +4,10 @@ use calyx_utils::{CalyxResult, GPosIdx, WithPos};
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use smallvec::SmallVec;
-use std::{collections::HashMap, convert::TryFrom};
+use std::{
+    collections::{HashMap, HashSet},
+    convert::TryFrom,
+};
 
 #[derive(Debug, Clone, Default)]
 /// Attribute information stored on the Heap
@@ -202,6 +205,24 @@ impl Attributes {
         }
     }
 
+    /// Copies the values of the given set attributes,`keys`, from `other`
+    /// into `self`. Note that this does not overwrite set values in `self` that
+    /// are already present.
+    pub fn copy_from_set<A>(&mut self, other: Self, keys: Vec<A>)
+    where
+        A: Into<SetAttribute> + Clone,
+    {
+        for key in keys {
+            if let Some(vals) = other.get_set(key.clone()) {
+                self.hinfo
+                    .set_attrs
+                    .entry(key.clone().into())
+                    .or_default()
+                    .extend(vals.iter().cloned());
+            }
+        }
+    }
+
     /// Set the span information
     pub fn add_span(mut self, span: GPosIdx) -> Self {
         self.hinfo.span = span;
@@ -286,6 +307,20 @@ where
     D: Eq + std::hash::Hash + Clone,
 {
     inner: SmallVec<[D; ALLOC]>,
+}
+
+impl<D, const ALLOC: usize> Extend<D> for VecSet<D, ALLOC>
+where
+    D: Eq + std::hash::Hash + Clone,
+{
+    fn extend<T: IntoIterator<Item = D>>(&mut self, iter: T) {
+        let mut set: HashSet<_> = self.iter().cloned().collect();
+        for i in iter {
+            if set.insert(i.clone()) {
+                self.inner.push(i);
+            }
+        }
+    }
 }
 
 impl<D, const ALLOC: usize> VecSet<D, ALLOC>
