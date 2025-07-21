@@ -1,8 +1,9 @@
-use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
+use crate::traversal::{
+    Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
+};
 use calyx_ir::{self as ir};
 use calyx_utils::CalyxResult;
 
-const FSM_STATE_CUTOFF: u64 = 300;
 const NUM_STATES: ir::Attribute =
     ir::Attribute::Internal(ir::InternalAttr::NUM_STATES);
 const ACYCLIC: ir::Attribute =
@@ -35,14 +36,17 @@ struct FSMImplementation {
 trait FSMPolicy {
     /// Given a control node, returns a number of states allocated for the FSM,
     /// along with whether there exist backedges in the FSM.
-    fn policy(ctrl: &mut Self) -> FSMImplementation;
+    fn policy(ctrl: &mut Self, child_fsm_cutoff: u64) -> FSMImplementation;
 }
 
 impl FSMPolicy for ir::StaticEnable {
-    fn policy(ctrl: &mut ir::StaticEnable) -> FSMImplementation {
+    fn policy(
+        ctrl: &mut ir::StaticEnable,
+        child_fsm_cutoff: u64,
+    ) -> FSMImplementation {
         let (num_states, acyclic) = {
             let latency = ctrl.group.borrow().get_latency();
-            if latency < FSM_STATE_CUTOFF {
+            if latency < child_fsm_cutoff {
                 (latency, true)
             } else {
                 (1, false)
@@ -57,7 +61,7 @@ impl FSMPolicy for ir::StaticEnable {
 }
 
 impl FSMPolicy for ir::StaticSeq {
-    fn policy(ctrl: &mut ir::StaticSeq) -> FSMImplementation {
+    fn policy(ctrl: &mut ir::StaticSeq, _: u64) -> FSMImplementation {
         let (num_states, acyclic) =
             ctrl.stmts
                 .iter()
@@ -75,7 +79,7 @@ impl FSMPolicy for ir::StaticSeq {
 }
 
 impl FSMPolicy for ir::StaticPar {
-    fn policy(ctrl: &mut ir::StaticPar) -> FSMImplementation {
+    fn policy(ctrl: &mut ir::StaticPar, _: u64) -> FSMImplementation {
         let (num_states, acyclic) = if ctrl.stmts.iter().all(is_acyclic) {
             (ctrl.latency, true)
         } else {
@@ -90,14 +94,17 @@ impl FSMPolicy for ir::StaticPar {
 }
 
 impl FSMPolicy for ir::StaticRepeat {
-    fn policy(ctrl: &mut ir::StaticRepeat) -> FSMImplementation {
+    fn policy(
+        ctrl: &mut ir::StaticRepeat,
+        child_fsm_cutoff: u64,
+    ) -> FSMImplementation {
         let (num_states, acyclic, loop_attr) = {
             let (body_num_states, body_is_acyclic) =
                 (get_num_states_static(&ctrl.body), is_acyclic(&ctrl.body));
             let unrolled_num_states = ctrl.num_repeats * body_num_states;
-            if body_is_acyclic && (unrolled_num_states < FSM_STATE_CUTOFF) {
+            if body_is_acyclic && (unrolled_num_states < child_fsm_cutoff) {
                 (unrolled_num_states, true, LoopAnnotation::Unroll)
-            } else if body_num_states < FSM_STATE_CUTOFF {
+            } else if body_num_states < child_fsm_cutoff {
                 (body_num_states, false, LoopAnnotation::Inline)
             } else {
                 (1, false, LoopAnnotation::Offload)
@@ -112,7 +119,7 @@ impl FSMPolicy for ir::StaticRepeat {
 }
 
 impl FSMPolicy for ir::StaticIf {
-    fn policy(ctrl: &mut ir::StaticIf) -> FSMImplementation {
+    fn policy(ctrl: &mut ir::StaticIf, _: u64) -> FSMImplementation {
         let (num_states, acyclic) =
             if is_acyclic(&ctrl.tbranch) && is_acyclic(&ctrl.fbranch) {
                 (ctrl.latency, true)
@@ -128,7 +135,7 @@ impl FSMPolicy for ir::StaticIf {
 }
 
 impl FSMPolicy for ir::Enable {
-    fn policy(_ctrl: &mut ir::Enable) -> FSMImplementation {
+    fn policy(_ctrl: &mut ir::Enable, _: u64) -> FSMImplementation {
         FSMImplementation {
             num_states: 1,
             acyclic: false,
@@ -138,7 +145,7 @@ impl FSMPolicy for ir::Enable {
 }
 
 impl FSMPolicy for ir::Seq {
-    fn policy(ctrl: &mut ir::Seq) -> FSMImplementation {
+    fn policy(ctrl: &mut ir::Seq, _: u64) -> FSMImplementation {
         FSMImplementation {
             num_states: ctrl.stmts.iter().map(get_num_states).sum(),
             acyclic: false,
@@ -148,7 +155,7 @@ impl FSMPolicy for ir::Seq {
 }
 
 impl FSMPolicy for ir::Par {
-    fn policy(_ctrl: &mut ir::Par) -> FSMImplementation {
+    fn policy(_ctrl: &mut ir::Par, _: u64) -> FSMImplementation {
         FSMImplementation {
             num_states: 1,
             acyclic: false,
@@ -158,7 +165,7 @@ impl FSMPolicy for ir::Par {
 }
 
 impl FSMPolicy for ir::If {
-    fn policy(_ctrl: &mut ir::If) -> FSMImplementation {
+    fn policy(_ctrl: &mut ir::If, _: u64) -> FSMImplementation {
         FSMImplementation {
             num_states: 1,
             acyclic: false,
@@ -168,9 +175,12 @@ impl FSMPolicy for ir::If {
 }
 
 impl FSMPolicy for ir::While {
-    fn policy(ctrl: &mut ir::While) -> FSMImplementation {
+    fn policy(
+        ctrl: &mut ir::While,
+        child_fsm_cutoff: u64,
+    ) -> FSMImplementation {
         let num_states = ctrl.body.get_attribute(NUM_STATES).unwrap();
-        let loop_attr = Some(if num_states < FSM_STATE_CUTOFF {
+        let loop_attr = Some(if num_states < child_fsm_cutoff {
             LoopAnnotation::Inline
         } else {
             LoopAnnotation::Offload
@@ -184,9 +194,12 @@ impl FSMPolicy for ir::While {
 }
 
 impl FSMPolicy for ir::Repeat {
-    fn policy(ctrl: &mut ir::Repeat) -> FSMImplementation {
+    fn policy(
+        ctrl: &mut ir::Repeat,
+        child_fsm_cutoff: u64,
+    ) -> FSMImplementation {
         let num_states = ctrl.body.get_attribute(NUM_STATES).unwrap();
-        let loop_attr = Some(if num_states < FSM_STATE_CUTOFF {
+        let loop_attr = Some(if num_states < child_fsm_cutoff {
             LoopAnnotation::Inline
         } else {
             LoopAnnotation::Offload
@@ -199,19 +212,36 @@ impl FSMPolicy for ir::Repeat {
     }
 }
 
-pub struct FSMAnnotator {}
+pub struct FSMAnnotator {
+    child_fsm_cutoff: u64,
+}
 
 impl Named for FSMAnnotator {
     fn name() -> &'static str {
         "fsm-annotator"
     }
+
     fn description() -> &'static str {
         "annotate a control program, determining how FSMs should be allocated"
     }
+
+    fn opts() -> Vec<PassOpt> {
+        vec![PassOpt::new(
+            "child-fsm-cutoff",
+            "The maximum number of states a child FSM can have, before it is offloaded",
+            ParseVal::Num(300),
+            PassOpt::parse_num,
+        )]
+    }
 }
 impl ConstructVisitor for FSMAnnotator {
-    fn from(_: &ir::Context) -> CalyxResult<Self> {
-        Ok(FSMAnnotator {})
+    fn from(ctx: &ir::Context) -> CalyxResult<Self> {
+        let opts = Self::get_opts(ctx);
+        Ok(FSMAnnotator {
+            child_fsm_cutoff: opts[&"child-fsm-cutoff"]
+                .pos_num()
+                .expect("requires non-negative OHE cutoff parameter"),
+        })
     }
     fn clear_data(&mut self) {}
 }
@@ -234,7 +264,8 @@ impl Visitor for FSMAnnotator {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let FSMImplementation { num_states, .. } = ir::Enable::policy(s);
+        let FSMImplementation { num_states, .. } =
+            ir::Enable::policy(s, self.child_fsm_cutoff);
         s.attributes.insert(NUM_STATES, num_states);
         Ok(Action::Continue)
     }
@@ -250,7 +281,7 @@ impl Visitor for FSMAnnotator {
             num_states,
             acyclic,
             ..
-        } = ir::StaticEnable::policy(s);
+        } = ir::StaticEnable::policy(s, self.child_fsm_cutoff);
         s.attributes.insert(NUM_STATES, num_states);
         if acyclic {
             s.attributes.insert(ACYCLIC, 1);
@@ -281,7 +312,7 @@ impl Visitor for FSMAnnotator {
             num_states,
             acyclic,
             ..
-        } = ir::StaticSeq::policy(s);
+        } = ir::StaticSeq::policy(s, self.child_fsm_cutoff);
         s.attributes.insert(NUM_STATES, num_states);
         if acyclic {
             s.attributes.insert(ACYCLIC, 1);
@@ -300,7 +331,7 @@ impl Visitor for FSMAnnotator {
             num_states,
             acyclic,
             ..
-        } = ir::StaticPar::policy(s);
+        } = ir::StaticPar::policy(s, self.child_fsm_cutoff);
         s.attributes.insert(NUM_STATES, num_states);
         if acyclic {
             s.attributes.insert(ACYCLIC, 1);
@@ -319,7 +350,7 @@ impl Visitor for FSMAnnotator {
             num_states,
             acyclic,
             ..
-        } = ir::StaticIf::policy(s);
+        } = ir::StaticIf::policy(s, self.child_fsm_cutoff);
         s.attributes.insert(NUM_STATES, num_states);
         if acyclic {
             s.attributes.insert(ACYCLIC, 1);
@@ -338,7 +369,7 @@ impl Visitor for FSMAnnotator {
             num_states,
             acyclic,
             loop_attr,
-        } = ir::StaticRepeat::policy(s);
+        } = ir::StaticRepeat::policy(s, self.child_fsm_cutoff);
 
         s.attributes.insert(NUM_STATES, num_states);
 
@@ -364,7 +395,8 @@ impl Visitor for FSMAnnotator {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let FSMImplementation { num_states, .. } = ir::Seq::policy(s);
+        let FSMImplementation { num_states, .. } =
+            ir::Seq::policy(s, self.child_fsm_cutoff);
         s.attributes.insert(NUM_STATES, num_states);
         Ok(Action::Continue)
     }
@@ -376,7 +408,8 @@ impl Visitor for FSMAnnotator {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let FSMImplementation { num_states, .. } = ir::Par::policy(s);
+        let FSMImplementation { num_states, .. } =
+            ir::Par::policy(s, self.child_fsm_cutoff);
         s.attributes.insert(NUM_STATES, num_states);
         Ok(Action::Continue)
     }
@@ -388,7 +421,8 @@ impl Visitor for FSMAnnotator {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let FSMImplementation { num_states, .. } = ir::If::policy(s);
+        let FSMImplementation { num_states, .. } =
+            ir::If::policy(s, self.child_fsm_cutoff);
         s.attributes.insert(NUM_STATES, num_states);
         Ok(Action::Continue)
     }
@@ -404,7 +438,7 @@ impl Visitor for FSMAnnotator {
             num_states,
             loop_attr,
             ..
-        } = ir::While::policy(s);
+        } = ir::While::policy(s, self.child_fsm_cutoff);
         s.attributes.insert(NUM_STATES, num_states);
         s.attributes.insert(
             ir::Attribute::Internal(match loop_attr.unwrap() {
@@ -428,7 +462,7 @@ impl Visitor for FSMAnnotator {
             num_states,
             loop_attr,
             ..
-        } = ir::Repeat::policy(s);
+        } = ir::Repeat::policy(s, self.child_fsm_cutoff);
         s.attributes.insert(NUM_STATES, num_states);
         s.attributes.insert(
             ir::Attribute::Internal(match loop_attr.unwrap() {
