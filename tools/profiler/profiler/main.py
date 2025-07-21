@@ -37,8 +37,8 @@ def setup_metadata(args):
     else:
         component_to_pos_to_loc_str = None
 
-    control_metadata: ControlMetadata = preprocess.read_tdcc_file(
-        args.fsms_json, component_to_pos_to_loc_str, cell_metadata
+    control_metadata: ControlMetadata = preprocess.setup_control_info(
+        args.fsms_json, args.path_descriptors_json, component_to_pos_to_loc_str, cell_metadata
     )
     # create tracedata object here so we can use it outside of converter
     tracedata: TraceData = TraceData()
@@ -149,6 +149,10 @@ def parse_args():
     parser.add_argument(
         "enable_par_tracks_json",
         help="Records statically assigned thread ids for control enables",
+    )
+    parser.add_argument(
+        "path_descriptors_json",
+        help="Records path descriptors for enables and control nodes",
     )
     parser.add_argument("out_dir", help="Output directory")
     parser.add_argument("flame_out", help="Output file for flattened flame graph")

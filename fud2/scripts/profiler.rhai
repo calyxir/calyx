@@ -11,6 +11,7 @@ fn profiling_setup(e) {
     e.var_("fsm-json", "fsm.json");
     e.var_("cell-share-json", "shared-cells.json");
     e.var_("enable-par-track-json", "enable-par-track.json");
+    e.var_("path-descriptors-json", "path-descriptors.json");
     /// Control group position (from Calyx file), line number, and type of control node.
     e.var_("ctrl-pos-json", "ctrl-pos.json");
     /// ADL source mapping.
@@ -48,8 +49,8 @@ fn profiling_setup(e) {
 
 fn profiler_non_synth_setup(e) {
     // script to process vcd and produce folded representation of flame graph
-    e.rule("parse-vcd", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --print-trace-threshold 100 --ctrl-pos-file $ctrl-pos-json");
-    e.rule("parse-vcd-from-adl", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --ctrl-pos-file $ctrl-pos-json --adl-mapping-file $adl-metadata-json --print-trace-threshold 100");
+    e.rule("parse-vcd", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json $path-descriptors-json profiler-out $out --print-trace-threshold 100 --ctrl-pos-file $ctrl-pos-json");
+    e.rule("parse-vcd-from-adl", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json $path-descriptors-json profiler-out $out --ctrl-pos-file $ctrl-pos-json --adl-mapping-file $adl-metadata-json --print-trace-threshold 100");
 }
 
 fn profiler_synth_setup(e) {
@@ -58,7 +59,7 @@ fn profiler_synth_setup(e) {
     // synthesis variable to plot, one of: ff (FlipFlops), lut (Look-Up Tables), llut (Logical Look-Up Tables), lutram (Look-Up Table RAMs)
     e.config_var("variable", "synth-verilog.var");
     // script to process vcd and produce folded representation of flame graph as well as html plots
-    e.rule("parse-vcd", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --print-trace-threshold 100 --utilization-report-json $hierarchy --utilization-variable $variable");
+    e.rule("parse-vcd", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json $path-descriptors-json profiler-out $out --print-trace-threshold 100 --utilization-report-json $hierarchy --utilization-variable $variable");
 }
 
 // TODO: merge with calyx_to_flamegraph
@@ -80,7 +81,7 @@ fn edsl_to_flamegraph(e, input, output) {
     e.build_cmd([instrumented_verilog], "calyx", [calyx], []);
     e.arg("backend", "verilog");
     // NOTE: disabling group2seq because it may cause cycle count differences btwn profiled vs non-profiled versions.
-    e.arg("args", "-d group2seq -p metadata-table-generation -p validate -p compile-invoke -p uniquefy-enables -p profiler-instrumentation -p dead-group-removal $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json");
+    e.arg("args", "-d group2seq -p metadata-table-generation -p validate -p compile-invoke -p uniquefy-enables -p profiler-instrumentation -p dead-group-removal $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json -x uniquefy-enables:path-descriptor-json=path-descriptors.json");
 
     let instrumented_sim = "instrumented.exe";
     // verilog --> sim; adapted from verilator::verilator_build()
@@ -129,7 +130,7 @@ fn calyx_to_flamegraph(e, input, output) {
     e.build_cmd([instrumented_verilog], "calyx", [input], []);
     e.arg("backend", "verilog");
     // NOTE: disabling group2seq because it may cause cycle count differences btwn profiled vs non-profiled versions.
-    e.arg("args", "-d group2seq -p metadata-table-generation -p validate -p compile-invoke -p uniquefy-enables -p profiler-instrumentation -p dead-group-removal $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json");
+    e.arg("args", "-d group2seq -p metadata-table-generation -p validate -p compile-invoke -p uniquefy-enables -p profiler-instrumentation -p dead-group-removal $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json -x uniquefy-enables:path-descriptor-json=path-descriptors.json");
 
     let instrumented_sim = "instrumented.exe";
     // verilog --> sim; adapted from verilator::verilator_build()

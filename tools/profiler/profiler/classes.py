@@ -192,24 +192,12 @@ class ControlMetadata:
     component_to_par_groups: defaultdict[str, set[str]] = field(
         default_factory=lambda: defaultdict(set)
     )
-    # fully qualified par name --> [fully-qualified par children name]. Each of the children here have to be pars.
-    par_to_par_children: defaultdict[str, list[str]] = field(
-        default_factory=lambda: defaultdict(list)
-    )
-    # component --> { child name --> ParChildInfo (contains parent name(s) and child type) }
-    component_to_child_to_par_parent: dict[str, dict[str, ParChildInfo]] = field(
-        default_factory=dict
-    )
     # fully qualified names of done registers for pars
     par_done_regs: set[str] = field(default_factory=set)
     # component name --> { control group name --> { primitives used by control group } }
     component_to_control_to_primitives: defaultdict[str, defaultdict[str, set[str]]] = (
         field(default_factory=lambda: defaultdict(lambda: defaultdict(set)))
     )
-    # partial_fsm_events:
-    cell_to_ordered_pars: defaultdict[str, list[str]] = field(
-        default_factory=lambda: defaultdict(list)
-    )  # cell --> ordered par group names
 
     cell_to_tdcc_groups: defaultdict[str, set[str]] = field(
         default_factory=lambda: defaultdict(set)
@@ -218,6 +206,12 @@ class ControlMetadata:
     component_to_ctrl_group_to_pos_str: (
         defaultdict[str, defaultdict[str, str]] | None
     ) = None
+
+    # Store enable to path descriptor for each component
+    component_to_enable_to_desc: dict[str, dict[str, str]] = field(default_factory=dict)
+
+    # Store control statements' descriptors to 
+    component_to_ctrl_desc_to_pos: dict[str, dict[str, int]] = field(default_factory=dict)
 
     added_signal_prefix: bool = field(default=False)
 
@@ -235,15 +229,6 @@ class ControlMetadata:
         self.ctrl_groups = {
             f"{signal_prefix}.{ctrl_group}" for ctrl_group in self.ctrl_groups
         }
-        new_par_to_children = defaultdict(list)
-        for fully_qualified_par in self.par_to_par_children:
-            new_par_to_children[f"{signal_prefix}.{fully_qualified_par}"] = list(
-                map(
-                    lambda c: f"{signal_prefix}.{c}",
-                    self.par_to_par_children[fully_qualified_par],
-                )
-            )
-        self.par_to_par_children = new_par_to_children
         self.added_signal_prefix = True
         fully_qualified_tdccs = {
             f"{signal_prefix}.{c}": g for c, g in self.cell_to_tdcc_groups.items()
@@ -299,47 +284,6 @@ class ControlMetadata:
                 self.par_to_par_children[fully_qualified_par].append(
                     fully_qualified_child
                 )
-
-    def order_pars(self, cell_metadata: CellMetadata):
-        """
-        Give a partial ordering for pars so we know when multiple pars occur simultaneously, what order
-        we should add them to the trace.
-        (1) order based on cells
-        (2) for pars in the same cell, order based on dependencies information
-
-        Updates: - field cell_to_ordered_pars
-        """
-
-        cells_to_pars_without_parent: dict[str, set[str]] = {}
-        for component in self.component_to_par_groups:
-            pars = self.component_to_par_groups[component]
-            pars_with_parent = [
-                k
-                for k, v in self.component_to_child_to_par_parent[component].items()
-                if v.child_type == ParChildType.PAR
-            ]
-            pars_without_parent = pars.difference(pars_with_parent)
-            for cell in cell_metadata.component_to_cells[component]:
-                cells_to_pars_without_parent[cell] = pars_without_parent
-
-        for cell in sorted(
-            cells_to_pars_without_parent.keys(), key=(lambda c: c.count("."))
-        ):
-            # worklist contains pars to check whether they have children
-            # the worklist starts with pars with no parent
-            worklist: deque[str] = deque(
-                [f"{cell}.{par}" for par in cells_to_pars_without_parent[cell]]
-            )
-
-            while worklist:
-                par = worklist.pop()
-                if par not in self.cell_to_ordered_pars[cell]:
-                    self.cell_to_ordered_pars[cell].append(par)
-                if par in self.par_to_par_children:
-                    # get all the children (who are pars) of this par.
-                    # If this par is not in self.par_to_par_children, it means that it has no children who are pars.
-                    worklist.extendleft(self.par_to_par_children[par])
-
 
 class StackElementType(Enum):
     GROUP = 1
@@ -862,7 +806,6 @@ class TraceData:
         Populates the field trace_with_control_groups by combining control group information (from control_groups_trace) with self.trace.
         Does not modify self.trace.
         """
-        control_metadata.order_pars(cell_metadata)
         for i in self.trace:
             if i in control_groups_trace:
                 self.trace_with_control_groups[i] = (
@@ -884,6 +827,15 @@ class TraceData:
                 self.trace_with_control_groups[i] = copy.copy(self.trace[i])
 
     def _create_events_stack_with_control_groups(
+        self,
+        events_stack: list[StackElement],
+        cell_metadata: CellMetadata,
+        control_metadata: ControlMetadata,
+        active_control_groups: set[str],
+    ):
+        pass
+
+    def _create_events_stack_with_control_groups_bak(
         self,
         events_stack: list[StackElement],
         cell_metadata: CellMetadata,
