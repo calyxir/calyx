@@ -186,7 +186,7 @@ pub struct FudArgs<T: CliExt> {
     #[argh(option)]
     through: Vec<String>,
 
-    /// verbose ouput
+    /// verbose output
     #[argh(switch, short = 'v')]
     verbose: Option<bool>,
 
