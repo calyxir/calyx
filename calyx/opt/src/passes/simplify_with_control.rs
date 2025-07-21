@@ -1,6 +1,6 @@
 use crate::analysis;
 use crate::traversal::{Action, Named, VisResult, Visitor};
-use calyx_frontend::{Attributes, SetAttr};
+use calyx_frontend::SetAttr;
 use calyx_ir::{self as ir, GetAttributes, LibrarySignatures, RRC, structure};
 use calyx_utils::{CalyxResult, Error};
 use std::collections::HashMap;
@@ -192,20 +192,28 @@ impl Visitor for SimplifyWithControl {
         );
         let (port_ref, cond_ref) = self.port_rewrite.get(&key).unwrap();
         let mut cond_in_body = ir::Control::static_enable(Rc::clone(cond_ref));
-        add_set_attr(&s.attributes, &mut cond_in_body);
+        cond_in_body
+            .get_mut_attributes()
+            .copy_from_set(&s.attributes, vec![SetAttr::Pos]);
         let body = std::mem::replace(s.body.as_mut(), ir::Control::empty());
         let mut new_body = ir::Control::seq(vec![body, cond_in_body]);
-        add_set_attr(&s.attributes, &mut new_body);
+        new_body
+            .get_mut_attributes()
+            .copy_from_set(&s.attributes, vec![SetAttr::Pos]);
         let mut while_ =
             ir::Control::while_(Rc::clone(port_ref), None, Box::new(new_body));
         let attrs = while_.get_mut_attributes();
         *attrs = s.attributes.clone();
         let mut cond_before_body =
             ir::Control::static_enable(Rc::clone(cond_ref));
-        add_set_attr(&s.attributes, &mut cond_before_body);
+        cond_before_body
+            .get_mut_attributes()
+            .copy_from_set(&s.attributes, vec![SetAttr::Pos]);
 
         let mut new_seq = ir::Control::seq(vec![cond_before_body, while_]);
-        add_set_attr(&s.attributes, &mut new_seq);
+        new_seq
+            .get_mut_attributes()
+            .copy_from_set(&s.attributes, vec![SetAttr::Pos]);
 
         Ok(Action::change(new_seq))
     }
@@ -250,10 +258,14 @@ impl Visitor for SimplifyWithControl {
         *attrs = s.attributes.clone();
 
         let mut cond = ir::Control::static_enable(Rc::clone(cond_ref));
-        add_set_attr(&s.attributes, &mut cond);
+        cond.get_mut_attributes()
+            .copy_from_set(&s.attributes, vec![SetAttr::Pos]);
 
         let mut new_seq = ir::Control::seq(vec![cond, if_]);
-        add_set_attr(&s.attributes, &mut new_seq);
+        new_seq
+            .get_mut_attributes()
+            .copy_from_set(&s.attributes, vec![SetAttr::Pos]);
+
         Ok(Action::change(new_seq))
     }
 
@@ -272,14 +284,5 @@ impl Visitor for SimplifyWithControl {
                 .with_pos(&comp.attributes));
         }
         Ok(Action::Continue)
-    }
-}
-
-fn add_set_attr(attributes: &Attributes, ctrl: &mut calyx_ir::Control) {
-    if let Some(pos_set) = attributes.get_set(SetAttr::Pos) {
-        // add position to cond
-        for pos in pos_set.iter() {
-            ctrl.get_mut_attributes().insert_set(SetAttr::Pos, *pos);
-        }
     }
 }

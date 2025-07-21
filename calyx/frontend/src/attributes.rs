@@ -208,7 +208,7 @@ impl Attributes {
     /// Copies the values of the given set attributes,`keys`, from `other`
     /// into `self`. Note that this does not overwrite set values in `self` that
     /// are already present.
-    pub fn copy_from_set<A>(&mut self, other: Self, keys: Vec<A>)
+    pub fn copy_from_set<A>(&mut self, other: &Self, keys: Vec<A>)
     where
         A: Into<SetAttribute> + Clone,
     {
