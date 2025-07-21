@@ -201,6 +201,10 @@ pub struct FudArgs<T: CliExt> {
     /// planner for the backend
     #[argh(option, default = "Planner::Legacy")]
     planner: Planner,
+
+    /// name of the file to output timing csv if in running mode
+    #[argh(option, long = "csv")]
+    timing_csv: Option<Utf8PathBuf>,
 }
 
 fn get_states_with_errors(
@@ -298,6 +302,7 @@ fn get_request<T: CliExt>(
             Planner::Egg => Box::new(plan::EggPlanner {}),
             Planner::Enumerate => Box::new(plan::EnumeratePlanner {}),
         },
+        timing_csv: args.timing_csv.clone(),
     })
 }
 
@@ -464,6 +469,8 @@ fn cli_ext<T: CliExt>(
     // Make a plan.
     let req = get_request(driver, &args)?;
     let workdir = req.workdir.clone();
+    let csv_file = req.timing_csv.clone();
+    let csv_path = csv_file.as_ref().map(Utf8PathBuf::as_path);
     let plan = driver.plan(req).ok_or(anyhow!("could not find path"))?;
 
     // Configure.
@@ -486,8 +493,8 @@ fn cli_ext<T: CliExt>(
         Mode::ShowDot => run.show_dot(),
         Mode::EmitNinja => run.emit_to_stdout()?,
         Mode::Generate => run.emit_to_dir(&workdir)?.keep(),
-        Mode::Run => run.emit_and_run(&workdir, false, args.quiet)?,
-        Mode::Cmds => run.emit_and_run(&workdir, true, false)?,
+        Mode::Run => run.emit_and_run(&workdir, false, args.quiet, csv_path)?,
+        Mode::Cmds => run.emit_and_run(&workdir, true, false, csv_path)?,
     }
 
     Ok(())

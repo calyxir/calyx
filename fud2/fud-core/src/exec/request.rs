@@ -24,6 +24,9 @@ pub struct Request {
     /// The working directory for the build.
     pub workdir: Utf8PathBuf,
 
+    /// The optional timing CSV to generate
+    pub timing_csv: Option<Utf8PathBuf>,
+
     /// The algorithm used to find a plan to turn start states into end states
     pub planner: Box<dyn FindPlan>,
 }
