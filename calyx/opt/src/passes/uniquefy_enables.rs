@@ -462,6 +462,7 @@ fn compute_path_descriptors(
     }
 }
 
+/// Returns a BTreeSet with the elements contained in the @pos set attribute.
 fn retrieve_pos_set(attributes: &calyx_ir::Attributes) -> BTreeSet<u32> {
     let new_pos_set: BTreeSet<u32> =
         if let Some(pos_set) = attributes.get_set(SetAttr::Pos) {
@@ -472,6 +473,8 @@ fn retrieve_pos_set(attributes: &calyx_ir::Attributes) -> BTreeSet<u32> {
     new_pos_set
 }
 
+/// Helper function to construct a unique version of a combinational group used as the
+/// condition in an if or a while, if one exists. Otherwise returns None.
 fn create_unique_comb_group(
     cond: &Option<std::rc::Rc<std::cell::RefCell<calyx_ir::CombGroup>>>,
     comp: &mut calyx_ir::Component,
@@ -526,6 +529,7 @@ impl Visitor for UniquefyEnables {
         sigs: &calyx_ir::LibrarySignatures,
         _comps: &[calyx_ir::Component],
     ) -> VisResult {
+        // create a unique group for this particular enable.
         let group_name = s.group.borrow().name();
         // UG stands for "unique group". This is to separate these names from the original group names
         let unique_group_name: String = format!("{}UG", group_name);
@@ -566,6 +570,7 @@ impl Visitor for UniquefyEnables {
         sigs: &calyx_ir::LibrarySignatures,
         _comps: &[calyx_ir::Component],
     ) -> VisResult {
+        // create a unique group for this particular static enable.
         let group_name = s.group.borrow().name();
         // UG stands for "unique group". This is to separate these names from the original group names
         let unique_group_name = format!("{}UG", group_name);
