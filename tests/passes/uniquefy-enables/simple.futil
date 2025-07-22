@@ -1,4 +1,4 @@
-// -p uniquefy-enables -x uniquefy-enables:par-thread-json=<err> -x uniquefy-enables:path-descriptor-json=<err>
+// -p metadata-table-generation -p uniquefy-enables -x uniquefy-enables:par-thread-json=<err> -x uniquefy-enables:path-descriptor-json=<err>
 
 import "primitives/core.futil";
 
