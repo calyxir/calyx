@@ -196,6 +196,7 @@ fn request_with_planner(
         through: through.iter().map(|s| driver.get_op(s).unwrap()).collect(),
         workdir: ".".into(),
         planner: Box::new(planner),
+        timing_csv: None,
     }
 }
 
