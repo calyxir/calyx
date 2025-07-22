@@ -392,3 +392,16 @@ impl<'a> IntoIterator for &'a ProgramCounter {
         self.iter()
     }
 }
+
+pub trait EvaluationPolicy {
+    /// Given the current program counter and a set of prospective new nodes,
+    /// decide which of the new nodes should be marked as active or paused
+    fn decide_new_nodes(
+        &mut self,
+        current: &ProgramCounter,
+        new: &mut [ProgramPointer],
+    );
+
+    /// Given the program counter, decide what paused nodes to unpause
+    fn decide_unpause(&mut self, current: &mut ProgramCounter);
+}
