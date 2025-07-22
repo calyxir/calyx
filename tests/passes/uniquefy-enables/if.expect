@@ -159,8 +159,9 @@ POSITIONS
     "aUG": 0,
     "bUG": 1,
     "cUG": 1,
-    "dUG": 2,
-    "dUG0": 3,
-    "eUG": 4
+    "condUG": 2,
+    "dUG": 3,
+    "dUG0": 4,
+    "eUG": 5
   }
 }

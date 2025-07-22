@@ -174,11 +174,21 @@ fn assign_par_threads(
             idx
         }
         ir::Control::If(ir::If {
-            tbranch, fbranch, ..
+            tbranch,
+            fbranch,
+            cond,
+            ..
         }) => {
+            let true_next_idx = if let Some(comb_group) = cond {
+                enable_to_track
+                    .insert(comb_group.borrow().name().to_string(), start_idx);
+                start_idx + 1
+            } else {
+                start_idx
+            };
             let false_next_idx = assign_par_threads(
                 tbranch,
-                start_idx,
+                true_next_idx,
                 next_idx,
                 enable_to_track,
             );
@@ -189,8 +199,15 @@ fn assign_par_threads(
                 enable_to_track,
             )
         }
-        ir::Control::While(ir::While { body, .. }) => {
-            assign_par_threads(body, start_idx, next_idx, enable_to_track)
+        ir::Control::While(ir::While { body, cond, .. }) => {
+            let body_start_idx = if let Some(comb_group) = cond {
+                enable_to_track
+                    .insert(comb_group.borrow().name().to_string(), start_idx);
+                start_idx + 1
+            } else {
+                start_idx
+            };
+            assign_par_threads(body, body_start_idx, next_idx, enable_to_track)
         }
         ir::Control::Repeat(ir::Repeat { body, .. }) => {
             assign_par_threads(body, start_idx, next_idx, enable_to_track)

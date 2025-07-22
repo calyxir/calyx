@@ -128,8 +128,9 @@ POSITIONS
   "main": {
     "aUG": 0,
     "bUG": 0,
-    "bUG0": 2,
-    "dUG": 1,
-    "eUG": 1
+    "bUG0": 3,
+    "condUG": 1,
+    "dUG": 2,
+    "eUG": 2
   }
 }
