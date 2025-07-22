@@ -23,6 +23,7 @@ cell-json = cells.json
 fsm-json = fsm.json
 cell-share-json = shared-cells.json
 enable-par-track-json = enable-par-track.json
+path-descriptors-json = path-descriptors.json
 ctrl-pos-json = ctrl-pos.json
 adl-metadata-json = adl-metadata.json
 passes = -p pre-opt -p compile -p post-opt -p lower
@@ -45,9 +46,9 @@ rule parse-metadata-with-adl
   command = $fileinfo_emitter -l $calyx-base $in -c $ctrl-pos-json -o $adl-metadata-json
 
 rule parse-vcd
-  command = profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --print-trace-threshold 100 --ctrl-pos-file $ctrl-pos-json
+  command = profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json $path-descriptors-json profiler-out $out --print-trace-threshold 100 --ctrl-pos-file $ctrl-pos-json
 rule parse-vcd-from-adl
-  command = profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --ctrl-pos-file $ctrl-pos-json --adl-mapping-file $adl-metadata-json --print-trace-threshold 100
+  command = profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json $path-descriptors-json profiler-out $out --ctrl-pos-file $ctrl-pos-json --adl-mapping-file $adl-metadata-json --print-trace-threshold 100
 
 verilator = verilator
 cycle-limit = 500000000
@@ -77,7 +78,7 @@ build $ctrl-pos-json: parse-metadata metadata-calyx.futil
 build $cell-json: component-cells /input.ext
 build instrumented.sv: calyx /input.ext
   backend = verilog
-  args = -d group2seq -p metadata-table-generation -p validate -p compile-invoke -p uniquefy-enables -p profiler-instrumentation -p dead-group-removal $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json
+  args = -d group2seq -p metadata-table-generation -p validate -p compile-invoke -p uniquefy-enables -p profiler-instrumentation -p dead-group-removal $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json -x uniquefy-enables:path-descriptor-json=path-descriptors.json
 build verilator-out/Vtoplevel: verilator-compile-standalone-tb instrumented.sv | tb.sv
   out-dir = verilator-out
 build instrumented.exe: cp verilator-out/Vtoplevel
