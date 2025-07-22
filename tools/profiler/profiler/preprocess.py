@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 
 from collections import defaultdict
 from profiler.classes import CellMetadata, ControlMetadata, ParChildType
@@ -107,24 +108,23 @@ def read_path_descriptor_json(
     control_metadata: ControlMetadata,
 ):
     json_data = json.load(open(path_descriptor_json_file))
-    component_to_enable_to_descriptor: dict[str, dict[str, str]] = {}
-    component_to_ctrl_descriptor_to_pos_id: dict[str, dict[str, int]] = {}
+    control_metadata.component_to_enable_to_desc = {}
+    control_metadata.component_to_ctrl_group_to_desc = {}
     for component in json_data:
         # the map for enables is straightforward.
         # the map for control statements is harder because we need to filter out
         # ADL positions.
-        component_to_enable_to_descriptor[component] = json_data[component]["enables"]
-        component_to_ctrl_descriptor_to_pos_id[component] = {}
+        control_metadata.component_to_enable_to_desc[component] = json_data[component]["enables"]
+        control_metadata.component_to_ctrl_group_to_desc[component] = {}
         for (ctrl_desc, pos_set) in json_data[component]["control_pos"].items():
             calyx_pos_list = list(filter(lambda x: x in pos_to_control_group, pos_set))
             assert len(calyx_pos_list) <= 1
             if len(calyx_pos_list) == 1:
-                component_to_ctrl_descriptor_to_pos_id[component][ctrl_desc] = calyx_pos_list[0]
+                pos = calyx_pos_list[0]
+                control_metadata.component_to_ctrl_group_to_desc[component][pos_to_control_group[pos]] = ctrl_desc
     
-    control_metadata.component_to_enable_to_desc = component_to_enable_to_descriptor
-    control_metadata.component_to_ctrl_desc_to_pos = component_to_ctrl_descriptor_to_pos_id
     print(control_metadata.component_to_enable_to_desc)
-    print(control_metadata.component_to_ctrl_desc_to_pos)
+    print(control_metadata.component_to_ctrl_group_to_desc)
 
 def read_tdcc_file(
     tdcc_json_file: str,
@@ -215,7 +215,6 @@ def setup_control_info(
     pos_to_control_group: dict[int, str] = read_tdcc_file(
         tdcc_json_file, component_to_pos_to_loc_str, cell_metadata, control_metadata
     )
-    print(pos_to_control_group)
     read_path_descriptor_json(
         path_descriptor_json_file, pos_to_control_group, control_metadata
     )

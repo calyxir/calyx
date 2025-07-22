@@ -4,7 +4,7 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
 use calyx_frontend::SetAttr;
-use calyx_ir::{self as ir, Attribute, Nothing};
+use calyx_ir::{self as ir, Nothing};
 use calyx_utils::{CalyxResult, OutputFile};
 use serde::Serialize;
 
@@ -379,10 +379,23 @@ fn compute_path_descriptors(
             path_descriptor_info.control_pos.insert(if_id, new_pos_set);
         }
         ir::Control::While(ir::While {
-            body, attributes, ..
+            body,
+            attributes,
+            cond,
+            ..
         }) => {
             let while_id = format!("{}-", current_id);
             let body_id = format!("{}b", while_id);
+            // FIXME: we need to create unique enables for comb groups associated with `while`s and `if`s`
+
+            // add path descriptor for comb group associated with while if exists
+            if let Some(comb_group) = cond {
+                let comb_id = format!("{}c", while_id);
+                path_descriptor_info
+                    .enables
+                    .insert(comb_group.borrow().name().to_string(), comb_id);
+            }
+
             compute_path_descriptors(
                 body,
                 body_id,
@@ -443,7 +456,7 @@ fn compute_path_descriptors(
 fn retrieve_pos_set(attributes: &calyx_ir::Attributes) -> BTreeSet<u32> {
     let new_pos_set: BTreeSet<u32> =
         if let Some(pos_set) = attributes.get_set(SetAttr::Pos) {
-            pos_set.iter().map(|p| *p).collect()
+            pos_set.iter().copied().collect()
         } else {
             BTreeSet::new()
         };
