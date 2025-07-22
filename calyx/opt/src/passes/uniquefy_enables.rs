@@ -355,9 +355,18 @@ fn compute_path_descriptors(
             tbranch,
             fbranch,
             attributes,
+            cond,
             ..
         }) => {
             let if_id = format!("{}-", current_id);
+            // process condition if it exists
+            if let Some(comb_group) = cond {
+                let comb_id = format!("{}c", if_id);
+                path_descriptor_info
+                    .enables
+                    .insert(comb_group.borrow().name().to_string(), comb_id);
+            }
+
             // process true branch
             let true_id = format!("{}t", if_id);
             compute_path_descriptors(
@@ -463,7 +472,53 @@ fn retrieve_pos_set(attributes: &calyx_ir::Attributes) -> BTreeSet<u32> {
     new_pos_set
 }
 
+fn create_unique_comb_group(
+    cond: &Option<std::rc::Rc<std::cell::RefCell<calyx_ir::CombGroup>>>,
+    comp: &mut calyx_ir::Component,
+    sigs: &calyx_ir::LibrarySignatures,
+) -> Option<std::rc::Rc<std::cell::RefCell<calyx_ir::CombGroup>>> {
+    let new_comb_group = if let Some(comb_group) = cond {
+        // UG stands for "unique group". This is to separate these names from the original group names
+        let unique_comb_group_name: String =
+            format!("{}UG", comb_group.borrow().name());
+        let mut builder = ir::Builder::new(comp, sigs);
+        let unique_comb_group = builder.add_comb_group(unique_comb_group_name);
+        unique_comb_group.borrow_mut().assignments =
+            comb_group.borrow().assignments.clone();
+        unique_comb_group.borrow_mut().attributes =
+            comb_group.borrow().attributes.clone();
+        Some(unique_comb_group)
+    } else {
+        None
+    };
+    new_comb_group
+}
+
 impl Visitor for UniquefyEnables {
+    fn finish_while(
+        &mut self,
+        s: &mut calyx_ir::While,
+        comp: &mut calyx_ir::Component,
+        sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        // create a freshly named version of the condition comb group if one exists.
+        s.cond = create_unique_comb_group(&s.cond, comp, sigs);
+        Ok(Action::Continue)
+    }
+
+    fn finish_if(
+        &mut self,
+        s: &mut calyx_ir::If,
+        comp: &mut calyx_ir::Component,
+        sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        // create a freshly named version of the condition comb group if one exists.
+        s.cond = create_unique_comb_group(&s.cond, comp, sigs);
+        Ok(Action::Continue)
+    }
+
     fn enable(
         &mut self,
         s: &mut calyx_ir::Enable,
