@@ -751,31 +751,6 @@ impl StaticInliner {
     }
 }
 
-/// Propagate the original control node's pos attributes to the newly created control node.
-fn port_pos_attribute(
-    s: &mut ir::StaticControl,
-    replacement_ctrl: &mut ir::Control,
-) -> CalyxResult<()> {
-    match s {
-        ir::StaticControl::Repeat(ir::StaticRepeat { attributes, .. })
-        | ir::StaticControl::Enable(ir::StaticEnable { attributes, .. })
-        | ir::StaticControl::Par(ir::StaticPar { attributes, .. })
-        | ir::StaticControl::Seq(ir::StaticSeq { attributes, .. })
-        | ir::StaticControl::If(ir::StaticIf { attributes, .. })
-        | ir::StaticControl::Invoke(ir::StaticInvoke { attributes, .. }) => {
-            if let Some(pos_set) = attributes.get_set(SetAttr::Pos) {
-                for pos in pos_set.iter() {
-                    replacement_ctrl
-                        .get_mut_attributes()
-                        .insert_set(SetAttr::Pos, *pos);
-                }
-            }
-        }
-        _ => (),
-    }
-    Ok(())
-}
-
 impl Visitor for StaticInliner {
     /// Executed after visiting the children of a [ir::Static] node.
     fn start_static_control(
@@ -790,7 +765,10 @@ impl Visitor for StaticInliner {
         // the replacement group should inherit the original control's position attributes
         let mut replacement_ctrl =
             ir::Control::from(ir::StaticControl::from(replacement_group));
-        port_pos_attribute(s, &mut replacement_ctrl)?;
+        // the new control node should carry over the position attributes of the original control node
+        replacement_ctrl
+            .get_mut_attributes()
+            .copy_from_set(s.get_attributes(), vec![SetAttr::Pos]);
         Ok(Action::Change(Box::new(replacement_ctrl)))
     }
 }

@@ -28,20 +28,20 @@ A `WIDTH`-wide register.
 **Outputs:**
 
 - `out: WIDTH` - The value contained in the register.
-- `done: 1` - The register's done signal. Set high for one cycle after writing 
+- `done: 1` - The register's done signal. Set high for one cycle after writing
   a new value.
 
 ---
 
 ### `std_skid_buffer<WIDTH>`
 
-A `WIDTH`-wide non-pipelined skid buffer. Used to ensure data is not lost 
+A `WIDTH`-wide non-pipelined skid buffer. Used to ensure data is not lost
 during handshakes.
 
 **Inputs:**
 
 - `in: WIDTH` - An input value to the skid buffer `WIDTH`-bits.
-- `i_valid: 1` - The one bit input valid signal. Indicates that the data 
+- `i_valid: 1` - The one bit input valid signal. Indicates that the data
   provided on the `in` wire is valid.
 - `i_ready: 1` - The one bit input ready signal. Indicates that the follower is
   ready to recieve data from the `out` wire.
@@ -49,7 +49,7 @@ during handshakes.
 **Outputs:**
 
 - `out: WIDTH` - The value contained in the register.
-- `o_valid: 1` - The one bit output valid signal. Indicates that the data 
+- `o_valid: 1` - The one bit output valid signal. Indicates that the data
   provided on the `out` wire is valid.
 - `o_ready: 1` - The one bit output ready signal. Indicates that the skid buffer
   is ready to recieve data on the `in` wire.
@@ -68,8 +68,8 @@ A `WIDTH`-wide bypass register.
 
 **Outputs:**
 
-- `out: WIDTH` - The value of the bypass register. When `write_en` is asserted 
-  the value of `in` is bypassed to `out`. Otherwise `out` is equal to the last 
+- `out: WIDTH` - The value of the bypass register. When `write_en` is asserted
+  the value of `in` is bypassed to `out`. Otherwise `out` is equal to the last
   value written to the register.
 - `done: 1` - The bypass register's done signal. Set high for one cycle after
   `write_en` is asserted.
@@ -181,9 +181,9 @@ Slice out the lower OUT_WIDTH bits of an IN_WIDTH-bit value. Computes
 
 ---
 ### `std_bit_slice<IN_WIDTH, START_IDX, END_IDX, OUT_WIDTH>`
-Extract the bit-string starting at `START_IDX` and ending at `END_IDX - 1` from `in`.
+Extract the bit-string starting at `START_IDX` and ending at `END_IDX` from `in`.
 This is computed as `in[END_IDX:START_IDX]`.`OUT_WIDTH` must be specified to
-be `END_WIDTH - START_WITH` wide when instantiating the module.
+be `END_WIDTH - START_WIDTH` wide when instantiating the module.
 
 
 **Inputs:**
