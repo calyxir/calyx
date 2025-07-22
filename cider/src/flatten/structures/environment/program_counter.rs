@@ -6,11 +6,8 @@ use smallvec::SmallVec;
 
 use super::super::context::Context;
 use crate::flatten::{
-    flat_ir::{
-        indexes::ComponentIdx,
-        prelude::{
-            AssignmentIdx, CombGroupIdx, Control, ControlIdx, GlobalCellIdx,
-        },
+    flat_ir::prelude::{
+        AssignmentIdx, CombGroupIdx, Control, ControlIdx, GlobalCellIdx,
     },
     structures::thread::ThreadIdx,
 };

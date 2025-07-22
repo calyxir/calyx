@@ -1198,6 +1198,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             to self.env {
                 pub fn ctx(&self) -> &Context;
                 pub fn is_group_running(&self, group_idx: GroupIdx) -> bool;
+                pub fn is_control_running(&self, control_idx: ControlIdx) -> bool;
 
                 pub fn get_currently_running_groups(
                     &self,
@@ -3154,6 +3155,20 @@ pub struct Simulator<C: AsRef<Context> + Clone> {
     wave: Option<WaveWriter>,
 }
 
+impl<C: AsRef<Context> + Clone> std::ops::Deref for Simulator<C> {
+    type Target = BaseSimulator<C>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.base
+    }
+}
+
+impl<C: AsRef<Context> + Clone> std::ops::DerefMut for Simulator<C> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.base
+    }
+}
+
 impl<C: AsRef<Context> + Clone> Simulator<C> {
     pub fn build_simulator(
         ctx: C,
@@ -3209,63 +3224,6 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 }
                 Err(e)
             }
-        }
-    }
-
-    pub fn is_control_running(&self, control_idx: ControlIdx) -> bool {
-        self.base.env.is_control_running(control_idx)
-    }
-
-    delegate! {
-        to self.base {
-            pub fn is_done(&self) -> bool;
-            pub fn step(&mut self) -> CiderResult<()>;
-            pub fn converge(&mut self) -> CiderResult<()>;
-            pub fn is_group_running(&self, group_idx: GroupIdx) -> bool;
-            pub fn print_pc(&self);
-            pub fn print_pc_string(&self);
-            pub fn iter_active_cells(&self) -> impl Iterator<Item = GlobalCellIdx>;
-            pub(crate) fn env(&self) -> &Environment<C>;
-            pub fn get_full_name<N: GetFullName<C>>(&self, nameable: N) -> String;
-
-            pub fn get_currently_running_groups(
-                &self,
-            ) -> impl Iterator<Item = GroupIdx>;
-
-            pub fn format_cell_state(
-                &self,
-                cell_idx: GlobalCellIdx,
-                print_code: PrintCode,
-                name: Option<&str>,
-            ) -> Option<String>;
-
-            pub fn format_cell_ports(
-                &self,
-                cell_idx: GlobalCellIdx,
-                print_code: PrintCode,
-                name: Option<&str>,
-            ) -> String;
-
-            pub fn format_port_value(
-                &self,
-                port_idx: GlobalPortIdx,
-                print_code: PrintCode,
-            ) -> String;
-
-            pub fn traverse_name_vec(
-                &self,
-                name: &[String],
-            ) -> Result<Path, TraversalError>;
-
-            pub fn dump_memories(
-                &self,
-                dump_registers: bool,
-                all_mems: bool,
-            ) -> DataDump;
-
-            pub fn get_currently_running_nodes(
-                &self,
-            ) -> impl Iterator<Item = ControlIdx>;
         }
     }
 }
