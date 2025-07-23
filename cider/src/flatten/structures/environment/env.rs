@@ -1891,7 +1891,10 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             }
         };
 
-        if retain_bool && node.control_point().should_reprocess(ctx) {
+        if retain_bool
+            && self.conf.allow_multistep
+            && node.control_point().should_reprocess(ctx)
+        {
             return Ok(ControlNodeEval::Reprocess);
         }
 
