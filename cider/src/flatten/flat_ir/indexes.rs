@@ -757,6 +757,13 @@ impl PortValue {
             "undef".to_string()
         }
     }
+
+    pub fn eq_no_transitive_clocks(&self, other: &Self) -> bool {
+        match (self.as_option().as_ref(), other.as_option().as_ref()) {
+            (Some(a), Some(b)) => a.eq_no_transitive_clocks(b),
+            _ => false,
+        }
+    }
 }
 
 impl From<Option<AssignedValue>> for PortValue {

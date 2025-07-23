@@ -191,12 +191,12 @@ pub(crate) struct ProgramCounter {
     thread_memoizer: HashMap<(GlobalCellIdx, ThreadIdx, ControlIdx), ThreadIdx>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExecutionStatus {
     Active,
     Paused,
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProgramPointer {
     thread: Option<ThreadIdx>,
     control_point: ControlPoint,

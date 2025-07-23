@@ -1688,12 +1688,11 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         self.converge()?;
 
         if self.conf.check_data_race {
-            let mut clock_map = std::mem::take(&mut self.env.clocks);
-            self.check_transitive_reads(&mut clock_map)?;
-            self.env.clocks = clock_map;
+            self.check_transitive_reads()?;
         }
 
-        let mut prim_step_res = Ok(());
+        let mut changed = UpdateStatus::Unchanged;
+        let mut prim_step_res = Ok(UpdateStatus::Unchanged);
         for cell in self.env.cells.values_mut() {
             match cell {
                 CellLedger::Primitive { cell_dyn } => {
@@ -1701,9 +1700,12 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         &mut self.env.ports,
                         &mut self.env.state_map,
                     );
-                    if res.is_err() {
-                        prim_step_res = res;
-                        break;
+                    match res {
+                        Ok(c) => changed |= c,
+                        Err(_) => {
+                            prim_step_res = res;
+                            break;
+                        }
                     }
                 }
 
@@ -1714,15 +1716,20 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         &self.env.thread_map,
                         &mut self.env.state_map,
                     );
-                    if res.is_err() {
-                        prim_step_res = res;
-                        break;
+                    match res {
+                        Ok(c) => changed |= c,
+                        Err(_) => {
+                            prim_step_res = res;
+                            break;
+                        }
                     }
                 }
                 CellLedger::Component(_) => {}
             }
         }
-        prim_step_res.map_err(|e| e.prettify_message(&self.env))?;
+        if let Err(e) = prim_step_res {
+            return Err(e.prettify_message(&self.env).into());
+        }
 
         self.env.pc.clear_finished_comps();
 
@@ -1736,13 +1743,14 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
         while i < vecs.len() {
             let node = &mut vecs[i];
-            let keep_node = self
+            let (keep_node, node_changed) = self
                 .evaluate_control_node(
                     node,
                     &mut new_nodes,
                     (&mut par_map, &mut with_map, &mut repeat_map),
                 )
                 .map_err(|e| e.prettify_message(&self.env))?;
+            changed |= node_changed;
             match keep_node {
                 ControlNodeEval::Reprocess => {
                     continue;
@@ -1780,6 +1788,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         //
         // If we altered the node list, we need to restore the order invariant
         if !removed_empty || !new_nodes_empty {
+            changed = UpdateStatus::Changed;
             self.env.pc.vec_mut().sort_by_key(|x| x.component());
         }
 
@@ -1789,10 +1798,8 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
     /// Visit each cell and for all non-combinational cells, check whether there
     /// are any reads that should be performed on their inputs that were
     /// deferred through combinational logic
-    fn check_transitive_reads(
-        &mut self,
-        clock_map: &mut ClockMap,
-    ) -> Result<(), BoxedCiderError> {
+    fn check_transitive_reads(&mut self) -> Result<(), BoxedCiderError> {
+        let mut clock_map = std::mem::take(&mut self.env.clocks);
         for cell in self.env.cells.values() {
             if let Some(dyn_prim) = cell.as_primitive() {
                 if !dyn_prim.is_combinational() {
@@ -1811,7 +1818,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                 self.check_read(
                                     ThreadMap::continuous_thread(),
                                     port,
-                                    clock_map,
+                                    &mut clock_map,
                                     ReadSource::Assignment(assign_idx),
                                     cell,
                                 )
@@ -1822,6 +1829,8 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 }
             }
         }
+        self.env.clocks = clock_map;
+
         Ok(())
     }
 
@@ -1830,7 +1839,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         node: &mut ProgramPointer,
         new_nodes: &mut Vec<ProgramPointer>,
         maps: PcMaps,
-    ) -> RuntimeResult<ControlNodeEval> {
+    ) -> RuntimeResult<(ControlNodeEval, UpdateStatus)> {
         let (par_map, with_map, repeat_map) = maps;
         let comp_go = self.env.unwrap_comp_go(node.component());
         let comp_done = self.env.unwrap_comp_done(node.component());
@@ -1848,10 +1857,15 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         {
             // if the go port is low or the done port is high, we skip the
             // node without doing anything
-            return Ok(ControlNodeEval::stop(true));
+            return Ok((ControlNodeEval::stop(true), UpdateStatus::Unchanged));
         }
 
-        // just considering a single node case for the moment
+        // This is a silly hack used to assess whether or not we updated the
+        // node. I doubt it will become performance relevant, but a better
+        // solution would probably be to have each function pass an UpdateStatus
+        // value
+        let node_orig = node.clone();
+
         let retain_bool = match &ctx.primary[node.control_idx()].control {
             Control::Seq(seq) => self.handle_seq(seq, node.control_point_mut()),
             Control::Par(par) => {
@@ -1895,7 +1909,8 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             && self.conf.allow_multistep
             && node.control_point().should_reprocess(ctx)
         {
-            return Ok(ControlNodeEval::Reprocess);
+            // If we are re-processing a node then it necessarily changed
+            return Ok((ControlNodeEval::Reprocess, UpdateStatus::Changed));
         }
 
         if !retain_bool && ControlPoint::get_next(node.control_point(), self.env.ctx.as_ref()).is_none() &&
@@ -1921,9 +1936,12 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     .unwrap(),
             );
             node.set_control_point(new_point);
-            Ok(ControlNodeEval::stop(true))
+            Ok((ControlNodeEval::stop(true), (!(*node == node_orig)).into()))
         } else {
-            Ok(ControlNodeEval::stop(retain_bool))
+            Ok((
+                ControlNodeEval::stop(retain_bool),
+                (!(*node == node_orig)).into(),
+            ))
         }
     }
 

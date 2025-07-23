@@ -14,6 +14,23 @@ use baa::{BitVecOps, BitVecValue, WidthInt};
 use cider_idx::iter::SplitIndexRange;
 use num_traits::Euclid;
 
+fn buffer_item_eq(
+    item: &Option<(PortValue, PortValue)>,
+    new_element: &(PortValue, PortValue),
+) -> bool {
+    item.as_ref().is_some_and(|(l, r)| {
+        l.eq_no_transitive_clocks(&new_element.0)
+            && r.eq_no_transitive_clocks(&new_element.1)
+    })
+}
+
+fn all_buffer_items_equal<const N: usize>(
+    buffer: &ShiftBuffer<(PortValue, PortValue), N>,
+    new_element: &(PortValue, PortValue),
+) -> bool {
+    buffer.all(|x| buffer_item_eq(x, new_element))
+}
+
 #[derive(Clone)]
 pub struct StdMultPipe<const DEPTH: usize> {
     base_port: GlobalPortIdx,
@@ -63,7 +80,7 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
         &mut self,
         port_map: &mut PortMap,
         _: &mut MemoryMap,
-    ) -> RuntimeResult<()> {
+    ) -> UpdateResult {
         ports![&self.base_port;
             left: Self::LEFT,
             right: Self::RIGHT,
@@ -73,16 +90,21 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
             done: Self::DONE
         ];
 
+        let mut changed = UpdateStatus::Unchanged;
+
         if port_map[reset].as_bool().unwrap_or_default() {
             self.current_output =
                 PortValue::new_cell(BitVecValue::zero(self.width));
             self.done_is_high = false;
             self.pipeline.reset();
         } else if port_map[go].as_bool().unwrap_or_default() {
-            let output = self
-                .pipeline
-                .shift(Some((port_map[left].clone(), port_map[right].clone())));
-            if let Some((l, r)) = output {
+            let new_element = (port_map[left].clone(), port_map[right].clone());
+            // if the pipeline isn't full of the same value then shifting it
+            // will update the internal state
+            changed |=
+                (all_buffer_items_equal(&self.pipeline, &new_element)).into();
+
+            if let Some((l, r)) = self.pipeline.shift_new(new_element) {
                 let out_val = l.as_option().and_then(|left| {
                     r.as_option().map(|right| {
                         let value = left.val().to_big_uint()
@@ -103,7 +125,7 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
             self.done_is_high = false;
         }
 
-        port_map.insert_val_general(
+        changed |= port_map.insert_val_general(
             done,
             AssignedValue::cell_value(if self.done_is_high {
                 BitVecValue::new_true()
@@ -112,9 +134,10 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
             }),
         )?;
 
-        port_map.write_exact_unchecked(out, self.current_output.clone());
+        changed |=
+            port_map.write_exact_unchecked(out, self.current_output.clone());
 
-        Ok(())
+        Ok(changed)
     }
 
     fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
@@ -173,7 +196,7 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
         &mut self,
         port_map: &mut PortMap,
         _: &mut MemoryMap,
-    ) -> RuntimeResult<()> {
+    ) -> UpdateResult {
         ports![&self.base_port;
             left: Self::LEFT,
             right: Self::RIGHT,
@@ -184,16 +207,22 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
             done: Self::DONE
         ];
 
+        let mut changed = UpdateStatus::Unchanged;
+
         if port_map[reset].as_bool().unwrap_or_default() {
             self.output_quotient =
                 PortValue::new_cell(BitVecValue::zero(self.width));
             self.done_is_high = false;
             self.pipeline.reset();
         } else if port_map[go].as_bool().unwrap_or_default() {
-            let output = self
-                .pipeline
-                .shift(Some((port_map[left].clone(), port_map[right].clone())));
-            if let Some((l, r)) = output {
+            let new_element = (port_map[left].clone(), port_map[right].clone());
+
+            // if the pipeline isn't full of the same value then shifting it
+            // will update the internal state
+            changed |=
+                (!all_buffer_items_equal(&self.pipeline, &new_element)).into();
+
+            if let Some((l, r)) = self.pipeline.shift_new(new_element) {
                 let out_val = l.as_option().and_then(|left| {
                     r.as_option().map(|right| {
                         (
@@ -241,11 +270,13 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
             self.done_is_high = false;
         }
 
-        port_map.set_done(done, self.done_is_high)?;
-        port_map.write_exact_unchecked(out_quot, self.output_quotient.clone());
-        port_map.write_exact_unchecked(out_rem, self.output_remainder.clone());
+        changed |= port_map.set_done(done, self.done_is_high)?;
+        changed |= port_map
+            .write_exact_unchecked(out_quot, self.output_quotient.clone());
+        changed |= port_map
+            .write_exact_unchecked(out_rem, self.output_remainder.clone());
 
-        Ok(())
+        Ok(changed)
     }
 
     fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
@@ -298,7 +329,7 @@ impl<const IS_FIXED_POINT: bool> Primitive for Sqrt<IS_FIXED_POINT> {
         &mut self,
         port_map: &mut PortMap,
         _: &mut MemoryMap,
-    ) -> RuntimeResult<()> {
+    ) -> UpdateResult {
         ports![&self.base_port;
             reset: Self::RESET,
             go: Self::GO,
@@ -336,10 +367,8 @@ impl<const IS_FIXED_POINT: bool> Primitive for Sqrt<IS_FIXED_POINT> {
             self.done_is_high = false;
         }
 
-        port_map.set_done(done, self.done_is_high)?;
-        port_map.write_exact_unchecked(out, self.output.clone());
-
-        Ok(())
+        Ok(port_map.set_done(done, self.done_is_high)?
+            | port_map.write_exact_unchecked(out, self.output.clone()))
     }
 
     fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
@@ -404,7 +433,7 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
         &mut self,
         port_map: &mut PortMap,
         _: &mut MemoryMap,
-    ) -> RuntimeResult<()> {
+    ) -> UpdateResult {
         ports![&self.base_port;
             left: Self::LEFT,
             right: Self::RIGHT,
@@ -414,6 +443,8 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
             done: Self::DONE
         ];
 
+        let mut changed = UpdateStatus::Unchanged;
+
         if port_map[reset].as_bool().unwrap_or_default() {
             self.current_output = PortValue::new_cell(BitVecValue::zero(
                 self.int_width + self.frac_width,
@@ -421,10 +452,12 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
             self.done_is_high = false;
             self.pipeline.reset();
         } else if port_map[go].as_bool().unwrap_or_default() {
-            let output = self
-                .pipeline
-                .shift(Some((port_map[left].clone(), port_map[right].clone())));
-            if let Some((l, r)) = output {
+            let new_element = (port_map[left].clone(), port_map[right].clone());
+
+            changed |=
+                (!all_buffer_items_equal(&self.pipeline, &new_element)).into();
+
+            if let Some((l, r)) = self.pipeline.shift_new(new_element) {
                 let out_val = l.as_option().and_then(|left| {
                     r.as_option().map(|right| {
                         let val = left.val().to_big_uint()
@@ -453,7 +486,7 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
             self.done_is_high = false;
         }
 
-        port_map.insert_val_general(
+        changed |= port_map.insert_val_general(
             done,
             AssignedValue::cell_value(if self.done_is_high {
                 BitVecValue::new_true()
@@ -461,9 +494,10 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
                 BitVecValue::new_false()
             }),
         )?;
-        port_map.write_exact_unchecked(out, self.current_output.clone());
+        changed |=
+            port_map.write_exact_unchecked(out, self.current_output.clone());
 
-        Ok(())
+        Ok(changed)
     }
 
     fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
@@ -534,7 +568,7 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
         &mut self,
         port_map: &mut PortMap,
         _: &mut MemoryMap,
-    ) -> RuntimeResult<()> {
+    ) -> UpdateResult {
         ports![&self.base_port;
             left: Self::LEFT,
             right: Self::RIGHT,
@@ -545,16 +579,20 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
             done: Self::DONE
         ];
 
+        let mut changed = UpdateStatus::Unchanged;
+
         if port_map[reset].as_bool().unwrap_or_default() {
             self.output_quotient =
                 PortValue::new_cell(BitVecValue::zero(self.width()));
             self.done_is_high = false;
             self.pipeline.reset();
         } else if port_map[go].as_bool().unwrap_or_default() {
-            let output = self
-                .pipeline
-                .shift(Some((port_map[left].clone(), port_map[right].clone())));
-            if let Some((l, r)) = output {
+            let new_element = (port_map[left].clone(), port_map[right].clone());
+
+            changed |=
+                (!all_buffer_items_equal(&self.pipeline, &new_element)).into();
+
+            if let Some((l, r)) = self.pipeline.shift_new(new_element) {
                 let out_val = l.as_option().and_then(|left| {
                     r.as_option().map(|right| {
                         (
@@ -604,11 +642,13 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
             self.done_is_high = false;
         }
 
-        port_map.set_done(done, self.done_is_high)?;
-        port_map.write_exact_unchecked(out_quot, self.output_quotient.clone());
-        port_map.write_exact_unchecked(out_rem, self.output_remainder.clone());
+        changed |= port_map.set_done(done, self.done_is_high)?;
+        changed |= port_map
+            .write_exact_unchecked(out_quot, self.output_quotient.clone());
+        changed |= port_map
+            .write_exact_unchecked(out_rem, self.output_remainder.clone());
 
-        Ok(())
+        Ok(changed)
     }
 
     fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
