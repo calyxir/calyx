@@ -1689,49 +1689,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
         if self.conf.check_data_race {
             let mut clock_map = std::mem::take(&mut self.env.clocks);
-            for cell in self.env.cells.values() {
-                if !matches!(&cell, CellLedger::Component(_)) {
-                    let dyn_prim = match cell {
-                        CellLedger::Primitive { cell_dyn } => &**cell_dyn,
-                        CellLedger::RaceDetectionPrimitive { cell_dyn } => {
-                            cell_dyn.as_primitive()
-                        }
-                        CellLedger::Component(_) => {
-                            unreachable!()
-                        }
-                    };
-
-                    if !dyn_prim.is_combinational() {
-                        let sig = dyn_prim.get_ports();
-                        for port in sig.iter_first() {
-                            if let Some(val) = self.env.ports[port].as_option()
-                            {
-                                if val.propagate_clocks()
-                                    && (val.transitive_clocks().is_some())
-                                {
-                                    // For non-combinational cells with
-                                    // transitive reads, we will check them at
-                                    // the cycle boundary and attribute the read
-                                    // to the continuous thread
-                                    let (assign_idx, cell) =
-                                        val.winner().as_assign().unwrap();
-                                    self.check_read(
-                                        ThreadMap::continuous_thread(),
-                                        port,
-                                        &mut clock_map,
-                                        ReadSource::Assignment(assign_idx),
-                                        cell,
-                                    )
-                                    .map_err(|e| {
-                                        e.prettify_message(&self.env)
-                                    })?
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
+            self.check_transitive_reads(&mut clock_map)?;
             self.env.clocks = clock_map;
         }
 
@@ -1825,6 +1783,45 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             self.env.pc.vec_mut().sort_by_key(|x| x.component());
         }
 
+        Ok(())
+    }
+
+    /// Visit each cell and for all non-combinational cells, check whether there
+    /// are any reads that should be performed on their inputs that were
+    /// deferred through combinational logic
+    fn check_transitive_reads(
+        &mut self,
+        clock_map: &mut ClockMap,
+    ) -> Result<(), BoxedCiderError> {
+        for cell in self.env.cells.values() {
+            if let Some(dyn_prim) = cell.as_primitive() {
+                if !dyn_prim.is_combinational() {
+                    let sig = dyn_prim.get_ports();
+                    for port in sig.iter_first() {
+                        if let Some(val) = self.env.ports[port].as_option() {
+                            if val.propagate_clocks()
+                                && (val.transitive_clocks().is_some())
+                            {
+                                // For non-combinational cells with
+                                // transitive reads, we will check them at
+                                // the cycle boundary and attribute the read
+                                // to the continuous thread
+                                let (assign_idx, cell) =
+                                    val.winner().as_assign().unwrap();
+                                self.check_read(
+                                    ThreadMap::continuous_thread(),
+                                    port,
+                                    clock_map,
+                                    ReadSource::Assignment(assign_idx),
+                                    cell,
+                                )
+                                .map_err(|e| e.prettify_message(&self.env))?
+                            }
+                        }
+                    }
+                }
+            }
+        }
         Ok(())
     }
 
