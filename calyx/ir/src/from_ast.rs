@@ -24,6 +24,19 @@ struct SigCtx {
     lib: LibrarySignatures,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct AstConversionConfig {
+    pub extend_signatures: bool,
+}
+
+impl Default for AstConversionConfig {
+    fn default() -> Self {
+        Self {
+            extend_signatures: true,
+        }
+    }
+}
+
 // Assumes cell has a name (i.e., not a constant/ThisComponent)
 // uses sig_ctx to check the latency of comp_name, either thru static<n> or
 // @interval(n)
@@ -177,7 +190,10 @@ fn check_signature(pds: &[PortDef<u64>]) -> CalyxResult<()> {
 }
 
 /// Construct an IR representation using a parsed AST and command line options.
-pub fn ast_to_ir(mut workspace: Workspace) -> CalyxResult<Context> {
+pub fn ast_to_ir(
+    mut workspace: Workspace,
+    config: AstConversionConfig,
+) -> CalyxResult<Context> {
     let prims = workspace.lib.signatures().collect_vec();
     let mut all_names: HashSet<&Id> =
         HashSet::with_capacity(workspace.components.len() + prims.len());
@@ -215,7 +231,10 @@ pub fn ast_to_ir(mut workspace: Workspace) -> CalyxResult<Context> {
         let sig = &mut comp.signature;
         check_signature(&*sig)?;
         // extend the signature if the component does not have the @nointerface attribute.
-        if !comp.attributes.has(BoolAttr::NoInterface) && !comp.is_comb {
+        if !comp.attributes.has(BoolAttr::NoInterface)
+            && !comp.is_comb
+            && config.extend_signatures
+        {
             Component::extend_signature(sig);
         }
         sig_ctx
@@ -227,7 +246,7 @@ pub fn ast_to_ir(mut workspace: Workspace) -> CalyxResult<Context> {
     let comps: Vec<Component> = workspace
         .components
         .into_iter()
-        .map(|comp| build_component(comp, &mut sig_ctx))
+        .map(|comp| build_component(comp, &mut sig_ctx, config))
         .collect::<Result<_, _>>()?;
 
     // Find the entrypoint for the program.
@@ -314,6 +333,7 @@ fn validate_component(
 fn build_component(
     comp: ast::ComponentDef,
     sig_ctx: &mut SigCtx,
+    config: AstConversionConfig,
 ) -> CalyxResult<Component> {
     // Validate the component before building it.
     validate_component(&comp, sig_ctx)?;
@@ -321,7 +341,9 @@ fn build_component(
     let mut ir_component = Component::new(
         comp.name,
         comp.signature,
-        !comp.attributes.has(BoolAttr::NoInterface) && !comp.is_comb,
+        !comp.attributes.has(BoolAttr::NoInterface)
+            && !comp.is_comb
+            && config.extend_signatures,
         comp.is_comb,
         // we may change latency from None to Some(inferred latency)
         // after we iterate thru the control of the Component
