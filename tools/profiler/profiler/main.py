@@ -30,8 +30,15 @@ def setup_metadata(args):
         args.shared_cells_json
     )
     enable_thread_data = preprocess.read_enable_thread_json(args.enable_par_tracks_json)
+    if args.ctrl_mapping_file is not None:
+        component_to_pos_to_loc_str = preprocess.read_ctrl_metadata_file(
+            args.ctrl_mapping_file
+        )
+    else:
+        component_to_pos_to_loc_str = None
+
     control_metadata: ControlMetadata = preprocess.read_tdcc_file(
-        args.fsms_json, cell_metadata
+        args.fsms_json, component_to_pos_to_loc_str, cell_metadata
     )
     # create tracedata object here so we can use it outside of converter
     tracedata: TraceData = TraceData()
@@ -112,6 +119,9 @@ def create_visuals(
     flame.write_flame_maps(flat_flame_map, scaled_flame_map, out_dir, flame_out)
     print(f"End writing flame graphs: {datetime.now()}")
 
+    timeline.compute_protobuf_timeline(
+        tracedata, cell_metadata, enable_thread_metadata, out_dir
+    )
     timeline.compute_timeline(tracedata, cell_metadata, enable_thread_metadata, out_dir)
     print(f"End writing timeline view: {datetime.now()}")
 
@@ -153,6 +163,11 @@ def parse_args():
         help="utilization variable to visualize (default: %(default)s)",
         default="ff",
         choices=["ff", "lut", "llut", "lutram"],
+    )
+    parser.add_argument(
+        "--ctrl-pos-file",
+        dest="ctrl_mapping_file",
+        help="json containing components to the pos and locations of their ctrl nodes",
     )
     parser.add_argument(
         "--adl-mapping-file", dest="adl_mapping_file", help="adl mapping file"
