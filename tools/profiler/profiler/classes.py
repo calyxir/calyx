@@ -823,22 +823,9 @@ class TraceData:
                         cell_metadata, control_metadata, control_groups_trace[i]
                     )
                 )
-                rev = {
-                    active_control_group_to_desc[k]: k
-                    for k in active_control_group_to_desc
-                }
-                ordered_groups = [rev[x] for x in sorted(rev.keys())]
-
-                active_control_group_to_parents: defaultdict[str, list[str]] = (
-                    defaultdict(list)
+                active_control_group_to_parents = self._compute_ctrl_group_to_parents(
+                    active_control_group_to_desc
                 )
-                for g in ordered_groups:
-                    g_desc = active_control_group_to_desc[g]
-                    for other_group in ordered_groups:
-                        other_desc = active_control_group_to_desc[other_group]
-                        if g != other_group and g_desc in other_desc:
-                            # other_group is a child of g
-                            active_control_group_to_parents[other_group].append(g)
 
                 active_control_groups_missed: set[str] | None = None
                 cell_to_stack_trace: dict[str, list[StackElement]] = {}
@@ -861,7 +848,6 @@ class TraceData:
                     else:
                         active_control_groups_missed.intersection_update(missed_groups)
                 # for any control groups that weren't covered...
-                # active_control_groups_diff: set[str] = active_control_groups.difference(active_control_groups_covered)
                 if len(active_control_groups_missed) > 0:
                     # control groups that weren't covered don't have a child group and were in parallel with a group in a different par arm
                     # find leaves
@@ -883,11 +869,21 @@ class TraceData:
                         leaf_name = leaf_ctrl_group_split[-1]
                         new_stack: list[StackElement] = cell_to_stack_trace[cell].copy()
                         # add parents of leaf
-                        for leaf_parent in active_control_group_to_parents[leaf_ctrl_group]:
-                            parent_stack_elem: StackElement = self._create_ctrl_stack_elem(leaf_parent.split(".")[-1], cell_component, control_metadata)
+                        for leaf_parent in active_control_group_to_parents[
+                            leaf_ctrl_group
+                        ]:
+                            parent_stack_elem: StackElement = (
+                                self._create_ctrl_stack_elem(
+                                    leaf_parent.split(".")[-1],
+                                    cell_component,
+                                    control_metadata,
+                                )
+                            )
                             new_stack.append(parent_stack_elem)
                         # add leaf
-                        leaf_element: StackElement = self._create_ctrl_stack_elem(leaf_name, cell_component, control_metadata)
+                        leaf_element: StackElement = self._create_ctrl_stack_elem(
+                            leaf_name, cell_component, control_metadata
+                        )
                         new_stack.append(leaf_element)
                         # add new_stack to the current cycle's CycleTrace
                         self.trace_with_control_groups[i].add_stack(new_stack)
@@ -895,9 +891,41 @@ class TraceData:
             else:
                 self.trace_with_control_groups[i] = copy.copy(self.trace[i])
 
+    def _compute_ctrl_group_to_parents(self, group_to_desc):
+        """
+        Helper function for create_trace_with_control_groups() that returns:
+         - a mapping from a fully qualified control group to a list of its ancestry (in order of oldest to newest) and the
+         - the set of leaf control groups (groups that are not a parent of any other group)
+
+        ex) if the call order for the cell toplevel.main was tdcc0 --> par0 --> tdcc1, then the returned dict would look like:
+        {
+            "toplevel.main.tdcc0": [],
+            "toplevel.main.tdcc1": ["toplevel.main.tdcc0", "toplevel.main.par0"],
+            "toplevel.main.par0": ["toplevel.main.tdcc0"]
+        }
+        and the returned set would be a singleton: {"toplevel.main.tdcc1"}
+        """
+        # First, sort the control groups 
+        desc_to_group = {group_to_desc[k]: k for k in group_to_desc}
+        ordered_groups = [desc_to_group[x] for x in sorted(desc_to_group.keys())]
+
+        active_control_group_to_parents: defaultdict[str, list[str]] = defaultdict(list)
+        for g in ordered_groups:
+            g_desc = group_to_desc[g]
+            for other_group in ordered_groups:
+                other_desc = group_to_desc[other_group]
+                if g != other_group and g_desc in other_desc:
+                    # other_group is a child of g
+                    active_control_group_to_parents[other_group].append(g)
+        return active_control_group_to_parents
+
     def _create_active_control_group_to_desc(
         self, cell_metadata, control_metadata, active_control_groups
     ):
+        """
+        Helper function for create_trace_with_control_groups() that returns a mapping from
+        fully qualified control groups to their path descriptors.
+        """
         active_control_group_to_desc: dict[str, str] = {}
         for active_ctrl_group in active_control_groups:
             ctrl_group_split = active_ctrl_group.split(".")
@@ -965,18 +993,6 @@ class TraceData:
                         if ".".join(x.split(".")[:-1]) == current_cell
                     }
 
-                    # cell_active_ctrl_groups = [
-                    #     x
-                    #     for x in active_control_group_to_
-                    #     if ".".join(x.split(".")[:-1]) == current_cell
-                    # ]
-                    # for fq_ctrl_group in cell_active_ctrl_groups:
-                    #     ctrl_group_name = fq_ctrl_group.split(f"{current_cell}.")[1]
-                    #     descriptor = control_metadata.component_to_ctrl_group_to_desc[
-                    #         cell_component
-                    #     ][ctrl_group_name]
-                    #     active_ctrl_desc_to_group[descriptor] = ctrl_group_name
-
                     # Determine the control groups to add and their ordering.
                     # To do so, we must first figure out what is the next element in the stack, if there exists any
                     if i < len(events_stack) - 1:
@@ -1002,7 +1018,6 @@ class TraceData:
                                     f"{current_cell}.{missed_group}"
                                 )
 
-                        # ctrl_groups_to_add = [active_ctrl_desc_to_group[desc] for desc in sorted(active_ctrl_desc_to_group.keys()) if desc in next_elem_descriptor]
                     else:
                         # no groups! add all of the active control groups, in order.
                         ctrl_groups_to_add = [
