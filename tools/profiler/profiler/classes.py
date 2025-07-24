@@ -870,6 +870,9 @@ class TraceData:
         in any created stacks. This can happen when there is a par block containing sequential blocks (a tdcc group inside of a par group)
         where the inner tdcc group is on a FSM register update cycle, but groups on the other par arms are active. New stacks are created
         to show any missing groups, which are added to the CycleTrace at cycle `i`.
+
+        Assumption: A cell can only be invoked by a single group within a particular cycle. That is, _in a single cycle_, two groups cannot
+        be the parent of a singular user-defined component cell. (This assumption is leveraged by the argument cell_to_stack_trace.)
         """
         if len(missed_groups) == 0:
             return
