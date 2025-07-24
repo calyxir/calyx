@@ -1,6 +1,6 @@
 # Data Format
 
-Calyx's [`fud`][fud]-based workflows specifies a JSON-based data format which can be used with software simulators.
+Calyx's [`fud2`][fud2]-based workflows specifies a JSON-based data format which can be used with software simulators.
 
 ## External memories
 
@@ -66,11 +66,11 @@ To pass a JSON file with initial values, use the `-s verilog.data` flag:
 
 ```bash
 # Use Icarus Verilog
-fud e --to dat --through icarus-verilog <CALYX FILE> -s verilog.data <JSON>
+fud2 --to dat --through icarus <CALYX FILE> -s sim.data=<JSON>
 # Use Verilator
-fud e --to dat --through verilog <CALYX FILE> -s verilog.data <JSON>
-# Use the Calyx Interpreter
-fud e --to interpreter-out <CALYX FILE> -s verilog.data <JSON>
+fud2 --to dat --through verilator <CALYX FILE> -s sim.data=<JSON>
+# Use Cider, the Calyx interpreter
+fud2 --to dat --through cider <CALYX FILE> -s sim.data=<JSON>
 ```
 
 ## Generating Random Values
@@ -82,6 +82,7 @@ Often times, it can be useful to automatically generate random values for a larg
 [toplevel-attr]: attributes.md#toplevel
 [ext-attr]: attributes.md#external
 [fud]: ../running-calyx/fud/index.md
+[fud2]: ../running-calyx/fud2
 [data-gen]: ../tools/data-gen.md
 [iv]: ../running-calyx/fud/index.md#icarus-verilog
 [verilator]: ../running-calyx/fud/index.md#verilator
