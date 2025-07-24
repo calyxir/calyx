@@ -122,9 +122,6 @@ def read_path_descriptor_json(
             if len(calyx_pos_list) == 1:
                 pos = calyx_pos_list[0]
                 control_metadata.component_to_ctrl_group_to_desc[component][pos_to_control_group[pos]] = ctrl_desc
-    
-    print(control_metadata.component_to_enable_to_desc)
-    print(control_metadata.component_to_ctrl_group_to_desc)
 
 def read_tdcc_file(
     tdcc_json_file: str,

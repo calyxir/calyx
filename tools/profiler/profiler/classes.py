@@ -211,8 +211,10 @@ class ControlMetadata:
     # Store enable to path descriptor for each component
     component_to_enable_to_desc: dict[str, dict[str, str]] = field(default_factory=dict)
 
-    # Store control statements' descriptors to 
-    component_to_ctrl_group_to_desc: dict[str, dict[str, int]] = field(default_factory=dict)
+    # Store control statements' descriptors to
+    component_to_ctrl_group_to_desc: dict[str, dict[str, int]] = field(
+        default_factory=dict
+    )
 
     added_signal_prefix: bool = field(default=False)
 
@@ -285,6 +287,7 @@ class ControlMetadata:
                 self.par_to_par_children[fully_qualified_par].append(
                     fully_qualified_child
                 )
+
 
 class StackElementType(Enum):
     GROUP = 1
@@ -814,31 +817,124 @@ class TraceData:
                     if utilization is None
                     else UtilizationCycleTrace(utilization, control_metadata)
                 )
+                # fully qualified control group --> path descriptor
+                active_control_group_to_desc: dict[str, str] = (
+                    self._create_active_control_group_to_desc(
+                        cell_metadata, control_metadata, control_groups_trace[i]
+                    )
+                )
+                rev = {
+                    active_control_group_to_desc[k]: k
+                    for k in active_control_group_to_desc
+                }
+                ordered_groups = [rev[x] for x in sorted(rev.keys())]
+
+                active_control_group_to_parents: defaultdict[str, list[str]] = (
+                    defaultdict(list)
+                )
+                for g in ordered_groups:
+                    g_desc = active_control_group_to_desc[g]
+                    for other_group in ordered_groups:
+                        other_desc = active_control_group_to_desc[other_group]
+                        if g != other_group and g_desc in other_desc:
+                            # other_group is a child of g
+                            active_control_group_to_parents[other_group].append(g)
+
+                active_control_groups_missed: set[str] | None = None
+                cell_to_stack_trace: dict[str, list[StackElement]] = {}
                 for events_stack in self.trace[i].stacks:
-                    new_events_stack = self._create_events_stack_with_control_groups(
-                        events_stack,
-                        cell_metadata,
-                        control_metadata,
-                        control_groups_trace[i],
+                    new_events_stack, missed_groups = (
+                        self._create_events_stack_with_control_groups(
+                            events_stack,
+                            cell_metadata,
+                            control_metadata,
+                            active_control_group_to_desc,
+                            cell_to_stack_trace,
+                        )
                     )
                     self.trace_with_control_groups[i].add_stack(
                         new_events_stack, cell_metadata.main_shortname
                     )
+                    if active_control_groups_missed is None:
+                        # need to populate with the first set that gets returned
+                        active_control_groups_missed = missed_groups
+                    else:
+                        active_control_groups_missed.intersection_update(missed_groups)
+                # for any control groups that weren't covered...
+                # active_control_groups_diff: set[str] = active_control_groups.difference(active_control_groups_covered)
+                if len(active_control_groups_missed) > 0:
+                    # control groups that weren't covered don't have a child group and were in parallel with a group in a different par arm
+                    # find leaves
+                    missed_leaves = active_control_groups_missed.copy()
+                    for g in active_control_groups_missed:
+                        for other_group in active_control_groups_missed:
+                            g_desc = active_control_group_to_desc[g]
+                            other_group_desc = active_control_group_to_desc[other_group]
+                            if (
+                                g != other_group and g_desc in other_group_desc
+                            ):  # g is a parent of other_group
+                                missed_leaves.remove(g)
+                                break
+                    # create new stack for each leaf.
+                    for leaf_ctrl_group in missed_leaves:
+                        leaf_ctrl_group_split = leaf_ctrl_group.split(".")
+                        cell = ".".join(leaf_ctrl_group_split[:-1])
+                        cell_component = cell_metadata.get_component_of_cell(cell)
+                        leaf_name = leaf_ctrl_group_split[-1]
+                        new_stack: list[StackElement] = cell_to_stack_trace[cell].copy()
+                        # add parents of leaf
+                        for leaf_parent in active_control_group_to_parents[leaf_ctrl_group]:
+                            parent_stack_elem: StackElement = self._create_ctrl_stack_elem(leaf_parent.split(".")[-1], cell_component, control_metadata)
+                            new_stack.append(parent_stack_elem)
+                        # add leaf
+                        leaf_element: StackElement = self._create_ctrl_stack_elem(leaf_name, cell_component, control_metadata)
+                        new_stack.append(leaf_element)
+                        # add new_stack to the current cycle's CycleTrace
+                        self.trace_with_control_groups[i].add_stack(new_stack)
+
             else:
                 self.trace_with_control_groups[i] = copy.copy(self.trace[i])
+
+    def _create_active_control_group_to_desc(
+        self, cell_metadata, control_metadata, active_control_groups
+    ):
+        active_control_group_to_desc: dict[str, str] = {}
+        for active_ctrl_group in active_control_groups:
+            ctrl_group_split = active_ctrl_group.split(".")
+            ctrl_group_cell = ".".join(ctrl_group_split[:-1])
+            ctrl_group_name = ctrl_group_split[-1]
+            ctrl_group_component = cell_metadata.get_component_of_cell(ctrl_group_cell)
+            ctrl_group_desc = control_metadata.component_to_ctrl_group_to_desc[
+                ctrl_group_component
+            ][ctrl_group_name]
+            active_control_group_to_desc[active_ctrl_group] = ctrl_group_desc
+        return active_control_group_to_desc
 
     def _create_events_stack_with_control_groups(
         self,
         events_stack: list[StackElement],
         cell_metadata: CellMetadata,
         control_metadata: ControlMetadata,
-        active_control_groups: set[str],
-    ):
+        active_control_group_to_desc: dict[str, str],
+        cell_to_stack_trace: dict[str, list[StackElement]],
+    ) -> tuple[list[StackElement], set[str]]:
         """
+        Helper method for create_trace_with_control_groups().
+        Returns:
+          - new StackElement list that contain active control groups in order
+          - the set of fully qualified control groups that were NOT included in the stack
+
+        We determine the control groups to add on the stack from active_control_groups based on the path descriptors of each
+        control group, and the path descriptor of the next non-control group (if there exists). All ancestoral control groups
+        (any control group with a path descriptor that is a substring of the non-control group) get added in alphabetical order
+        of path descriptor.
+
         Rules/Assumptions:
         - Control groups can only happen after cells
+        - The next element after a cell in events_stack, if there exists one, is a group (verified by an assert)
         """
         events_stack_with_ctrl: list[StackElement] = []
+        missed_control_groups: set[str] = set()
         for i in range(len(events_stack)):
             stack_element = events_stack[i]
             events_stack_with_ctrl.append(stack_element)
@@ -846,178 +942,98 @@ class TraceData:
                 case StackElementType.CELL:
                     # update the current cell.
                     if stack_element.is_main:
-                        current_cell = f"{cell_metadata.signal_prefix}.{stack_element.name}"
-                    else:
-                        current_cell += f".{stack_element.internal_name}"
-
-                    # need to figure out which control groups are getting added to this cell 
-                    cell_component = cell_metadata.get_component_of_cell(current_cell)
-
-                    # FIXME: make this part into a helper function?
-                    # descriptor --> control group (NOT fully qualified)
-                    active_ctrl_desc_to_group: dict[str, str] = {}
-
-                    cell_active_ctrl_groups = [x for x in active_control_groups if ".".join(x.split(".")[:-1]) == current_cell]
-                    for fq_ctrl_group in cell_active_ctrl_groups:
-                        ctrl_group_name = fq_ctrl_group.split(f"{current_cell}.")[1]
-                        print(ctrl_group_name)
-                        print(control_metadata.component_to_ctrl_group_to_desc[cell_component])
-                        descriptor = control_metadata.component_to_ctrl_group_to_desc[cell_component][ctrl_group_name]
-                        active_ctrl_desc_to_group[descriptor] = ctrl_group_name
-
-                    # print(f"cell: {current_cell} active ctrl groups: {active_ctrl_desc_to_group}")
-
-                    # Determine the control groups to add and their ordering.
-                    # To do so, we must first figure out what is the next element in the stack, if there exists any
-                    if i < len(events_stack) - 1:
-                        # check the next element (has to be a non-structurally enabled group)
-                        next_elem = events_stack[i+1]
-                        assert(next_elem.element_type == StackElementType.GROUP)
-                        next_elem_descriptor = control_metadata.component_to_enable_to_desc[cell_component][next_elem.internal_name]
-                        
-                        ctrl_groups_to_add = [active_ctrl_desc_to_group[desc] for desc in sorted(active_ctrl_desc_to_group.keys()) if desc in next_elem_descriptor]
-                        # print(f"next element descriptor: {next_elem_descriptor} ctrl groups to add: {ctrl_groups_to_add}")
-
-                    else:
-                        # no groups! add all of the active control groups, in order.
-                        ctrl_groups_to_add = [active_ctrl_desc_to_group[desc] for desc in sorted(active_ctrl_desc_to_group.keys())]
-
-                    # add control groups to the stack in order.
-                    for ctrl_group in ctrl_groups_to_add:
-                        ctrl_group_stack_elem = StackElement(ctrl_group, StackElementType.CONTROL_GROUP)
-                        # grab the source location string if possible
-                        if (
-                            control_metadata.component_to_ctrl_group_to_pos_str is not None
-                            and ctrl_group
-                            in control_metadata.component_to_ctrl_group_to_pos_str[
-                            cell_component
-                            ]
-                        ):
-                            ctrl_group_stack_elem.ctrl_loc_str = (
-                                control_metadata.component_to_ctrl_group_to_pos_str[
-                                    cell_component
-                                ][ctrl_group]
-                            )
-                        events_stack_with_ctrl.append(ctrl_group_stack_elem)
-
-        return events_stack_with_ctrl
-
-    def _create_events_stack_with_control_groups_bak(
-        self,
-        events_stack: list[StackElement],
-        cell_metadata: CellMetadata,
-        control_metadata: ControlMetadata,
-        active_control_groups: set[str],
-    ):
-        """
-        Helper method for create_trace_with_control_groups(). Returns new StackElement list that contain active control groups.
-        """
-        events_stack_with_ctrl: list[StackElement] = []
-        for stack_element in events_stack:
-            events_stack_with_ctrl.append(stack_element)
-            match stack_element.element_type:
-                case StackElementType.CELL:
-                    if stack_element.is_main:
                         current_cell = (
                             f"{cell_metadata.signal_prefix}.{stack_element.name}"
                         )
                     else:
                         current_cell += f".{stack_element.internal_name}"
-                case StackElementType.GROUP:
-                    # standard groups to handle edge case of nested pars concurrent with groups; pop any pars that aren't this group's parent
-                    current_component = cell_metadata.get_component_of_cell(
-                        current_cell
-                    )
-                    if (
-                        current_component
-                        in control_metadata.component_to_child_to_par_parent
-                        and stack_element.internal_name
-                        in control_metadata.component_to_child_to_par_parent[
-                            current_component
-                        ]
-                    ):
-                        child_parent_info: ParChildInfo = (
-                            control_metadata.component_to_child_to_par_parent[
-                                current_component
-                            ][stack_element.internal_name]
+
+                    # add the current cell to cell_to_stack_trace if it doesn't already exist
+                    if current_cell not in cell_to_stack_trace:
+                        cell_to_stack_trace[current_cell] = (
+                            events_stack_with_ctrl.copy()
                         )
-                        parent_names = set()
-                        if child_parent_info.child_type == ParChildType.PAR:
-                            raise ProfilerException(
-                                "A normal group should not be stored as a par group under control_metadata.component_to_child_to_par_parent"
-                            )
-                        parent_names.update(child_parent_info.parents)
-                        parent_found = False
-                        while (
-                            len(events_stack_with_ctrl) > 2
-                            and events_stack_with_ctrl[-2].element_type
-                            == StackElementType.CONTROL_GROUP
-                        ):
-                            # FIXME: We currently assume that all StackElementType.CONTROL_GROUP are pars, so we can pull this trick
-                            # NOTE: we may need to fix this in the future when there are multiple StackElementType.CONTROL_GROUP
-                            for parent in parent_names:
-                                if parent == events_stack_with_ctrl[-2].internal_name:
-                                    parent_found = True
-                                    break
-                            if parent_found:
-                                break
-                            events_stack_with_ctrl.pop(-2)
-                        continue
-                    continue
-                case StackElementType.PRIMITIVE:
-                    # All primitives are leaf nodes, so there is no more work left to be done.
-                    break
-            cell_component = cell_metadata.get_component_of_cell(current_cell)
-            if current_cell in control_metadata.cell_to_tdcc_groups:
-                for tdcc_group in control_metadata.cell_to_tdcc_groups[current_cell]:
-                    if f"{current_cell}.{tdcc_group}" in active_control_groups:
-                        tdcc_group_stack_elem = StackElement(
-                            tdcc_group, StackElementType.CONTROL_GROUP
-                        )
-                        if (
-                            control_metadata.component_to_ctrl_group_to_pos_str
-                            is not None
-                            and tdcc_group
-                            in control_metadata.component_to_ctrl_group_to_pos_str[
+
+                    # need to figure out which control groups are getting added to this cell
+                    cell_component = cell_metadata.get_component_of_cell(current_cell)
+
+                    # NOTE: make this part into a helper function?
+                    # descriptor --> control group (NOT fully qualified)
+                    active_ctrl_desc_to_group: dict[str, str] = {
+                        active_control_group_to_desc[x]: x.split(".")[-1]
+                        for x in active_control_group_to_desc
+                        if ".".join(x.split(".")[:-1]) == current_cell
+                    }
+
+                    # cell_active_ctrl_groups = [
+                    #     x
+                    #     for x in active_control_group_to_
+                    #     if ".".join(x.split(".")[:-1]) == current_cell
+                    # ]
+                    # for fq_ctrl_group in cell_active_ctrl_groups:
+                    #     ctrl_group_name = fq_ctrl_group.split(f"{current_cell}.")[1]
+                    #     descriptor = control_metadata.component_to_ctrl_group_to_desc[
+                    #         cell_component
+                    #     ][ctrl_group_name]
+                    #     active_ctrl_desc_to_group[descriptor] = ctrl_group_name
+
+                    # Determine the control groups to add and their ordering.
+                    # To do so, we must first figure out what is the next element in the stack, if there exists any
+                    if i < len(events_stack) - 1:
+                        # check the next element (has to be a non-structurally enabled group)
+                        next_elem = events_stack[i + 1]
+                        assert next_elem.element_type == StackElementType.GROUP
+                        next_elem_descriptor = (
+                            control_metadata.component_to_enable_to_desc[
                                 cell_component
-                            ]
-                        ):
-                            tdcc_group_stack_elem.ctrl_loc_str = (
-                                control_metadata.component_to_ctrl_group_to_pos_str[
-                                    cell_component
-                                ][tdcc_group]
-                            )
-                        events_stack_with_ctrl.append(tdcc_group_stack_elem)
-            if current_cell in control_metadata.cell_to_ordered_pars:
-                active_from_cell = active_control_groups.intersection(
-                    control_metadata.cell_to_ordered_pars[current_cell]
-                )
-                for par_group_active in sorted(
-                    active_from_cell,
-                    key=(
-                        lambda p: control_metadata.cell_to_ordered_pars[
-                            current_cell
-                        ].index(p)
-                    ),
-                ):
-                    par_group_name = par_group_active.split(".")[-1]
-                    par_stack_elem = StackElement(
-                        par_group_name, StackElementType.CONTROL_GROUP
-                    )
-                    if (
-                        control_metadata.component_to_ctrl_group_to_pos_str is not None
-                        and par_group_name
-                        in control_metadata.component_to_ctrl_group_to_pos_str[
-                            cell_component
-                        ]
-                    ):
-                        par_stack_elem.ctrl_loc_str = (
-                            control_metadata.component_to_ctrl_group_to_pos_str[
-                                cell_component
-                            ][par_group_name]
+                            ][next_elem.internal_name]
                         )
-                    events_stack_with_ctrl.append(par_stack_elem)
-        return events_stack_with_ctrl
+
+                        # sort by whether we should add this
+                        ctrl_groups_to_add = []
+                        for desc in sorted(active_ctrl_desc_to_group.keys()):
+                            if desc in next_elem_descriptor:
+                                ctrl_groups_to_add.append(
+                                    active_ctrl_desc_to_group[desc]
+                                )
+                            else:
+                                missed_group = active_ctrl_desc_to_group[desc]
+                                missed_control_groups.add(
+                                    f"{current_cell}.{missed_group}"
+                                )
+
+                        # ctrl_groups_to_add = [active_ctrl_desc_to_group[desc] for desc in sorted(active_ctrl_desc_to_group.keys()) if desc in next_elem_descriptor]
+                    else:
+                        # no groups! add all of the active control groups, in order.
+                        ctrl_groups_to_add = [
+                            active_ctrl_desc_to_group[desc]
+                            for desc in sorted(active_ctrl_desc_to_group.keys())
+                        ]
+
+                    # add control groups to the stack in order.
+                    for ctrl_group in ctrl_groups_to_add:
+                        ctrl_group_stack_elem = self._create_ctrl_stack_elem(
+                            ctrl_group, cell_component, control_metadata
+                        )
+                        events_stack_with_ctrl.append(ctrl_group_stack_elem)
+
+        return events_stack_with_ctrl, missed_control_groups
+
+    def _create_ctrl_stack_elem(self, ctrl_group, cell_component, control_metadata):
+        ctrl_group_stack_elem = StackElement(ctrl_group, StackElementType.CONTROL_GROUP)
+        # grab the source location string if possible
+        if (
+            control_metadata.component_to_ctrl_group_to_pos_str is not None
+            and ctrl_group
+            in control_metadata.component_to_ctrl_group_to_pos_str[cell_component]
+        ):
+            ctrl_group_stack_elem.ctrl_loc_str = (
+                control_metadata.component_to_ctrl_group_to_pos_str[cell_component][
+                    ctrl_group
+                ]
+            )
+
+        return ctrl_group_stack_elem
 
     def add_sourceloc_info(self, adl_map: AdlMap):
         """
