@@ -38,7 +38,10 @@ def setup_metadata(args):
         component_to_pos_to_loc_str = None
 
     control_metadata: ControlMetadata = preprocess.setup_control_info(
-        args.fsms_json, args.path_descriptors_json, component_to_pos_to_loc_str, cell_metadata
+        args.fsms_json,
+        args.path_descriptors_json,
+        component_to_pos_to_loc_str,
+        cell_metadata,
     )
     # create tracedata object here so we can use it outside of converter
     tracedata: TraceData = TraceData()
