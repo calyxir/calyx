@@ -942,7 +942,10 @@ class TraceData:
         return group_to_parents, leaf_groups
 
     def _create_active_control_group_to_desc(
-        self, active_control_groups: set[str], cell_metadata: CellMetadata, control_metadata: ControlMetadata
+        self,
+        active_control_groups: set[str],
+        cell_metadata: CellMetadata,
+        control_metadata: ControlMetadata,
     ):
         """
         Helper function for create_trace_with_control_groups() that returns a mapping from
