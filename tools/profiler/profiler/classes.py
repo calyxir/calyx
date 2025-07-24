@@ -1,11 +1,10 @@
 import os
 import copy
 import json
-from collections import defaultdict, deque
+from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 import statistics
-import sys
 
 from profiler.errors import ProfilerException
 
