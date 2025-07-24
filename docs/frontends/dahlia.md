@@ -37,7 +37,7 @@ Dahlia programs can be compiled to Calyx using:
 fud2 --from dahlia <input file> --to calyx
 ```
 
-The Dahlia backed for Calyx is neither *complete* nor *stable*. If you find
+The Dahlia backend for Calyx is neither *complete* nor *stable*. If you find
 a confusing error or wrong program, please open an [issue][].
 
 [dahlia]: https://capra.cs.cornell.edu/dahlia
