@@ -820,11 +820,8 @@ class TraceData:
                 # fully qualified control group --> path descriptor
                 active_control_group_to_desc: dict[str, str] = (
                     self._create_active_control_group_to_desc(
-                        cell_metadata, control_metadata, control_groups_trace[i]
+                        control_groups_trace[i], cell_metadata, control_metadata
                     )
-                )
-                active_control_group_to_parents = self._compute_ctrl_group_to_parents(
-                    active_control_group_to_desc
                 )
 
                 active_control_groups_missed: set[str] | None = None
@@ -847,55 +844,75 @@ class TraceData:
                         active_control_groups_missed = missed_groups
                     else:
                         active_control_groups_missed.intersection_update(missed_groups)
-                # for any control groups that weren't covered...
-                if len(active_control_groups_missed) > 0:
-                    # control groups that weren't covered don't have a child group and were in parallel with a group in a different par arm
-                    # find leaves
-                    missed_leaves = active_control_groups_missed.copy()
-                    for g in active_control_groups_missed:
-                        for other_group in active_control_groups_missed:
-                            g_desc = active_control_group_to_desc[g]
-                            other_group_desc = active_control_group_to_desc[other_group]
-                            if (
-                                g != other_group and g_desc in other_group_desc
-                            ):  # g is a parent of other_group
-                                missed_leaves.remove(g)
-                                break
-                    # create new stack for each leaf.
-                    for leaf_ctrl_group in missed_leaves:
-                        leaf_ctrl_group_split = leaf_ctrl_group.split(".")
-                        cell = ".".join(leaf_ctrl_group_split[:-1])
-                        cell_component = cell_metadata.get_component_of_cell(cell)
-                        leaf_name = leaf_ctrl_group_split[-1]
-                        new_stack: list[StackElement] = cell_to_stack_trace[cell].copy()
-                        # add parents of leaf
-                        for leaf_parent in active_control_group_to_parents[
-                            leaf_ctrl_group
-                        ]:
-                            parent_stack_elem: StackElement = (
-                                self._create_ctrl_stack_elem(
-                                    leaf_parent.split(".")[-1],
-                                    cell_component,
-                                    control_metadata,
-                                )
-                            )
-                            new_stack.append(parent_stack_elem)
-                        # add leaf
-                        leaf_element: StackElement = self._create_ctrl_stack_elem(
-                            leaf_name, cell_component, control_metadata
-                        )
-                        new_stack.append(leaf_element)
-                        # add new_stack to the current cycle's CycleTrace
-                        self.trace_with_control_groups[i].add_stack(new_stack)
+                # Edge case: add any control groups that weren't covered to the CycleTrace
+                self._create_stacks_for_missed_control_groups(
+                    active_control_groups_missed,
+                    active_control_group_to_desc,
+                    i,
+                    cell_to_stack_trace,
+                    cell_metadata,
+                    control_metadata,
+                )
 
             else:
                 self.trace_with_control_groups[i] = copy.copy(self.trace[i])
 
-    def _compute_ctrl_group_to_parents(self, group_to_desc):
+    def _create_stacks_for_missed_control_groups(
+        self,
+        missed_groups: set[str],
+        control_group_to_desc: dict[str, str],
+        i: int,
+        cell_to_stack_trace: dict[str, list[StackElement]],
+        cell_metadata: CellMetadata,
+        control_metadata: ControlMetadata,
+    ):
         """
-        Helper function for create_trace_with_control_groups() that returns:
+        Helper method to create_trace_with_control_groups() that handles any control groups that were active this cycle but not present
+        in any created stacks. This can happen when there is a par block containing sequential blocks (a tdcc group inside of a par group)
+        where the inner tdcc group is on a FSM register update cycle, but groups on the other par arms are active. New stacks are created
+        to show any missing groups, which are added to the CycleTrace at cycle `i`.
+        """
+        if len(missed_groups) == 0:
+            return
+
+        active_control_group_to_parents: defaultdict[str, list[str]]
+        leaf_control_groups: set[str]
+        (active_control_group_to_parents, leaf_control_groups) = (
+            self._compute_ctrl_group_to_parents(control_group_to_desc)
+        )
+        # control groups that weren't covered don't have a child group and were in parallel with a group in a different par arm
+        # find leaves
+        missed_leaves = missed_groups.intersection(leaf_control_groups)
+        # create new stack for each leaf.
+        for leaf_ctrl_group in missed_leaves:
+            leaf_ctrl_group_split = leaf_ctrl_group.split(".")
+            cell = ".".join(leaf_ctrl_group_split[:-1])
+            cell_component = cell_metadata.get_component_of_cell(cell)
+            leaf_name = leaf_ctrl_group_split[-1]
+            new_stack: list[StackElement] = cell_to_stack_trace[cell].copy()
+            # add parents of leaf
+            for leaf_parent in active_control_group_to_parents[leaf_ctrl_group]:
+                parent_stack_elem: StackElement = self._create_ctrl_stack_elem(
+                    leaf_parent.split(".")[-1],
+                    cell_component,
+                    control_metadata,
+                )
+                new_stack.append(parent_stack_elem)
+            # add leaf
+            leaf_element: StackElement = self._create_ctrl_stack_elem(
+                leaf_name, cell_component, control_metadata
+            )
+            new_stack.append(leaf_element)
+            # add new_stack to the current cycle's CycleTrace
+            self.trace_with_control_groups[i].add_stack(new_stack)
+
+    def _compute_ctrl_group_to_parents(
+        self, group_to_desc: dict[str, str]
+    ) -> tuple[defaultdict[str, list[str]], set[str]]:
+        """
+        Helper function for _create_stacks_for_missed_control_groups() that returns:
          - a mapping from a fully qualified control group to a list of its ancestry (in order of oldest to newest) and the
-         - the set of leaf control groups (groups that are not a parent of any other group)
+         - the set of leaf control groups (groups that are not a parent of any other group), fully qualified
 
         ex) if the call order for the cell toplevel.main was tdcc0 --> par0 --> tdcc1, then the returned dict would look like:
         {
@@ -905,22 +922,27 @@ class TraceData:
         }
         and the returned set would be a singleton: {"toplevel.main.tdcc1"}
         """
-        # First, sort the control groups 
+        # First, sort the control groups
         desc_to_group = {group_to_desc[k]: k for k in group_to_desc}
         ordered_groups = [desc_to_group[x] for x in sorted(desc_to_group.keys())]
 
-        active_control_group_to_parents: defaultdict[str, list[str]] = defaultdict(list)
+        group_to_parents: defaultdict[str, list[str]] = defaultdict(list)
+        # leaf_groups start with the set of all control groups, and elements are removed when they are found to be a parent
+        leaf_groups: set[str] = set(group_to_desc.keys())
         for g in ordered_groups:
             g_desc = group_to_desc[g]
             for other_group in ordered_groups:
                 other_desc = group_to_desc[other_group]
                 if g != other_group and g_desc in other_desc:
                     # other_group is a child of g
-                    active_control_group_to_parents[other_group].append(g)
-        return active_control_group_to_parents
+                    group_to_parents[other_group].append(g)
+                    # since g is a parent, remove from leaf_groups
+                    leaf_groups.discard(g)
+
+        return group_to_parents, leaf_groups
 
     def _create_active_control_group_to_desc(
-        self, cell_metadata, control_metadata, active_control_groups
+        self, active_control_groups: set[str], cell_metadata: CellMetadata, control_metadata: ControlMetadata
     ):
         """
         Helper function for create_trace_with_control_groups() that returns a mapping from
@@ -1034,7 +1056,13 @@ class TraceData:
 
         return events_stack_with_ctrl, missed_control_groups
 
-    def _create_ctrl_stack_elem(self, ctrl_group, cell_component, control_metadata):
+    def _create_ctrl_stack_elem(
+        self, ctrl_group: str, cell_component: str, control_metadata: ControlMetadata
+    ):
+        """
+        Helper method to create a StackElement for the control group `ctrl_group` (not fully qualified)
+        from cell `cell_component`.
+        """
         ctrl_group_stack_elem = StackElement(ctrl_group, StackElementType.CONTROL_GROUP)
         # grab the source location string if possible
         if (
