@@ -35,14 +35,14 @@ component main<"pos"={1}>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done don
 }
 sourceinfo #{
 FILES
-1: tests/passes/uniquefy-enables/simple.futil
+  1: tests/passes/uniquefy-enables/simple.futil
 POSITIONS
-1: 1 5
-2: 1 10
-3: 1 18
-4: 1 19
-5: 1 20
-6: 1 21
+  1: 1 5
+  2: 1 10
+  3: 1 18
+  4: 1 19
+  5: 1 20
+  6: 1 21
 }#
 ---STDERR---
 {

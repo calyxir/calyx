@@ -102,27 +102,27 @@ component main<"pos"={1}>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done don
 }
 sourceinfo #{
 FILES
-1: tests/passes/uniquefy-enables/seq-par-seq.futil
+  1: tests/passes/uniquefy-enables/seq-par-seq.futil
 POSITIONS
-1: 1 6
-2: 1 17
-3: 1 23
-4: 1 29
-5: 1 35
-6: 1 41
-7: 1 47
-8: 1 53
-9: 1 61
-10: 1 62
-11: 1 63
-12: 1 64
-13: 1 65
-14: 1 65
-15: 1 67
-16: 1 68
-17: 1 68
-18: 1 70
-19: 1 72
+  1: 1 6
+  2: 1 17
+  3: 1 23
+  4: 1 29
+  5: 1 35
+  6: 1 41
+  7: 1 47
+  8: 1 53
+  9: 1 61
+  10: 1 62
+  11: 1 63
+  12: 1 64
+  13: 1 65
+  14: 1 65
+  15: 1 67
+  16: 1 68
+  17: 1 68
+  18: 1 70
+  19: 1 72
 }#
 ---STDERR---
 {
