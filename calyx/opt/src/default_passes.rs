@@ -171,10 +171,10 @@ impl PassManager {
                 CollapseControl,
                 FSMAnnotator,
                 FSMBuilder,
-                // DeadGroupRemoval,
-                // MergeAssign,
-                // CompileRepeat,
-                // TopDownCompileControl,
+                DeadGroupRemoval,
+                MergeAssign,
+                CompileRepeat,
+                TopDownCompileControl,
             ]
         );
 

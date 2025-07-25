@@ -1,3 +1,4 @@
+// -p med-fsm
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 
