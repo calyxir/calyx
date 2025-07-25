@@ -23,7 +23,7 @@ def gen_xml(yxi):
         root,
         "kernel",
         {
-            "name": yxi["toplevel"],
+            "name": "Toplevel",  # Xilinx tools wants this to be "Toplevel" afiact? Might be changeable with a parameter
             "language": "ip_c",
             # TODO: Make sure this matches component.xml, Namely the `Toplevel` part.
             #  See https://docs.amd.com/r/en-US/ug1702-vitis-accelerated-reference/RTL-Kernel-XML-File

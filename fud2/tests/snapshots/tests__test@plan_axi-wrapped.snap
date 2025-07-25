@@ -22,10 +22,11 @@ yxi = $calyx-base/target/debug/yxi
 rule yxi
   command = $yxi -l $calyx-base $in > $out
 
+python_args = 
 axi-generator = $calyx-base/yxi/axi-calyx/axi_generator.py
 python = python3
 rule gen-axi
-  command = $python $axi-generator $in > $out
+  command = $python $axi-generator $python_args $in > $out
 rule combine
   command = cat $in > $out
 rule remove-imports

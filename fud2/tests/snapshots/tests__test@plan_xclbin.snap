@@ -11,6 +11,8 @@ vitis-dir = /test/xilinx/vitis
 build gen_xo.tcl: get-rsrc
 build get-ports.py: get-rsrc
 python = python3
+rule copy
+  command = cp $in $out
 rule gen-xo
   command = $vivado-dir/bin/vivado -mode batch -source gen_xo.tcl -tclargs $out `$python get-ports.py kernel.xml`
   pool = console
@@ -19,6 +21,9 @@ platform = xilinx_u50_gen3x16_xdma_201920_3
 rule compile-xclbin
   command = $vitis-dir/bin/v++ -g -t $xilinx-mode --platform $platform --save-temps --profile.data all:all:all --profile.exec all:all:all -lo $out $in
   pool = console
+xml-generator = $calyx-base/yxi/xml/xml_generator.py
+rule gen-kernel-xml
+  command = $python $xml-generator $in > $out
 
 build /output.ext: compile-xclbin /input.ext
 

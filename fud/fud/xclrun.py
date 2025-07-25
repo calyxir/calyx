@@ -34,6 +34,7 @@ import pynq
 import numpy as np
 import simplejson as sjson
 import sys
+from os import environ
 from typing import Mapping, Any, Dict
 from pathlib import Path
 from fud.stages.verilator.json_to_dat import parse_fp_widths, float_to_fixed
@@ -87,12 +88,8 @@ def run(xclbin: Path, data: Mapping[str, Any]) -> Dict[str, Any]:
         buffer.sync_to_device()
 
     # Run the kernel.
-    kernel = getattr(ol, list(ol.ip_dict)[0])  # Like ol.Toplevel_1
-    # XXX(nathanielnrn) 2022-07-19: timeout is not currently used anywhere in
-    # generated verilog code, passed in because kernel.xml is generated to
-    # expect it as an argument
-    timeout = 1000
-    kernel.call(timeout, *buffers)
+    kernel = getattr(ol, list(ol.ip_dict)[0])  # Like ol.wrapper_1
+    kernel.call(*buffers)
 
     # Collect the output data.
     for buf in buffers:
@@ -118,6 +115,12 @@ def _dtype(fmt) -> np.dtype:
 
 
 def xclrun():
+    assert (
+        environ.get("XCL_EMULATION_MODE") in ["hw_emu", "sw_emu"]
+        or environ.get("XCL_EMULATION_MODE") is None
+    ), (
+        "Invalid XCL_EMULATION_MODE value. Must be 'hw_emu', 'sw_emu', or unset for actual hw execution."
+    )
     # Parse command-line arguments.
     parser = argparse.ArgumentParser(
         description="run a compiled XRT program",
