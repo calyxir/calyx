@@ -177,13 +177,15 @@ there are a few commands that need to be run. The following assumes the
 existence of a `dyn-vec-add.futil` file. The `dyn` prefix suggests that the Calyx memories
 used are [dynamic memories](https://github.com/calyxir/calyx/blob/main/primitives/memories/dyn.sv), such as `dyn_mem_d1`.
 
+You will need to build the YXI interface analysis tool, which you can do with `cargo build -p yxi`.
+
 1. Create a `.yxi` file, which describes the memory interface of the vector adder:
 
    ```bash
    fud2 dyn-vec-add.futil -o dyn-vec-add.yxi
    ```
 
-2. Wrap the calyx file with AXI memory controllers (implemented in Calyx):
+2. Wrap the Calyx file with AXI memory controllers (implemented in Calyx):
 
    ```bash
    fud2 dyn-vec-add.futil --from calyx --to calyx --through axi-wrapped --set dynamic=true --set xilinx.controlled=true -o axi-wrapped.futil
