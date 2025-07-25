@@ -4,8 +4,8 @@ use cider_idx::{
     iter::IndexRange,
     maps::{IndexedMap, SemiContiguousSecondaryMap},
 };
+use std::fmt::Debug;
 use std::{collections::HashMap, ops::Index};
-use std::{fmt::Debug, ops::IndexMut};
 
 use crate::{
     errors::{ConflictingAssignments, RuntimeError, RuntimeResult},
@@ -378,7 +378,7 @@ impl MemoryMap {
         idx: MemoryLocation,
         value: BitVecValue,
     ) -> UpdateStatus {
-        let changed = self.data[idx] == value;
+        let changed = self.data[idx] != value;
         self.data[idx] = value;
         changed.into()
     }

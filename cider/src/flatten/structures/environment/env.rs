@@ -27,6 +27,7 @@ use crate::{
         primitives::{self, prim_trait::UpdateStatus},
         structures::{
             context::{Context, LookupName, PortDefinitionInfo},
+            environment::policies::{EvaluationPolicy, PolicyChoice},
             thread::{ThreadIdx, ThreadMap},
         },
         text_utils::Color,
@@ -532,7 +533,8 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
     // ===================== Environment print implementations =====================
 
-    pub fn print_pc(&self) {
+    pub fn print_pc(&self) -> String {
+        let mut out = String::new();
         let current_nodes = self.pc.iter().filter(|point| {
             let node = &self.ctx.as_ref().primary[point.control_idx()].control;
             match node {
@@ -555,7 +557,8 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                         .unwrap_comp()
                         .index_bases
                         + self.ctx().primary[x.group()].go;
-                    println!(
+                    write!(
+                        out,
                         "{}::{}{}",
                         self.get_full_name(point.component()),
                         ctx.lookup_name(x.group()).stylize_name(),
@@ -564,7 +567,8 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                         } else {
                             " [done]"
                         }
-                    );
+                    )
+                    .expect("couldn't write string");
                 }
                 Control::Invoke(x) => {
                     let invoked_name = match x.cell {
@@ -587,15 +591,18 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                         }
                     };
 
-                    println!(
+                    write!(
+                        out,
                         "{}: invoke {}",
                         self.get_full_name(point.component()),
                         invoked_name.stylize_name()
-                    );
+                    )
+                    .expect("couldn't write string");
                 }
                 _ => unreachable!(),
             }
         }
+        out
     }
 
     /// Returns the controlidx of the last node in the given path and component idx
@@ -1179,15 +1186,29 @@ impl ControlNodeEval {
 ///
 /// This is just to keep the simulation logic under a different namespace than
 /// the environment to avoid confusion
-#[derive(Clone)]
 pub struct BaseSimulator<C: AsRef<Context> + Clone> {
     env: Environment<C>,
     conf: RuntimeConfig,
+    policy: Box<dyn EvaluationPolicy>,
+}
+
+impl<C: AsRef<Context> + Clone> Clone for BaseSimulator<C> {
+    fn clone(&self) -> Self {
+        Self {
+            env: self.env.clone(),
+            conf: self.conf,
+            policy: self.policy.box_clone(),
+        }
+    }
 }
 
 impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
-    pub fn new(env: Environment<C>, conf: RuntimeConfig) -> Self {
-        Self { env, conf }
+    pub(crate) fn new(
+        env: Environment<C>,
+        conf: RuntimeConfig,
+        policy: Box<dyn EvaluationPolicy>,
+    ) -> Self {
+        Self { env, conf, policy }
     }
 
     pub(crate) fn env(&self) -> &Environment<C> {
@@ -1217,7 +1238,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
                 #[inline]
                 pub fn get_full_name<N: GetFullName<C>>(&self, nameable: N) -> String;
-                pub fn print_pc(&self);
+                pub fn print_pc(&self) -> String;
                 pub fn print_pc_string(&self);
                 /// Pins the port with the given name to the given value. This may only be
                 /// used for input ports on the entrypoint component (excluding the go port)
@@ -1778,6 +1799,11 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             .restore_fields((vecs, par_map, with_map, repeat_map));
 
         let new_nodes_empty = new_nodes.is_empty();
+        if !new_nodes_empty {
+            self.policy
+                .decide_new_nodes(&self.env.pc, &mut new_nodes)
+                .map_err(|e| e.prettify_message(&self.env))?;
+        }
 
         // insert all the new nodes from the par into the program counter
         self.env.pc.vec_mut().extend(new_nodes);
@@ -1790,6 +1816,12 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         if !removed_empty || !new_nodes_empty {
             changed = UpdateStatus::Changed;
             self.env.pc.vec_mut().sort_by_key(|x| x.component());
+        }
+
+        if !changed.as_bool() && !self.is_done() {
+            self.policy
+                .decide_unpause(&mut self.env.pc)
+                .map_err(|e| e.prettify_message(&self.env))?;
         }
 
         Ok(())
@@ -1936,11 +1968,11 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     .unwrap(),
             );
             node.set_control_point(new_point);
-            Ok((ControlNodeEval::stop(true), (!(*node == node_orig)).into()))
+            Ok((ControlNodeEval::stop(true), UpdateStatus::Changed))
         } else {
             Ok((
                 ControlNodeEval::stop(retain_bool),
-                (!(*node == node_orig)).into(),
+                (*node != node_orig).into(),
             ))
         }
     }
@@ -3193,6 +3225,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         data_file: &Option<std::path::PathBuf>,
         wave_file: &Option<std::path::PathBuf>,
         runtime_config: RuntimeConfig,
+        policy_choice: PolicyChoice,
     ) -> Result<Self, BoxedCiderError> {
         let data_dump = if let Some(path) = data_file {
             let mut file = std::fs::File::open(path)?;
@@ -3214,7 +3247,11 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 }
             });
         Ok(Self {
-            base: BaseSimulator::new(env, runtime_config),
+            base: BaseSimulator::new(
+                env,
+                runtime_config,
+                policy_choice.generate_policy(),
+            ),
             wave,
         })
     }

@@ -42,6 +42,7 @@ fst-writer = "0.2.3"
 bon = "2.3"
 fxhash = "0.2.1"
 delegate = "0.13.3"
+rand.workspace = true
 
 [dev-dependencies]
 proptest = "1.0.0"

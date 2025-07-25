@@ -633,6 +633,7 @@ dependencies = [
  "pest_derive",
  "petgraph",
  "proptest",
+ "rand 0.9.0",
  "rustyline",
  "serde",
  "serde_json",

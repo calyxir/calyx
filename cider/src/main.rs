@@ -7,7 +7,10 @@ use cider::{
     configuration::{self, ColorConfig},
     debugger::{Debugger, DebuggerInfo, DebuggerReturnStatus},
     errors::CiderResult,
-    flatten::structures::{context::Context, environment::Simulator},
+    flatten::structures::{
+        context::Context,
+        environment::{PolicyChoice, Simulator},
+    },
 };
 
 use std::{
@@ -84,6 +87,10 @@ pub struct Opts {
     /// configure color output (on | off | auto). default = on
     #[argh(option, long = "force-color", default = "ColorConfig::On")]
     color_conf: ColorConfig,
+
+    /// the policy for pausing and unpausing threads in the execution
+    #[argh(option, long = "policy", default = "PolicyChoice::Default")]
+    policy: PolicyChoice,
 
     /// disables the ability to step through multiple control program nodes in a
     /// single step
@@ -162,6 +169,7 @@ fn main() -> CiderResult<()> {
                 &opts.data_file,
                 &opts.wave_file,
                 runtime_config,
+                opts.policy,
             )?;
 
             sim.run_program()?;
@@ -180,6 +188,7 @@ fn main() -> CiderResult<()> {
                     &opts.data_file,
                     &opts.wave_file,
                     runtime_config,
+                    opts.policy,
                 )?;
 
                 let result = debugger.main_loop(info)?;

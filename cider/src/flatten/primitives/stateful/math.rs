@@ -1,14 +1,11 @@
-use crate::{
-    errors::RuntimeResult,
-    flatten::{
-        flat_ir::prelude::*,
-        primitives::{
-            declare_ports, ports,
-            prim_trait::*,
-            utils::{ShiftBuffer, floored_division, int_sqrt},
-        },
-        structures::environment::{MemoryMap, PortMap},
+use crate::flatten::{
+    flat_ir::prelude::*,
+    primitives::{
+        declare_ports, ports,
+        prim_trait::*,
+        utils::{ShiftBuffer, floored_division, int_sqrt},
     },
+    structures::environment::{MemoryMap, PortMap},
 };
 use baa::{BitVecOps, BitVecValue, WidthInt};
 use cider_idx::iter::SplitIndexRange;
@@ -102,7 +99,7 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
             // if the pipeline isn't full of the same value then shifting it
             // will update the internal state
             changed |=
-                (all_buffer_items_equal(&self.pipeline, &new_element)).into();
+                (!all_buffer_items_equal(&self.pipeline, &new_element)).into();
 
             if let Some((l, r)) = self.pipeline.shift_new(new_element) {
                 let out_val = l.as_option().and_then(|left| {
