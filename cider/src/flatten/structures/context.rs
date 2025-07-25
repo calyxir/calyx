@@ -685,7 +685,7 @@ impl Context {
                 };
 
                 // memories need to be the same in shape and type
-                if cell_prototype != mem_prototype {
+                if !cell_prototype.eq_minus_external(mem_prototype) {
                     return Err(CiderError::generic_error(format!(
                         "Entangled memories must have identical definitions. '{}' and '{}' do not have matching definitions",
                         self.lookup_name(first_cell),
