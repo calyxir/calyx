@@ -54,9 +54,9 @@ component main() -> () {
 
 sourceinfo #{
 FILES
-1: tests/passes/test_file.futil
+  1: tests/passes/test_file.futil
 POSITIONS
-1: 1 5
-2: 1 6
-3: 1 7
+  1: 1 5
+  2: 1 6
+  3: 1 7
 }#

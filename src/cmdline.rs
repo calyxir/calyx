@@ -22,12 +22,23 @@ pub struct Help {
     pub name: Option<String>,
 }
 
+/// formatter
+#[derive(FromArgs, PartialEq, Debug)]
+#[argh(subcommand, name = "format")]
+pub struct Format {
+    /// input calyx file to format
+    #[argh(positional)]
+    pub file: PathBuf,
+}
+
 /// supported subcommands
 #[derive(FromArgs, PartialEq, Debug)]
 #[argh(subcommand)]
 pub enum Subcommand {
     /// Help mode
     Help(Help),
+    /// Format
+    Format(Format),
 }
 
 #[derive(FromArgs)]

@@ -57,10 +57,10 @@ component main(go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (don
 }
 sourceinfo #{
 FILES
-0: test.futil
-1: tests/parsing/new_metadata.expect
+  0: test.futil
+  1: tests/parsing/new_metadata.expect
 POSITIONS
-0: 0 10
-1: 1 15
-2: 1 150
+  0: 0 10
+  1: 1 15
+  2: 1 150
 }#
