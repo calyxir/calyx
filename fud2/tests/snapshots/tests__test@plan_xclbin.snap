@@ -16,7 +16,7 @@ rule copy
 rule gen-xo
   command = $vivado-dir/bin/vivado -mode batch -source gen_xo.tcl -tclargs $out `$python get-ports.py kernel.xml`
   pool = console
-xilinx-mode = hw
+xilinx-mode = hw_emu
 platform = xilinx_u50_gen3x16_xdma_201920_3
 rule compile-xclbin
   command = $vitis-dir/bin/v++ -g -t $xilinx-mode --platform $platform --save-temps --profile.data all:all:all --profile.exec all:all:all -lo $out $in
