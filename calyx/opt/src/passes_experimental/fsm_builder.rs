@@ -335,41 +335,6 @@ impl StaticSchedule<'_, '_> {
         // Instantiate the FSM with the assignments and transitions we built.
         fsm.borrow_mut().extend_fsm(assignments, transitions);
         fsm
-        // let fsm = self.builder.add_fsm("fsm");
-
-        // let mut remaining_assignments =
-        //     self.build_abstract(control, ir::Guard::True, vec![]);
-
-        // // add loopback transitions to first state
-        // self.register_transitions(
-        //     0,
-        //     &mut remaining_assignments,
-        //     ir::Guard::True,
-        // );
-
-        // let (assignments, transitions, state2wires) =
-        //     self.build_fsm_pieces(ir::RRC::clone(&fsm));
-
-        // self.builder.add_continuous_assignments(
-        //     self.state2assigns
-        //         .drain()
-        //         .flat_map(|(state, mut assigns)| {
-        //             assigns.iter_mut().for_each(|assign| {
-        //                 assign.and_guard(ir::Guard::port(
-        //                     state2wires
-        //                         .get(state as usize)
-        //                         .unwrap()
-        //                         .borrow()
-        //                         .get("out"),
-        //                 ));
-        //             });
-        //             assigns
-        //         })
-        //         .collect(),
-        // );
-
-        // fsm.borrow_mut().extend_fsm(assignments, transitions);
-        // fsm
     }
 }
 
