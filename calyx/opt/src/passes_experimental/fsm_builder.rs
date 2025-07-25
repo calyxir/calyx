@@ -4,6 +4,7 @@ use calyx_ir::{self as ir, GetAttributes};
 use calyx_utils::CalyxResult;
 const ACYCLIC: ir::Attribute =
     ir::Attribute::Internal(ir::InternalAttr::ACYCLIC);
+
 pub struct FSMBuilder {}
 
 impl Named for FSMBuilder {
@@ -35,7 +36,6 @@ impl StaticSchedule<'_, '_> {
             ir::StaticControl::Enable(sen) => {
                 if matches!(sen.get_attributes().get(ACYCLIC), Some(1)) {
                     // allocate one state per cycle
-                    println!("this is acyclic");
                     // for all parts of the FSM that want to transition to this enable,
                     // register their transitions in self.state2trans
                     self.register_transitions(
@@ -119,7 +119,12 @@ impl StaticSchedule<'_, '_> {
         }
     }
 
-    fn fsm_build(&mut self, control: &ir::StaticControl) -> ir::RRC<ir::FSM> {
+    fn fsm_build(
+        &mut self,
+        control: &ir::StaticControl,
+        build_kind: Option<bool>, // need to get better type name. Some(True) means non-promoted-static-component. False means promoted/static island. Otherwise it's a
+    ) -> ir::RRC<ir::FSM> {
+        let true_guard = ir::Guard::True;
         let signal_on = self.builder.add_constant(1, 1);
 
         // Declare the FSM
@@ -138,46 +143,77 @@ impl StaticSchedule<'_, '_> {
         let (mut assignments, transitions, state2wires) =
             self.build_fsm_pieces(ir::RRC::clone(&fsm));
 
-        // In this case, the component is either a promoted static component
-        // or the control is a static island that needs to handshake with its
-        // surrounding dynamic context. In either event, we want to assign
-        // fsm[done] to maintain the dynamic interface. We'll do this in state 0:
+        // case work starts here
+        match build_kind {
+            Some(true) => {
+                // If the component is static by design, there will be exactly one
+                // FSM allocated to it. We will get rid of the FSMEnable node from the
+                // control in this case, so we need to manually add fsm[start] = comp[go]
+                // because wire-inliner will not get to it.
 
-        // register to store whether the FSM has been run exactly one time when
-        // we return to state 0
-        let looped_once: ir::RRC<ir::Cell> =
-            self.builder.add_primitive("looped_once", "std_reg", &[1]);
+                // (We get rid of the FSMEnable node because the FSM will not have a
+                // DONE state, and hence no way to terminate the control. )
+                let assign_fsm_start = self.builder.build_assignment(
+                    fsm.borrow().get("start"),
+                    self.builder
+                        .component
+                        .signature
+                        .borrow()
+                        .find_unique_with_attr(ir::NumAttr::Go)
+                        .unwrap()
+                        .unwrap(),
+                    true_guard,
+                );
+                self.builder
+                    .add_continuous_assignments(vec![assign_fsm_start]);
+            }
+            Some(false) => {
+                // In this case, the component is either a promoted static component
+                // or the control is a static island that needs to handshake with its
+                // surrounding dynamic context. In either event, we want to assign
+                // fsm[done] to maintain the dynamic interface. We'll do this in state 0:
 
-        looped_once
-            .borrow_mut()
-            .add_attribute(ir::BoolAttr::FSMControl, 1);
+                // register to store whether the FSM has been run exactly one time when
+                // we return to state 0
+                let looped_once: ir::RRC<ir::Cell> =
+                    self.builder.add_primitive("looped_once", "std_reg", &[1]);
 
-        let (assign_looped_once, assign_looped_once_we, fsm_done) = (
-            self.builder.build_assignment(
-                looped_once.borrow().get("in"),
-                signal_on.borrow().get("out"),
-                match additional_looped_once_guard {
-                    None => ir::guard!(fsm["start"]),
-                    Some(g) => ir::guard!(fsm["start"]).and(g),
-                },
-            ),
-            self.builder.build_assignment(
-                looped_once.borrow().get("write_en"),
-                signal_on.borrow().get("out"),
-                ir::Guard::True,
-            ),
-            self.builder.build_assignment(
-                fsm.borrow().get("done"),
-                looped_once.borrow().get("out"),
-                ir::Guard::True,
-            ),
-        );
+                looped_once
+                    .borrow_mut()
+                    .add_attribute(ir::BoolAttr::FSMControl, 1);
 
-        assignments.first_mut().unwrap().extend(vec![
-            assign_looped_once,
-            assign_looped_once_we,
-            fsm_done,
-        ]);
+                let (assign_looped_once, assign_looped_once_we, fsm_done) = (
+                    self.builder.build_assignment(
+                        looped_once.borrow().get("in"),
+                        signal_on.borrow().get("out"),
+                        match additional_looped_once_guard {
+                            None => ir::guard!(fsm["start"]),
+                            Some(g) => ir::guard!(fsm["start"]).and(g),
+                        },
+                    ),
+                    self.builder.build_assignment(
+                        looped_once.borrow().get("write_en"),
+                        signal_on.borrow().get("out"),
+                        ir::Guard::True,
+                    ),
+                    self.builder.build_assignment(
+                        fsm.borrow().get("done"),
+                        looped_once.borrow().get("out"),
+                        ir::Guard::True,
+                    ),
+                );
+
+                assignments.first_mut().unwrap().extend(vec![
+                    assign_looped_once,
+                    assign_looped_once_we,
+                    fsm_done,
+                ]);
+            }
+            None => {
+                // Do nothing because we want to build a normal kind of component?
+            }
+        }
+        // build up the fsm here and return
 
         self.builder.add_continuous_assignments(
             self.state2assigns
@@ -211,13 +247,17 @@ impl Visitor for FSMBuilder {
         sigs: &calyx_ir::LibrarySignatures,
         _comps: &[calyx_ir::Component],
     ) -> crate::traversal::VisResult {
+        let non_promoted_static_component = comp.is_static()
+            && !(comp
+                .attributes
+                .has(ir::Attribute::Bool(ir::BoolAttr::Promoted)));
         // implementation for single static enable components for now.
         let mut builder = ir::Builder::new(comp, sigs);
 
         let mut ssch = StaticSchedule::from(&mut builder);
 
         Ok(Action::change(ir::Control::fsm_enable(
-            ssch.fsm_build(scon),
+            ssch.fsm_build(scon, Some(non_promoted_static_component)),
         )))
     }
 }
