@@ -1,0 +1,27 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @data a = std_reg(2);
+    @generated fsm_0 = std_wire(1);
+    @generated @fsm_control looped_once = std_reg(1);
+  }
+  wires {
+    fsm fsm {
+      0 : {
+        fsm_0.in = fsm[start] ? 1'd1;
+        looped_once.in = fsm[start] ? 1'd1;
+        looped_once.write_en = 1'd1;
+        fsm[done] = looped_once.out;
+      } => {
+        fsm[start] -> 0,
+        default -> 0,
+      },
+    }
+    a.write_en = fsm_0.out ? 1'd1;
+    a.in = fsm_0.out ? 2'd0;
+  }
+  control {
+    fsm;
+  }
+}
