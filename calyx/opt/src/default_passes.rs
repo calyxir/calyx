@@ -161,7 +161,7 @@ impl PassManager {
                 GroupToInvoke,
                 ComponentInliner,
                 CombProp,
-                DeadCellRemoval,
+                // DeadCellRemoval,
                 CellShare,
                 SimplifyWithControl,
                 CompileInvoke,
