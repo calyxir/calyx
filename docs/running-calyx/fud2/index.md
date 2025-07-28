@@ -103,6 +103,30 @@ There are also some subcommands for doing things other than building stuff:
 
 [graphviz]: https://graphviz.org
 
+### Timing Extraction
+When using the `run` command, it can sometimes be useful to know how long
+individuals parts of the build are taking. You can use the `--csv <CSV_FILE>` to
+emit a csv of timing information collected during the build. This will output a
+csv containing the name of the generated file and the time it took to build in
+milliseconds.
+
+For example running
+```
+fud2 --from calyx --to jq --through icarus -s sim.data=tests/correctness/invoke-with.futil.data -s calyx.flags=' --nested' -s verilog.cycle_limit=500 -s jq.expr=".memories" tests/correctness/invoke-with.futil -q --csv timing.csv
+```
+will produce a file `timing.csv` with contents like
+```csv
+filename,duration
+verilog-noverify.sv,24
+json-dat.py,25
+tb.sv,25
+sim.exe,18
+sim_data,141
+sim.log,143
+dat.json,133
+_to_stdout_jq.jq,7
+```
+
 ## The Design of fud2
 
 <div class="warning">
