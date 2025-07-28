@@ -67,7 +67,7 @@ impl NinjaLogEntry {
     fn emit_csv<W: std::io::Write>(&self, mut writer: W) {
         writeln!(
             writer,
-            "{}, {}",
+            "{},{}",
             self.file_produced,
             self.end_time - self.start_time,
         )
@@ -94,7 +94,7 @@ impl NinjaLog {
     }
 
     fn emit_csv<W: std::io::Write>(&self, mut writer: W) {
-        writeln!(&mut writer, "filename, duration").expect("writing failed");
+        writeln!(&mut writer, "filename,duration").expect("writing failed");
         for entry in &self.entries {
             entry.emit_csv(&mut writer);
         }
