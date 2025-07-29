@@ -103,8 +103,7 @@ impl FromArgValue for ColorConfig {
             "false" | "0" | "off" => Ok(ColorConfig::Off),
             "infer" | "auto " => Ok(ColorConfig::Auto),
             _ => Err(format!(
-                "Invalid color configuration: '{}'. Expected 'on', 'off', or 'auto'.",
-                value
+                "Invalid color configuration: '{value}'. Expected 'on', 'off', or 'auto'."
             )),
         }
     }

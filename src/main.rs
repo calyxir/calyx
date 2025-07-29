@@ -42,9 +42,9 @@ fn main() -> PassResult<()> {
                 match name {
                     Some(n) => {
                         if let Some(help) = pm.specific_help(&n) {
-                            println!("{}", help);
+                            println!("{help}");
                         } else {
-                            println!("Unknown pass or alias: {}", n);
+                            println!("Unknown pass or alias: {n}");
                         }
                     }
                     None => println!("{}", pm.complete_help()),

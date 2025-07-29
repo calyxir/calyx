@@ -302,7 +302,7 @@ impl CellShare {
                     })
                     .collect();
             let json_share_freqs: Value = json!(printable_share_freqs);
-            write!(file.get_write(), "{}", json_share_freqs).unwrap()
+            write!(file.get_write(), "{json_share_freqs}").unwrap()
         }
     }
 }

@@ -170,7 +170,7 @@ fn rewrite_from_op(
                 lhs.add(egg::ENodeOrVar::ENode(StateLanguage::C))
             } else {
                 lhs.add(egg::ENodeOrVar::Var(
-                    format!("?s{}", i).parse().unwrap(),
+                    format!("?s{i}").parse().unwrap(),
                 ))
             }
         })
@@ -184,7 +184,7 @@ fn rewrite_from_op(
         .iter()
         .enumerate()
         .map(|(i, _o)| {
-            lhs.add(egg::ENodeOrVar::Var(format!("?o{}", i).parse().unwrap()))
+            lhs.add(egg::ENodeOrVar::Var(format!("?o{i}").parse().unwrap()))
         })
         .collect::<Vec<_>>();
     let op_pattern = lhs.add(egg::ENodeOrVar::ENode(StateLanguage::Ops(
@@ -212,7 +212,7 @@ fn rewrite_from_op(
                 rhs.add(egg::ENodeOrVar::ENode(StateLanguage::X))
             } else {
                 rhs.add(egg::ENodeOrVar::Var(
-                    format!("?s{}", i).parse().unwrap(),
+                    format!("?s{i}").parse().unwrap(),
                 ))
             }
         })
@@ -230,7 +230,7 @@ fn rewrite_from_op(
                 rhs.add(egg::ENodeOrVar::ENode(StateLanguage::C))
             } else {
                 rhs.add(egg::ENodeOrVar::Var(
-                    format!("?o{}", i).parse().unwrap(),
+                    format!("?o{i}").parse().unwrap(),
                 ))
             }
         })

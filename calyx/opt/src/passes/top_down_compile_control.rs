@@ -405,12 +405,12 @@ impl Schedule<'_, '_> {
     /// Print out the current schedule
     fn display(&self, group: String) {
         let out = &mut std::io::stdout();
-        writeln!(out, "======== {} =========", group).unwrap();
+        writeln!(out, "======== {group} =========").unwrap();
         self.enables
             .iter()
             .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
             .for_each(|(state, assigns)| {
-                writeln!(out, "{}:", state).unwrap();
+                writeln!(out, "{state}:").unwrap();
                 assigns.iter().for_each(|assign| {
                     Printer::write_assignment(assign, 2, out).unwrap();
                     writeln!(out).unwrap();
@@ -521,7 +521,7 @@ impl Schedule<'_, '_> {
                     let fsm_name = if num_regs == 1 {
                         "fsm".to_string()
                     } else {
-                        format!("fsm{}", n)
+                        format!("fsm{n}")
                     };
                     builder.add_primitive(
                         fsm_name.as_str(),

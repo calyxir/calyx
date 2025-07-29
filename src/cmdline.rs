@@ -139,8 +139,7 @@ impl FromStr for CompileMode {
             "file" => Ok(CompileMode::File),
             "project" => Ok(CompileMode::Project),
             s => Err(format!(
-                "Unknown compilation mode: {}. Valid options are `file` or `project`",
-                s
+                "Unknown compilation mode: {s}. Valid options are `file` or `project`"
             )),
         }
     }

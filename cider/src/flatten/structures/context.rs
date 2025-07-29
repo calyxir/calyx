@@ -442,7 +442,7 @@ impl Context {
                          self.secondary[comp].definitions.groups().iter().find(|x| {
                             let grp_info = &self.primary[*x];
                             grp_info.done == l || grp_info.go == l
-                        }).unwrap_or_else(|| panic!("Port {:?} does not belong to any normal cell in the given component", l)).into()
+                        }).unwrap_or_else(|| panic!("Port {l:?} does not belong to any normal cell in the given component")).into()
                     }
 
 

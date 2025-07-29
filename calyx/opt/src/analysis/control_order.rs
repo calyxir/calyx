@@ -53,7 +53,7 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
                 ir::CellType::Constant { .. } => None,
                 ir::CellType::Component { .. }
                 | ir::CellType::Primitive { .. }
-                | ir::CellType::ThisComponent { .. } => {
+                | ir::CellType::ThisComponent => {
                     Some(cell.borrow().name())
                 }
             })
@@ -141,8 +141,7 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
                     .join("\n");
             }
             Err(Error::misc(format!(
-                "No possible sequential ordering. Control programs exhibit data race:\n{}",
-                msg
+                "No possible sequential ordering. Control programs exhibit data race:\n{msg}"
             )))
         }
     }

@@ -55,12 +55,11 @@ impl ConstructVisitor for DiscoverExternal {
                 let Some(val) = splits.next().and_then(|v| v.parse().ok())
                 else {
                     log::warn!(
-                        "Failed to parse default value. Please specify using -x {}:default=<n>",
-                        n
+                        "Failed to parse default value. Please specify using -x {n}:default=<n>"
                     );
                     continue;
                 };
-                log::info!("Setting default value to {}", val);
+                log::info!("Setting default value to {val}");
 
                 default = Some(val);
             }
@@ -68,12 +67,11 @@ impl ConstructVisitor for DiscoverExternal {
             else if spl == Some("strip-suffix") {
                 let Some(suff) = splits.next() else {
                     log::warn!(
-                        "Failed to parse suffix. Please specify using -x {}:strip-suffix=<str>",
-                        n
+                        "Failed to parse suffix. Please specify using -x {n}:strip-suffix=<str>"
                     );
                     continue;
                 };
-                log::info!("Setting suffix to {}", suff);
+                log::info!("Setting suffix to {suff}");
 
                 suffix = Some(suff.to_string());
             }
@@ -171,7 +169,7 @@ impl Visitor for DiscoverExternal {
         // Add external cells for all matching prefixes
         let mut pre_to_cells = LinkedHashMap::new();
         for (pre, &prim) in &pre_to_prim {
-            log::info!("Prefix {} matches primitive {}", pre, prim);
+            log::info!("Prefix {pre} matches primitive {prim}");
             // Attempt to infer the parameters for the external cell
             let prim_sig = sigs.get_primitive(prim);
             let ports = &port_map[pre];

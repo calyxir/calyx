@@ -204,7 +204,7 @@ impl CompileStatic {
             });
 
         let wrapper_group =
-            builder.add_group(format!("while_wrapper_{}", group_name));
+            builder.add_group(format!("while_wrapper_{group_name}"));
 
         structure!(
             builder;
@@ -241,15 +241,14 @@ impl CompileStatic {
         let sgroup_name = sgroup.name();
         // get the "early reset group". It should exist, since we made an
         // early_reset group for every static group in the component
-        let early_reset_name =
-            self.reset_early_map.get(&sgroup_name).unwrap_or_else(|| {
+        
+
+        (self.reset_early_map.get(&sgroup_name).unwrap_or_else(|| {
                 unreachable!(
                     "group {} not in self.reset_early_map",
                     sgroup_name
                 )
-            });
-
-        early_reset_name
+            })) as _
     }
 }
 

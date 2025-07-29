@@ -101,8 +101,8 @@ impl CanonicalIdentifier {
                 let port = resolver.lookup_string(name).unwrap();
                 match name_type {
                     NameType::Interface => port.to_string(),
-                    NameType::Group => format!("{}[{}]", parent, port),
-                    NameType::Cell => format!("{}.{}", parent, port),
+                    NameType::Group => format!("{parent}[{port}]"),
+                    NameType::Cell => format!("{parent}.{port}"),
                 }
             }
             CanonicalIdentifier::Literal { width, val } => {

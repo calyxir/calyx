@@ -10,8 +10,7 @@ pub fn capture_command_stdout(
 ) -> std::io::Result<String> {
     let output = Command::new(cmd).args(args).output()?;
     if !output.status.success() && wants_zero {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        Err(std::io::Error::other(
             format!(
                 "Command `{} {}` did not execute successfully (code={}). Stderr: {}",
                 cmd,
@@ -25,6 +24,6 @@ pub fn capture_command_stdout(
         ))
     } else {
         String::from_utf8(output.stdout)
-            .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))
+            .map_err(std::io::Error::other)
     }
 }

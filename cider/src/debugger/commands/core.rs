@@ -336,7 +336,7 @@ impl PrintTuple {
             string,
             " {}",
             match &self.1 {
-                Some(s) => format!("{}", s),
+                Some(s) => format!("{s}"),
                 None => "".to_string(),
             }
         )

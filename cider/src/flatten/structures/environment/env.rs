@@ -399,11 +399,10 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         &self,
     ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> {
         let env = self;
-        let cell_names = self.cells.iter().map(|(idx, _ledger)| {
-            (idx.get_full_name(env), self.ports_helper(idx))
-        });
 
-        cell_names
+        self.cells.iter().map(|(idx, _ledger)| {
+            (idx.get_full_name(env), self.ports_helper(idx))
+        })
         // get parent from cell, if not exist then lookup component ledger get base idxs, go to context and get signature to get ports
         // for cells, same thing but in the cell ledger, subtract child offset from parent offset to get local offset, lookup in cell offset in component info
     }
@@ -414,27 +413,27 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         match parent {
             None => {
                 let ports = self.get_ports_from_cell(cell);
-                let info = ports
+
+                ports
                     .map(|(name, id)| {
                         (
                             (name.lookup_name(self.ctx())).clone(),
                             self.ports[id].clone(),
                         )
                     })
-                    .collect_vec();
-                info
+                    .collect_vec()
             }
             Some(parent_cell) => {
                 let ports = self.get_ports_from_cell(parent_cell);
-                let info = ports
+
+                ports
                     .map(|(name, id)| {
                         (
                             (name.lookup_name(self.ctx())).clone(),
                             self.ports[id].clone(),
                         )
                     })
-                    .collect_vec();
-                info
+                    .collect_vec()
             }
         }
     }
@@ -2567,10 +2566,10 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
     ///
     /// 1. For successful assignments, check reads from the source port if applicable
     /// 2. For non-continuous/combinational contexts, check all reads performed
-    ///     by the guard regardless of whether the assignment fired or not
+    ///    by the guard regardless of whether the assignment fired or not
     /// 3. For continuous/combinational contexts, update the transitive reads of
-    ///     the value in the destination with the reads done by the guard,
-    ///     regardless of success
+    ///    the value in the destination with the reads done by the guard,
+    ///    regardless of success
     fn handle_reads(
         &mut self,
         assigns_bundle: &[ScheduledAssignments],

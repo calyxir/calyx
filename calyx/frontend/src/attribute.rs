@@ -247,8 +247,7 @@ impl FromStr for SetAttribute {
             // Reject attributes that all caps since those are reserved for internal attributes
             if s.to_uppercase() == s {
                 return Err(Error::misc(format!(
-                    "Invalid attribute: {}. All caps attributes are reserved for internal use.",
-                    s
+                    "Invalid attribute: {s}. All caps attributes are reserved for internal use."
                 )));
             }
             Ok(SetAttribute::Unknown(s.into()))
@@ -275,7 +274,7 @@ impl std::fmt::Display for Attribute {
             Attribute::Bool(b) => write!(f, "{}", b.as_ref()),
             Attribute::Num(n) => write!(f, "{}", n.as_ref()),
             Attribute::Internal(i) => write!(f, "{}", i.as_ref()),
-            Attribute::Unknown(s) => write!(f, "{}", s),
+            Attribute::Unknown(s) => write!(f, "{s}"),
         }
     }
 }
@@ -303,8 +302,7 @@ impl FromStr for Attribute {
             // Reject attributes that all caps since those are reserved for internal attributes
             if s.to_uppercase() == s {
                 return Err(Error::misc(format!(
-                    "Invalid attribute: {}. All caps attributes are reserved for internal use.",
-                    s
+                    "Invalid attribute: {s}. All caps attributes are reserved for internal use."
                 )));
             }
             Ok(Attribute::Unknown(s.into()))

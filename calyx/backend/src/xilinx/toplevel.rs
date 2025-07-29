@@ -52,7 +52,7 @@ impl Backend for XilinxInterfaceBackend {
         let mut modules = vec![top_level(toplevel)];
         for (i, mem) in mem_info.iter().enumerate() {
             modules.push(bram(
-                &format!("SINGLE_PORT_BRAM_{}", i),
+                &format!("SINGLE_PORT_BRAM_{i}"),
                 mem.data_width,
                 mem.total_size,
                 mem.idx_sizes[0],
@@ -69,7 +69,7 @@ impl Backend for XilinxInterfaceBackend {
 
         for (i, mem) in mem_info.iter().enumerate() {
             modules.push(axi::AxiInterface::memory_module(
-                &format!("Memory_controller_axi_{}", i),
+                &format!("Memory_controller_axi_{i}"),
                 512,
                 64,
                 mem.data_width,
@@ -88,8 +88,7 @@ impl Backend for XilinxInterfaceBackend {
             file.get_write(),
             r#"`default_nettype none
 /* verilator lint_off DECLFILENAME */
-{}`default_nettype wire"#,
-            module_string,
+{module_string}`default_nettype wire"#,
         )?;
 
         Ok(())
@@ -136,7 +135,7 @@ fn top_level(toplevel: &ir::Component) -> v::Module {
 
     // add an axi interface for each external memory
     for (idx, _mem) in memories.iter().enumerate() {
-        axi::AxiInterface::memory_channels(64, 512, &format!("m{}_axi_", idx))
+        axi::AxiInterface::memory_channels(64, 512, &format!("m{idx}_axi_"))
             .add_ports_to(&mut module);
     }
 
@@ -173,16 +172,16 @@ fn top_level(toplevel: &ir::Component) -> v::Module {
     control_instance.connect("timeout", "timeout");
 
     for port in base_control_axi_interface.ports() {
-        control_instance.connect_ref(&port, &format!("s_axi_control_{}", port));
+        control_instance.connect_ref(&port, &format!("s_axi_control_{port}"));
     }
     module.add_instance(control_instance);
 
     // and some wires for each memory
     for mem in memories {
-        module.add_decl(v::Decl::new_wire(&format!("{}_copy", mem), 1));
-        module.add_decl(v::Decl::new_wire(&format!("{}_copy_done", mem), 1));
-        module.add_decl(v::Decl::new_wire(&format!("{}_send", mem), 1));
-        module.add_decl(v::Decl::new_wire(&format!("{}_send_done", mem), 1));
+        module.add_decl(v::Decl::new_wire(&format!("{mem}_copy"), 1));
+        module.add_decl(v::Decl::new_wire(&format!("{mem}_copy_done"), 1));
+        module.add_decl(v::Decl::new_wire(&format!("{mem}_send"), 1));
+        module.add_decl(v::Decl::new_wire(&format!("{mem}_send_done"), 1));
     }
     host_transfer_fsm(&mut module, memories);
 
@@ -190,11 +189,11 @@ fn top_level(toplevel: &ir::Component) -> v::Module {
     let base_master_axi_interface =
         axi::AxiInterface::memory_channels(64, 32, "");
     for (idx, mem) in memories.iter().enumerate() {
-        let write_data = format!("{}_write_data", mem);
-        let read_data = format!("{}_read_data", mem);
-        let addr0 = format!("{}_addr0", mem);
-        let write_en = format!("{}_write_en", mem);
-        let done = format!("{}_done", mem);
+        let write_data = format!("{mem}_write_data");
+        let read_data = format!("{mem}_read_data");
+        let addr0 = format!("{mem}_addr0");
+        let write_en = format!("{mem}_write_en");
+        let done = format!("{mem}_done");
         let width = mem_info[idx].data_width;
         module.add_decl(v::Decl::new_wire(&write_data, width));
         module.add_decl(v::Decl::new_wire(&read_data, width));
@@ -203,8 +202,8 @@ fn top_level(toplevel: &ir::Component) -> v::Module {
         module.add_decl(v::Decl::new_wire(&done, 1));
 
         let mut memory_instance = v::Instance::new(
-            &format!("inst_mem_controller_axi_{}", idx),
-            &format!("Memory_controller_axi_{}", idx),
+            &format!("inst_mem_controller_axi_{idx}"),
+            &format!("Memory_controller_axi_{idx}"),
         );
         memory_instance.connect("ACLK", "ap_clk");
         memory_instance.connect(
@@ -213,15 +212,15 @@ fn top_level(toplevel: &ir::Component) -> v::Module {
         );
         for port in base_master_axi_interface.ports() {
             memory_instance
-                .connect_ref(&port, &format!("m{}_axi_{}", idx, port));
+                .connect_ref(&port, &format!("m{idx}_axi_{port}"));
         }
         memory_instance.connect_ref("BASE_ADDRESS", mem);
-        memory_instance.connect_ref("COPY_FROM_HOST", &format!("{}_copy", mem));
+        memory_instance.connect_ref("COPY_FROM_HOST", &format!("{mem}_copy"));
         memory_instance
-            .connect_ref("COPY_FROM_HOST_DONE", &format!("{}_copy_done", mem));
-        memory_instance.connect_ref("SEND_TO_HOST", &format!("{}_send", mem));
+            .connect_ref("COPY_FROM_HOST_DONE", &format!("{mem}_copy_done"));
+        memory_instance.connect_ref("SEND_TO_HOST", &format!("{mem}_send"));
         memory_instance
-            .connect_ref("SEND_TO_HOST_DONE", &format!("{}_send_done", mem));
+            .connect_ref("SEND_TO_HOST_DONE", &format!("{mem}_send_done"));
 
         memory_instance.connect_ref("WRITE_DATA", &write_data);
         memory_instance.connect_ref("READ_DATA", &read_data);
@@ -241,11 +240,11 @@ fn top_level(toplevel: &ir::Component) -> v::Module {
         .connect("reset", v::Expr::new_logical_or("reset", "memories_sent"));
     kernel_instance.connect_ref("done", "kernel_done");
     for mem in memories {
-        let read_data = format!("{}_read_data", mem);
-        let done = format!("{}_done", mem);
-        let addr0 = format!("{}_addr0", mem);
-        let write_data = format!("{}_write_data", mem);
-        let write_en = format!("{}_write_en", mem);
+        let read_data = format!("{mem}_read_data");
+        let done = format!("{mem}_done");
+        let addr0 = format!("{mem}_addr0");
+        let write_data = format!("{mem}_write_data");
+        let write_en = format!("{mem}_write_en");
         kernel_instance.connect_ref(&read_data, &read_data);
         kernel_instance.connect_ref(&done, &done);
         kernel_instance.connect_ref(&addr0, &addr0);
@@ -290,18 +289,18 @@ fn host_transfer_fsm(module: &mut v::Module, memories: &[String]) {
             memories[1..].iter().fold(
                 format!("{}_copy_done", memories[0]).into(),
                 |acc, elem| {
-                    v::Expr::new_logical_and(acc, format!("{}_copy_done", elem))
+                    v::Expr::new_logical_and(acc, format!("{elem}_copy_done"))
                 },
             )
         },
     ));
     let copy_start_assigns: Vec<v::Expr> = memories
         .iter()
-        .map(|mem| format!("{}_copy", mem).into())
+        .map(|mem| format!("{mem}_copy").into())
         .collect();
     let send_start_assigns: Vec<v::Expr> = memories
         .iter()
-        .map(|mem| format!("{}_send", mem).into())
+        .map(|mem| format!("{mem}_send").into())
         .collect();
     let fsm = fsm::LinearFsm::new("host_txn_", "ap_clk", "reset")
         .state("idle", &[], "ap_start") // idle state
@@ -318,7 +317,7 @@ fn host_transfer_fsm(module: &mut v::Module, memories: &[String]) {
         memories[1..].iter().fold(
             format!("{}_send_done", memories[0]).into(),
             |acc, elem| {
-                v::Expr::new_bit_and(acc, format!("{}_send_done", elem))
+                v::Expr::new_bit_and(acc, format!("{elem}_send_done"))
             },
         ),
     ));

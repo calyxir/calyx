@@ -7,7 +7,6 @@ use core::str;
 use std::{
     fs::File,
     io::{self, BufRead, BufReader, BufWriter, Read, Write},
-    iter::repeat,
     path::PathBuf,
     str::FromStr,
 };
@@ -49,7 +48,7 @@ enum CiderDataConverterError {
 
 impl std::fmt::Debug for CiderDataConverterError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{self}")
     }
 }
 
@@ -194,7 +193,7 @@ fn main() -> Result<(), CiderDataConverterError> {
                                         - line_data.len();
 
                                     data.extend(line_data.into_iter().rev());
-                                    data.extend(repeat(0u8).take(padding))
+                                    data.extend(std::iter::repeat_n(0u8, padding))
                                 }
                             }
 

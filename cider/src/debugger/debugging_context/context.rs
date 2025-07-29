@@ -528,7 +528,7 @@ impl<C: AsRef<Context> + Clone> DebuggingContext<C> {
             }
         } else if matches!(target, BreakpointID::Name(_)) {
             let name = target.as_name().unwrap();
-            let name = format!("{:?}", name);
+            let name = format!("{name:?}");
             println!(
                 "Error: There is no breakpoint named '{}'",
                 name.stylize_debugger_missing()
@@ -713,7 +713,7 @@ impl<C: AsRef<Context> + Clone> DebuggingContext<C> {
     }
 
     pub fn print_breakpoints(&self, ctx: &Context) {
-        println!("{}Current breakpoints:", SPACING);
+        println!("{SPACING}Current breakpoints:");
         for (breakpoint_idx, breakpoint) in self
             .breakpoints
             .iter()
@@ -724,7 +724,7 @@ impl<C: AsRef<Context> + Clone> DebuggingContext<C> {
     }
 
     pub fn print_watchpoints(&self, env: &Environment<C>) {
-        println!("{}Current watchpoints:", SPACING);
+        println!("{SPACING}Current watchpoints:");
         let inner_spacing = SPACING.to_string() + "    ";
         let outer_spacing = SPACING.to_string() + "  ";
 
@@ -800,7 +800,7 @@ pub fn format_control_node(ctx: &Context, control_idx: ControlIdx) -> String {
         }
         _ => {
             let string_path = ctx.string_path(control_idx, name);
-            format!("{parent_name}: {}", string_path)
+            format!("{parent_name}: {string_path}")
         }
     }
 }

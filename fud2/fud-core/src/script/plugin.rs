@@ -336,7 +336,7 @@ impl ScriptContext {
                         let mut c = c.clone();
                         if let Some(v) = c.last_mut() {
                             let outputs =
-                                outputs.iter().map(|v| format!("${}", v));
+                                outputs.iter().map(|v| format!("${v}"));
                             v.gens.extend(outputs);
                         }
 
@@ -346,7 +346,7 @@ impl ScriptContext {
                             .collect();
                         if let Some(v) = c.first_mut() {
                             let inputs =
-                                inputs.iter().map(|v| format!("${}", v));
+                                inputs.iter().map(|v| format!("${v}"));
                             v.deps.extend(inputs);
                         }
                         c
@@ -675,7 +675,7 @@ impl ScriptRunner {
                     ctx.call_position(),
                     crate::run::ConfigVar::Required(key.to_string()),
                 )?;
-                Ok(format!("${{{}}}", key))
+                Ok(format!("${{{key}}}"))
             },
         );
     }
@@ -696,7 +696,7 @@ impl ScriptRunner {
                         default.to_string(),
                     ),
                 )?;
-                Ok(format!("${{{}}}", key))
+                Ok(format!("${{{key}}}"))
             },
         );
     }

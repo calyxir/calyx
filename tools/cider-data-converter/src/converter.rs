@@ -5,7 +5,7 @@ use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_rational::BigRational;
 use num_traits::{Num, ToPrimitive, sign::Signed};
 use serde_json::Number;
-use std::{collections::HashMap, iter::repeat, str::FromStr};
+use std::{collections::HashMap, str::FromStr};
 
 fn msb(width: u32) -> u8 {
     let rem = width % 8;
@@ -24,7 +24,7 @@ fn sign_extend_vec(mut vec: Vec<u8>, width: u32, signed: bool) -> Vec<u8> {
         match vec.len().cmp(&(byte_count)) {
             std::cmp::Ordering::Less => {
                 vec.extend(
-                    repeat(0b1111_1111).take(byte_count - vec.len() - 1),
+                    std::iter::repeat_n(0b1111_1111, byte_count - vec.len() - 1),
                 );
                 vec.push(
                     0b1111_1111
@@ -44,7 +44,7 @@ fn sign_extend_vec(mut vec: Vec<u8>, width: u32, signed: bool) -> Vec<u8> {
         assert_eq!(*vec.last().unwrap(), 0);
         vec.pop();
     } else {
-        vec.extend(repeat(0u8).take(byte_count - vec.len()));
+        vec.extend(std::iter::repeat_n(0u8, byte_count - vec.len()));
     }
 
     vec
@@ -133,7 +133,7 @@ fn unroll_bigint(
 /// to_f64 method results in some rounding behavior which creates very confusing
 /// errors (demanding more precision) so this is a workaround.
 fn float_to_rational(float: f64) -> BigRational {
-    let string = format!("{:.}", float);
+    let string = format!("{float:.}");
     let string = string.split('.').collect_vec();
 
     if string.len() == 1 {

@@ -124,16 +124,14 @@ trait LibraryHandlerTrait {
         for dir in library_dirs {
             let entries = std::fs::read_dir(&dir).map_err(|e| {
                 Error::invalid_file(format!(
-                    "Error accessing library directory `{:?}`: {}",
-                    dir, e
+                    "Error accessing library directory `{dir:?}`: {e}"
                 ))
             })?;
 
             for entry in entries {
                 let entry = entry.map_err(|e| {
                     Error::invalid_file(format!(
-                        "Error reading entry in directory `{:?}`: {}",
-                        dir, e
+                        "Error reading entry in directory `{dir:?}`: {e}"
                     ))
                 })?;
                 library_paths.push(entry.path());
@@ -419,8 +417,7 @@ impl Backend for VerilogBackend {
                 morty::build_syntax_tree(&file_list, false, false, true, false)
                     .map_err(|err| {
                         Error::write_error(format!(
-                            "Failed to build syntax tree with Morty: {}",
-                            err
+                            "Failed to build syntax tree with Morty: {err}"
                         ))
                     })?;
             let top_module = ctx.entrypoint.to_string();
@@ -437,7 +434,7 @@ impl Backend for VerilogBackend {
                 true,
                 false,
             )
-            .map_err(|err| Error::write_error(format!("{}", err)))?;
+            .map_err(|err| Error::write_error(format!("{err}")))?;
         }
         // Rewind to the start of the temporary file so that we can read the content
         temp_writer.seek(SeekFrom::Start(0)).map_err(|_| {
@@ -455,9 +452,8 @@ impl Backend for VerilogBackend {
         final_writer
             .write_all(temp_content.as_bytes())
             .map_err(|err| {
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("Write failed: {}", err),
+                io::Error::other(
+                    format!("Write failed: {err}"),
                 )
             })?;
         Ok(())
@@ -474,7 +470,7 @@ fn emit_prim_inline<F: io::Write>(
     if !prim.params.is_empty() {
         writeln!(f, " #(")?;
         for (idx, param) in prim.params.iter().enumerate() {
-            write!(f, "    parameter {} = 32", param)?;
+            write!(f, "    parameter {param} = 32")?;
             if idx != prim.params.len() - 1 {
                 writeln!(f, ",")?;
             } else {
@@ -582,7 +578,7 @@ fn emit_component<F: io::Write>(
     if !synthesis_mode {
         memory_read_write(comp)
             .into_iter()
-            .try_for_each(|stmt| writeln!(f, "{}", stmt))?;
+            .try_for_each(|stmt| writeln!(f, "{stmt}"))?;
     }
 
     let cells = comp
@@ -593,7 +589,7 @@ fn emit_component<F: io::Write>(
     // structure wire declarations
     cells.iter().try_for_each(|(name, width, _)| {
         let decl = v::Decl::new_logic(name, *width);
-        writeln!(f, "{};", decl)
+        writeln!(f, "{decl};")
     })?;
 
     // cell instances
@@ -740,9 +736,7 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
                     param_binding.iter().for_each(|(name, value)| {
                     if *value > (i32::MAX as u64) {
                         panic!(
-                            "Parameter value {} for `{}` cannot be represented using 32 bits",
-                            value,
-                            name
+                            "Parameter value {value} for `{name}` cannot be represented using 32 bits"
                         )
                     }
                     inst.add_param(
@@ -835,7 +829,7 @@ fn emit_fsms<F: io::Write>(
             collection.into_iter().enumerate()
         {
             // string representing the new guard on the assignment
-            let case_guard = format!("{}_s{state}_out", fsm_id);
+            let case_guard = format!("{fsm_id}_s{state}_out");
             let case_guarded_assign_guard = if assignment.guard.is_true() {
                 case_guard
             } else {
@@ -936,12 +930,12 @@ fn emit_fsm_module<F: io::Write>(
         if (reset) begin\n      state_reg <= s0;\n    end\n\
             else begin\n      state_reg <= state_next;\n\
                 end\n  end\n";
-    writeln!(f, "{}", always_comb_header)?;
+    writeln!(f, "{always_comb_header}")?;
 
     // Begin emitting the FSM's transitions and updates
     let case_header = "  always @(*) begin\n    state_next = s0;\n\
         case ( state_reg )";
-    writeln!(f, "{}", case_header)?;
+    writeln!(f, "{case_header}")?;
     // At each state, write the updates to the state and the outward-facing
     // wires to make high / low
     for (case, trans) in fsm.borrow().transitions.iter().enumerate() {
@@ -966,7 +960,7 @@ fn emit_fsm_module<F: io::Write>(
     // Wrap up the module
     let case_footer = "    endcase\n  end\n\
     endmodule\n";
-    writeln!(f, "{}", case_footer)?;
+    writeln!(f, "{case_footer}")?;
 
     io::Result::Ok(())
 }
@@ -1033,7 +1027,7 @@ fn emit_guard_disjoint_check(
 
     // Generated error message
     let ir::Canonical { cell, port } = dst.borrow().canonical();
-    let msg = format!("Multiple assignment to port `{}.{}'.", cell, port);
+    let msg = format!("Multiple assignment to port `{cell}.{port}'.");
     let err = v::Sequential::new_seqexpr(v::Expr::new_call(
         "$fatal",
         vec![v::Expr::new_int(2), v::Expr::Str(msg)],
@@ -1429,11 +1423,11 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
             vec![
                 v::Expr::Concat(v::ExprConcat {
                     exprs: vec![
-                        v::Expr::new_str(&format!("/{}.dat", name)),
+                        v::Expr::new_str(&format!("/{name}.dat")),
                         v::Expr::new_ref("DATA"),
                     ],
                 }),
-                v::Expr::new_ipath(&format!("{}.{}", name, mem_access_str)),
+                v::Expr::new_ipath(&format!("{name}.{mem_access_str}")),
             ],
         )));
     });
@@ -1447,11 +1441,11 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
             vec![
                 v::Expr::Concat(v::ExprConcat {
                     exprs: vec![
-                        v::Expr::new_str(&format!("/{}.out", name)),
+                        v::Expr::new_str(&format!("/{name}.out")),
                         v::Expr::new_ref("DATA"),
                     ],
                 }),
-                v::Expr::new_ipath(&format!("{}.{}", name, mem_access_str)),
+                v::Expr::new_ipath(&format!("{name}.{mem_access_str}")),
             ],
         )));
     });

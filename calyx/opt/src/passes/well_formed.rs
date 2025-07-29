@@ -31,13 +31,13 @@ fn port_is_static_prim(port: &ir::Port) -> bool {
     // if component, then we have to go throuch `comps` to see whether its static
     // for some reason, need to store result in variable, otherwise it gives a
     // lifetime error
-    let res = match parent_cell.borrow().prototype {
+    
+    match parent_cell.borrow().prototype {
         ir::CellType::Primitive { latency, .. } => latency.is_some(),
         ir::CellType::Component { .. }
         | ir::CellType::ThisComponent
         | ir::CellType::Constant { .. } => false,
-    };
-    res
+    }
 }
 
 #[derive(Default)]
@@ -145,16 +145,14 @@ fn require_subtype(
             }
         } else {
             return Err(Error::malformed_control(format!(
-                "{} does not have ref cell named {}",
-                id, outcell
+                "{id} does not have ref cell named {outcell}"
             )));
         }
     }
     for id in cell_map.keys() {
         if !mentioned_cells.contains(id) {
             return Err(Error::malformed_control(format!(
-                "unmentioned ref cell: {}",
-                id
+                "unmentioned ref cell: {id}"
             ))
             .with_pos(invoke.get_attributes()));
         }
@@ -492,8 +490,7 @@ impl Visitor for WellFormed {
                     if has_done {
                         self.diag.err(
                             Error::malformed_structure(format!(
-                                "Group `{}` has multiple done conditions",
-                                gname
+                                "Group `{gname}` has multiple done conditions"
                             ))
                             .with_pos(&assign.attributes),
                         );
@@ -540,15 +537,12 @@ impl Visitor for WellFormed {
                             >= static_timing.get_interval().1
                         {
                             Err(Error::malformed_structure(format!(
-                                "Static Timing Guard has improper interval: `{}`",
-                                static_timing
+                                "Static Timing Guard has improper interval: `{static_timing}`"
                             ))
                             .with_pos(&assign.attributes))
                         } else if static_timing.get_interval().1 > group_latency {
                             Err(Error::malformed_structure(format!(
-                                "Static Timing Guard has interval `{}`, which is out of bounds since its static group has latency {}",
-                                static_timing,
-                                group_latency
+                                "Static Timing Guard has interval `{static_timing}`, which is out of bounds since its static group has latency {group_latency}"
                             ))
                             .with_pos(&assign.attributes))
                         } else {

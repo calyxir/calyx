@@ -360,7 +360,7 @@ fn register_plugin(
         .canonicalize_utf8()
         .with_context(|| format!("Can not find `{}`", cmd.filename))?;
 
-    println!("Registering {}", full_path);
+    println!("Registering {full_path}");
 
     let config_path = config::config_path(&driver.name);
     let contents = fs::read_to_string(&config_path)?;

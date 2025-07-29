@@ -171,26 +171,23 @@ fn convert(
             }
         }
         _ => panic!(
-            "Conversion from {} to {} is not supported",
-            convert_from, convert_to
+            "Conversion from {convert_from} to {convert_to} is not supported"
         ),
     }
     if let Some(filepath) = filepath_send {
         eprintln!(
-            "Successfully converted from {} to {} in {}",
-            convert_from, convert_to, filepath
+            "Successfully converted from {convert_from} to {convert_to} in {filepath}"
         );
     } else {
         eprintln!(
-            "Successfully converted from {} to {}",
-            convert_from, convert_to,
+            "Successfully converted from {convert_from} to {convert_to}",
         );
     }
 }
 
 /// Formats [to_format] properly for float values
 fn format_binary(to_format: u32) -> String {
-    let binary_str = format!("{:032b}", to_format);
+    let binary_str = format!("{to_format:032b}");
     format!(
         "{} {} {}",
         &binary_str[0..1], // Sign bit
@@ -200,7 +197,7 @@ fn format_binary(to_format: u32) -> String {
 }
 
 fn format_hex(to_format: u32) -> String {
-    format!("0x{:X}", to_format)
+    format!("0x{to_format:X}")
 }
 
 /// Converts a string representation of a floating-point number to its binary
@@ -284,7 +281,7 @@ fn hex_to_binary(
         .expect("Failed to parse hex string");
 
     // Format nicely
-    let formatted_binary_str = format!("{:b}", binary_of_hex);
+    let formatted_binary_str = format!("{binary_of_hex:b}");
 
     // Write binary string to the file
 
@@ -376,7 +373,7 @@ fn binary_to_float(
     // Interpret the integer as the binary representation of a floating-point number
     let float_value = f32::from_bits(binary_value);
 
-    let formated_float_str = format!("{:?}", float_value);
+    let formated_float_str = format!("{float_value:?}");
 
     if let Some(file) = filepath_send.as_mut() {
         // Write binary string to the file
@@ -438,7 +435,7 @@ fn fixed_to_binary(
     let multiplied_fixed_as_i32 = multiplied_fixed as i32;
 
     // Convert to a binary string with 32 bits
-    let binary_of_fixed = format!("{:032b}", multiplied_fixed_as_i32);
+    let binary_of_fixed = format!("{multiplied_fixed_as_i32:032b}");
 
     if let Some(file) = filepath_send.as_mut() {
         // Write binary string to the file
@@ -498,7 +495,7 @@ fn binary_to_fixed(
     // Exponent math
     let divided: f32 = int_of_binary / 2_f32.powf(-exponent);
 
-    let string_of_divided = format!("{:+.8e}", divided);
+    let string_of_divided = format!("{divided:+.8e}");
 
     if let Some(file) = filepath_send.as_mut() {
         // Write binary string to the file
@@ -533,7 +530,7 @@ fn binary_to_fixed_bit_slice(
     // Convert result to a fixed-point decimal representation
     let fixed_value = result as f32;
 
-    let string_of_fixed = format!("{:.8e}", fixed_value);
+    let string_of_fixed = format!("{fixed_value:.8e}");
 
     if let Some(file) = filepath_send.as_mut() {
         // Write binary string to the file
