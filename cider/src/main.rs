@@ -7,7 +7,10 @@ use cider::{
     configuration::{self, ColorConfig},
     debugger::{Debugger, DebuggerInfo, DebuggerReturnStatus},
     errors::CiderResult,
-    flatten::structures::{context::Context, environment::Simulator},
+    flatten::structures::{
+        context::Context,
+        environment::{PolicyChoice, Simulator},
+    },
 };
 
 use std::{
@@ -85,6 +88,15 @@ pub struct Opts {
     #[argh(option, long = "force-color", default = "ColorConfig::On")]
     color_conf: ColorConfig,
 
+    /// the policy for pausing and unpausing threads in the execution
+    #[argh(option, long = "policy", default = "PolicyChoice::Default")]
+    policy: PolicyChoice,
+
+    /// disables the ability to step through multiple control program nodes in a
+    /// single step
+    #[argh(switch, long = "no-multistep")]
+    disable_multistep: bool,
+
     /// entangle memories with the given name. This option should only be used
     /// if you know what you are doing and as a result is hidden from the help output.
     #[argh(option, hidden_help, long = "entangle")]
@@ -128,6 +140,7 @@ fn main() -> CiderResult<()> {
         .error_on_overflow(opts.error_on_overflow)
         .undef_guard_check(opts.undef_guard_check)
         .color_config(opts.color_conf)
+        .allow_multistep(!opts.disable_multistep)
         .build();
 
     let command = opts.mode.unwrap_or(Command::Interpret(CommandInterpret {}));
@@ -156,6 +169,7 @@ fn main() -> CiderResult<()> {
                 &opts.data_file,
                 &opts.wave_file,
                 runtime_config,
+                opts.policy,
             )?;
 
             sim.run_program()?;
@@ -174,6 +188,7 @@ fn main() -> CiderResult<()> {
                     &opts.data_file,
                     &opts.wave_file,
                     runtime_config,
+                    opts.policy,
                 )?;
 
                 let result = debugger.main_loop(info)?;
