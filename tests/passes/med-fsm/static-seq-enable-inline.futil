@@ -28,6 +28,6 @@ component main() -> () {
       B;
       } 
       A;
-    } // finish static control
+    }
   }
 }
