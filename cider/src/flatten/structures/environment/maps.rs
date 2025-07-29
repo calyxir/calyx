@@ -102,7 +102,6 @@ impl PortMap {
         self[target] = PortValue::new_undef();
     }
 
-    #[must_use]
     #[inline(always)]
     pub fn insert_val(
         &mut self,
@@ -139,7 +138,6 @@ impl PortMap {
     /// `ConflictingAssignments` error. This should be used inside of primitives
     /// while the latter is used in the general simulation flow.
     #[inline]
-    #[must_use]
     pub fn insert_val_general(
         &mut self,
         target: GlobalPortIdx,
