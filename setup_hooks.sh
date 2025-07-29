@@ -1,4 +1,4 @@
-#/bin/sh
+#!/bin/sh
 
 for hook in .hooks/*; do
     hook_name=$(basename "$hook")
