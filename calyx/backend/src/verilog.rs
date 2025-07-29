@@ -451,11 +451,7 @@ impl Backend for VerilogBackend {
         let mut final_writer = file.get_write();
         final_writer
             .write_all(temp_content.as_bytes())
-            .map_err(|err| {
-                io::Error::other(
-                    format!("Write failed: {err}"),
-                )
-            })?;
+            .map_err(|err| io::Error::other(format!("Write failed: {err}")))?;
         Ok(())
     }
 }

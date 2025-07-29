@@ -211,8 +211,7 @@ fn top_level(toplevel: &ir::Component) -> v::Module {
             v::Expr::new_logical_or("reset", "memories_sent"),
         );
         for port in base_master_axi_interface.ports() {
-            memory_instance
-                .connect_ref(&port, &format!("m{idx}_axi_{port}"));
+            memory_instance.connect_ref(&port, &format!("m{idx}_axi_{port}"));
         }
         memory_instance.connect_ref("BASE_ADDRESS", mem);
         memory_instance.connect_ref("COPY_FROM_HOST", &format!("{mem}_copy"));
@@ -314,12 +313,11 @@ fn host_transfer_fsm(module: &mut v::Module, memories: &[String]) {
     let mut ifelse = v::SequentialIfElse::new(fsm.state_is("send"));
     ifelse.add_seq(v::Sequential::new_nonblk_assign(
         "memories_sent",
-        memories[1..].iter().fold(
-            format!("{}_send_done", memories[0]).into(),
-            |acc, elem| {
+        memories[1..]
+            .iter()
+            .fold(format!("{}_send_done", memories[0]).into(), |acc, elem| {
                 v::Expr::new_bit_and(acc, format!("{elem}_send_done"))
-            },
-        ),
+            }),
     ));
 
     ifelse.set_else(v::Sequential::new_nonblk_assign("memories_sent", 0));

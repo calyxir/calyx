@@ -31,7 +31,7 @@ fn port_is_static_prim(port: &ir::Port) -> bool {
     // if component, then we have to go throuch `comps` to see whether its static
     // for some reason, need to store result in variable, otherwise it gives a
     // lifetime error
-    
+
     match parent_cell.borrow().prototype {
         ir::CellType::Primitive { latency, .. } => latency.is_some(),
         ir::CellType::Component { .. }

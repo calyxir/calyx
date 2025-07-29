@@ -380,8 +380,7 @@ fn create_assignments<T: Clone>(
     // probe and assignments for group enable (this group is currently active)
     for group_name in group_names.iter() {
         // store group and component name (differentiate between groups of the same name under different components)
-        let name =
-            format!("{group_name}{delimiter}{comp_name}_group_probe");
+        let name = format!("{group_name}{delimiter}{comp_name}_group_probe");
         let probe_cell = builder.add_primitive(name, "std_wire", &[1]);
         let probe_asgn: ir::Assignment<T> = builder.build_assignment(
             probe_cell.borrow().get("in"),

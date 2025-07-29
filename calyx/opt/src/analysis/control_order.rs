@@ -53,9 +53,7 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
                 ir::CellType::Constant { .. } => None,
                 ir::CellType::Component { .. }
                 | ir::CellType::Primitive { .. }
-                | ir::CellType::ThisComponent => {
-                    Some(cell.borrow().name())
-                }
+                | ir::CellType::ThisComponent => Some(cell.borrow().name()),
             })
             .unique()
     }

@@ -345,8 +345,7 @@ impl ScriptContext {
                             .map(|i| crate::run::io_file_var_name(i, true))
                             .collect();
                         if let Some(v) = c.first_mut() {
-                            let inputs =
-                                inputs.iter().map(|v| format!("${v}"));
+                            let inputs = inputs.iter().map(|v| format!("${v}"));
                             v.deps.extend(inputs);
                         }
                         c

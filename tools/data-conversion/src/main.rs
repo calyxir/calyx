@@ -179,9 +179,7 @@ fn convert(
             "Successfully converted from {convert_from} to {convert_to} in {filepath}"
         );
     } else {
-        eprintln!(
-            "Successfully converted from {convert_from} to {convert_to}",
-        );
+        eprintln!("Successfully converted from {convert_from} to {convert_to}",);
     }
 }
 

@@ -193,7 +193,9 @@ fn main() -> Result<(), CiderDataConverterError> {
                                         - line_data.len();
 
                                     data.extend(line_data.into_iter().rev());
-                                    data.extend(std::iter::repeat_n(0u8, padding))
+                                    data.extend(std::iter::repeat_n(
+                                        0u8, padding,
+                                    ))
                                 }
                             }
 

@@ -169,9 +169,7 @@ fn rewrite_from_op(
             if op.input.contains(s) {
                 lhs.add(egg::ENodeOrVar::ENode(StateLanguage::C))
             } else {
-                lhs.add(egg::ENodeOrVar::Var(
-                    format!("?s{i}").parse().unwrap(),
-                ))
+                lhs.add(egg::ENodeOrVar::Var(format!("?s{i}").parse().unwrap()))
             }
         })
         .collect::<Vec<_>>();
@@ -211,9 +209,7 @@ fn rewrite_from_op(
             } else if op.input.contains(s) {
                 rhs.add(egg::ENodeOrVar::ENode(StateLanguage::X))
             } else {
-                rhs.add(egg::ENodeOrVar::Var(
-                    format!("?s{i}").parse().unwrap(),
-                ))
+                rhs.add(egg::ENodeOrVar::Var(format!("?s{i}").parse().unwrap()))
             }
         })
         .collect::<Vec<_>>();
@@ -229,9 +225,7 @@ fn rewrite_from_op(
             if through.contains(&op_ref) && o == op_ref {
                 rhs.add(egg::ENodeOrVar::ENode(StateLanguage::C))
             } else {
-                rhs.add(egg::ENodeOrVar::Var(
-                    format!("?o{i}").parse().unwrap(),
-                ))
+                rhs.add(egg::ENodeOrVar::Var(format!("?o{i}").parse().unwrap()))
             }
         })
         .collect::<Vec<_>>();

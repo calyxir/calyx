@@ -23,9 +23,10 @@ fn sign_extend_vec(mut vec: Vec<u8>, width: u32, signed: bool) -> Vec<u8> {
     if signed && vec.last().unwrap() & msb != 0 {
         match vec.len().cmp(&(byte_count)) {
             std::cmp::Ordering::Less => {
-                vec.extend(
-                    std::iter::repeat_n(0b1111_1111, byte_count - vec.len() - 1),
-                );
+                vec.extend(std::iter::repeat_n(
+                    0b1111_1111,
+                    byte_count - vec.len() - 1,
+                ));
                 vec.push(
                     0b1111_1111
                         >> (if width % 8 == 0 { 0 } else { 8 - width % 8 }),

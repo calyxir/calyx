@@ -276,7 +276,5 @@ fn estimated_size(count_map: HashMap<(ir::Id, ir::Binding, bool), u32>) {
         }
     }
     eprintln!("Estimated size in bit(s): {estimated_size}");
-    eprintln!(
-        "Estimated external size in bit(s): {estimated_external_size}"
-    );
+    eprintln!("Estimated external size in bit(s): {estimated_external_size}");
 }
