@@ -1,0 +1,140 @@
+// --entangle 'input_array, lane_one_mem, lane_two_mem'
+
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+import "primitives/binary_operators.futil";
+
+component main() -> () {
+    cells {
+        @external input_array = seq_mem_d1(32, 16, 32);
+        lane_one_mem = seq_mem_d1(32, 16, 32);
+        lane_two_mem = seq_mem_d1(32, 16, 32);
+
+        l1_2i_reg = std_reg(32);
+        l1_2ip1_reg = std_reg(32);
+        l2_2i_reg = std_reg(32);
+        l2_2ip1_reg = std_reg(32);
+
+        l1_adder = std_add(32);
+        l2_adder = std_add(32);
+        l2_adder_2 = std_add(32);
+
+        l1_mul = std_mult_pipe(32);
+        l2_mul = std_mult_pipe(32);
+
+        i = std_reg(32);
+        i_adder = std_add(32);
+
+        comp = std_lt(32);
+    }
+
+    wires {
+        group incr_i {
+            i.write_en = 1'd1;
+            i.in = i_adder.out;
+            i_adder.left = i.out;
+            i_adder.right = 32'd2;
+            incr_i[done] = i.done;
+        }
+
+        group do_l1_mul {
+            l1_mul.left = i.out;
+            l1_mul.right = 32'd2;
+            l1_mul.go = 1'd1;
+            do_l1_mul[done] = l1_mul.done;
+        }
+
+        group do_l2_mul {
+            l2_adder.left = i.out;
+            l2_adder.right = 32'd1;
+            l2_mul.left = l2_adder.out;
+            l2_mul.right = 32'd2;
+            l2_mul.go = 1'd1;
+            do_l2_mul[done] = l2_mul.done;
+        }
+
+        group l1_first_read {
+            lane_one_mem.addr0 = l1_mul.out;
+            lane_one_mem.content_en = 1'b1;
+            l1_2i_reg.write_en = lane_one_mem.done;
+            l1_2i_reg.in = lane_one_mem.read_data;
+            l1_first_read[done] = l1_2i_reg.done;
+        }
+        group l1_second_read {
+            l1_adder.left = l1_mul.out;
+            l1_adder.right = 32'd1;
+            lane_one_mem.addr0 = l1_adder.out;
+            lane_one_mem.content_en = 1'b1;
+            l1_2ip1_reg.write_en = lane_one_mem.done;
+            l1_2ip1_reg.in = lane_one_mem.read_data;
+            l1_second_read[done] = l1_2ip1_reg.done;
+        }
+        group l2_first_read {
+            lane_two_mem.addr0 = l2_mul.out;
+            lane_two_mem.content_en = 1'b1;
+            l2_2i_reg.write_en = lane_two_mem.done;
+            l2_2i_reg.in = lane_two_mem.read_data;
+            l2_first_read[done] = l2_2i_reg.done;
+        }
+
+        group l2_second_read {
+            l2_adder.left = l2_mul.out;
+            l2_adder.right = 32'd1;
+            lane_two_mem.addr0 = l2_adder.out;
+            lane_two_mem.content_en = 1'b1;
+            l2_2ip1_reg.write_en = lane_two_mem.done;
+            l2_2ip1_reg.in = lane_two_mem.read_data;
+            l2_second_read[done] = l2_2ip1_reg.done;
+        }
+
+        group l1_write {
+            l1_adder.left = l1_2i_reg.out;
+            l1_adder.right = l1_2ip1_reg.out;
+            lane_one_mem.addr0 = i.out;
+            lane_one_mem.write_en = 1'b1;
+            lane_one_mem.content_en = 1'b1;
+            lane_one_mem.write_data = l1_adder.out;
+            l1_write[done] = lane_one_mem.done;
+        }
+
+        group l2_write {
+            l2_adder_2.left = i.out;
+            l2_adder_2.right = 32'd1;
+            l2_adder.left = l2_2i_reg.out;
+            l2_adder.right = l2_2ip1_reg.out;
+            lane_two_mem.addr0 = l2_adder_2.out;
+            lane_two_mem.write_en = 1'b1;
+            lane_two_mem.content_en = 1'b1;
+            lane_two_mem.write_data = l2_adder.out;
+            l2_write[done] = lane_two_mem.done;
+        }
+
+        comb group cond {
+            comp.left = i.out;
+            comp.right = 32'd8;
+        }
+    }
+
+    control {
+        while comp.out with cond {
+            seq {
+                par {
+                    seq {
+                        do_l1_mul;
+                        l1_first_read;
+                        l1_second_read;
+                        l1_write;
+                    }
+
+                    seq {
+                        do_l2_mul;
+                        l2_first_read;
+                        l2_second_read;
+                        l2_write;
+                    }
+                }
+                incr_i;
+            }
+        }
+    }
+}

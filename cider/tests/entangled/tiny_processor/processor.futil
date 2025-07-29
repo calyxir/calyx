@@ -1,0 +1,492 @@
+// --entangle 'main_memory, lane_0_memory, lane_1_memory, lane_2_memory, lane_3_memory' --entangle 'instruction_memory, lane_0_instruction, lane_1_instruction, lane_2_instruction, lane_3_instruction'
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+import "primitives/binary_operators.futil";
+component main<"pos"={0}>() -> () {
+  cells {
+    @external @pos{1} main_memory = seq_mem_d1(32, 50, 16);
+    @external @pos{2} instruction_memory = seq_mem_d1(56, 16, 32);
+    @pos{3} instruction_pointer = std_reg(32);
+    @pos{4} lane_0_memory = seq_mem_d1(32, 50, 16);
+    @pos{5} lane_0_instruction = seq_mem_d1(56, 16, 32);
+    @pos{6} addr0__0 = std_reg(16);
+    @pos{7} addr1__0 = std_reg(16);
+    @pos{8} addr2__0 = std_reg(16);
+    @pos{9} op__0 = std_reg(8);
+    @pos{10} addr0_slicer__0 = std_bit_slice(56, 0, 15, 16);
+    @pos{11} addr1_slicer__0 = std_bit_slice(56, 16, 31, 16);
+    @pos{12} addr2_slicer__0 = std_bit_slice(56, 32, 47, 16);
+    @pos{13} op_slicer__0 = std_bit_slice(56, 48, 55, 8);
+    @pos{14} add_1 = std_add(32);
+    @pos{15} v1__0 = std_reg(32);
+    @pos{16} v2__0 = std_reg(32);
+    @pos{17} result_0 = std_reg(32);
+    @pos{21} add_2 = std_add(32);
+    @pos{22} sub_3 = std_sub(32);
+    @pos{23} mult_pipe_4 = std_mult_pipe(32);
+    @pos{26} op__0_out_eq_2_5 = std_eq(8);
+    @pos{26} op__0_out_eq_1_6 = std_eq(8);
+    @pos{26} op__0_out_eq_0_7 = std_eq(8);
+    @pos{4} lane_1_memory = seq_mem_d1(32, 50, 16);
+    @pos{5} lane_1_instruction = seq_mem_d1(56, 16, 32);
+    @pos{6} addr0__1 = std_reg(16);
+    @pos{7} addr1__1 = std_reg(16);
+    @pos{8} addr2__1 = std_reg(16);
+    @pos{9} op__1 = std_reg(8);
+    @pos{10} addr0_slicer__1 = std_bit_slice(56, 0, 15, 16);
+    @pos{11} addr1_slicer__1 = std_bit_slice(56, 16, 31, 16);
+    @pos{12} addr2_slicer__1 = std_bit_slice(56, 32, 47, 16);
+    @pos{13} op_slicer__1 = std_bit_slice(56, 48, 55, 8);
+    @pos{14} add_8 = std_add(32);
+    @pos{15} v1__1 = std_reg(32);
+    @pos{16} v2__1 = std_reg(32);
+    @pos{17} result_1 = std_reg(32);
+    @pos{21} add_9 = std_add(32);
+    @pos{22} sub_10 = std_sub(32);
+    @pos{23} mult_pipe_11 = std_mult_pipe(32);
+    @pos{26} op__1_out_eq_2_12 = std_eq(8);
+    @pos{26} op__1_out_eq_1_13 = std_eq(8);
+    @pos{26} op__1_out_eq_0_14 = std_eq(8);
+    @pos{4} lane_2_memory = seq_mem_d1(32, 50, 16);
+    @pos{5} lane_2_instruction = seq_mem_d1(56, 16, 32);
+    @pos{6} addr0__2 = std_reg(16);
+    @pos{7} addr1__2 = std_reg(16);
+    @pos{8} addr2__2 = std_reg(16);
+    @pos{9} op__2 = std_reg(8);
+    @pos{10} addr0_slicer__2 = std_bit_slice(56, 0, 15, 16);
+    @pos{11} addr1_slicer__2 = std_bit_slice(56, 16, 31, 16);
+    @pos{12} addr2_slicer__2 = std_bit_slice(56, 32, 47, 16);
+    @pos{13} op_slicer__2 = std_bit_slice(56, 48, 55, 8);
+    @pos{14} add_15 = std_add(32);
+    @pos{15} v1__2 = std_reg(32);
+    @pos{16} v2__2 = std_reg(32);
+    @pos{17} result_2 = std_reg(32);
+    @pos{21} add_16 = std_add(32);
+    @pos{22} sub_17 = std_sub(32);
+    @pos{23} mult_pipe_18 = std_mult_pipe(32);
+    @pos{26} op__2_out_eq_2_19 = std_eq(8);
+    @pos{26} op__2_out_eq_1_20 = std_eq(8);
+    @pos{26} op__2_out_eq_0_21 = std_eq(8);
+    @pos{4} lane_3_memory = seq_mem_d1(32, 50, 16);
+    @pos{5} lane_3_instruction = seq_mem_d1(56, 16, 32);
+    @pos{6} addr0__3 = std_reg(16);
+    @pos{7} addr1__3 = std_reg(16);
+    @pos{8} addr2__3 = std_reg(16);
+    @pos{9} op__3 = std_reg(8);
+    @pos{10} addr0_slicer__3 = std_bit_slice(56, 0, 15, 16);
+    @pos{11} addr1_slicer__3 = std_bit_slice(56, 16, 31, 16);
+    @pos{12} addr2_slicer__3 = std_bit_slice(56, 32, 47, 16);
+    @pos{13} op_slicer__3 = std_bit_slice(56, 48, 55, 8);
+    @pos{14} add_22 = std_add(32);
+    @pos{15} v1__3 = std_reg(32);
+    @pos{16} v2__3 = std_reg(32);
+    @pos{17} result_3 = std_reg(32);
+    @pos{21} add_23 = std_add(32);
+    @pos{22} sub_24 = std_sub(32);
+    @pos{23} mult_pipe_25 = std_mult_pipe(32);
+    @pos{26} op__3_out_eq_2_26 = std_eq(8);
+    @pos{26} op__3_out_eq_1_27 = std_eq(8);
+    @pos{26} op__3_out_eq_0_28 = std_eq(8);
+    @pos{27} instruction_pointer_incr_4_29 = std_add(32);
+    @pos{29} lt_30 = std_lt(32);
+  }
+  wires {
+    group decode__0<"pos"={18}> {
+      addr0_slicer__0.in = lane_0_instruction.read_data;
+      addr1_slicer__0.in = lane_0_instruction.read_data;
+      addr2_slicer__0.in = lane_0_instruction.read_data;
+      op_slicer__0.in = lane_0_instruction.read_data;
+      add_1.left = instruction_pointer.out;
+      add_1.right = 32'd0;
+      lane_0_instruction.addr0 = add_1.out;
+      lane_0_instruction.content_en = 1'd1;
+      addr0__0.in = addr0_slicer__0.out;
+      addr1__0.in = addr1_slicer__0.out;
+      addr2__0.in = addr2_slicer__0.out;
+      addr0__0.write_en = lane_0_instruction.done;
+      addr1__0.write_en = lane_0_instruction.done;
+      addr2__0.write_en = lane_0_instruction.done;
+      op__0.in = op_slicer__0.out;
+      op__0.write_en = lane_0_instruction.done;
+      decode__0[done] = op__0.done;
+    }
+    group read_addr0__0<"pos"={19}> {
+      lane_0_memory.addr0 = addr0__0.out;
+      lane_0_memory.content_en = 1'd1;
+      v1__0.write_en = lane_0_memory.done ? 1'd1;
+      v1__0.in = lane_0_memory.done ? lane_0_memory.read_data;
+      read_addr0__0[done] = v1__0.done;
+    }
+    group read_addr1__0<"pos"={20}> {
+      lane_0_memory.addr0 = addr1__0.out;
+      lane_0_memory.content_en = 1'd1;
+      v2__0.write_en = lane_0_memory.done ? 1'd1;
+      v2__0.in = lane_0_memory.done ? lane_0_memory.read_data;
+      read_addr1__0[done] = v2__0.done;
+    }
+    group add_2_group<"pos"={21}> {
+      add_2.left = v1__0.out;
+      add_2.right = v2__0.out;
+      result_0.write_en = 1'd1;
+      result_0.in = add_2.out;
+      add_2_group[done] = result_0.done;
+    }
+    group sub_3_group<"pos"={22}> {
+      sub_3.left = v1__0.out;
+      sub_3.right = v2__0.out;
+      result_0.write_en = 1'd1;
+      result_0.in = sub_3.out;
+      sub_3_group[done] = result_0.done;
+    }
+    group mult_pipe_4_group<"pos"={23}> {
+      mult_pipe_4.left = v1__0.out;
+      mult_pipe_4.right = v2__0.out;
+      mult_pipe_4.go = 1'd1;
+      result_0.write_en = mult_pipe_4.done ? 1'd1;
+      result_0.in = mult_pipe_4.done ? mult_pipe_4.out;
+      mult_pipe_4_group[done] = result_0.done;
+    }
+    group write_res_0<"pos"={24}> {
+      lane_0_memory.addr0 = addr2__0.out;
+      lane_0_memory.write_en = 1'd1;
+      lane_0_memory.write_data = result_0.out;
+      write_res_0[done] = lane_0_memory.done;
+      lane_0_memory.content_en = 1'd1;
+    }
+    op__0_out_eq_2_5.left = op__0.out;
+    op__0_out_eq_2_5.right = 8'd2;
+    op__0_out_eq_1_6.left = op__0.out;
+    op__0_out_eq_1_6.right = 8'd1;
+    op__0_out_eq_0_7.left = op__0.out;
+    op__0_out_eq_0_7.right = 8'd0;
+    group decode__1<"pos"={18}> {
+      addr0_slicer__1.in = lane_1_instruction.read_data;
+      addr1_slicer__1.in = lane_1_instruction.read_data;
+      addr2_slicer__1.in = lane_1_instruction.read_data;
+      op_slicer__1.in = lane_1_instruction.read_data;
+      add_8.left = instruction_pointer.out;
+      add_8.right = 32'd1;
+      lane_1_instruction.addr0 = add_8.out;
+      lane_1_instruction.content_en = 1'd1;
+      addr0__1.in = addr0_slicer__1.out;
+      addr1__1.in = addr1_slicer__1.out;
+      addr2__1.in = addr2_slicer__1.out;
+      addr0__1.write_en = lane_1_instruction.done;
+      addr1__1.write_en = lane_1_instruction.done;
+      addr2__1.write_en = lane_1_instruction.done;
+      op__1.in = op_slicer__1.out;
+      op__1.write_en = lane_1_instruction.done;
+      decode__1[done] = op__1.done;
+    }
+    group read_addr0__1<"pos"={19}> {
+      lane_1_memory.addr0 = addr0__1.out;
+      lane_1_memory.content_en = 1'd1;
+      v1__1.write_en = lane_1_memory.done ? 1'd1;
+      v1__1.in = lane_1_memory.done ? lane_1_memory.read_data;
+      read_addr0__1[done] = v1__1.done;
+    }
+    group read_addr1__1<"pos"={20}> {
+      lane_1_memory.addr0 = addr1__1.out;
+      lane_1_memory.content_en = 1'd1;
+      v2__1.write_en = lane_1_memory.done ? 1'd1;
+      v2__1.in = lane_1_memory.done ? lane_1_memory.read_data;
+      read_addr1__1[done] = v2__1.done;
+    }
+    group add_9_group<"pos"={21}> {
+      add_9.left = v1__1.out;
+      add_9.right = v2__1.out;
+      result_1.write_en = 1'd1;
+      result_1.in = add_9.out;
+      add_9_group[done] = result_1.done;
+    }
+    group sub_10_group<"pos"={22}> {
+      sub_10.left = v1__1.out;
+      sub_10.right = v2__1.out;
+      result_1.write_en = 1'd1;
+      result_1.in = sub_10.out;
+      sub_10_group[done] = result_1.done;
+    }
+    group mult_pipe_11_group<"pos"={23}> {
+      mult_pipe_11.left = v1__1.out;
+      mult_pipe_11.right = v2__1.out;
+      mult_pipe_11.go = 1'd1;
+      result_1.write_en = mult_pipe_11.done ? 1'd1;
+      result_1.in = mult_pipe_11.done ? mult_pipe_11.out;
+      mult_pipe_11_group[done] = result_1.done;
+    }
+    group write_res_1<"pos"={24}> {
+      lane_1_memory.addr0 = addr2__1.out;
+      lane_1_memory.write_en = 1'd1;
+      lane_1_memory.write_data = result_1.out;
+      write_res_1[done] = lane_1_memory.done;
+      lane_1_memory.content_en = 1'd1;
+    }
+    op__1_out_eq_2_12.left = op__1.out;
+    op__1_out_eq_2_12.right = 8'd2;
+    op__1_out_eq_1_13.left = op__1.out;
+    op__1_out_eq_1_13.right = 8'd1;
+    op__1_out_eq_0_14.left = op__1.out;
+    op__1_out_eq_0_14.right = 8'd0;
+    group decode__2<"pos"={18}> {
+      addr0_slicer__2.in = lane_2_instruction.read_data;
+      addr1_slicer__2.in = lane_2_instruction.read_data;
+      addr2_slicer__2.in = lane_2_instruction.read_data;
+      op_slicer__2.in = lane_2_instruction.read_data;
+      add_15.left = instruction_pointer.out;
+      add_15.right = 32'd2;
+      lane_2_instruction.addr0 = add_15.out;
+      lane_2_instruction.content_en = 1'd1;
+      addr0__2.in = addr0_slicer__2.out;
+      addr1__2.in = addr1_slicer__2.out;
+      addr2__2.in = addr2_slicer__2.out;
+      addr0__2.write_en = lane_2_instruction.done;
+      addr1__2.write_en = lane_2_instruction.done;
+      addr2__2.write_en = lane_2_instruction.done;
+      op__2.in = op_slicer__2.out;
+      op__2.write_en = lane_2_instruction.done;
+      decode__2[done] = op__2.done;
+    }
+    group read_addr0__2<"pos"={19}> {
+      lane_2_memory.addr0 = addr0__2.out;
+      lane_2_memory.content_en = 1'd1;
+      v1__2.write_en = lane_2_memory.done ? 1'd1;
+      v1__2.in = lane_2_memory.done ? lane_2_memory.read_data;
+      read_addr0__2[done] = v1__2.done;
+    }
+    group read_addr1__2<"pos"={20}> {
+      lane_2_memory.addr0 = addr1__2.out;
+      lane_2_memory.content_en = 1'd1;
+      v2__2.write_en = lane_2_memory.done ? 1'd1;
+      v2__2.in = lane_2_memory.done ? lane_2_memory.read_data;
+      read_addr1__2[done] = v2__2.done;
+    }
+    group add_16_group<"pos"={21}> {
+      add_16.left = v1__2.out;
+      add_16.right = v2__2.out;
+      result_2.write_en = 1'd1;
+      result_2.in = add_16.out;
+      add_16_group[done] = result_2.done;
+    }
+    group sub_17_group<"pos"={22}> {
+      sub_17.left = v1__2.out;
+      sub_17.right = v2__2.out;
+      result_2.write_en = 1'd1;
+      result_2.in = sub_17.out;
+      sub_17_group[done] = result_2.done;
+    }
+    group mult_pipe_18_group<"pos"={23}> {
+      mult_pipe_18.left = v1__2.out;
+      mult_pipe_18.right = v2__2.out;
+      mult_pipe_18.go = 1'd1;
+      result_2.write_en = mult_pipe_18.done ? 1'd1;
+      result_2.in = mult_pipe_18.done ? mult_pipe_18.out;
+      mult_pipe_18_group[done] = result_2.done;
+    }
+    group write_res_2<"pos"={24}> {
+      lane_2_memory.addr0 = addr2__2.out;
+      lane_2_memory.write_en = 1'd1;
+      lane_2_memory.write_data = result_2.out;
+      write_res_2[done] = lane_2_memory.done;
+      lane_2_memory.content_en = 1'd1;
+    }
+    op__2_out_eq_2_19.left = op__2.out;
+    op__2_out_eq_2_19.right = 8'd2;
+    op__2_out_eq_1_20.left = op__2.out;
+    op__2_out_eq_1_20.right = 8'd1;
+    op__2_out_eq_0_21.left = op__2.out;
+    op__2_out_eq_0_21.right = 8'd0;
+    group decode__3<"pos"={18}> {
+      addr0_slicer__3.in = lane_3_instruction.read_data;
+      addr1_slicer__3.in = lane_3_instruction.read_data;
+      addr2_slicer__3.in = lane_3_instruction.read_data;
+      op_slicer__3.in = lane_3_instruction.read_data;
+      add_22.left = instruction_pointer.out;
+      add_22.right = 32'd3;
+      lane_3_instruction.addr0 = add_22.out;
+      lane_3_instruction.content_en = 1'd1;
+      addr0__3.in = addr0_slicer__3.out;
+      addr1__3.in = addr1_slicer__3.out;
+      addr2__3.in = addr2_slicer__3.out;
+      addr0__3.write_en = lane_3_instruction.done;
+      addr1__3.write_en = lane_3_instruction.done;
+      addr2__3.write_en = lane_3_instruction.done;
+      op__3.in = op_slicer__3.out;
+      op__3.write_en = lane_3_instruction.done;
+      decode__3[done] = op__3.done;
+    }
+    group read_addr0__3<"pos"={19}> {
+      lane_3_memory.addr0 = addr0__3.out;
+      lane_3_memory.content_en = 1'd1;
+      v1__3.write_en = lane_3_memory.done ? 1'd1;
+      v1__3.in = lane_3_memory.done ? lane_3_memory.read_data;
+      read_addr0__3[done] = v1__3.done;
+    }
+    group read_addr1__3<"pos"={20}> {
+      lane_3_memory.addr0 = addr1__3.out;
+      lane_3_memory.content_en = 1'd1;
+      v2__3.write_en = lane_3_memory.done ? 1'd1;
+      v2__3.in = lane_3_memory.done ? lane_3_memory.read_data;
+      read_addr1__3[done] = v2__3.done;
+    }
+    group add_23_group<"pos"={21}> {
+      add_23.left = v1__3.out;
+      add_23.right = v2__3.out;
+      result_3.write_en = 1'd1;
+      result_3.in = add_23.out;
+      add_23_group[done] = result_3.done;
+    }
+    group sub_24_group<"pos"={22}> {
+      sub_24.left = v1__3.out;
+      sub_24.right = v2__3.out;
+      result_3.write_en = 1'd1;
+      result_3.in = sub_24.out;
+      sub_24_group[done] = result_3.done;
+    }
+    group mult_pipe_25_group<"pos"={23}> {
+      mult_pipe_25.left = v1__3.out;
+      mult_pipe_25.right = v2__3.out;
+      mult_pipe_25.go = 1'd1;
+      result_3.write_en = mult_pipe_25.done ? 1'd1;
+      result_3.in = mult_pipe_25.done ? mult_pipe_25.out;
+      mult_pipe_25_group[done] = result_3.done;
+    }
+    group write_res_3<"pos"={24}> {
+      lane_3_memory.addr0 = addr2__3.out;
+      lane_3_memory.write_en = 1'd1;
+      lane_3_memory.write_data = result_3.out;
+      write_res_3[done] = lane_3_memory.done;
+      lane_3_memory.content_en = 1'd1;
+    }
+    op__3_out_eq_2_26.left = op__3.out;
+    op__3_out_eq_2_26.right = 8'd2;
+    op__3_out_eq_1_27.left = op__3.out;
+    op__3_out_eq_1_27.right = 8'd1;
+    op__3_out_eq_0_28.left = op__3.out;
+    op__3_out_eq_0_28.right = 8'd0;
+    group instruction_pointer_incr_4_29_group<"pos"={27}> {
+      instruction_pointer_incr_4_29.left = instruction_pointer.out;
+      instruction_pointer_incr_4_29.right = 32'd4;
+      instruction_pointer.write_en = 1'd1;
+      instruction_pointer.in = instruction_pointer_incr_4_29.out;
+      instruction_pointer_incr_4_29_group[done] = instruction_pointer.done;
+    }
+    comb group lt_30_group {
+      lt_30.left = instruction_pointer.out;
+      lt_30.right = 32'd16;
+    }
+  }
+  control {
+    @pos{30} while lt_30.out with lt_30_group {
+      @pos{30} seq {
+        @pos{28} par {
+          @pos{28} seq {
+            @pos{28} decode__0;
+            @pos{28} read_addr0__0;
+            @pos{28} read_addr1__0;
+            @pos{26} if op__0_out_eq_0_7.out {
+              @pos{25} mult_pipe_4_group;
+            } else {
+              @pos{26} if op__0_out_eq_1_6.out {
+                @pos{25} add_2_group;
+              } else {
+                @pos{26} if op__0_out_eq_2_5.out {
+                  @pos{25} sub_3_group;
+                }
+              }
+            }
+            @pos{28} write_res_0;
+          }
+          @pos{28} seq {
+            @pos{28} decode__1;
+            @pos{28} read_addr0__1;
+            @pos{28} read_addr1__1;
+            @pos{26} if op__1_out_eq_0_14.out {
+              @pos{25} mult_pipe_11_group;
+            } else {
+              @pos{26} if op__1_out_eq_1_13.out {
+                @pos{25} add_9_group;
+              } else {
+                @pos{26} if op__1_out_eq_2_12.out {
+                  @pos{25} sub_10_group;
+                }
+              }
+            }
+            @pos{28} write_res_1;
+          }
+          @pos{28} seq {
+            @pos{28} decode__2;
+            @pos{28} read_addr0__2;
+            @pos{28} read_addr1__2;
+            @pos{26} if op__2_out_eq_0_21.out {
+              @pos{25} mult_pipe_18_group;
+            } else {
+              @pos{26} if op__2_out_eq_1_20.out {
+                @pos{25} add_16_group;
+              } else {
+                @pos{26} if op__2_out_eq_2_19.out {
+                  @pos{25} sub_17_group;
+                }
+              }
+            }
+            @pos{28} write_res_2;
+          }
+          @pos{28} seq {
+            @pos{28} decode__3;
+            @pos{28} read_addr0__3;
+            @pos{28} read_addr1__3;
+            @pos{26} if op__3_out_eq_0_28.out {
+              @pos{25} mult_pipe_25_group;
+            } else {
+              @pos{26} if op__3_out_eq_1_27.out {
+                @pos{25} add_23_group;
+              } else {
+                @pos{26} if op__3_out_eq_2_26.out {
+                  @pos{25} sub_24_group;
+                }
+              }
+            }
+            @pos{28} write_res_3;
+          }
+        }
+        @pos{30} instruction_pointer_incr_4_29_group;
+      }
+    }
+  }
+}
+
+sourceinfo #{
+FILES
+  0: /Users/griffin/research/calyx/cider/generators/tiny_processor.py
+POSITIONS
+  0: 0 22
+  1: 0 23
+  2: 0 25
+  3: 0 29
+  4: 0 39
+  5: 0 42
+  6: 0 45
+  7: 0 46
+  8: 0 47
+  9: 0 48
+  10: 0 50
+  11: 0 53
+  12: 0 56
+  13: 0 59
+  14: 0 60
+  15: 0 62
+  16: 0 63
+  17: 0 64
+  18: 0 66
+  19: 0 89
+  20: 0 90
+  21: 0 91
+  22: 0 92
+  23: 0 93
+  24: 0 94
+  25: 0 105
+  26: 0 103
+  27: 0 123
+  28: 0 125
+  29: 0 132
+  30: 0 131
+}#

@@ -19,10 +19,7 @@ use crate::{
             utils::infer_thread_id,
         },
         structures::{
-            environment::{
-                MemoryMap, PortMap,
-                clock::{ClockMap, ReadSource},
-            },
+            environment::{MemoryMap, PortMap, clock::ClockMap},
             thread::{ThreadIdx, ThreadMap},
         },
     },
@@ -749,7 +746,12 @@ impl MemOut {
 
     fn get_value(&self, data: &MemoryMap, width: u32) -> PortValue {
         match self {
-            MemOut::Valid(addr) => PortValue::new_cell(data[*addr].clone()),
+            MemOut::Valid(addr) => {
+                let assigned_val =
+                    AssignedValue::cell_value(data[*addr].clone())
+                        .with_clocks_optional(data.get_clock(*addr));
+                assigned_val.into()
+            }
             MemOut::Zero => PortValue::new_cell(BitVecValue::zero(width)),
             MemOut::Undef => PortValue::new_undef(),
         }
@@ -1068,8 +1070,6 @@ impl RaceDetectionPrimitive for SeqMem {
             self.global_idx,
         )? {
             if addr < self.internal_state.size() {
-                let thread_clock =
-                    thread.map(|thread| thread_map.unwrap_clock_id(thread));
                 let addr_loc = self.internal_state.nth_entry(addr);
 
                 let clock = state_map.get_clock(addr_loc).unwrap();
@@ -1100,30 +1100,9 @@ impl RaceDetectionPrimitive for SeqMem {
                     .as_bool()
                     .unwrap_or_default()
                 {
-                    let (assignment_idx, cell) = port_map
-                        [self.content_enable()]
-                    .winner()
-                    .unwrap()
-                    .as_assign()
-                    .unwrap();
-                    clock
-                        .check_read_with_ascription(
-                            (
-                                thread.expect(
-                                    "unable to determine thread for seq mem",
-                                ),
-                                thread_clock.unwrap(),
-                            ),
-                            ReadSource::Assignment(assignment_idx),
-                            cell,
-                            clock_map,
-                        )
-                        .map_err(|e| {
-                            e.add_cell_info(
-                                self.global_idx,
-                                Some(addr.try_into().unwrap()),
-                            )
-                        })?;
+                    // we don't want to check the read here, since that makes
+                    // merely assigning the content_en constitute a read even if
+                    // the value is never used
                 }
             }
         }
