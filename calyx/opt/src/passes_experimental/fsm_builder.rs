@@ -23,6 +23,7 @@ impl ConstructVisitor for FSMBuilder {
     fn clear_data(&mut self) {}
 }
 
+// node that passes into this function is a part of the schedule
 impl StaticSchedule<'_, '_> {
     fn build_abstract(
         &mut self,
@@ -98,9 +99,21 @@ impl StaticSchedule<'_, '_> {
                     )
                 }
             }
-            ir::StaticControl::Seq(_sseq) => {
-                todo!()
-            }
+            ir::StaticControl::Seq(sseq) => (
+                sseq.stmts.iter().fold(
+                    transitions_to_curr,
+                    |transitions_to_this_stmt, stmt| {
+                        self.build_abstract(
+                            stmt,
+                            guard.clone(),
+                            transitions_to_this_stmt,
+                            looped_once_guard.clone(),
+                        )
+                        .0
+                    },
+                ),
+                None,
+            ),
             ir::StaticControl::Repeat(_srep) => {
                 todo!()
             }
