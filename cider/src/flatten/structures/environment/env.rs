@@ -1818,6 +1818,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             self.env.pc.vec_mut().sort_by_key(|x| x.component());
         }
 
+        // Execution has stalled so we run the appropriate policy action
         if !changed.as_bool() && !self.is_done() {
             self.policy
                 .decide_unpause(&mut self.env.pc)
