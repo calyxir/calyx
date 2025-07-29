@@ -90,9 +90,12 @@ impl InstaTest for Plan {
             .merge(("xilinx.vivado", "/test/xilinx/vivado"))
             .merge(("xilinx.vitis", "/test/xilinx/vitis"))
             .merge(("xilinx.xrt", "/test/xilinx/xrt"))
+            .merge(("yxi.file", "/test/yxi/file"))
             .merge(("dahlia", "/test/bin/dahlia"))
             .merge(("jq.expr", "."))
             .merge(("flamegraph.script", "/test/calyx/non-existent.script"))
+            .merge(("synth-verilog.hier", "/test/calyx/non-existent.json"))
+            .merge(("synth-verilog.var", "ff"))
             .merge(("c0", "v1"));
         let run = Run::with_config(driver, self, config);
         let mut buf = vec![];
@@ -194,6 +197,7 @@ fn request_with_planner(
         through: through.iter().map(|s| driver.get_op(s).unwrap()).collect(),
         workdir: ".".into(),
         planner: Box::new(planner),
+        timing_csv: None,
     }
 }
 

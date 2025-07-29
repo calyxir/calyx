@@ -31,9 +31,12 @@ fn read_path(path: &str) -> Result<PathBuf, String> {
 fn main() -> CalyxResult<()> {
     let p: Args = argh::from_env();
 
-    let ws = frontend::Workspace::construct(&p.file_path, &p.lib_path)?;
+    let ws = frontend::Workspace::construct(&p.file_path, &[p.lib_path])?;
 
-    let ctx: ir::Context = ir::from_ast::ast_to_ir(ws)?;
+    let ctx: ir::Context = ir::from_ast::ast_to_ir(
+        ws,
+        ir::from_ast::AstConversionConfig::default(),
+    )?;
 
     let main_comp = ctx.entrypoint();
 

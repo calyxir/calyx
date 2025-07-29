@@ -29,17 +29,10 @@ during each stage of the pipeline. This requires installing PrettyTable:
 
     pip3 install prettytable numpy
 
-## Fud Stage
+## fud2 Op
 
-The NTT pipeline defines an [external fud stage](../running-calyx/fud/external.md) to
-transform configuration files into Calyx programs.
-To install, run:
-
-```
-fud register ntt -p frontends/ntt-pipeline/fud/ntt.py && fud check
-```
-
-This should report the newly installed `ntt` stage in the configuration.
+fud2 comes with an op for generating NTT implementations built-in.
+Use `--from ntt`.
 
 ## Configuration Files
 

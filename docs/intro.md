@@ -105,41 +105,36 @@ tests.
 
 ## Installing the Command-Line Driver
 
-[The Calyx driver](./running-calyx/fud) wraps the various compiler frontends and
+[The Calyx driver](./running-calyx/fud2), called fud2, wraps the various compiler frontends and
 backends to simplify running Calyx programs.
 Start at the root of the repository.
 
-Install [Flit][]:
+Install fud2 using Cargo:
 
-```
-pip3 install flit
-```
+    cargo install --path fud2
 
-Install [`calyx-py`](builder/calyx-py.md):
+fud2 requires [Ninja][] and [uv][], so install those if you don't already have them.
+For example, use `brew install ninja uv` on macOS or `apt-get install ninja-build` followed by `curl -LsSf https://astral.sh/uv/install.sh | sh` on Debian/Ubuntu.
 
-```
-cd calyx-py && flit install -s && cd -
-```
+Configure fud2 by typing:
 
-Install `fud`:
+    fud2 edit-config
 
-```
-flit -f fud/pyproject.toml install -s --deps production
-```
+And put this in the resulting TOML file:
 
-Configure `fud`:
-
-```
-fud config --create global.root <full path to Calyx repository>
+```toml
+[calyx]
+base = "<path to Calyx repository>"
 ```
 
-Check the `fud` configuration:
+Finally, use this to set up fud2's Python environment:
 
-```
-fud check
-```
+    fud2 env init
 
-`fud` will report certain tools are not available. This is expected.
+You can read [more about setting up and using fud2][fud2] if you're curious.
+
+[ninja]: https://ninja-build.org/manual.html
+[uv]: https://docs.astral.sh/uv/
 
 ## Simulation
 
@@ -150,12 +145,6 @@ You'll want to set up at least one of these options so you can try out your code
 Icarus Verilog is an easy way to get started on most platforms.
 On a Mac, you can install it via [Homebrew][] by typing `brew install icarus-verilog`.
 On Ubuntu, [install from source][icarus-install-source].
-Then install the relevant [fud support][fud-icarus] by running:
-
-    fud register icarus-verilog -p fud/icarus/icarus.py
-
-Type `fud check` to make sure the new stage is working.
-Some missing tools are again expected; just pay attention to the report for `stages.icarus-verilog.exec`.
 
 It is worth saying a little about the alternatives.
 You could consider:
@@ -168,12 +157,12 @@ You could consider:
 You're all set to run a Calyx hardware design now. Run the following command:
 
 ```
-fud e examples/tutorial/language-tutorial-iterate.futil \
-  -s verilog.data examples/tutorial/data.json \
-  --to dat --through icarus-verilog -v
+fud2 examples/tutorial/language-tutorial-iterate.futil \
+  -s sim.data=examples/tutorial/data.json \
+  --to dat --through icarus
 ```
 
-(Change the last bit to `--through verilog` to use Verilator instead.)
+(Change the last bit to `--through verilator` to use Verilator instead.)
 
 This command will compile `examples/tutorial/language-tutorial-iterate.futil` to Verilog
 using the Calyx compiler, simulate the design using the data in `examples/tutorial/data.json`, and generate a JSON representation of the
@@ -185,8 +174,7 @@ Congratulations! You've simulated your first hardware design with Calyx.
 
 * [How can I setup syntax highlighting in my editor?](./tools/editor-highlighting.md)
 * [How does the language work?](./tutorial/language-tut.md)
-* [How do I install Calyx frontends?](./running-calyx/fud/index.html#dahlia-fronted)
-* [Where can I see further examples with `fud`?](./running-calyx/fud/examples.md)
+* [Where can I see further examples with `fud2`?](./running-calyx/fud2#general-use)
 * [How do I write a frontend for Calyx?](./tutorial/frontend-tut.md)
 
 [rust]: https://doc.rust-lang.org/cargo/getting-started/installation.html

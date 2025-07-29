@@ -152,7 +152,7 @@ class DynamicDict:
         if lastkey in data:
             del data[lastkey]
         else:
-            log.warn(f"`{'.'.join(keys)}' not found. Ignoring delete command.")
+            log.warning(f"`{'.'.join(keys)}' not found. Ignoring delete command.")
 
     def __contains__(self, keys):
         data = self.data
@@ -208,7 +208,7 @@ class Configuration:
         """Find the configuration file."""
         self.path = Path(appdirs.user_config_dir("fud"))
         if not self.path.parent.exists():
-            log.warn(f"{self.path.parent} doesn't exist. Creating it.")
+            log.warning(f"{self.path.parent} doesn't exist. Creating it.")
         self.path.mkdir(parents=True, exist_ok=True)
 
         self.config_file = self.path / "config.toml"
@@ -222,7 +222,7 @@ class Configuration:
         self.wizard_data = DynamicDict(WIZARD_DATA)
         self.fill_missing(DEFAULT_CONFIGURATION, self.config.data)
         if ("global", ROOT) not in self.config:
-            log.warn(f"global.{ROOT} is not set in the configuration")
+            log.warning(f"global.{ROOT} is not set in the configuration")
 
     def commit(self):
         """
@@ -327,7 +327,7 @@ class Configuration:
                 # Only delete the stage if it's marked as an external
                 del self[["externals", args.name]]
             else:
-                log.warn(
+                log.warning(
                     f"Ignoring delete command, no external script named `{args.name}'."
                 )
 

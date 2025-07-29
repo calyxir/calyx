@@ -84,3 +84,8 @@ frontends/queues/tests/**/*.expect
 *~
 
 !docs/dev/assets/*.png
+
+primitives/float/HardFloat-1
+primitives/float/HardFloat-1.zip
+
+.envrc

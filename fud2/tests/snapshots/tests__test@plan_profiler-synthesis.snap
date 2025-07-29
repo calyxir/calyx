@@ -1,0 +1,83 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: profiler-synthesis"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+calyx-base = /test/calyx
+calyx-exe = $calyx-base/target/debug/calyx
+calyx-lib-path = $calyx-base
+args = 
+rule calyx
+  command = $calyx-exe -l $calyx-lib-path -b $backend $args $in > $out
+rule calyx-pass
+  command = $calyx-exe -l $calyx-lib-path -p $pass $args $in > $out
+cider-calyx-passes = -p none
+rule calyx-cider
+  command = $calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out
+
+cells = cells.json
+fsm-json = fsm.json
+cell-share-json = shared-cells.json
+passes = -p pre-opt -p compile -p post-opt -p lower
+edsl-args = 
+component_cells = $calyx-base/target/debug/component_cells
+rule component-cells
+  command = $component_cells -l $calyx-base $in > $out
+flamegraph-script = /test/calyx/non-existent.script
+create-visuals-script = $calyx-base/tools/profiler/create-visuals.sh
+rule create-visuals
+  command = bash $create-visuals-script $flamegraph-script profiler-out $in $out
+build tb.sv: get-rsrc
+rule edsl-to-calyx
+  command = python3 $in $edsl-args > $out
+metadata-mapping-json = metadata-map.json
+fileinfo_emitter = $calyx-base/target/debug/fileinfo_emitter
+rule parse-metadata
+  command = $fileinfo_emitter -l $calyx-base $in > $metadata-mapping-json
+rule parse-vcd-from-adl
+  command = profiler $in $cells $fsm-json $cell-share-json profiler-out $out --adl-mapping-file $metadata-mapping-json --print-trace-threshold 100
+
+hierarchy = /test/calyx/non-existent.json
+variable = ff
+rule parse-vcd
+  command = profiler $in $cells $fsm-json $cell-share-json profiler-out $out --print-trace-threshold 100 --utilization-report-json $hierarchy --utilization-variable $variable
+
+verilator = verilator
+cycle-limit = 500000000
+rule verilator-compile-standalone-tb
+  command = $verilator $in tb.sv --trace --binary --top-module toplevel -fno-inline -Mdir $out-dir
+rule verilator-compile-custom-tb
+  command = $verilator $in tb.sv memories.sv --trace --binary --top-module toplevel -fno-inline -Mdir $out-dir
+rule cp
+  command = cp $in $out
+
+python = python3
+build json-dat.py: get-rsrc
+rule hex-data
+  command = $python json-dat.py --from-json $in $out
+rule json-data
+  command = $python json-dat.py --to-json $out $in
+sim_data = /test/data.json
+datadir = sim_data
+build $datadir: hex-data $sim_data | json-dat.py
+rule sim-run
+  command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out || (cat $out >&2 && false)
+cycle-limit = 500000000
+
+build $cells: component-cells /input.ext
+build instrumented.sv: calyx /input.ext
+  backend = verilog
+  args = -d group2seq -p validate -p compile-invoke -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json
+build verilator-out/Vtoplevel: verilator-compile-standalone-tb instrumented.sv | tb.sv
+  out-dir = verilator-out
+build instrumented.exe: cp verilator-out/Vtoplevel
+build sim.log instrumented.vcd: sim-run instrumented.exe $datadir
+  bin = instrumented.exe
+  args = +NOTRACE=0 +OUT=instrumented.vcd
+build flamegraph.folded: parse-vcd instrumented.vcd | $cells
+build /output.ext: create-visuals flamegraph.folded
+
+default /output.ext

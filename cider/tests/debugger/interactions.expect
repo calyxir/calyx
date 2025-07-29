@@ -1,0 +1,122 @@
+
+---STDERR---
+==== [1mCider[0m: The [4mC[0malyx [4mI[0mnterpreter and [4mDe[0mbugge[4mr[0m ====
+Warning: the control main: main. is already running. This breakpoint will not trigger until the next time the control runs.
+    Current breakpoints:
+    (0) main.   enabled
+    (1) main.-1   enabled
+    (2) main::store_a (main.-4-b-0-0)  enabled
+    (3) main::store_a (main.-1-0)  enabled
+    (4) main::store_b (main.-4-b-0-1)  enabled
+    (5) main::store_b (main.-1-1)  enabled
+    Current breakpoints:
+    (0) main.   enabled
+    (1) main.-1   enabled
+    (2) main::store_a (main.-4-b-0-0)  enabled
+    (3) main::store_a (main.-1-0)  enabled
+    (4) main::store_b (main.-4-b-0-1)  enabled
+    (5) main::store_b (main.-1-1)  enabled
+    (6) pipelined_mac::write_data_valid (pipelined_mac.-0)  enabled
+    (7) pipelined_mac.-1-0   enabled
+    (8) pipelined_mac.-1-1   enabled
+    (9) main.-2   enabled
+Hit breakpoint: main::store_a
+Hit breakpoint: main::store_b
+Hit breakpoint: main: main.-2
+Hit breakpoint: pipelined_mac::write_data_valid
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
+    Current breakpoints:
+    (0) main.   enabled
+    (1) main.-1   enabled
+    (2) main::store_a (main.-4-b-0-0)  disabled
+    (3) main::store_a (main.-1-0)  enabled
+    (4) main::store_b (main.-4-b-0-1)  disabled
+    (5) main::store_b (main.-1-1)  enabled
+    (6) pipelined_mac::write_data_valid (pipelined_mac.-0)  enabled
+    (7) pipelined_mac.-1-0   enabled
+    (8) pipelined_mac.-1-1   enabled
+    (9) main.-2   enabled
+    Current breakpoints:
+    (0) main.   enabled
+    (1) main.-1   enabled
+    (2) main::store_a (main.-4-b-0-0)  disabled
+    (3) main::store_a (main.-1-0)  enabled
+    (4) main::store_b (main.-4-b-0-1)  disabled
+    (5) main::store_b (main.-1-1)  enabled
+    (6) pipelined_mac::write_data_valid (pipelined_mac.-0)  disabled
+    (7) pipelined_mac.-1-0   enabled
+    (8) pipelined_mac.-1-1   enabled
+    (9) main.-2   enabled
+    Current watchpoints:
+      After store_a:
+         (0): print-state \u main.read_a enabled
+      After store_b:
+         (1): print-state \u main.read_b enabled
+main.read_a: 0
+
+main.read_b: 0
+
+Hit breakpoint: main: main.-4-b-1
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
+main.read_a: 0
+
+main.read_b: 0
+
+Hit breakpoint: main: main.-4-b-1
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
+main.read_a: 0
+
+main.read_b: 0
+
+Hit breakpoint: main: main.-4-b-1
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
+main.read_a: 0
+
+main.read_b: 0
+
+Hit breakpoint: main: main.-4-b-1
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
+main.read_a: 0
+
+main.read_b: 0
+
+Hit breakpoint: main: main.-4-b-1
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
+main.read_a: 0
+
+main.read_b: 0
+
+Hit breakpoint: main: main.-4-b-1
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
+main.read_a: 0
+
+main.read_b: 0
+
+Hit breakpoint: main: main.-4-b-1
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
+main.read_a: 0
+
+main.read_b: 0
+
+Hit breakpoint: main: main.-4-b-1
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
+main.read_a: 0
+
+main.read_b: 0
+
+Hit breakpoint: main: main.-4-b-1
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
+Main component has finished executing. Debugger is now in inspection mode.
+Exiting.

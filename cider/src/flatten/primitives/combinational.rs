@@ -1,10 +1,13 @@
 use crate::flatten::{
-    flat_ir::prelude::{AssignedValue, GlobalPortIdx, PortValue},
+    flat_ir::{
+        indexes::MemoryLocation,
+        prelude::{AssignedValue, GlobalPortIdx, PortValue},
+    },
     primitives::{
         Primitive, all_defined, comb_primitive, declare_ports, ports,
         prim_trait::UpdateStatus, utils::floored_division,
     },
-    structures::environment::PortMap,
+    structures::environment::{MemoryMap, PortMap},
 };
 
 use baa::{BitVecOps, BitVecValue};
@@ -14,21 +17,33 @@ use super::prim_trait::UpdateResult;
 
 #[derive(Clone)]
 pub struct StdConst {
-    value: BitVecValue,
+    value: MemoryLocation,
     out: GlobalPortIdx,
 }
 
 impl StdConst {
-    pub fn new(value: BitVecValue, out: GlobalPortIdx) -> Self {
-        Self { value, out }
+    pub fn new(
+        value: BitVecValue,
+        out: GlobalPortIdx,
+        state_map: &mut MemoryMap,
+    ) -> Self {
+        Self {
+            value: state_map.push_clockless(value),
+            out,
+        }
     }
 }
 
 impl Primitive for StdConst {
-    fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
+    fn exec_comb(
+        &self,
+        port_map: &mut PortMap,
+        state_map: &MemoryMap,
+    ) -> UpdateResult {
         Ok(if port_map[self.out].is_undef() {
             // A constant cannot meaningfully be said to belong to a given thread
-            port_map[self.out] = PortValue::new_cell(self.value.clone());
+            port_map[self.out] =
+                PortValue::new_cell(state_map[self.value].clone());
             UpdateStatus::Changed
         } else {
             UpdateStatus::Unchanged
@@ -65,7 +80,7 @@ impl StdMux {
 }
 
 impl Primitive for StdMux {
-    fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
+    fn exec_comb(&self, port_map: &mut PortMap, _: &MemoryMap) -> UpdateResult {
         ports![&self.base_port; cond: Self::COND, tru: Self::TRU, fal: Self::FAL, out: Self::OUT];
 
         let winning_idx =
@@ -300,7 +315,7 @@ impl StdUndef {
 }
 
 impl Primitive for StdUndef {
-    fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
+    fn exec_comb(&self, port_map: &mut PortMap, _: &MemoryMap) -> UpdateResult {
         port_map.write_undef(self.0)?;
         Ok(UpdateStatus::Unchanged)
     }

@@ -1,6 +1,10 @@
-use crate::config;
-use crate::exec::{Driver, OpRef, Plan, SetupRef, StateRef};
+use crate::uninterrupt::Uninterrupt;
 use crate::utils::relative_path;
+use crate::{config, log_parser};
+use crate::{
+    exec::{Driver, OpRef, Plan, SetupRef, StateRef},
+    log_parser::LogParseError,
+};
 use camino::{Utf8Path, Utf8PathBuf};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
@@ -29,6 +33,15 @@ pub enum RunError {
     /// The Rhai emitter ran into an error. Probably should just reconfigure so
     /// that the emitter just returns the actual error type
     RhaiError(String),
+
+    /// Errors from the timing extraction
+    TimingLog(LogParseError),
+}
+
+impl From<LogParseError> for RunError {
+    fn from(v: LogParseError) -> Self {
+        Self::TimingLog(v)
+    }
 }
 
 impl From<Box<rhai::EvalAltResult>> for RunError {
@@ -73,6 +86,9 @@ impl std::fmt::Display for RunError {
             }
             RunError::RhaiError(eval_alt_result) => {
                 write!(f, "{}", eval_alt_result)
+            }
+            RunError::TimingLog(log_parse_error) => {
+                write!(f, "{log_parse_error}")
             }
         }
     }
@@ -362,6 +378,7 @@ impl<'a> Run<'a> {
         dir: &Utf8Path,
         print_cmds: bool,
         quiet_mode: bool,
+        csv_file: Option<&Utf8Path>,
     ) -> EmitResult {
         // Emit the Ninja file.
         let dir = self.emit_to_dir(dir)?;
@@ -403,7 +420,10 @@ impl<'a> Run<'a> {
         } else {
             cmd.stdout(std::process::Stdio::null());
         }
-        let status = cmd.status().map_err(ninja_cmd_io_error)?;
+        let status = {
+            let _unint = Uninterrupt::suppress(); // Suppress SIGINT during Ninja execution.
+            cmd.status().map_err(ninja_cmd_io_error)?
+        };
 
         // Emit to stdout, only when Ninja succeeded.
         if status.success() {
@@ -432,6 +452,11 @@ impl<'a> Run<'a> {
                     &mut std::io::stdout(),
                 )?;
             }
+
+            if let Some(csv_file) = csv_file {
+                log_parser::generate_timing_csv(&dir.path, csv_file)?;
+            }
+
             Ok(())
         } else {
             Err(RunError::NinjaFailed(status))

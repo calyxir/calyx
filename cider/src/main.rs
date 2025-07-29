@@ -4,10 +4,10 @@ use argh::FromArgs;
 
 use calyx_utils::OutputFile;
 use cider::{
-    configuration,
+    configuration::{self, ColorConfig},
     debugger::{Debugger, DebuggerInfo, DebuggerReturnStatus},
     errors::CiderResult,
-    flatten::structures::environment::Simulator,
+    flatten::structures::{context::Context, environment::Simulator},
 };
 
 use std::{
@@ -16,6 +16,7 @@ use std::{
 };
 
 #[derive(FromArgs)]
+#[argh(help_triggers("-h", "--help"))]
 /// The Calyx Interpreter
 pub struct Opts {
     /// input file
@@ -80,9 +81,14 @@ pub struct Opts {
     #[argh(switch, long = "check-data-race")]
     check_data_race: bool,
 
-    /// force color output
-    #[argh(switch, long = "force-color")]
-    force_color: bool,
+    /// configure color output (on | off | auto). default = on
+    #[argh(option, long = "force-color", default = "ColorConfig::On")]
+    color_conf: ColorConfig,
+
+    /// entangle memories with the given name. This option should only be used
+    /// if you know what you are doing and as a result is hidden from the help output.
+    #[argh(option, hidden_help, long = "entangle")]
+    entangle: Vec<String>,
 
     #[argh(subcommand)]
     mode: Option<Command>,
@@ -121,15 +127,26 @@ fn main() -> CiderResult<()> {
         .allow_invalid_memory_access(opts.allow_invalid_memory_access)
         .error_on_overflow(opts.error_on_overflow)
         .undef_guard_check(opts.undef_guard_check)
+        .color_config(opts.color_conf)
         .build();
 
-    runtime_config.set_force_color(opts.force_color);
-
     let command = opts.mode.unwrap_or(Command::Interpret(CommandInterpret {}));
+
+    if !opts.entangle.is_empty() {
+        let logger = cider::logging::initialize_logger(
+            runtime_config.get_logging_config(),
+        );
+        cider::logging::warn!(
+            logger,
+            "Memory entanglement has been enabled. This is an experimental feature and should only be used if you know what you are doing"
+        );
+    }
+
     let i_ctx = cider::flatten::setup_simulation(
         &opts.file,
         &opts.lib_path,
         opts.skip_verification,
+        &opts.entangle,
     )?;
 
     match &command {
@@ -150,7 +167,7 @@ fn main() -> CiderResult<()> {
             Ok(())
         }
         Command::Debug(_) => {
-            let mut info: Option<DebuggerInfo> = None;
+            let mut info: Option<DebuggerInfo<&Context>> = None;
             loop {
                 let debugger = Debugger::new(
                     &i_ctx,

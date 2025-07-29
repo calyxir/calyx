@@ -13,10 +13,14 @@ fn do_setup(
     lib_path: &Path,
     skip_verification: bool,
     gen_metadata: bool,
+    entangled_mems: &[String],
 ) -> CiderResult<(Context, CiderResult<NewSourceMap>)> {
     // Construct IR
-    let ws = frontend::Workspace::construct(file, lib_path)?;
-    let mut ctx = ir::from_ast::ast_to_ir(ws)?;
+    let ws = frontend::Workspace::construct(file, &[lib_path.to_path_buf()])?;
+    let mut ctx = ir::from_ast::ast_to_ir(
+        ws,
+        ir::from_ast::AstConversionConfig::default(),
+    )?;
     let pm = PassManager::default_passes()?;
 
     if !skip_verification {
@@ -43,8 +47,13 @@ fn do_setup(
         Err(crate::errors::CiderError::MissingMetaData.into())
     };
 
+    let mut ctx = crate::flatten::flat_ir::translate(&ctx);
+    if !entangled_mems.is_empty() {
+        ctx.entangle_memories(entangled_mems)?;
+    }
+
     // general setup
-    Ok((crate::flatten::flat_ir::translate(&ctx), mapping))
+    Ok((ctx, mapping))
 }
 
 /// This function sets up the simulation context for the given program. This is
@@ -54,8 +63,10 @@ pub fn setup_simulation(
     file: &Option<PathBuf>,
     lib_path: &Path,
     skip_verification: bool,
+    entangled_mems: &[String],
 ) -> CiderResult<Context> {
-    let (ctx, _) = do_setup(file, lib_path, skip_verification, false)?;
+    let (ctx, _) =
+        do_setup(file, lib_path, skip_verification, false, entangled_mems)?;
     Ok(ctx)
 }
 
@@ -69,6 +80,7 @@ pub fn setup_simulation_with_metadata(
     lib_path: &Path,
     skip_verification: bool,
 ) -> CiderResult<(Context, NewSourceMap)> {
-    let (ctx, mapping) = do_setup(file, lib_path, skip_verification, true)?;
+    let (ctx, mapping) =
+        do_setup(file, lib_path, skip_verification, true, &[])?;
     Ok((ctx, mapping?))
 }

@@ -1,0 +1,44 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: verilog-to-xo"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+calyx-base = /test/calyx
+calyx-exe = $calyx-base/target/debug/calyx
+calyx-lib-path = $calyx-base
+args = 
+rule calyx
+  command = $calyx-exe -l $calyx-lib-path -b $backend $args $in > $out
+rule calyx-pass
+  command = $calyx-exe -l $calyx-lib-path -p $pass $args $in > $out
+cider-calyx-passes = -p none
+rule calyx-cider
+  command = $calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out
+
+vivado-dir = /test/xilinx/vivado
+vitis-dir = /test/xilinx/vitis
+build gen_xo.tcl: get-rsrc
+build get-ports.py: get-rsrc
+python = python3
+rule copy
+  command = cp $in $out
+rule gen-xo
+  command = $vivado-dir/bin/vivado -mode batch -source gen_xo.tcl -tclargs $out `$python get-ports.py kernel.xml`
+  pool = console
+xilinx-mode = hw_emu
+platform = xilinx_u50_gen3x16_xdma_201920_3
+rule compile-xclbin
+  command = $vitis-dir/bin/v++ -g -t $xilinx-mode --platform $platform --save-temps --profile.data all:all:all --profile.exec all:all:all -lo $out $in
+  pool = console
+xml-generator = $calyx-base/yxi/xml/xml_generator.py
+rule gen-kernel-xml
+  command = $python $xml-generator $in > $out
+
+build kernel.xml: gen-kernel-xml /test/yxi/file | $xml-generator
+build input.ext: copy /input.ext
+build /output.ext: gen-xo | input.ext /test/yxi/file gen_xo.tcl get-ports.py kernel.xml
+
+default /output.ext

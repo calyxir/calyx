@@ -66,8 +66,11 @@ fn main() -> CalyxResult<()> {
     let fp_data = p.fp_data;
     let rand_data = p.random_data;
 
-    let ws = frontend::Workspace::construct(&p.file_path, &p.lib_path)?;
-    let ctx: ir::Context = ir::from_ast::ast_to_ir(ws)?;
+    let ws = frontend::Workspace::construct(&p.file_path, &[p.lib_path])?;
+    let ctx: ir::Context = ir::from_ast::ast_to_ir(
+        ws,
+        ir::from_ast::AstConversionConfig::default(),
+    )?;
     let top = ctx.entrypoint();
     let data_vec = top.get_mem_info();
 

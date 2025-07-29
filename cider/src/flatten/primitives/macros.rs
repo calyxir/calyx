@@ -123,6 +123,7 @@ macro_rules! comb_primitive {
             fn exec_comb(
                 &self,
                 port_map: &mut $crate::flatten::structures::environment::PortMap,
+                _state_map: &$crate::flatten::structures::environment::MemoryMap,
             ) -> $crate::flatten::primitives::prim_trait::UpdateResult {
 
                 $crate::flatten::primitives::macros::ports![&self.base_port;

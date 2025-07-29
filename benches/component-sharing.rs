@@ -5,7 +5,7 @@ use calyx_opt::traversal::Visitor;
 use criterion::{
     BatchSize, BenchmarkId, Criterion, criterion_group, criterion_main,
 };
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 fn cell_share_bench(c: &mut Criterion) {
     let mut gemm_group = c.benchmark_group("gemm");
@@ -19,15 +19,19 @@ fn cell_share_bench(c: &mut Criterion) {
                         let name =
                             format!("benches/component-sharing/{}.futil", name);
                         let bench = Path::new(&name);
-                        let lib = Path::new(".");
+                        let lib = [PathBuf::from(".")];
 
                         let ws = frontend::Workspace::construct(
                             &Some(bench.into()),
-                            lib,
+                            &lib,
                         )
                         .unwrap();
 
-                        let mut rep = ir::from_ast::ast_to_ir(ws).unwrap();
+                        let mut rep = ir::from_ast::ast_to_ir(
+                            ws,
+                            ir::from_ast::AstConversionConfig::default(),
+                        )
+                        .unwrap();
 
                         passes::SimplifyWithControl::do_pass_default(&mut rep)
                             .unwrap();

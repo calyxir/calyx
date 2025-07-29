@@ -9,8 +9,8 @@ use crate::passes::{
     ProfilerInstrumentation, RemoveIds, ResetInsertion, SimplifyStaticGuards,
     SimplifyWithControl, StaticFSMAllocation, StaticFSMOpts, StaticInference,
     StaticInliner, StaticPromotion, StaticRepeatFSMAllocation,
-    SynthesisPapercut, TopDownCompileControl, UnrollBounded, WellFormed,
-    WireInliner, WrapMain,
+    SynthesisPapercut, TopDownCompileControl, UniquefyEnables, UnrollBounded,
+    WellFormed, WireInliner, WrapMain,
 };
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
@@ -85,6 +85,7 @@ impl PassManager {
 
         // instrumentation pass to collect profiling information
         pm.register_pass::<ProfilerInstrumentation>()?;
+        pm.register_pass::<UniquefyEnables>()?;
 
         //add metadata
         pm.register_pass::<Metadata>()?;
@@ -97,7 +98,7 @@ impl PassManager {
                 DataPathInfer,
                 CollapseControl, // Run it twice: once at beginning of pre-opt, once at end.
                 CompileSyncWithoutSyncReg,
-                GroupToSeq,
+                GroupToSeq, // FIXME: may make programs *slower*
                 DeadAssignmentRemoval,
                 GroupToInvoke, // Creates Dead Groups potentially
                 InferShare,
@@ -123,7 +124,7 @@ impl PassManager {
                 DataPathInfer,
                 CollapseControl,
                 CompileSyncWithoutSyncReg,
-                GroupToSeq,
+                GroupToSeq, // FIXME: may make programs *slower*
                 DeadAssignmentRemoval,
                 GroupToInvoke,
                 ComponentInliner,
@@ -198,8 +199,28 @@ impl PassManager {
             [
                 "validate",
                 CompileInvoke,
+                UniquefyEnables,
                 ProfilerInstrumentation,
-                "pre-opt",
+                DeadGroupRemoval,
+                // "pre-opt" without GroupToSeq
+                DataPathInfer,
+                CollapseControl, // Run it twice: once at beginning of pre-opt, once at end.
+                CompileSyncWithoutSyncReg,
+                DeadAssignmentRemoval,
+                GroupToInvoke, // Creates Dead Groups potentially
+                InferShare,
+                ComponentInliner,
+                CombProp,
+                ConstantPortProp,
+                DeadCellRemoval, // Clean up dead wires left by CombProp
+                CellShare,       // LiveRangeAnalaysis should handle comb groups
+                SimplifyWithControl, // Must run before compile-invoke
+                CompileInvoke,   // creates dead comb groups
+                StaticInference,
+                StaticPromotion,
+                CompileRepeat,
+                DeadGroupRemoval, // Since previous passes potentially create dead groups
+                CollapseControl,
                 "compile",
                 "post-opt",
                 "lower"

@@ -166,7 +166,7 @@ where
         self.data.iter()
     }
 
-    pub fn keys(&self) -> impl Iterator<Item = K> + '_ {
+    pub fn keys(&self) -> impl Iterator<Item = K> {
         // TODO (griffin): Make this an actual struct instead
         self.data.iter().enumerate().map(|(i, _)| K::new(i))
     }
@@ -332,21 +332,92 @@ where
     }
 }
 
+/// A dense secondary map
+///
+/// This is suitable for cases where secondary values are given out in
+/// contiguous chunks with occasional gaps between them. If contiguous blocks
+/// are rare, then using
+/// [SecondarySparseMap](super::sparse_map::SecondarySparseMap) will have better
+/// performance
+#[derive(Debug, Clone)]
+pub struct SemiContiguousSecondaryMap<K: IndexRef + Ord, D> {
+    /// stored ranges and their starting indices
+    ranges: Vec<(IndexRange<K>, usize)>,
+    data: Vec<D>,
+}
+
+impl<K: IndexRef + Ord, D> SemiContiguousSecondaryMap<K, D> {
+    pub fn new() -> Self {
+        Self {
+            ranges: Vec::new(),
+            data: Vec::new(),
+        }
+    }
+
+    pub fn with_capacity(cap: usize) -> Self {
+        Self {
+            ranges: Vec::new(),
+            data: Vec::with_capacity(cap),
+        }
+    }
+
+    /// An insert function which assumes the given key is strictly greater than
+    /// all other keys which have been placed in the map so far. Failure to
+    /// abide by this will result in incorrect behavior
+    pub fn monotonic_insert(&mut self, key: K, data: D) {
+        self.data.push(data);
+        if let Some((range, _base)) = self.ranges.last_mut() {
+            assert!(range.end() <= key, "incorrect use of monotonic_insert");
+            if range.end() == key {
+                // we are contiguous with the last range, so extend it
+                range.set_end(K::new(key.index() + 1));
+                return;
+            }
+        }
+
+        // either we are not contiguous with the last range or there are no
+        // ranges
+        self.ranges
+            .push((IndexRange::single_interval(key), self.data.len() - 1));
+    }
+
+    pub fn get(&self, key: K) -> Option<&D> {
+        // this could probably be replaced with a binary search
+        let (range, base) =
+            self.ranges.iter().find(|(r, _)| r.contains(key))?;
+        let target = base + (key.index() - range.start().index());
+        Some(&self.data[target])
+    }
+}
+
+impl<K: IndexRef + Ord, D> Default for SemiContiguousSecondaryMap<K, D> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{impl_index, maps::IndexedMap};
+    use std::collections::BTreeSet;
+
+    use crate::{IndexRef, impl_index, maps::IndexedMap};
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    struct MyIdx(u32);
+    impl_index!(MyIdx);
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct MyData {
+        number: usize,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct MySecondaryData {
+        number: usize,
+    }
 
     #[test]
     fn test_split_mut() {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-        struct MyIdx(u32);
-        impl_index!(MyIdx);
-
-        #[derive(Debug, Clone, PartialEq, Eq)]
-        struct MyData {
-            number: usize,
-        }
-
         let mut data_map: IndexedMap<MyIdx, MyData> = IndexedMap::new();
 
         for i in 0_usize..4000 {
@@ -375,5 +446,49 @@ mod tests {
 
         assert_eq!(first_mut.number, 7001);
         assert_eq!(second_mut.number, 7002);
+    }
+
+    use proptest::prelude::*;
+
+    fn make_map(count: usize) -> IndexedMap<MyIdx, MyData> {
+        let mut map = IndexedMap::new();
+        for i in 0..count {
+            map.push(MyData { number: i });
+        }
+        map
+    }
+
+    fn counts(max: usize) -> impl Strategy<Value = (usize, BTreeSet<usize>)> {
+        (2..max).prop_flat_map(|count| {
+            (
+                Just(count),
+                prop::collection::btree_set(0..count, 1..=(count / 2)),
+            )
+        })
+    }
+
+    proptest! {
+        #[test]
+        fn test_semi_map(
+            (count, sparse_entries) in counts(5000)
+        ) {
+            let map = make_map(count);
+            let mut semi_map = super::SemiContiguousSecondaryMap::<MyIdx, MySecondaryData>::new();
+
+            for entry in sparse_entries.iter() {
+                let idx = MyIdx::from(*entry);
+                semi_map.monotonic_insert(idx, MySecondaryData { number: *entry });
+            }
+
+            for entry in map.keys() {
+                if sparse_entries.contains(&entry.index()) {
+                    let data = semi_map.get(entry).unwrap();
+                    assert_eq!(data, &MySecondaryData { number: entry.index() });
+                } else {
+                    assert!(semi_map.get(entry).is_none());
+                }
+
+            }
+        }
     }
 }

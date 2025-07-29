@@ -1,11 +1,10 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tower_lsp::lsp_types::{self as lspt};
 
 use calyx_opt::{
     passes::{Papercut, SynthesisPapercut, WellFormed},
     traversal::{ConstructVisitor, DiagnosticPass, Visitor},
 };
-use resolve_path::PathResolveExt;
 
 use crate::document::Document;
 
@@ -24,13 +23,18 @@ pub struct CalyxError {
 }
 
 impl Diagnostic {
-    /// Run the `calyx` compiler on `path` with libraries at `lib_path`
-    pub fn did_save(path: &Path, lib_path: &Path) -> Vec<CalyxError> {
+    /// Run the `calyx` compiler on `path` with libraries at `lib_paths`
+    pub fn did_save(path: &Path, lib_paths: &[PathBuf]) -> Vec<CalyxError> {
         calyx_frontend::Workspace::construct_shallow(
             &Some(path.to_path_buf()),
-            lib_path.resolve().as_ref(),
+            lib_paths,
         )
-        .and_then(calyx_ir::from_ast::ast_to_ir)
+        .and_then(|ws| {
+            calyx_ir::from_ast::ast_to_ir(
+                ws,
+                calyx_ir::from_ast::AstConversionConfig::default(),
+            )
+        })
         .and_then(|mut ctx| {
             let mut wellformed = <WellFormed as ConstructVisitor>::from(&ctx)?;
             wellformed.do_pass(&mut ctx)?;

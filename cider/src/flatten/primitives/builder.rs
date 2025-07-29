@@ -1,4 +1,4 @@
-use ahash::HashSet;
+use ahash::{HashMap, HashSet};
 
 use super::{
     Primitive, combinational::*, prim_trait::RaceDetectionPrimitive,
@@ -7,16 +7,16 @@ use super::{
 use crate::{
     flatten::{
         flat_ir::{
-            base::GlobalCellIdx,
             cell_prototype::{
                 CellPrototype, DoubleWidthType, FXType, MemType,
-                SingleWidthType, TripleWidthType,
+                MemoryPrototype, SingleWidthType, TripleWidthType,
             },
-            prelude::{CellInfo, GlobalPortIdx},
+            indexes::{CellDefinitionIdx, GlobalCellIdx, MemoryRegion},
+            prelude::GlobalPortIdx,
         },
         structures::{
             context::Context,
-            environment::{CellLedger, clock::ClockMap},
+            environment::{CellLedger, MemoryMap, clock::ClockMap},
         },
     },
     serialization::DataDump,
@@ -24,8 +24,9 @@ use crate::{
 
 use baa::BitVecValue;
 
+#[allow(clippy::too_many_arguments)]
 pub fn build_primitive(
-    prim: &CellInfo,
+    prim_idx: CellDefinitionIdx,
     base_port: GlobalPortIdx,
     // the global idx of the instantiated primitive
     cell_idx: GlobalCellIdx,
@@ -35,7 +36,11 @@ pub fn build_primitive(
     memories_initialized: &mut HashSet<String>,
     // if the clock map is not provided then data race checking is disabled
     mut clocks: Option<&mut ClockMap>,
+    state_map: &mut MemoryMap,
+    entangle_map: &mut HashMap<CellDefinitionIdx, MemoryRegion>,
 ) -> CellLedger {
+    let prim = &ctx.secondary.local_cell_defs[prim_idx];
+
     let b: Box<dyn Primitive> = match &prim.prototype {
         CellPrototype::Constant {
             value: val,
@@ -43,7 +48,7 @@ pub fn build_primitive(
             c_type: _,
         } => {
             let v = BitVecValue::from_u64(*val, *width);
-            Box::new(StdConst::new(v, base_port))
+            Box::new(StdConst::new(v, base_port, state_map))
         }
 
         CellPrototype::Component(_) => unreachable!(
@@ -52,8 +57,13 @@ pub fn build_primitive(
         CellPrototype::SingleWidth { op, width } => {
             match op {
                 SingleWidthType::Reg => {
-                    let b =
-                        StdReg::new(base_port, cell_idx, *width, &mut clocks);
+                    let b = StdReg::new(
+                        base_port,
+                        cell_idx,
+                        *width,
+                        &mut clocks,
+                        state_map,
+                    );
                     if clocks.is_some() {
                         let b: Box<dyn RaceDetectionPrimitive> = Box::new(b);
                         return b.into();
@@ -177,79 +187,108 @@ pub fn build_primitive(
             }
         },
 
-        CellPrototype::Memory {
+        CellPrototype::Memory(MemoryPrototype {
             mem_type,
             width,
             dims,
             is_external: _,
-        } => {
+        }) => {
+            let config =
+                MemConfigInfo::new(base_port, cell_idx, *width, false, dims);
+
             let data = dump.as_ref().and_then(|data| {
                 let string = ctx.resolve_id(prim.name);
                 data.get_data(string)
             });
 
+            let merge_set = ctx
+                .secondary
+                .entangled_mems
+                .iter()
+                .find(|group| group.contains(prim_idx));
+
             match mem_type {
                 MemType::Seq => {
-                    let b = if let Some(data) = data {
+                    if let Some(set) = merge_set {
+                        if let Some(region) =
+                            entangle_map.get(&set.representative())
+                        {
+                            let mem = SeqMem::new_with_region(config, *region);
+                            return box_race_detection_primitive(
+                                clocks.is_some(),
+                                mem,
+                            );
+                        }
+                    }
+                    let region_start = state_map.peek_next_memory_location();
+
+                    let mem = if let Some(data) = data {
                         memories_initialized
                             .insert(ctx.resolve_id(prim.name).clone());
                         SeqMem::new_with_init(
-                            base_port,
-                            cell_idx,
-                            *width,
-                            false,
-                            dims,
+                            config,
                             data,
                             &mut clocks,
+                            state_map,
                         )
                     } else {
-                        SeqMemD1::new(
-                            base_port,
-                            cell_idx,
-                            *width,
-                            false,
-                            dims,
-                            &mut clocks,
-                        )
+                        SeqMemD1::new(config, &mut clocks, state_map)
                     };
-                    if clocks.is_some() {
-                        let b: Box<dyn RaceDetectionPrimitive> = Box::new(b);
-                        return b.into();
-                    } else {
-                        let b: Box<dyn Primitive> = Box::new(b);
-                        return b.into();
+
+                    if let Some(set) = merge_set {
+                        // the early return from the prior section means that we
+                        // must be the first memory seen for the entangled group
+                        entangle_map.insert(
+                            set.representative(),
+                            MemoryRegion::new(
+                                region_start,
+                                state_map.peek_next_memory_location(),
+                            ),
+                        );
                     }
+
+                    return box_race_detection_primitive(clocks.is_some(), mem);
                 }
                 MemType::Std => {
-                    let b = if let Some(data) = data {
+                    if let Some(set) = merge_set {
+                        if let Some(region) =
+                            entangle_map.get(&set.representative())
+                        {
+                            let mem = CombMem::new_with_region(config, *region);
+                            return box_race_detection_primitive(
+                                clocks.is_some(),
+                                mem,
+                            );
+                        }
+                    }
+                    let region_start = state_map.peek_next_memory_location();
+
+                    let mem = if let Some(data) = data {
                         memories_initialized
                             .insert(ctx.resolve_id(prim.name).clone());
                         CombMem::new_with_init(
-                            base_port,
-                            cell_idx,
-                            *width,
-                            false,
-                            dims,
+                            config,
                             data,
                             &mut clocks,
+                            state_map,
                         )
                     } else {
-                        CombMem::new(
-                            base_port,
-                            cell_idx,
-                            *width,
-                            false,
-                            dims,
-                            &mut clocks,
-                        )
+                        CombMem::new(config, &mut clocks, state_map)
                     };
-                    if clocks.is_some() {
-                        let b: Box<dyn RaceDetectionPrimitive> = Box::new(b);
-                        return b.into();
-                    } else {
-                        let b: Box<dyn Primitive> = Box::new(b);
-                        return b.into();
+
+                    if let Some(set) = merge_set {
+                        // the early return from the prior section means that we
+                        // must be the first memory seen for the entangled group
+                        entangle_map.insert(
+                            set.representative(),
+                            MemoryRegion::new(
+                                region_start,
+                                state_map.peek_next_memory_location(),
+                            ),
+                        );
                     }
+
+                    return box_race_detection_primitive(clocks.is_some(), mem);
                 }
             }
         }
@@ -259,4 +298,17 @@ pub fn build_primitive(
         }
     };
     b.into()
+}
+
+fn box_race_detection_primitive<T: RaceDetectionPrimitive + 'static>(
+    race_detection_enabled: bool,
+    prim: T,
+) -> CellLedger {
+    if race_detection_enabled {
+        let b: Box<dyn RaceDetectionPrimitive> = Box::new(prim);
+        b.into()
+    } else {
+        let b: Box<dyn Primitive> = Box::new(prim);
+        b.into()
+    }
 }

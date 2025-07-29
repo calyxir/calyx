@@ -33,7 +33,7 @@ class KernelTB:
             # These prefixes have to match verilog code. See kernel.xml <args>
             # and ports assigned within that for guidance.
             rams[mem] = AxiRam(
-                AxiBus.from_prefix(self.toplevel, f"{mem}"),
+                AxiBus.from_prefix(self.toplevel, f"m_axi_{mem}"),
                 self.toplevel.ap_clk,
                 reset=self.toplevel.reset,
                 # self.toplevel.ap_rst_n,

@@ -11,6 +11,8 @@ vitis-dir = /test/xilinx/vitis
 build gen_xo.tcl: get-rsrc
 build get-ports.py: get-rsrc
 python = python3
+rule copy
+  command = cp $in $out
 rule gen-xo
   command = $vivado-dir/bin/vivado -mode batch -source gen_xo.tcl -tclargs $out `$python get-ports.py kernel.xml`
   pool = console
@@ -19,6 +21,9 @@ platform = xilinx_u50_gen3x16_xdma_201920_3
 rule compile-xclbin
   command = $vitis-dir/bin/v++ -g -t $xilinx-mode --platform $platform --save-temps --profile.data all:all:all --profile.exec all:all:all -lo $out $in
   pool = console
+xml-generator = $calyx-base/yxi/xml/xml_generator.py
+rule gen-kernel-xml
+  command = $python $xml-generator $in > $out
 
 python = python3
 build json-dat.py: get-rsrc
@@ -30,7 +35,7 @@ sim_data = /test/data.json
 datadir = sim_data
 build $datadir: hex-data $sim_data | json-dat.py
 rule sim-run
-  command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out
+  command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out || (cat $out >&2 && false)
 cycle-limit = 500000000
 
 build tb.sv: get-rsrc
@@ -40,7 +45,14 @@ rule emconfig
 build emconfig.json: emconfig
 xrt-dir = /test/xilinx/xrt
 rule xclrun
-  command = bash -c 'source $vitis-dir/settings64.sh ; source $xrt-dir/setup.sh ; XRT_INI_PATH=$xrt_ini EMCONFIG_PATH=. XCL_EMULATION_MODE=$xilinx-mode $python -m fud.xclrun --out $out $in'
+  command = bash -c '
+        source $vitis-dir/settings64.sh;
+        source $xrt-dir/setup.sh;
+        if [ "$xilinx-mode" = "hw_emu" ] || [ "$xilinx-mode" = "sw_emu" ]; then
+            export XCL_EMULATION_MODE=$xilinx-mode;
+        fi;
+        XRT_INI_PATH=$xrt_ini EMCONFIG_PATH=. $python -m fud.xclrun --out $out $in
+        '
   pool = console
 rule echo
   command = echo $contents > $out

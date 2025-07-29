@@ -1,5 +1,6 @@
 use std::ops::Index;
 
+use ahash::{HashSet, HashSetExt};
 use calyx_frontend::source_info::SourceInfoTable;
 use calyx_ir::Direction;
 use cider_idx::{
@@ -8,24 +9,28 @@ use cider_idx::{
     maps::{IndexedMap, SecondaryMap, SecondarySparseMap},
 };
 
-use crate::flatten::flat_ir::{
-    cell_prototype::CellPrototype,
-    component::{
-        AssignmentDefinitionLocation, AuxiliaryComponentInfo, ComponentMap,
-        PrimaryComponentInfo,
-    },
-    identifier::IdMap,
-    prelude::{
-        Assignment, AssignmentIdx, CellDefinitionIdx, CellInfo, CombGroup,
-        CombGroupIdx, CombGroupMap, ComponentIdx, ControlIdx, ControlMap,
-        ControlNode, Group, GroupIdx, GuardIdx, Identifier, LocalCellOffset,
-        LocalPortOffset, LocalRefCellOffset, LocalRefPortOffset, ParentIdx,
-        PortDefinitionIdx, PortDefinitionRef, PortRef, RefCellDefinitionIdx,
-        RefCellInfo, RefPortDefinitionIdx,
-    },
-    wires::{
-        core::{AssignmentMap, GroupMap},
-        guards::{Guard, GuardMap},
+use crate::{
+    errors::{CiderError, CiderResult},
+    flatten::flat_ir::{
+        cell_prototype::CellPrototype,
+        component::{
+            AssignmentDefinitionLocation, AuxiliaryComponentInfo, ComponentMap,
+            PrimaryComponentInfo,
+        },
+        identifier::IdMap,
+        prelude::{
+            Assignment, AssignmentIdx, CellDefinitionIdx, CellInfo, CombGroup,
+            CombGroupIdx, CombGroupMap, ComponentIdx, Control, ControlIdx,
+            ControlMap, ControlNode, Group, GroupIdx, GuardIdx, Identifier,
+            LocalCellOffset, LocalPortOffset, LocalRefCellOffset,
+            LocalRefPortOffset, ParentIdx, PortDefinitionIdx,
+            PortDefinitionRef, PortRef, RefCellDefinitionIdx, RefCellInfo,
+            RefPortDefinitionIdx,
+        },
+        wires::{
+            guards::{Guard, GuardMap},
+            structures::{AssignmentMap, GroupMap},
+        },
     },
 };
 
@@ -132,6 +137,8 @@ pub struct SecondaryContext {
     pub comp_aux_info: SecondaryMap<ComponentIdx, AuxiliaryComponentInfo>,
     /// Source Info Table
     pub source_info_table: Option<SourceInfoTable>,
+    /// A list of the entangled memories in the program
+    pub entangled_mems: Vec<EntangledMemories>,
 }
 
 impl Index<Identifier> for SecondaryContext {
@@ -192,6 +199,7 @@ impl SecondaryContext {
             ref_cell_defs: Default::default(),
             comp_aux_info: Default::default(),
             source_info_table,
+            entangled_mems: Vec::new(),
         }
     }
 
@@ -289,6 +297,16 @@ impl Context {
         }
     }
 
+    pub fn find_component<F>(&self, query: F) -> Option<ComponentIdx>
+    where
+        F: Fn(&PrimaryComponentInfo, &AuxiliaryComponentInfo) -> bool,
+    {
+        self.primary
+            .components
+            .keys()
+            .find(|&comp| query(&self.primary[comp], &self.secondary[comp]))
+    }
+
     /// Resolve the string associated with the given identifier
     #[inline]
     pub fn resolve_id(&self, id: Identifier) -> &String {
@@ -362,10 +380,9 @@ impl Context {
 
     /// Returns the component index with the given name, if such a component exists
     pub fn lookup_comp_by_name(&self, name: &str) -> Option<ComponentIdx> {
-        self.primary
-            .components
-            .keys()
-            .find(|c| self.resolve_id(self.secondary[*c].name) == name)
+        self.find_component(|_, info| {
+            info.name.resolve(&self.secondary.string_table) == name
+        })
     }
 
     /// Returns the group index with the given name within the given component, if such a group exists
@@ -383,29 +400,20 @@ impl Context {
 
     /// Return the index of the component which defines the given group
     pub fn get_component_from_group(&self, group: GroupIdx) -> ComponentIdx {
-        self.primary
-            .components
-            .keys()
-            .find(|comp_id| {
-                self.secondary[*comp_id]
-                    .definitions
-                    .groups()
-                    .contains(group)
-            })
-            .unwrap()
+        self.find_component(|_, secondary| {
+            secondary.definitions.groups().contains(group)
+        })
+        .expect("No component defines this group. This should not be possible")
     }
 
     pub fn lookup_control_definition(
         &self,
         target: ControlIdx,
     ) -> ComponentIdx {
-        self.secondary
-            .comp_aux_info
-            .iter()
-            .find_map(|(id, info)| info.contains_control(target).then_some(id))
-            .expect(
-                "No component defines this control node. This shouldn't happen",
-            )
+        self.find_component(|_, secondary| {
+            secondary.definitions.control().contains(target)
+        })
+        .expect("No component defines this control node. This should not be possible")
     }
 
     /// This is a wildly inefficient search, only used for debugging right now.
@@ -491,6 +499,268 @@ impl Context {
     ) -> Option<AssignmentDefinitionLocation> {
         self.primary.components[comp].contains_assignment(self, target, comp)
     }
+
+    /// For a given group returns a list of all the control nodes which are
+    /// enables of that group
+    pub fn find_control_ids_for_group(
+        &self,
+        group: GroupIdx,
+    ) -> Vec<ControlIdx> {
+        let comp = self.get_component_from_group(group);
+        let comp_ledger = &self.primary.components[comp];
+        let mut search_stack = vec![];
+        if let Some(id) = comp_ledger.control() {
+            search_stack.push(id);
+        };
+
+        let mut output = vec![];
+
+        while let Some(current) = search_stack.pop() {
+            match &self.primary[current].control {
+                Control::Enable(enable) => {
+                    if enable.group() == group {
+                        output.push(current);
+                    }
+                }
+                Control::Seq(seq) => search_stack.extend(seq.stms()),
+                Control::Par(par) => search_stack.extend(par.stms()),
+                Control::If(i) => {
+                    search_stack.push(i.fbranch());
+                    search_stack.push(i.tbranch());
+                }
+                Control::While(w) => search_stack.push(w.body()),
+                Control::Repeat(repeat) => search_stack.push(repeat.body),
+                Control::Invoke(_) | Control::Empty(_) => {}
+            }
+        }
+
+        output
+    }
+
+    pub fn string_path(
+        &self,
+        control_idx: ControlIdx,
+        name: &String,
+    ) -> String {
+        let control_map = &self.primary.control;
+        let mut current = control_idx;
+        let mut path = vec![control_idx];
+
+        while let Some(parent) = control_map[current].parent {
+            path.push(parent);
+            current = parent;
+        }
+
+        let mut string_path = format!("{name}.");
+
+        // Remove the root
+        let mut prev_control_node = &control_map[path.pop().unwrap()].control;
+
+        while let Some(control_idx) = path.pop() {
+            // The control_idx should exist in the map, so we shouldn't worry about it
+            // exploding. First SearchNode is root, hence "."
+            let control_node = &control_map[control_idx].control;
+
+            // we are onto the next iteration and in the body... if Seq or Par is present save their children
+            // essentially skip iteration
+            match prev_control_node {
+                Control::While(_) => {
+                    string_path += "-b";
+                }
+                Control::If(struc) => {
+                    let append = if struc.tbranch() == control_idx {
+                        "-t"
+                    } else {
+                        "-f"
+                    };
+
+                    string_path += append;
+                }
+                Control::Par(struc) => {
+                    let count =
+                        struc.find_child(|&idx| idx == control_idx).unwrap();
+
+                    let control_type = String::from("-") + &count.to_string();
+                    string_path = string_path + &control_type;
+                }
+                Control::Seq(struc) => {
+                    let count =
+                        struc.find_child(|&idx| idx == control_idx).unwrap();
+
+                    let control_type = String::from("-") + &count.to_string();
+                    string_path += &control_type;
+                }
+                _ => {
+                    unreachable!("A terminal node has a child")
+                }
+            }
+            prev_control_node = control_node;
+        }
+        string_path
+    }
+
+    /// Set the
+    pub(crate) fn entangle_memories(
+        &mut self,
+        names: &[String],
+    ) -> CiderResult<()> {
+        let mut entangled_mems = vec![];
+        for mem_grouping in names {
+            let mut iter = mem_grouping.split(",").map(|name| {
+                let name = name.trim();
+                let (comp, mem_name) = if name.contains("::") {
+                    let mut part = name.split("::");
+                    let comp_name = part.next().unwrap();
+                    let mem_name = part.next().unwrap();
+                    let comp = self.find_component(|_, info| {
+                        self.resolve_id(info.name) == comp_name
+                    });
+                    let Some(comp) = comp else {
+                        return Err(CiderError::generic_error(format!(
+                            "No component named '{comp_name}'"
+                        )));
+                    };
+                    (comp, mem_name)
+                } else {
+                    (self.entry_point, name)
+                };
+
+                let mem = self.secondary[comp].definitions.cells().iter().find(
+                    |def_idx| {
+                        self.resolve_id(self.secondary[*def_idx].name)
+                            == mem_name
+                    },
+                );
+                let Some(mem) = mem else {
+                    return Err(CiderError::generic_error(format!(
+                        "No memory named '{mem_name}'"
+                    )));
+                };
+                Ok(mem)
+            });
+
+            let first_cell = iter.next().unwrap()?;
+
+            let Some(cell_prototype) = self.secondary.local_cell_defs
+                [first_cell]
+                .prototype
+                .as_memory()
+            else {
+                return Err(CiderError::generic_error(format!(
+                    "'{}' is not a memory",
+                    self.lookup_name(first_cell)
+                ))
+                .into());
+            };
+
+            let mut entangled_grouping = HashSet::new();
+            entangled_grouping.insert(first_cell);
+            let mut representative: CellDefinitionIdx = first_cell;
+
+            for res in iter {
+                let current_cell = res?;
+
+                // must be defined in the same component
+                if self.secondary[first_cell].parent
+                    != self.secondary[current_cell].parent
+                {
+                    return Err(CiderError::generic_error(format!(
+                        "Entangled memories must be defined in the same component. '{}' and '{}' are defined in '{}' and '{}'",
+                        self.lookup_name(first_cell),
+                        self.lookup_name(current_cell),
+                        self.lookup_name(self.secondary[first_cell].parent),
+                        self.lookup_name(self.secondary[current_cell].parent)
+                    )).into());
+                }
+
+                // cell must be a memory
+                let Some(mem_prototype) =
+                    self.secondary[current_cell].prototype.as_memory()
+                else {
+                    return Err(CiderError::generic_error(format!(
+                        "'{}' is not a memory",
+                        self.lookup_name(current_cell)
+                    ))
+                    .into());
+                };
+
+                // memories need to be the same in shape and type
+                if !cell_prototype.eq_minus_external(mem_prototype) {
+                    return Err(CiderError::generic_error(format!(
+                        "Entangled memories must have identical definitions. '{}' and '{}' do not have matching definitions",
+                        self.lookup_name(first_cell),
+                        self.lookup_name(current_cell),
+                    )).into());
+                }
+
+                entangled_grouping.insert(current_cell);
+                representative = std::cmp::min(representative, current_cell);
+            }
+
+            let entangled_group = EntangledMemories {
+                group: entangled_grouping,
+                representative,
+            };
+
+            entangled_mems.push(entangled_group);
+        }
+
+        // need to merge any overlapping sets together. The objectively correct
+        // thing to do would be to find some Union-Find data structure
+        // implementation and force it to work with our keys. If the performance
+        // of this thing ever starts to matter we should do that. However, I
+        // suspect that given the small number of things we expect to entangle
+        // and the fact that this is a one-time operation, that time spent
+        // optimizing this extremely bad implementation would be a waste. -G
+        let mut merged_entangled_mems = vec![];
+        while let Some(mut current) = entangled_mems.pop() {
+            loop {
+                let initial_len = entangled_mems.len();
+                entangled_mems.retain(|group| {
+                    if group.overlaps(&current) {
+                        current.merge(group);
+                        false
+                    } else {
+                        true
+                    }
+                });
+                if initial_len == entangled_mems.len() {
+                    merged_entangled_mems.push(current);
+                    break;
+                }
+            }
+        }
+
+        self.secondary.entangled_mems = merged_entangled_mems;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+/// A set of cell definitions whose memories should be entangled
+pub struct EntangledMemories {
+    group: HashSet<CellDefinitionIdx>,
+    representative: CellDefinitionIdx,
+}
+
+impl EntangledMemories {
+    pub fn contains(&self, idx: CellDefinitionIdx) -> bool {
+        self.group.contains(&idx)
+    }
+
+    pub fn representative(&self) -> CellDefinitionIdx {
+        self.representative
+    }
+
+    fn merge(&mut self, other: &Self) {
+        self.group.extend(&other.group);
+        self.representative =
+            std::cmp::min(self.representative, other.representative)
+    }
+
+    fn overlaps(&self, other: &Self) -> bool {
+        !self.group.is_disjoint(&other.group)
+    }
 }
 
 impl AsRef<Context> for &Context {
@@ -531,5 +801,21 @@ impl LookupName for CombGroupIdx {
     #[inline]
     fn lookup_name<'ctx>(&self, ctx: &'ctx Context) -> &'ctx String {
         ctx.resolve_id(ctx.primary[*self].name())
+    }
+}
+
+impl LookupName for CellDefinitionIdx {
+    fn lookup_name<'ctx>(&self, ctx: &'ctx Context) -> &'ctx String {
+        ctx.secondary[*self]
+            .name
+            .resolve(&ctx.secondary.string_table)
+    }
+}
+
+impl ControlIdx {
+    pub fn to_string_path(&self, ctx: &Context) -> String {
+        let comp = ctx.lookup_control_definition(*self);
+        let comp = comp.lookup_name(ctx);
+        ctx.string_path(*self, comp)
     }
 }

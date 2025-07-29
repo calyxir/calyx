@@ -1,7 +1,7 @@
 use crate::{
     flatten::{
         flat_ir::{
-            base::{
+            indexes::{
                 AssignmentIdx, AssignmentWinner, ComponentIdx, GlobalCellIdx,
                 GlobalPortIdx,
             },
@@ -145,11 +145,22 @@ pub enum CiderError {
     GenericError(String),
 }
 
+impl CiderError {
+    pub fn generic_error<S: Into<String>>(msg: S) -> Self {
+        Self::GenericError(msg.into())
+    }
+}
 pub type RuntimeResult<T> = Result<T, BoxedRuntimeError>;
 
 #[derive(Debug, Error)]
 #[error(transparent)]
 pub struct BoxedRuntimeError(#[from] Box<RuntimeError>);
+
+impl<T> From<RuntimeError> for Result<T, BoxedRuntimeError> {
+    fn from(val: RuntimeError) -> Self {
+        Result::Err(val.into())
+    }
+}
 
 impl<Inner: Into<RuntimeError>> From<Inner> for BoxedRuntimeError {
     fn from(value: Inner) -> Self {
@@ -434,4 +445,32 @@ impl RuntimeError {
             RuntimeError::OverflowError => todo!(),
         }
     }
+}
+
+#[derive(Error, Debug)]
+pub enum BreakTargetError {
+    #[error(transparent)]
+    InvalidPath(#[from] PathError),
+    #[error(transparent)]
+    NameResolution(#[from] NameResolutionError),
+}
+
+#[derive(Error, Debug)]
+pub enum PathError {
+    #[error(transparent)]
+    NameResolution(#[from] NameResolutionError),
+    #[error(
+        "given path string does not conform to the component's control tree"
+    )]
+    Malformed,
+    #[error("given component does not have a control program")]
+    MissingControl,
+}
+
+#[derive(Error, Debug)]
+pub enum NameResolutionError {
+    #[error("no component named {0}")]
+    UnknownComponent(String),
+    #[error("component {comp} does not contain a group named {group}")]
+    UnknownGroup { comp: String, group: String },
 }

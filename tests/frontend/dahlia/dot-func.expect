@@ -101,4 +101,3 @@ metadata #{
   1:     out[i] := A[i] * B[i];
   2:     out[i] := A[i] * B[i];
 }#
-

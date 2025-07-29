@@ -1,9 +1,9 @@
 use crate::error::AdapterResult;
 use baa::BitVecOps;
-use cider::debugger::commands::ParsedGroupName;
+use cider::debugger::commands::{BreakTarget, ParsedGroupName};
 use cider::debugger::source::structures::NewSourceMap;
 use cider::debugger::{OwnedDebugger, StoppedReason};
-use cider::flatten::flat_ir::base::{GlobalCellIdx, PortValue};
+use cider::flatten::flat_ir::indexes::{GlobalCellIdx, PortValue};
 use dap::events::{Event, OutputEventBody, StoppedEventBody};
 use dap::types::{
     self, Breakpoint, Scope, Source, SourceBreakpoint, StackFrame, Thread,
@@ -73,7 +73,7 @@ impl MyAdapter {
         //update adapter
         self.breakpoints.clear();
 
-        let mut to_debugger_set: Vec<ParsedGroupName> = vec![];
+        let mut to_debugger_set: Vec<BreakTarget> = vec![];
         let mut to_client: Vec<Breakpoint> = vec![];
 
         // iterate over points received in request
@@ -91,9 +91,11 @@ impl MyAdapter {
 
             if let Some((component, group)) = name {
                 if to_set.contains(&source_point.line) {
-                    to_debugger_set.push(ParsedGroupName::from_comp_and_group(
-                        component.clone(),
-                        group.clone(),
+                    to_debugger_set.push(BreakTarget::Name(
+                        ParsedGroupName::from_comp_and_control(
+                            component.clone(),
+                            group.clone(),
+                        ),
                     ))
                 }
             }
@@ -108,13 +110,15 @@ impl MyAdapter {
     }
     /// handles deleting breakpoints in the debugger
     fn delete_breakpoints(&mut self, to_delete: HashSet<i64>) {
-        let mut to_debugger: Vec<ParsedGroupName> = vec![];
+        let mut to_debugger: Vec<BreakTarget> = vec![];
         for point in to_delete {
             let name = self.ids.lookup_line(point as u64);
             if let Some((component, group)) = name {
-                to_debugger.push(ParsedGroupName::from_comp_and_group(
-                    component.clone(),
-                    group.clone(),
+                to_debugger.push(BreakTarget::Name(
+                    ParsedGroupName::from_comp_and_control(
+                        component.clone(),
+                        group.clone(),
+                    ),
                 ))
             }
         }
