@@ -1,12 +1,26 @@
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
-
 use calyx_ir::{self as ir};
 
+/// From the perspective of a parent control node, the annotation `@NUM_STATES(n)`
+/// on one of its child nodes means that the parent should allocate `n` states
+/// in order to implement the child's schedule.
 const NUM_STATES: ir::Attribute =
     ir::Attribute::Internal(ir::InternalAttr::NUM_STATES);
 
+/// From the perspective of a parent control node, if the attribute `@ACYCLIC` is
+/// present on one of its children, then the following implication is guaranteed:
+///
+/// If the child's FSM has an @UNROLL or @INLINE attribute, then
+/// the states implementing the child's schedule should have the property of
+/// having one state for every cycle.
+///
+/// If the attribute `@ACYCLIC` is not present on a child node, then this simply
+/// means that the states implementing the child's control has a backedge.
+///
+/// For now, it is undefined behavior for one child to have both `@ACYCLIC` and
+/// `@OFFLOAD` attributes attached.
 const ACYCLIC: ir::Attribute =
     ir::Attribute::Internal(ir::InternalAttr::ACYCLIC);
 
@@ -22,6 +36,8 @@ fn get_num_states_static(ctrl: &ir::StaticControl) -> u64 {
     ctrl.get_attribute(NUM_STATES).unwrap()
 }
 
+/// Given the attributes field of a control node, insert the annotations derived
+/// in this pass into the `control {...}` section of a Calyx program.
 fn transfer_attributes(
     attributes_map: &mut ir::Attributes,
     FSMImplementation {
@@ -44,16 +60,29 @@ fn transfer_attributes(
     }
 }
 
-enum InlineImplementation {
-    Unroll,
-    StandardInline,
-}
-
+/// Encodes the possible FSM implementations of a control node. From the perspective
+/// of a parent FSM, the states implementing each of its children can
+/// either be brought into the parent FSM (i.e. inlined) or can be outsourced
+/// to another FSM (offloaded).
 enum ControlNodeAnnotation {
     Inline(InlineImplementation),
     Offload,
 }
 
+/// Encodes the possible ways for a control node's FSM to be inlined into that of its parent.
+/// Here, `Unroll` can only be used on ir::Repeat or ir::StaticRepeat nodes. In the event
+/// that `StandardInline` is used on one of these nodes, then, within the parent
+/// FSM, there will be a backedge from the bottom to the top of the repeat.
+///
+/// The annotation `StandardInline` is used to indicate inlining for every other
+/// control node.
+enum InlineImplementation {
+    Unroll,
+    StandardInline,
+}
+
+/// An instance of this struct is computed for every control node. It will be used
+/// by its parent control node.
 struct FSMImplementation {
     num_states: u64,
     acyclic: bool,
