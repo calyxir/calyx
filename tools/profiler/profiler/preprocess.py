@@ -95,7 +95,7 @@ def read_ctrl_metadata_file(ctrl_map_file: str):
             line_num = entry["linenum"]
             ctrl_node_name = entry["ctrl_node"]
             component_to_pos_to_loc_str[component][pos_num] = (
-                f"{ctrl_node_name}@L{line_num}"
+                f"L{line_num}:{ctrl_node_name}"
             )
 
     return component_to_pos_to_loc_str
