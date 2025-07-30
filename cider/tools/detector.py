@@ -6,6 +6,7 @@ from pathlib import Path
 import difflib
 import sys
 import subprocess
+import signal
 
 WORKDIR_NAME = ".fud2_datarace_baseline"
 
@@ -38,8 +39,10 @@ def run(test_file: Path, policy: str, data_file: Path | None = None) -> str:
         text=True,
     )
 
-    print(process.stderr)
-    process.check_returncode()
+    if process.returncode != 0:
+        print(process.stderr, file=sys.stderr)
+        sys.stderr.flush()
+        process.check_returncode()
 
     return process.stdout
 
@@ -50,7 +53,11 @@ def rerun() -> str:
     process = subprocess.run(
         ["ninja"], cwd=WORKDIR_NAME, text=True, capture_output=True
     )
-    process.check_returncode()
+
+    if process.returncode != 0:
+        print(process.stderr, file=sys.stderr)
+        sys.stderr.flush()
+        process.check_returncode()
 
     with open(Path(WORKDIR_NAME) / Path("_to_stdout_dat.json")) as w:
         out = "".join(w.readlines())
@@ -58,13 +65,11 @@ def rerun() -> str:
     return out
 
 
-def detect_data_race(
-    test_file: Path, policy: str, count: int, data_file: Path | None = None
-):
+def detect_data_race(test_file: Path, policy: str, data_file: Path | None = None):
     first = run(test_file, policy, data_file)
 
     i = 0
-    while i < count:
+    while True:
         current = rerun()
         if first != current:
             different_lines = difflib.unified_diff(
@@ -82,12 +87,15 @@ def detect_data_race(
         else:
             i += 1
 
-    print(f"No difference discovered after {count} executions")
-    cleanup()
-
 
 def cleanup():
     shutil.rmtree(Path(WORKDIR_NAME))
+
+
+def handler(timeout, *args):
+    print(f"Timeout reached. No difference discovered after {timeout} seconds")
+    cleanup()
+    sys.exit(0)
 
 
 def main():
@@ -95,11 +103,14 @@ def main():
     parser.add_argument("file", type=Path)
     parser.add_argument("--data", type=Path, default=None)
     parser.add_argument("-m", "--mode", choices=["seq", "random"], default="seq")
-    parser.add_argument("-c", "--count", type=int, default=100)
+    parser.add_argument("-t", "--timeout", type=int, default=30)
 
     args = parser.parse_args()
 
-    detect_data_race(args.file, args.mode, args.count, args.data)
+    signal.signal(signal.SIGALRM, lambda *x: handler(args.timeout, *x))
+    signal.alarm(args.timeout)
+
+    detect_data_race(args.file, args.mode, args.data)
 
 
 if __name__ == "__main__":
