@@ -11,12 +11,16 @@ import signal
 WORKDIR_NAME = ".fud2_datarace_baseline"
 
 
-def run(test_file: Path, policy: str, data_file: Path | None = None) -> str:
+def run(
+    test_file: Path, policy: str, data_file: Path | None, entangle: list[str]
+) -> str:
     match policy:
         case "seq":
             policy_str = "random_serialized"
         case "random":
             policy_str = "random"
+
+    entangle_str = " ".join((f"--entangle '{item}'" for item in entangle))
 
     arg_list = [
         "fud2",
@@ -27,7 +31,7 @@ def run(test_file: Path, policy: str, data_file: Path | None = None) -> str:
         "--through",
         "cider",
         "-s",
-        f"cider.flags=--dump-registers --policy {policy_str}",
+        f"cider.flags=--dump-registers --policy {policy_str} {entangle_str}",
         test_file,
     ]
     if data_file is not None:
@@ -65,8 +69,13 @@ def rerun() -> str:
     return out
 
 
-def detect_data_race(test_file: Path, policy: str, data_file: Path | None = None):
-    first = run(test_file, policy, data_file)
+def detect_data_race(
+    test_file: Path,
+    policy: str,
+    data_file: Path | None,
+    entangle: list[str],
+):
+    first = run(test_file, policy, data_file, entangle)
 
     i = 0
     while True:
@@ -104,13 +113,14 @@ def main():
     parser.add_argument("--data", type=Path, default=None)
     parser.add_argument("-m", "--mode", choices=["seq", "random"], default="seq")
     parser.add_argument("-t", "--timeout", type=int, default=30)
+    parser.add_argument("--entangle", action="append", default=[])
 
     args = parser.parse_args()
 
     signal.signal(signal.SIGALRM, lambda *x: handler(args.timeout, *x))
     signal.alarm(args.timeout)
 
-    detect_data_race(args.file, args.mode, args.data)
+    detect_data_race(args.file, args.mode, args.data, args.entangle)
 
 
 if __name__ == "__main__":
