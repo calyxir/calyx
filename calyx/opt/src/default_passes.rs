@@ -14,7 +14,7 @@ use crate::passes::{
 };
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
-    HoleInliner, Metadata, ParToSeq, RegisterUnsharing,
+    HoleInliner, Metadata, ParToSeq, RegisterUnsharing, CseExp
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -43,6 +43,7 @@ impl PassManager {
         pm.register_pass::<StaticPromotion>()?;
         pm.register_pass::<SimplifyStaticGuards>()?;
         pm.register_pass::<DataPathInfer>()?;
+        pm.register_pass::<CseExp>()?;
 
         // Compilation passes
         pm.register_pass::<StaticInliner>()?;
