@@ -30,7 +30,7 @@ def run(test_file: Path, policy: str, data_file: Path | None = None) -> str:
         test_file,
     ]
     if data_file is not None:
-        arg_list += ["-s", "sim.data={data_file}"]
+        arg_list += ["-s", f"sim.data={data_file}"]
 
     process = subprocess.run(
         arg_list,
@@ -78,7 +78,6 @@ def detect_data_race(
             sys.stderr.flush()
 
             cleanup()
-
             sys.exit(101)
         else:
             i += 1
