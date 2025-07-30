@@ -26,3 +26,6 @@ dependencies = [
 [project.optional-dependencies]
 remote = ["paramiko", "scp"]
 fpga = ["pynq"]
+
+[project.scripts]
+fud = "fud.main:main"
