@@ -1,6 +1,7 @@
 #! python3
 
 from argparse import ArgumentParser
+import random
 import shutil
 from pathlib import Path
 import difflib
@@ -114,6 +115,10 @@ def main():
     parser.add_argument("-m", "--mode", choices=["seq", "random"], default="seq")
     parser.add_argument("-t", "--timeout", type=int, default=30)
     parser.add_argument("--entangle", action="append", default=[])
+
+    random_suffix = random.randint(0, 1000000000)
+    global WORKDIR_NAME
+    WORKDIR_NAME = f"{WORKDIR_NAME}_{random_suffix}"
 
     args = parser.parse_args()
 
