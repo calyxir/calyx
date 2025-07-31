@@ -4,6 +4,10 @@ use calyx_ir::{self as ir, GetAttributes};
 use calyx_utils::CalyxResult;
 const ACYCLIC: ir::Attribute =
     ir::Attribute::Internal(ir::InternalAttr::ACYCLIC);
+const UNROLL: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::UNROLL);
+const OFFLOAD: ir::Attribute =
+    ir::Attribute::Internal(ir::InternalAttr::OFFLOAD);
+const INLINE: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::INLINE);
 
 pub struct FSMBuilder {}
 
@@ -114,8 +118,33 @@ impl StaticSchedule<'_, '_> {
                 ),
                 None,
             ),
-            ir::StaticControl::Repeat(_srep) => {
-                todo!()
+            ir::StaticControl::Repeat(srep) => {
+                if matches!(srep.get_attributes().get(UNROLL), Some(1)) {
+                    // unroll an encountered repeat loop. usually these are compiled away
+                    (
+                        (0..srep.num_repeats).fold(
+                            transitions_to_curr,
+                            |transitions_to_this_body, _| {
+                                self.build_abstract(
+                                    &srep.body,
+                                    guard.clone(),
+                                    transitions_to_this_body,
+                                    looped_once_guard.clone(),
+                                )
+                                .0
+                            },
+                        ),
+                        None,
+                    )
+                } else if matches!(srep.get_attributes().get(OFFLOAD), Some(1))
+                {
+                    todo!()
+                } else if matches!(srep.get_attributes().get(INLINE), Some(1)) {
+                    // do nothing, let the function that called this
+                    todo!()
+                } else {
+                    todo!()
+                }
             }
             ir::StaticControl::If(_sif) => {
                 todo!()
@@ -125,7 +154,7 @@ impl StaticSchedule<'_, '_> {
             }
             ir::StaticControl::Invoke(_) => {
                 unreachable!(
-                    "`build_abstract_cyclic` encountered a `static_invoke` node. \
+                    "`build_abstract` encountered a `static_invoke` node. \
               Should have been compiled away."
                 )
             }
