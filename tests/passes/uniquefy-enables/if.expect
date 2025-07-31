@@ -1,6 +1,6 @@
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
-component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+component main<"pos"={1}>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     a_reg = std_reg(32);
     b_reg = std_reg(32);
@@ -12,62 +12,62 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     lt = std_lt(32);
   }
   wires {
-    group a {
+    group a<"pos"={2}> {
       a_reg.write_en = 1'd1;
       a_reg.in = 32'd4;
       a[done] = a_reg.done;
     }
-    group b {
+    group b<"pos"={3}> {
       b_reg.write_en = 1'd1;
       b_reg.in = 32'd4;
       b[done] = b_reg.done;
     }
-    group c {
+    group c<"pos"={4}> {
       c_reg.write_en = 1'd1;
       c_reg.in = 32'd4;
       c[done] = c_reg.done;
     }
-    group d {
+    group d<"pos"={5}> {
       d_reg.write_en = 1'd1;
       d_reg.in = 32'd4;
       d[done] = d_reg.done;
     }
-    group e {
+    group e<"pos"={6}> {
       e_reg.write_en = 1'd1;
       e_reg.in = 32'd4;
       e[done] = e_reg.done;
     }
-    group f {
+    group f<"pos"={7}> {
       f_reg.write_en = 1'd1;
       f_reg.in = 32'd4;
       f[done] = f_reg.done;
     }
-    group aUG {
+    group aUG<"pos"={2}> {
       a_reg.write_en = 1'd1;
       a_reg.in = 32'd4;
       aUG[done] = a_reg.done;
     }
-    group bUG {
+    group bUG<"pos"={3}> {
       b_reg.write_en = 1'd1;
       b_reg.in = 32'd4;
       bUG[done] = b_reg.done;
     }
-    group cUG {
+    group cUG<"pos"={4}> {
       c_reg.write_en = 1'd1;
       c_reg.in = 32'd4;
       cUG[done] = c_reg.done;
     }
-    group dUG {
+    group dUG<"pos"={5}> {
       d_reg.write_en = 1'd1;
       d_reg.in = 32'd4;
       dUG[done] = d_reg.done;
     }
-    group dUG0 {
+    group dUG0<"pos"={5}> {
       d_reg.write_en = 1'd1;
       d_reg.in = 32'd4;
       dUG0[done] = d_reg.done;
     }
-    group eUG {
+    group eUG<"pos"={6}> {
       e_reg.write_en = 1'd1;
       e_reg.in = 32'd4;
       eUG[done] = e_reg.done;
@@ -76,19 +76,23 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       lt.left = a_reg.out;
       lt.right = 32'd8;
     }
+    comb group condUG {
+      lt.left = a_reg.out;
+      lt.right = 32'd8;
+    }
   }
   control {
-    seq {
+    @pos{8} seq {
       aUG;
-      par {
-        seq {
+      @pos{10} par {
+        @pos{11} seq {
           bUG;
           cUG;
         }
-        if lt.out with cond {
+        @pos{14} if lt.out with condUG {
           dUG;
         } else {
-          par {
+          @pos{16} par {
             dUG0;
             eUG;
           }
@@ -97,6 +101,29 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
   }
 }
+sourceinfo #{
+FILES
+  1: tests/passes/uniquefy-enables/if.futil
+POSITIONS
+  1: 1 6
+  2: 1 23
+  3: 1 29
+  4: 1 35
+  5: 1 41
+  6: 1 47
+  7: 1 53
+  8: 1 61
+  9: 1 62
+  10: 1 63
+  11: 1 64
+  12: 1 65
+  13: 1 65
+  14: 1 67
+  15: 1 68
+  16: 1 70
+  17: 1 71
+  18: 1 71
+}#
 ---STDERR---
 {
   "main": {
@@ -104,22 +131,37 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       "aUG": "main.-0",
       "bUG": "main.-1-0-0",
       "cUG": "main.-1-0-1",
+      "condUG": "main.-1-1-c",
       "dUG": "main.-1-1-t",
       "dUG0": "main.-1-1-f-0",
       "eUG": "main.-1-1-f-1"
     },
-    "pars": [
-      "main.-1-",
-      "main.-1-1-f-"
-    ]
+    "control_pos": {
+      "main.-": [
+        8
+      ],
+      "main.-1-": [
+        10
+      ],
+      "main.-1-0-": [
+        11
+      ],
+      "main.-1-1-": [
+        14
+      ],
+      "main.-1-1-f-": [
+        16
+      ]
+    }
   }
 }{
   "main": {
     "aUG": 0,
     "bUG": 1,
     "cUG": 1,
-    "dUG": 2,
-    "dUG0": 3,
-    "eUG": 4
+    "condUG": 2,
+    "dUG": 3,
+    "dUG0": 4,
+    "eUG": 5
   }
 }
