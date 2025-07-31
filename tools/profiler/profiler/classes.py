@@ -820,15 +820,18 @@ class TraceData:
                 # fully qualified control group --> path descriptor
                 active_control_group_to_desc: dict[str, str] = (
                     self._create_active_control_group_to_desc(
-                        control_groups_trace[i], cell_metadata, control_metadata, ctrl_groups_without_descriptor
+                        control_groups_trace[i],
+                        cell_metadata,
+                        control_metadata,
+                        ctrl_groups_without_descriptor,
                     )
                 )
 
                 active_control_groups_missed: set[str] | None = None
                 cell_to_stack_trace: dict[str, list[StackElement]] = {}
                 for events_stack in self.trace[i].stacks:
-                    new_events_stack, missed_groups = (
-                        self._create_events_stack_with_control_groups(
+                    stacks_to_add, missed_groups = (
+                        self._add_events_stack_with_control_groups(
                             events_stack,
                             cell_metadata,
                             control_metadata,
@@ -836,9 +839,11 @@ class TraceData:
                             cell_to_stack_trace,
                         )
                     )
-                    self.trace_with_control_groups[i].add_stack(
-                        new_events_stack, cell_metadata.main_shortname
-                    )
+                    # Add all control stacks
+                    for stack in stacks_to_add:
+                        self.trace_with_control_groups[i].add_stack(
+                            stack, cell_metadata.main_shortname
+                        )
                     if active_control_groups_missed is None:
                         # need to populate with the first set that gets returned
                         active_control_groups_missed = missed_groups
@@ -858,7 +863,9 @@ class TraceData:
                 self.trace_with_control_groups[i] = copy.copy(self.trace[i])
 
         for no_desc_group in sorted(ctrl_groups_without_descriptor):
-            print(f"WARNING!!! No mapping from control group {no_desc_group} to a descriptor.")
+            print(
+                f"WARNING!!! No mapping from control group {no_desc_group} to a descriptor."
+            )
 
     def _create_stacks_for_missed_control_groups(
         self,
@@ -952,7 +959,7 @@ class TraceData:
         active_control_groups: set[str],
         cell_metadata: CellMetadata,
         control_metadata: ControlMetadata,
-        groups_without_desc: set[str]
+        groups_without_desc: set[str],
     ):
         """
         Helper function for create_trace_with_control_groups() that returns a mapping from
@@ -965,27 +972,30 @@ class TraceData:
             ctrl_group_name = ctrl_group_split[-1]
             ctrl_group_component = cell_metadata.get_component_of_cell(ctrl_group_cell)
             component_desc_map = control_metadata.component_to_ctrl_group_to_desc[
-                ctrl_group_component]
+                ctrl_group_component
+            ]
             if ctrl_group_name in component_desc_map:
                 ctrl_group_desc = component_desc_map[ctrl_group_name]
                 active_control_group_to_desc[active_ctrl_group] = ctrl_group_desc
             else:
                 groups_without_desc.add(active_ctrl_group)
-            
+
         return active_control_group_to_desc
 
-    def _create_events_stack_with_control_groups(
+    def _add_events_stack_with_control_groups(
         self,
         events_stack: list[StackElement],
         cell_metadata: CellMetadata,
         control_metadata: ControlMetadata,
         active_control_group_to_desc: dict[str, str],
         cell_to_stack_trace: dict[str, list[StackElement]],
-    ) -> tuple[list[StackElement], set[str]]:
+    ) -> tuple[list[list[StackElement]], set[str]]:
         """
         Helper method for create_trace_with_control_groups().
+
         Returns:
-          - new StackElement list that contain active control groups in order
+          - a list of new StackElement list(s) that contain active control groups in order. If this cycle is a "useless cycle" containing
+            parallel control groups as leaves, the size of this list would be greater than one.
           - the set of fully qualified control groups that were NOT included in the stack
 
         We determine the control groups to add on the stack from active_control_groups based on the path descriptors of each
@@ -998,6 +1008,7 @@ class TraceData:
         - The next element after a cell in events_stack, if there exists one, is a group (verified by an assert)
         """
         events_stack_with_ctrl: list[StackElement] = []
+        events_stacks_to_add: list[list[StackElement]] = []
         missed_control_groups: set[str] = set()
         for i in range(len(events_stack)):
             stack_element = events_stack[i]
@@ -1054,21 +1065,57 @@ class TraceData:
                                     f"{current_cell}.{missed_group}"
                                 )
 
+                        # add control groups to the stack in order.
+                        for ctrl_group in ctrl_groups_to_add:
+                            ctrl_group_stack_elem = self._create_ctrl_stack_elem(
+                                ctrl_group, cell_component, control_metadata
+                            )
+                            events_stack_with_ctrl.append(ctrl_group_stack_elem)
+
                     else:
-                        # no groups! add all of the active control groups, in order.
-                        ctrl_groups_to_add = [
-                            active_ctrl_desc_to_group[desc]
-                            for desc in sorted(active_ctrl_desc_to_group.keys())
-                        ]
-
-                    # add control groups to the stack in order.
-                    for ctrl_group in ctrl_groups_to_add:
-                        ctrl_group_stack_elem = self._create_ctrl_stack_elem(
-                            ctrl_group, cell_component, control_metadata
+                        # we are at a cell, and it is the topmost element in the stack.
+                        # find parent-child relationships between the control groups
+                        # FIXME: this is becoming a code clone with _create_stacks_for_missed_control_groups()
+                        active_control_group_to_parents: defaultdict[str, list[str]]
+                        leaf_control_groups: set[str]
+                        (active_control_group_to_parents, leaf_control_groups) = (
+                            self._compute_ctrl_group_to_parents(
+                                active_control_group_to_desc
+                            )
                         )
-                        events_stack_with_ctrl.append(ctrl_group_stack_elem)
 
-        return events_stack_with_ctrl, missed_control_groups
+                        for leaf_group in leaf_control_groups:
+                            leaf_group_split = leaf_group.split(".")
+                            leaf_group_name: str = leaf_group_split[-1]
+                            leaf_group_cell: str = ".".join(leaf_group_split[:-1])
+                            assert (
+                                leaf_group_cell == current_cell
+                            )  # a leaf node should be in this cell? maybe I'm wrong
+                            leaf_stack: list[StackElement] = (
+                                events_stack_with_ctrl.copy()
+                            )
+                            for leaf_parent in active_control_group_to_parents[
+                                leaf_group
+                            ]:
+                                parent_stack_elem: StackElement = (
+                                    self._create_ctrl_stack_elem(
+                                        leaf_parent.split(".")[-1],
+                                        cell_component,
+                                        control_metadata,
+                                    )
+                                )
+                                leaf_stack.append(parent_stack_elem)
+                            # add leaf
+                            leaf_element: StackElement = self._create_ctrl_stack_elem(
+                                leaf_group_name, cell_component, control_metadata
+                            )
+                            leaf_stack.append(leaf_element)
+                            # add new stack to current cycle's CycleTrace
+                            events_stacks_to_add.append(leaf_stack)
+        if len(events_stacks_to_add) == 0:
+            events_stacks_to_add.append(events_stack_with_ctrl)
+
+        return events_stacks_to_add, missed_control_groups
 
     def _create_ctrl_stack_elem(
         self, ctrl_group: str, cell_component: str, control_metadata: ControlMetadata
