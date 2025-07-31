@@ -809,6 +809,7 @@ class TraceData:
         Populates the field trace_with_control_groups by combining control group information (from control_groups_trace) with self.trace.
         Does not modify self.trace.
         """
+        ctrl_groups_without_descriptor: set[str] = set()
         for i in self.trace:
             if i in control_groups_trace:
                 self.trace_with_control_groups[i] = (
@@ -819,7 +820,7 @@ class TraceData:
                 # fully qualified control group --> path descriptor
                 active_control_group_to_desc: dict[str, str] = (
                     self._create_active_control_group_to_desc(
-                        control_groups_trace[i], cell_metadata, control_metadata
+                        control_groups_trace[i], cell_metadata, control_metadata, ctrl_groups_without_descriptor
                     )
                 )
 
@@ -855,6 +856,9 @@ class TraceData:
 
             else:
                 self.trace_with_control_groups[i] = copy.copy(self.trace[i])
+
+        for no_desc_group in sorted(ctrl_groups_without_descriptor):
+            print(f"WARNING!!! No mapping from control group {no_desc_group} to a descriptor.")
 
     def _create_stacks_for_missed_control_groups(
         self,
@@ -948,6 +952,7 @@ class TraceData:
         active_control_groups: set[str],
         cell_metadata: CellMetadata,
         control_metadata: ControlMetadata,
+        groups_without_desc: set[str]
     ):
         """
         Helper function for create_trace_with_control_groups() that returns a mapping from
@@ -961,8 +966,12 @@ class TraceData:
             ctrl_group_component = cell_metadata.get_component_of_cell(ctrl_group_cell)
             component_desc_map = control_metadata.component_to_ctrl_group_to_desc[
                 ctrl_group_component]
-            ctrl_group_desc = component_desc_map[ctrl_group_name] if ctrl_group_name in component_desc_map else "WRAPPER"
-            active_control_group_to_desc[active_ctrl_group] = ctrl_group_desc
+            if ctrl_group_name in component_desc_map:
+                ctrl_group_desc = component_desc_map[ctrl_group_name]
+                active_control_group_to_desc[active_ctrl_group] = ctrl_group_desc
+            else:
+                groups_without_desc.add(active_ctrl_group)
+            
         return active_control_group_to_desc
 
     def _create_events_stack_with_control_groups(
