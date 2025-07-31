@@ -959,9 +959,9 @@ class TraceData:
             ctrl_group_cell = ".".join(ctrl_group_split[:-1])
             ctrl_group_name = ctrl_group_split[-1]
             ctrl_group_component = cell_metadata.get_component_of_cell(ctrl_group_cell)
-            ctrl_group_desc = control_metadata.component_to_ctrl_group_to_desc[
-                ctrl_group_component
-            ][ctrl_group_name]
+            component_desc_map = control_metadata.component_to_ctrl_group_to_desc[
+                ctrl_group_component]
+            ctrl_group_desc = component_desc_map[ctrl_group_name] if ctrl_group_name in component_desc_map else "WRAPPER"
             active_control_group_to_desc[active_ctrl_group] = ctrl_group_desc
         return active_control_group_to_desc
 
