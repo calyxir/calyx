@@ -88,7 +88,7 @@ impl<'a> ScrollbackBuffer<'a> {
         let fill = " ".repeat(self.cols);
         for i in 0..self.rows {
             self.output.queue(cursor::MoveTo(0, i as u16))?;
-            write!(self.output, "{}", fill)?;
+            write!(self.output, "{fill}")?;
         }
 
         let rows_to_print = self.visible_row_count();

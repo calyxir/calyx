@@ -748,7 +748,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                         code,
                         name_override.as_deref(),
                     ) {
-                        println!("{}", state);
+                        println!("{state}");
                         return Ok(());
                     } else {
                         println!("{}","Target cell has no internal state, printing port information instead".stylize_warning());

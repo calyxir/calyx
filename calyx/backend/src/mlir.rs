@@ -229,7 +229,7 @@ impl MlirBackend {
             .map(|p| format!("%{}.{}", name, p.borrow().name))
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "{} = ", all_ports)?;
+        write!(f, "{all_ports} = ")?;
         let supports_attrs =
             Self::write_prototype_sig(&cell.prototype, name.as_str(), f)?;
         if supports_attrs {
@@ -242,7 +242,7 @@ impl MlirBackend {
             .map(|p| format!("i{}", p.borrow().width))
             .collect::<Vec<_>>()
             .join(", ");
-        writeln!(f, "{}", all_port_widths)
+        writeln!(f, "{all_port_widths}")
     }
 
     /// Format and write an assignment.

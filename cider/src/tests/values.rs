@@ -4,13 +4,13 @@ mod val_test {
     #[test]
     fn basic_print_test() {
         let v1 = BitVecValue::from_u64(12, 5);
-        println!("12 with bit width 5: {:?}", v1);
+        println!("12 with bit width 5: {v1:?}");
         assert_eq!(v1.to_u64().unwrap(), 12);
     }
     #[test]
     fn basic_print_test2() {
         let v1 = BitVecValue::from_u64(33, 6);
-        println!("33 with bit width 6: {:?}", v1);
+        println!("33 with bit width 6: {v1:?}");
         assert_eq!(v1.to_u64().unwrap(), 33);
     }
 
@@ -325,7 +325,7 @@ mod property_tests {
             let mul_big: BigInt = mul.into();
             let target: BigInt = in_big * mul_big;
             let val = BitVecValue::from_big_int(&target, target.magnitude().bits() as WidthInt + 1);
-            println!("{:?}", val);
+            println!("{val:?}");
             prop_assert_eq!(val.to_big_int(), target)
         }
     }

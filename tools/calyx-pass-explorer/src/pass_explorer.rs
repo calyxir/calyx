@@ -87,7 +87,7 @@ impl PassExplorer {
         })
         .collect();
 
-        assert!(!passes.is_empty(), "Unknown pass alias '{}'", pass_alias);
+        assert!(!passes.is_empty(), "Unknown pass alias '{pass_alias}'");
 
         let mut dest_path = PathBuf::from(work_dir.path());
         dest_path.push(SOURCE_FILE_NAME);
@@ -190,7 +190,7 @@ impl PassExplorer {
                 ChangeTag::Insert => {
                     format!("{}{}", "+ ".green(), change.to_string().green())
                 }
-                ChangeTag::Equal => format!("{}", change),
+                ChangeTag::Equal => format!("{change}"),
             };
             output.push_str(&line);
         }
@@ -299,7 +299,7 @@ impl PassExplorer {
         let mut brace_count = 0;
 
         for line in file_content.lines() {
-            if line.contains(&format!("component {}(", component)) {
+            if line.contains(&format!("component {component}(")) {
                 in_component = true;
             }
 

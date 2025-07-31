@@ -37,7 +37,7 @@ impl std::fmt::Debug for Error {
             }
         }
         if let Some(post) = &self.post_msg {
-            write!(f, "\n{}", post)?;
+            write!(f, "\n{post}")?;
         }
         Ok(())
     }
@@ -237,7 +237,7 @@ impl std::fmt::Display for ErrorKind {
         use ErrorKind::*;
         match self {
             Papercut(msg) => {
-                write!(f, "[Papercut] {}", msg)
+                write!(f, "[Papercut] {msg}")
             }
             Unused(name, typ) => {
                 write!(f, "Unused {typ} `{name}'")
@@ -278,13 +278,13 @@ impl From<std::str::Utf8Error> for Error {
 
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Self {
-        Error::write_error(format!("IO Error: {}", e))
+        Error::write_error(format!("IO Error: {e}"))
     }
 }
 
 impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Self {
-        Error::write_error(format!("serde_json Error: {}", e))
+        Error::write_error(format!("serde_json Error: {e}"))
     }
 }
 

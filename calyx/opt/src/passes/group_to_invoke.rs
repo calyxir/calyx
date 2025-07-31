@@ -125,7 +125,7 @@ fn construct_invoke(
                         // Need to create a new wire
                         let width = assign.dst.borrow().width;
                         let wire = builder.add_primitive(
-                            format!("{}_guarded_wire", name),
+                            format!("{name}_guarded_wire"),
                             "std_wire",
                             &[width],
                         );
@@ -286,8 +286,7 @@ impl GroupToInvoke {
             if assign.dst == go_port {
                 if go_wr_cnt > 0 {
                     log::info!(
-                        "Cannot transform `{}` due to multiple writes to @go port",
-                        group_name,
+                        "Cannot transform `{group_name}` due to multiple writes to @go port",
                     );
                     return;
                 } else if !assign.guard.is_true() {
@@ -310,8 +309,7 @@ impl GroupToInvoke {
             if assign.src == done_port {
                 if done_wr_cnt > 0 {
                     log::info!(
-                        "Cannot transform `{}` due to multiple writes to @done port",
-                        group_name,
+                        "Cannot transform `{group_name}` due to multiple writes to @done port",
                     );
                     return;
                 } else if !assign.guard.is_true() {
@@ -334,14 +332,12 @@ impl GroupToInvoke {
 
         if go_wr_cnt != 1 {
             log::info!(
-                "Cannot transform `{}` because there are no writes to @go port",
-                group_name
+                "Cannot transform `{group_name}` because there are no writes to @go port"
             );
             return;
         } else if done_wr_cnt != 1 {
             log::info!(
-                "Cannot transform `{}` because there are no writes to @done port",
-                group_name
+                "Cannot transform `{group_name}` because there are no writes to @done port"
             );
             return;
         }

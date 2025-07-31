@@ -138,7 +138,7 @@ impl InstaTest for Request {
             .iter()
             .map(|&state| &driver.states[state].name)
             .join(" ");
-        let mut desc = format!("emit request: {} -> {}", start_str, end_str);
+        let mut desc = format!("emit request: {start_str} -> {end_str}");
         if !self.through.is_empty() {
             desc.push_str(" through");
             for op in &self.through {

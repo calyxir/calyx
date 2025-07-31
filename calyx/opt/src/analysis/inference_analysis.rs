@@ -477,7 +477,7 @@ impl InferenceAnalysis {
             }
         }
 
-        log::debug!("SUCCESS: Latency = {}", latency_sum);
+        log::debug!("SUCCESS: Latency = {latency_sum}");
         Some(latency_sum)
     }
 
