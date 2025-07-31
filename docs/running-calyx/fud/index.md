@@ -17,31 +17,28 @@ The source for fud is [here](https://github.com/calyxir/calyx/tree/master/fud).
 
 `fud` currently has a dependency on [calyx-py](builder/calyx-py.md), which you need to install first.
 
-You need [Flit](https://flit.readthedocs.io/en/latest/) to install `fud`. Install it with `pip3 install flit`.
-
-You can then install `fud` with
+You need [uv][] to install `fud`.
+Follow its [installation instructions][uv install].
+Then:
 
 ```bash
-cd fud && flit install
+uv tool install ./fud
 ```
-(If using this method to install `fud`, `pip3` should be version >= 20)
 
 If you are working on `fud` itself, you can install it with a symlink with:
-```bash
-cd fud && flit install --symlink
-```
-
-You can also install `fud` with
 
 ```bash
-flit build
-pip3 install dist/fud-0.3.0-py3-none-any.whl
+uv tool install -e ./fud
 ```
 
 Finally, point `fud` to the root of the repository:
+
 ```
 fud config global.root <full path to Calyx repository>
 ```
+
+[uv]: https://docs.astral.sh/uv/
+[uv install]: https://docs.astral.sh/uv/#installation
 
 ## Configuration
 

@@ -183,7 +183,6 @@ Congratulations! You've simulated your first hardware design with Calyx.
 [icarus verilog]: http://iverilog.icarus.com
 [jq]: https://stedolan.github.io/jq/
 [jq-install]: https://stedolan.github.io/jq/
-[flit]: https://flit.readthedocs.io/en/latest/
 [interpreter]: ./running-calyx/interpreter.md
 [homebrew]: https://brew.sh
 [fud-icarus]: ./running-calyx/fud/index.md#icarus-verilog
