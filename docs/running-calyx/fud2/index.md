@@ -1,29 +1,39 @@
-# fud2: An Experimental Successor to fud
+# `fud2`: The Calyx Driver
 
-[fud][] is the compiler driver tool for orchestrating the Calyx ecosystem.
-fud2 is an experiment in building a new driver that works like fud that adds some fundamental new capabilities and resolves some underlying problems.
+`fud2` is the compiler driver tool for orchestrating the Calyx ecosystem.
 
-"Original" fud is still the right tool for almost all jobs; fud2 is in an experimental phase and does not support everything fud can do.
-Someday, fud2 may supplant fud, but it needs more work before it is ready to do that.
-Until then, fud remains your first choice for all your build-related needs.
+Working with Calyx involves a lot of command-line tools. For example, an
+incomplete yet daunting list of CLI tools used by Calyx is:
+
+- All the Calyx [frontends][]
+- Calyx compiler and its various command line tools
+- Verilator, the Verilog simulation framework used to test Calyx-generated designs
+- Waveform viewers to see the results of simulation
+
+`fud2` aims to provide a simple interface for using these toolchains and executing them in a pipeline.
+The source for `fud2` is [here](https://github.com/calyxir/calyx/tree/master/fud2).
+
+"Original" [fud][] was replaced by `fud2` in a push to add some fundamental new capabilities and resolve some underlying problems with `fud`.
 
 [fud]: ./fud/index.md
 
 ## Set Up
 
-If you would like to use `fud2` as is, and already have Calyx installed, you can `cargo install --path fud2` from this repository's root to automatically add the binary to your path.
+If you already have Calyx installed, you can `cargo install --path fud2` from this repository's root to automatically add the binary to your path.
 
 Alternatively, if you would like to work on development of `fud2` and/or keep up with the latest changes when you `git pull`, you can build it along with everything else in this monorepo with `cargo build`.
 You might then want to do something like ``ln -s `pwd`/target/debug/fud2 ~/.local/bin`` for easy access to the `fud2` binary.
 
-fud2 depends on [Ninja][].
+`fud2` depends on [Ninja][].
 Install it using your OS package manager or by downloading a binary.
 
 ### Configuration
 
 Run the following command to edit `fud2`'s configuration file (usually `~/.config/fud2.toml`):
 
-    $ fud2 edit-config
+```sh
+fud2 edit-config
+```
 
 Add these lines:
 
@@ -38,13 +48,13 @@ Some parts of Calyx and `fud2` require setting up and installing various python 
 
 To do this, simply run:
 
-    $ fud2 env init
+    fud2 env init
 
 There may be some cases where you want to manually interact with the python virtual environment. The virtual environment is installed to `$XDG_DATA_HOME/fud2/venv` (usually `~/.local/share/fud2/venv`). You can activate the virtual environment in your current shell with:
 
-    $ fud2 env activate
+    fud2 env activate
 
-Now you're ready to use fud2.
+Now you're ready to use `fud2`.
 
 [ninja]: https://ninja-build.org
 
@@ -53,27 +63,27 @@ Now you're ready to use fud2.
 You can see complete command-line documentation with `fud2 --help`.
 But generally, you want to do something like this:
 
-    $ fud2 <IN> -o <OUT>
+    fud2 <IN> -o <OUT>
 
 For example, use this to compile a Calyx program to Verilog:
 
-    $ fud2 foo.futil -o bar.sv
+    fud2 foo.futil -o bar.sv
 
-fud2 tries to automatically guess the input and output formats using filename extensions.
+`fud2` tries to automatically guess the input and output formats using filename extensions.
 If that doesn't work, you can choose for it with `--from <state>` and `--to <state>`;
 for example, this is a more explicit version of the above:
 
-    $ fud2 foo.futil -o bar.sv --from calyx --to verilog
+    fud2 foo.futil -o bar.sv --from calyx --to verilog
 
 You can also omit the input and output filenames to instead use stdin and stdout.
 In that case, `--from` and `--to` respectively are required.
 So here's yet another way to do the same thing:
 
-    $ fud2 --from calyx --to verilog < foo.futil > bar.sv
+    fud2 --from calyx --to verilog < foo.futil > bar.sv
 
 This is handy if you just want to print the result of a build to the console:
 
-    $ fud2 foo.futil --to verilog
+    fud2 foo.futil --to verilog
 
 Some operations use other configuration options, which can come from either your `fud2.toml` or the command line.
 Use `--set key=value` to override any such option.
@@ -83,27 +93,28 @@ Use `--set key=value` to override any such option.
 Use `fud2 --help` for an overview of the command-line interface.
 Here are some options you might need:
 
-* By default, fud2 runs the build in a directory called `.fud2` within the working directory. It automatically deletes this directory when the build is done.
-    * It can be useful to keep this build directory around for debugging or as a "cache" for future builds. Use `--keep` to prevent fud2 from deleting the build directory.
-    * You can also tell fud2 to use a different build directory with `--dir`. If you give it an existing directory, it will never be deleted, even without `--keep`. (Only "fresh" build directories are automatically cleaned up.)
-* If you don't like the operation path that fud2 selected for your build, you can control it with `--through <OP>`. fud2 will search the operation graph for a path that contains that op. You can provide this option multiple times; fud2 will look for paths that contain *all* these operations, in order.
-* You can choose one of several modes with `-m <NAME>`:
-    * `run`: Actually execute a build. The default.
-    * `gen`: Generate the Ninja build file in the build directory, but don't actually run the build. The default `run` mode is therefore approximately like doing `fud2 -m gen && ninja -C .fud2`.
-    * `emit`: Just print the Ninja build file to stdout. The `gen` mode is therefore approximately `fud2 -m emit > .fud2/build.ninja`.
-    * `plan`: Print a brief description of the plan, i.e., the sequence of operations that the build would run.
-    * `dot`: Print a [GraphViz][] depiction of the plan. Try `fud2 -m dot | dot -Tpdf > graph.pdf` and take a look.
-    * `cmds`: Print the commands Ninja would run when executing the plan, but do not execute them.
+- By default, `fud2` runs the build in a directory called `.fud2` within the working directory. It automatically deletes this directory when the build is done.
+  - It can be useful to keep this build directory around for debugging or as a "cache" for future builds. Use `--keep` to prevent `fud2` from deleting the build directory.
+  - You can also tell `fud2` to use a different build directory with `--dir`. If you give it an existing directory, it will never be deleted, even without `--keep`. (Only "fresh" build directories are automatically cleaned up.)
+- If you don't like the operation path that `fud2` selected for your build, you can control it with `--through <OP>`. `fud2` will search the operation graph for a path that contains that op. You can provide this option multiple times; `fud2` will look for paths that contain *all* these operations, in order.
+- You can choose one of several modes with `-m <NAME>`:
+  - `run`: Actually execute a build. The default.
+  - `gen`: Generate the Ninja build file in the build directory, but don't actually run the build. The default `run` mode is therefore approximately like doing `fud2 -m gen && ninja -C .fud2`.
+  - `emit`: Just print the Ninja build file to stdout. The `gen` mode is therefore approximately `fud2 -m emit > .fud2/build.ninja`.
+  - `plan`: Print a brief description of the plan, i.e., the sequence of operations that the build would run.
+  - `dot`: Print a [GraphViz][] depiction of the plan. Try `fud2 -m dot | dot -Tpdf > graph.pdf` and take a look.
+  - `cmds`: Print the commands Ninja would run when executing the plan, but do not execute them.
 
 There are also some subcommands for doing things other than building stuff:
 
-* `fud2 edit-config`: Open the fud2 configuration file in `$EDITOR`.
-* `fud2 list`: Print out all the available states and operations.
-* `fud2 get-rsrc FILE`: Fetch a *resource file* and place it in the working directory. You typically do not need to use this interactively; it is used during builds to obtain files included with fud2 that are necessary for a given build.
+- `fud2 edit-config`: Open the `fud2` configuration file in `$EDITOR`.
+- `fud2 list`: Print out all the available states and operations.
+- `fud2 get-rsrc FILE`: Fetch a *resource file* and place it in the working directory. You typically do not need to use this interactively; it is used during builds to obtain files included with `fud2` that are necessary for a given build.
 
 [graphviz]: https://graphviz.org
 
 ### Timing Extraction
+
 When using the `run` command, it can sometimes be useful to know how long
 individuals parts of the build are taking. You can use the `--csv <CSV_FILE>` to
 emit a csv of timing information collected during the build. This will output a
@@ -111,10 +122,13 @@ csv containing the name of the generated file and the time it took to build in
 milliseconds.
 
 For example running
+
 ```
 fud2 --from calyx --to jq --through icarus -s sim.data=tests/correctness/invoke-with.futil.data -s calyx.flags=' --nested' -s verilog.cycle_limit=500 -s jq.expr=".memories" tests/correctness/invoke-with.futil -q --csv timing.csv
 ```
+
 will produce a file `timing.csv` with contents like
+
 ```csv
 filename,duration
 verilog-noverify.sv,24
@@ -127,34 +141,34 @@ dat.json,133
 _to_stdout_jq.jq,7
 ```
 
-## The Design of fud2
+## The Design of `fud2`
 
 <div class="warning">
 
-This section is about the *implementation* of fud2; it is only relevant if you want to work on it yourself.
-No need to read any farther if all you want is to *use* fud2.
+This section is about the *implementation* of `fud2`; it is only relevant if you want to work on it yourself.
+No need to read any farther if all you want is to *use* `fud2`.
 
 </div>
 
-### fud2 is a Command Orchestrator
+### `fud2` is a Command Orchestrator
 
-fud2 consists of two pieces, which are two separate Rust crates:
+`fud2` consists of two pieces, which are two separate Rust crates:
 
-* FudCore (the `fud-core` crate): is a *generic compiler driver* library. This library is not specific to Calyx and could hypothetically be used to build a fud2-like driver for any compiler ecosystem. Clients of the `fud-core` library work by constructing a `Driver` object that encapsulates a set of *states* and *operations* that define the driver's behavior.
-* fud2 itself is a program that uses the FudCore library. All of the Calyx-specific logic lives in `fud2`. For the most part, all of the code in the `fud2` crate consists of declaring a bunch of states and operations. The `main` function does little more than dispatch to the resulting `Driver` object's generic command-line interface.
+- FudCore (the `fud-core` crate): is a *generic compiler driver* library. This library is not specific to Calyx and could hypothetically be used to build a `fud2`-like driver for any compiler ecosystem. Clients of the `fud-core` library work by constructing a `Driver` object that encapsulates a set of *states* and *operations* that define the driver's behavior.
+- `fud2` itself is a program that uses the FudCore library. All of the Calyx-specific logic lives in `fud2`. For the most part, all of the code in the `fud2` crate consists of declaring a bunch of states and operations. The `main` function does little more than dispatch to the resulting `Driver` object's generic command-line interface.
 
-The central design philosophy of FudCore (and by extension, fud2 itself) is that its sole job is to orchestrate external functionality.
+The central design philosophy of FudCore (and by extension, `fud2` itself) is that its sole job is to orchestrate external functionality.
 All that functionality must be available as separate tools that can be invoked via the command line.
 This is an important goal because it means the driver has a clear, discrete goal: *all it does* is decide on a list of commands to execute to perform a build.
 All the "interesting work" must be delegated to separate tools outside of the driver.
 This philosophy has both advantages and disadvantages:
 
-* On the positive side, it forces all the interesting logic to be invokable via a command that you, the user, can run equally well yourself. So if something is going wrong, there is *always* a command line you can copy and paste into your terminal to reproduce the problem at that particular step. It also means that the input and output of every step must be written to files in the filesystem, so you can easily inspect the intermediate state between every command. This file-based operation also means that fud2 builds are parallel and incremental by default.
-* On the other hand, requiring everything to be separate commands means that fud2 has a complicated dependency story. It is not a monolith: to get meaningful work done, you currently have to install a bunch of Python components (among other things) so fud2 can invoke them. (We hope to mitigate the logistical pain this incurs over time, but we're not there yet.) Also, writing everything to a file in between each step comes at a performance cost. Someday, it may be a performance bottleneck that two steps in a build cannot simply exchange their data directly, through memory, and must serialize everything to disk first. (This has not been a problem in practice yet.)
+- On the positive side, it forces all the interesting logic to be invokable via a command that you, the user, can run equally well yourself. So if something is going wrong, there is *always* a command line you can copy and paste into your terminal to reproduce the problem at that particular step. It also means that the input and output of every step must be written to files in the filesystem, so you can easily inspect the intermediate state between every command. This file-based operation also means that `fud2` builds are parallel and incremental by default.
+- On the other hand, requiring everything to be separate commands means that `fud2` has a complicated dependency story. It is not a monolith: to get meaningful work done, you currently have to install a bunch of Python components (among other things) so `fud2` can invoke them. (We hope to mitigate the logistical pain this incurs over time, but we're not there yet.) Also, writing everything to a file in between each step comes at a performance cost. Someday, it may be a performance bottleneck that two steps in a build cannot simply exchange their data directly, through memory, and must serialize everything to disk first. (This has not been a problem in practice yet.)
 
-If you want to extend fud2 to do something new, the consequence is that you first need to come up with a sequence of commands that do that thing.
+If you want to extend `fud2` to do something new, the consequence is that you first need to come up with a sequence of commands that do that thing.
 If necessary, you may find that you need to create new executables to do some minor glue tasks that would otherwise be implicit.
-Then "all you need to do" is teach fud2 to execute those commands.
+Then "all you need to do" is teach `fud2` to execute those commands.
 
 ### States, Operations, and Setups
 
@@ -163,7 +177,7 @@ You can think of a FudCore driver as a graph, where the vertices are *states* an
 Any build is a transformation from one state to another, traversing a path through this graph.
 The operations (edges) along this path are the commands that must be executed to transform a file from the initial state to the final state.
 
-To make fud2 do something new, you probably want to add one or more operations, and you may need to add new states.
+To make `fud2` do something new, you probably want to add one or more operations, and you may need to add new states.
 Aside from declaring the source and destination states,
 operations generate chunks of [Ninja][] code.
 So to implement an operation, you write a Rust function with this signature:
