@@ -271,7 +271,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Executed after visiting the conetnts of an [ir::StaticControl] node.
+    /// Executed after visiting the contents of an [ir::StaticControl] node.
     fn finish_static_control(
         &mut self,
         _s: &mut ir::StaticControl,
