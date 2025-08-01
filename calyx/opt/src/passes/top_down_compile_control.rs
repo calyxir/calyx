@@ -866,6 +866,7 @@ impl Schedule<'_, '_> {
                     fsm["start"] = not_done ? signal_on["out"];
                 );
 
+                // store enable conditions for this FSM
                 self.fsm_enables.entry(cur_state).or_default().extend(en_go);
 
                 // Enable FSM to be triggered by states besides the most recent
@@ -1088,6 +1089,7 @@ impl Schedule<'_, '_> {
             .chain(exits)
             .map(|(s, g)| (s, g & port_guard.clone()))
             .collect();
+
         let prevs = self.calculate_states_recur(
             &while_stmt.body,
             transitions,
