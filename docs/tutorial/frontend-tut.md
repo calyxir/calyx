@@ -43,11 +43,6 @@ Next, install the `mrxl` binary:
 ```
 cd frontends/mrxl && flit install -s && cd -
 ```
-Register the `mrxl` binary with `fud`:
-```
-fud register mrxl -p frontends/mrxl/fud/mrxl.py
-```
-Now, running `fud check` should report that the `mrxl` binary is correctly installed.
 
 ### Running MrXL
 
@@ -88,10 +83,11 @@ Finally, let us go the whole hog: we compile our MrXL program to Calyx, compile 
 
 Run:
 ```
-fud e --from mrxl frontends/mrxl/test/sos.mrxl --to dat --through verilog -s mrxl.data frontends/mrxl/test/sos.mrxl.data
+mrxl --convert --data frontends/mrxl/test/sos.mrxl.data frontends/mrxl/test/sos.mrxl > sos.data
+fud2 --from mrxl frontends/mrxl/test/sos.mrxl --to dat --through verilator -s sim.data=sos.data
 ```
 
-The above command takes a MrXL program, `sos.mrxl`, and generates results with Verilator using the MrXL data file `sos.mrxl.data`.
+The above commands take a MrXL program, `sos.mrxl`, and generates results with Verilator using the MrXL data file `sos.mrxl.data`.
 
 # Compiling MrXL into Calyx
 
@@ -213,7 +209,7 @@ At a high level, we want to generate the following pieces of hardware:
 3. An adder to increment the value of the index.
 4. Whatever hardware is needed to implement the loop body computation.
 
-We have implemented exactly this, and you have been using it thus far with the `fud` invocations that we have provided you.
+We have implemented exactly this, and you have been using it thus far with the `fud2` invocations that we have provided you.
 
 However, it is time to get your hands dirty.
 We provide a [stub implementation][mymap-stub] of `map` in `gen_calyx.py`:
@@ -225,10 +221,10 @@ You are invited to try implementing map yourself according to the outline given 
 
 To run `mrxl` with `my_map_impl` instead of our implementation, pass the `--my-map` flag:
 ```sh
-fud e --from mrxl test/sos.mrxl \
-        --to dat --through verilog \
-        -s mrxl.flags "--my-map "  \
-        -s mrxl.data test/sos.mrxl.data
+fud2 --from mrxl test/sos.mrxl \
+     --to dat --through verilator \
+     -s mrxl.flags="--my-map "  \
+     -s sim.data=sos.data
 ```
 
 If you are feeling good about your implementation, skip to [the next section](#adding-parallelization)!
@@ -311,7 +307,7 @@ Translating this into a hardware implementation has a couple of associated chall
 
 To produce the full Calyx program for the above example, run the following from the root of the Calyx repository:
 ```
-fud e --from mrxl --to calyx frontends/mrxl/test/squares.mrxl
+fud2 --from mrxl --to calyx frontends/mrxl/test/squares.mrxl
 ```
 
 
@@ -360,12 +356,12 @@ par {
 The [`par` operator][lf-par] executes all the loops in parallel which use distinct computational resources.
 As specified by the language specification, [conflicting resource usage is undefined behavior][par-undef].
 
-You can use `fud` to compile the MrXL program and run it with some data:
+You can use `fud2` to compile the MrXL program and run it with some data:
 ```
-fud e --from mrxl --to dat \
-      --through verilog \
-      -s mrxl.data frontends/mrxl/test/squares.mrxl.data \
-      frontends/mrxl/test/squares.mrxl
+fud2 --from mrxl --to dat \
+     --through verilator \
+     -s sim.data=squares.data \
+     frontends/mrxl/test/squares.mrxl
 ```
 
 > The [complete implementation][impl] shows the necessary code to create physical memory banks and create an outer loop to generate distinct hardware for each copy of the loop.
@@ -443,10 +439,10 @@ And we can generate this automatically. Try it yourself:
 mrxl frontends/mrxl/test/squares.mrxl --data frontends/mrxl/test/squares.mrxl.data --convert
 ```
 
-This transformation is achieved using a [`fud`][fud] pass that converts MrXL-native data files into Calyx-native data files.
+This transformation is achieved using a [`fud2`][fud2] pass that converts MrXL-native data files into Calyx-native data files.
 
 [mrxldocs-install]: https://docs.calyxir.org/frontends/mrxl.html#install
-[fud]: ../running-calyx/fud/index.md
+[fud2]: ../running-calyx/fud2
 [fud-data]: ../lang/data-format.md
 [json]: https://www.json.org/json-en.html
 [calyx-tut]: ./language-tut.md

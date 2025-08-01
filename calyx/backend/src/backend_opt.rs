@@ -54,8 +54,7 @@ impl FromStr for BackendOpt {
                 .map(|(name, _)| (*name).to_string())
                 .join(", ");
             Err(format!(
-                "`{}` is not a valid backend.\nValid backends: {}",
-                input, backend_str
+                "`{input}` is not a valid backend.\nValid backends: {backend_str}"
             ))
         }
     }

@@ -81,8 +81,7 @@ impl PassManager {
         let name = Pass::name().to_string();
         if self.passes.contains_key(&name) {
             return Err(Error::misc(format!(
-                "Pass with name '{}' is already registered.",
-                name
+                "Pass with name '{name}' is already registered."
             ))
             .into());
         }
@@ -112,8 +111,7 @@ impl PassManager {
     ) -> PassResult<()> {
         if self.aliases.contains_key(&name) {
             return Err(Error::misc(format!(
-                "Alias with name '{}'  already registered.",
-                name
+                "Alias with name '{name}'  already registered."
             ))
             .into());
         }
@@ -126,7 +124,7 @@ impl PassManager {
                 } else if self.passes.contains_key(&pass) {
                     vec![pass]
                 } else {
-                    panic!("No pass or alias named: {}", pass)
+                    panic!("No pass or alias named: {pass}")
                 }
             })
             .collect();
@@ -143,7 +141,7 @@ impl PassManager {
                     .map(|p| format!("- {p}"))
                     .collect::<Vec<String>>()
                     .join("\n");
-                format!("`{pass}' is an alias for pass pipeline:\n{}", pass_str)
+                format!("`{pass}' is an alias for pass pipeline:\n{pass_str}")
             })
         })
     }
@@ -171,7 +169,7 @@ impl PassManager {
                 .map(|p| p.to_string())
                 .collect::<Vec<String>>()
                 .join(", ");
-            writeln!(ret, "- {}: {}", alias, pass_str).unwrap();
+            writeln!(ret, "- {alias}: {pass_str}").unwrap();
         });
         ret
     }

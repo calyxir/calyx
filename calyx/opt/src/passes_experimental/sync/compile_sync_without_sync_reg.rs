@@ -156,7 +156,7 @@ fn insert_barrier(
                 let con_ref = barrier_con.entry(*n).or_insert_with(|| {
                     build_barrier_group(builder, n, barrier_reg)
                 });
-                std::mem::swap(con, &mut ir::Cloner::control(con_ref));
+                *con = ir::Cloner::control(con_ref);
             }
             Ok(())
         }

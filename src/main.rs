@@ -11,7 +11,6 @@ use calyx_frontend as frontend;
 use calyx_ir as ir;
 use calyx_opt::pass_manager::{PassManager, PassResult};
 use cmdline::{CompileMode, Opts};
-use itertools::Itertools;
 
 fn main() -> PassResult<()> {
     // parse the command line arguments into Opts struct
@@ -36,20 +35,42 @@ fn main() -> PassResult<()> {
 
     let pm = PassManager::default_passes()?;
 
-    // list all the avaliable pass options when pass-help subcommand is used
+    // handle pass-help and format
     if let Some(sub) = opts.sub {
         match sub {
             cmdline::Subcommand::Help(cmdline::Help { name }) => {
                 match name {
                     Some(n) => {
                         if let Some(help) = pm.specific_help(&n) {
-                            println!("{}", help);
+                            println!("{help}");
                         } else {
-                            println!("Unknown pass or alias: {}", n);
+                            println!("Unknown pass or alias: {n}");
                         }
                     }
                     None => println!("{}", pm.complete_help()),
                 }
+                return Ok(());
+            }
+            cmdline::Subcommand::Format(cmdline::Format { file }) => {
+                let mut ws = frontend::Workspace::construct(
+                    &Some(file.clone()),
+                    &opts.lib_path,
+                )?;
+                let imports = std::mem::take(&mut ws.original_imports);
+                // Build the IR representation
+                let ctx = ir::from_ast::ast_to_ir(
+                    ws,
+                    ir::from_ast::AstConversionConfig {
+                        extend_signatures: false,
+                    },
+                )?;
+                let out = &mut opts.output.get_write();
+
+                // Print out the original imports for this file.
+                for import in imports {
+                    writeln!(out, "import \"{import}\";")?;
+                }
+                ir::Printer::write_context(&ctx, true, out)?;
                 return Ok(());
             }
         }
@@ -58,10 +79,13 @@ fn main() -> PassResult<()> {
     // Construct the namespace.
     let mut ws = frontend::Workspace::construct(&opts.file, &opts.lib_path)?;
 
-    let imports = ws.original_imports.drain(..).collect_vec();
+    let imports = std::mem::take(&mut ws.original_imports);
 
     // Build the IR representation
-    let mut ctx = ir::from_ast::ast_to_ir(ws)?;
+    let mut ctx = ir::from_ast::ast_to_ir(
+        ws,
+        ir::from_ast::AstConversionConfig::default(),
+    )?;
     // Configuration for the backend
     ctx.bc = ir::BackendConf {
         synthesis_mode: opts.enable_synthesis,
@@ -88,7 +112,7 @@ fn main() -> PassResult<()> {
         // Print out the original imports for this file.
         if opts.compile_mode == CompileMode::File {
             for import in imports {
-                writeln!(out, "import \"{}\";", import)?;
+                writeln!(out, "import \"{import}\";")?;
             }
         }
         ir::Printer::write_context(

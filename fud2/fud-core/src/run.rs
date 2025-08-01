@@ -1,7 +1,10 @@
-use crate::config;
-use crate::exec::{Driver, OpRef, Plan, SetupRef, StateRef};
 use crate::uninterrupt::Uninterrupt;
 use crate::utils::relative_path;
+use crate::{config, log_parser};
+use crate::{
+    exec::{Driver, OpRef, Plan, SetupRef, StateRef},
+    log_parser::LogParseError,
+};
 use camino::{Utf8Path, Utf8PathBuf};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
@@ -30,6 +33,15 @@ pub enum RunError {
     /// The Rhai emitter ran into an error. Probably should just reconfigure so
     /// that the emitter just returns the actual error type
     RhaiError(String),
+
+    /// Errors from the timing extraction
+    TimingLog(LogParseError),
+}
+
+impl From<LogParseError> for RunError {
+    fn from(v: LogParseError) -> Self {
+        Self::TimingLog(v)
+    }
 }
 
 impl From<Box<rhai::EvalAltResult>> for RunError {
@@ -52,9 +64,9 @@ impl From<std::io::Error> for RunError {
 impl std::fmt::Display for RunError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
-            RunError::Io(e) => write!(f, "{}", e),
+            RunError::Io(e) => write!(f, "{e}"),
             RunError::MissingConfig(s) => {
-                write!(f, "missing required config key: {}", s)
+                write!(f, "missing required config key: {s}")
             }
             RunError::InvalidValue {
                 key,
@@ -70,10 +82,13 @@ impl std::fmt::Display for RunError {
                 )
             }
             RunError::NinjaFailed(c) => {
-                write!(f, "ninja exited with {}", c)
+                write!(f, "ninja exited with {c}")
             }
             RunError::RhaiError(eval_alt_result) => {
-                write!(f, "{}", eval_alt_result)
+                write!(f, "{eval_alt_result}")
+            }
+            RunError::TimingLog(log_parse_error) => {
+                write!(f, "{log_parse_error}")
             }
         }
     }
@@ -150,9 +165,9 @@ pub struct RulesOp {
 /// `input`, returns a valid Ninja variable name.
 pub fn io_file_var_name(index: usize, input: bool) -> String {
     if input {
-        format!("i{}", index)
+        format!("i{index}")
     } else {
-        format!("o{}", index)
+        format!("o{index}")
     }
 }
 
@@ -312,7 +327,7 @@ impl<'a> Run<'a> {
 
         // Show all states.
         for (state_ref, state) in self.driver.states.iter() {
-            print!("  {} [", state_ref);
+            print!("  {state_ref} [");
             if let Some(filename) = states.get(&state_ref) {
                 print!(
                     "label=\"{}\n{}\" penwidth=3 fillcolor=gray style=filled",
@@ -363,6 +378,7 @@ impl<'a> Run<'a> {
         dir: &Utf8Path,
         print_cmds: bool,
         quiet_mode: bool,
+        csv_file: Option<&Utf8Path>,
     ) -> EmitResult {
         // Emit the Ninja file.
         let dir = self.emit_to_dir(dir)?;
@@ -426,7 +442,7 @@ impl<'a> Run<'a> {
                         .map_err(|e| if let std::io::ErrorKind::NotFound = e.kind() {
                             std::io::Error::new(
                                 e.kind(),
-                                format!("{}\nHint: Check ops actually generate all of their targets.", e)
+                                format!("{e}\nHint: Check ops actually generate all of their targets.")
                             )
                         } else {
                             e
@@ -436,6 +452,11 @@ impl<'a> Run<'a> {
                     &mut std::io::stdout(),
                 )?;
             }
+
+            if let Some(csv_file) = csv_file {
+                log_parser::generate_timing_csv(&dir.path, csv_file)?;
+            }
+
             Ok(())
         } else {
             Err(RunError::NinjaFailed(status))
@@ -612,13 +633,13 @@ impl<W: Write> Emitter<W> {
 
     /// Emit a Ninja variable declaration.
     pub fn var(&mut self, name: &str, value: &str) -> std::io::Result<()> {
-        writeln!(self.out, "{} = {}", name, value)
+        writeln!(self.out, "{name} = {value}")
     }
 
     /// Emit a Ninja rule definition.
     pub fn rule(&mut self, name: &str, command: &str) -> std::io::Result<()> {
-        writeln!(self.out, "rule {}", name)?;
-        writeln!(self.out, "  command = {}", command)
+        writeln!(self.out, "rule {name}")?;
+        writeln!(self.out, "  command = {command}")
     }
 
     /// Emit a simple Ninja build command with one dependency.
@@ -641,16 +662,16 @@ impl<W: Write> Emitter<W> {
     ) -> std::io::Result<()> {
         write!(self.out, "build")?;
         for target in targets {
-            write!(self.out, " {}", target)?;
+            write!(self.out, " {target}")?;
         }
-        write!(self.out, ": {}", rule)?;
+        write!(self.out, ": {rule}")?;
         for dep in deps {
-            write!(self.out, " {}", dep)?;
+            write!(self.out, " {dep}")?;
         }
         if !implicit_deps.is_empty() {
             write!(self.out, " |")?;
             for dep in implicit_deps {
-                write!(self.out, " {}", dep)?;
+                write!(self.out, " {dep}")?;
             }
         }
         writeln!(self.out)?;
@@ -679,7 +700,7 @@ impl<W: Write> Emitter<W> {
 
     /// Emit a Ninja comment.
     pub fn comment(&mut self, text: &str) -> std::io::Result<()> {
-        writeln!(self.out, "# {}", text)?;
+        writeln!(self.out, "# {text}")?;
         Ok(())
     }
 
@@ -699,7 +720,7 @@ impl<W: Write> Emitter<W> {
 
     /// Add a variable parameter to a rule or build command.
     pub fn arg(&mut self, name: &str, value: &str) -> std::io::Result<()> {
-        writeln!(self.out, "  {} = {}", name, value)?;
+        writeln!(self.out, "  {name} = {value}")?;
         Ok(())
     }
 

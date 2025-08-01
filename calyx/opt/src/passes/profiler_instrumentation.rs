@@ -380,8 +380,7 @@ fn create_assignments<T: Clone>(
     // probe and assignments for group enable (this group is currently active)
     for group_name in group_names.iter() {
         // store group and component name (differentiate between groups of the same name under different components)
-        let name =
-            format!("{}{}{}_group_probe", group_name, delimiter, comp_name);
+        let name = format!("{group_name}{delimiter}{comp_name}_group_probe");
         let probe_cell = builder.add_primitive(name, "std_wire", &[1]);
         let probe_asgn: ir::Assignment<T> = builder.build_assignment(
             probe_cell.borrow().get("in"),
@@ -401,12 +400,7 @@ fn create_assignments<T: Clone>(
         for (invoked_group_name, parent_groups) in sem.iter() {
             for (parent_group, guard) in parent_groups.iter() {
                 let probe_cell_name = format!(
-                    "{}{}{}{}{}_se_probe",
-                    invoked_group_name,
-                    delimiter,
-                    parent_group,
-                    delimiter,
-                    comp_name
+                    "{invoked_group_name}{delimiter}{parent_group}{delimiter}{comp_name}_se_probe"
                 );
                 let probe_cell =
                     builder.add_primitive(probe_cell_name, "std_wire", &[1]);
@@ -433,12 +427,7 @@ fn create_assignments<T: Clone>(
         for (invoker_group, invoked_cells) in cell_invoke_map.iter() {
             for (invoked_cell, guard) in invoked_cells {
                 let probe_cell_name = format!(
-                    "{}{}{}{}{}_cell_probe",
-                    invoked_cell,
-                    delimiter,
-                    invoker_group,
-                    delimiter,
-                    comp_name
+                    "{invoked_cell}{delimiter}{invoker_group}{delimiter}{comp_name}_cell_probe"
                 );
                 let probe_cell =
                     builder.add_primitive(probe_cell_name, "std_wire", &[1]);
@@ -466,8 +455,7 @@ fn create_assignments<T: Clone>(
         for (group, primitive_invs) in primitive_invoke_map.iter() {
             for (primitive_cell_name, guard) in primitive_invs.iter() {
                 let probe_cell_name = format!(
-                    "{}{}{}{}{}_primitive_probe",
-                    primitive_cell_name, delimiter, group, delimiter, comp_name
+                    "{primitive_cell_name}{delimiter}{group}{delimiter}{comp_name}_primitive_probe"
                 );
                 let probe_cell =
                     builder.add_primitive(probe_cell_name, "std_wire", &[1]);

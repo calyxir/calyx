@@ -258,7 +258,7 @@ impl<'a> Printer<'a> {
                 out += &text_utils::indent("}", indent);
 
                 if !f_branch.is_empty() {
-                    out += &format!(" else {{\n{}\n", f_branch);
+                    out += &format!(" else {{\n{f_branch}\n");
                     out += &(text_utils::indent("}\n", indent));
                 }
 
@@ -292,7 +292,7 @@ impl<'a> Printer<'a> {
 
                 if !i.ref_cells.is_empty() {
                     let ref_cells = self.format_invoke_ref_cell_list(i, parent);
-                    out += &format!("[{}]", ref_cells);
+                    out += &format!("[{ref_cells}]");
                 }
                 let inputs =
                     self.format_invoke_port_lists(&i.signature.inputs, parent);
@@ -388,16 +388,16 @@ impl<'a> Printer<'a> {
             Guard::Or(l, r) => {
                 let l = self.format_guard(parent, *l);
                 let r = self.format_guard(parent, *r);
-                format!("({} | {})", l, r)
+                format!("({l} | {r})")
             }
             Guard::And(l, r) => {
                 let l = self.format_guard(parent, *l);
                 let r = self.format_guard(parent, *r);
-                format!("({} & {})", l, r)
+                format!("({l} & {r})")
             }
             Guard::Not(n) => {
                 let n = self.format_guard(parent, *n);
-                format!("!{}", n)
+                format!("!{n}")
             }
             Guard::Comp(op, l, r) => {
                 let l = self.lookup_id_from_port(parent, *l);
@@ -428,7 +428,7 @@ impl<'a> Printer<'a> {
         let guard = if guard.is_empty() {
             guard
         } else {
-            format!("{} ? ", guard)
+            format!("{guard} ? ")
         };
 
         format!(

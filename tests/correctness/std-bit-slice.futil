@@ -4,7 +4,7 @@ import "primitives/memories/comb.futil";
 component main(@go go: 1) -> (@done done: 1) {
   cells {
     @external mem = comb_mem_d1(32, 1, 1);
-    slice = std_bit_slice(32, 10, 14, 4);
+    slice = std_bit_slice(32, 10, 13, 4);
     pad = std_pad(4, 32);
   }
 

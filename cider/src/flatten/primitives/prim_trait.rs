@@ -118,8 +118,8 @@ pub trait Primitive {
         &mut self,
         _port_map: &mut PortMap,
         _state_map: &mut MemoryMap,
-    ) -> RuntimeResult<()> {
-        Ok(())
+    ) -> UpdateResult {
+        Ok(UpdateStatus::Unchanged)
     }
 
     fn has_comb_path(&self) -> bool {
@@ -164,7 +164,7 @@ pub trait RaceDetectionPrimitive: Primitive {
         _clock_map: &mut ClockMap,
         _thread_map: &ThreadMap,
         state_map: &mut MemoryMap,
-    ) -> RuntimeResult<()> {
+    ) -> UpdateResult {
         self.exec_cycle(port_map, state_map)
     }
 

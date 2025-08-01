@@ -13,6 +13,7 @@ use std::rc::Rc;
 /// 2. add all cells and groups needed
 /// 3. loop through all control statements, find the statements with @sync
 ///    attribute and replace them with
+/// ```ignore
 ///     seq {
 ///       <stmt>;
 ///       incr_barrier_0_*;
@@ -28,6 +29,7 @@ use std::rc::Rc;
 ///       wait_*;
 ///       wait_restore_*;
 ///     }
+/// ```
 pub struct CompileSync {
     barriers: BarrierMap,
 }

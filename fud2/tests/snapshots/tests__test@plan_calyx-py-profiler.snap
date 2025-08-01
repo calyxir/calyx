@@ -23,6 +23,8 @@ cell-json = cells.json
 fsm-json = fsm.json
 cell-share-json = shared-cells.json
 enable-par-track-json = enable-par-track.json
+ctrl-pos-json = ctrl-pos.json
+adl-metadata-json = adl-metadata.json
 passes = -p pre-opt -p compile -p post-opt -p lower
 edsl-args = 
 component_cells = $calyx-base/target/debug/component_cells
@@ -38,12 +40,14 @@ rule edsl-to-calyx
 metadata-mapping-json = metadata-map.json
 fileinfo_emitter = $calyx-base/target/debug/fileinfo_emitter
 rule parse-metadata
-  command = $fileinfo_emitter -l $calyx-base $in > $metadata-mapping-json
+  command = $fileinfo_emitter -l $calyx-base $in -c $ctrl-pos-json
+rule parse-metadata-with-adl
+  command = $fileinfo_emitter -l $calyx-base $in -c $ctrl-pos-json -o $adl-metadata-json
 
 rule parse-vcd
-  command = profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --print-trace-threshold 100
+  command = profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --print-trace-threshold 100 --ctrl-pos-file $ctrl-pos-json
 rule parse-vcd-from-adl
-  command = profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --adl-mapping-file $metadata-mapping-json --print-trace-threshold 100
+  command = profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --ctrl-pos-file $ctrl-pos-json --adl-mapping-file $adl-metadata-json --print-trace-threshold 100
 
 verilator = verilator
 cycle-limit = 500000000
@@ -68,18 +72,20 @@ rule sim-run
 cycle-limit = 500000000
 
 build calyx.futil: edsl-to-calyx /input.ext
-build $metadata-mapping-json: parse-metadata calyx.futil
+build metadata-calyx.futil: calyx-pass calyx.futil
+  pass = metadata-table-generation
+build $ctrl-pos-json $adl-metadata-json: parse-metadata-with-adl metadata-calyx.futil
 build $cell-json: component-cells calyx.futil
 build instrumented.sv: calyx calyx.futil
   backend = verilog
-  args = -d group2seq -p validate -p compile-invoke -p uniquefy-enables -p profiler-instrumentation -p dead-group-removal $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json
+  args = -d group2seq -p metadata-table-generation -p validate -p compile-invoke -p uniquefy-enables -p profiler-instrumentation -p dead-group-removal $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json
 build verilator-out/Vtoplevel: verilator-compile-standalone-tb instrumented.sv | tb.sv
   out-dir = verilator-out
 build instrumented.exe: cp verilator-out/Vtoplevel
 build sim.log instrumented.vcd: sim-run instrumented.exe $datadir
   bin = instrumented.exe
   args = +NOTRACE=0 +OUT=instrumented.vcd
-build flamegraph.folded: parse-vcd-from-adl instrumented.vcd | $cell-json $metadata-mapping-json
+build flamegraph.folded: parse-vcd-from-adl instrumented.vcd | $cell-json $adl-metadata-json
 build /output.ext: create-visuals flamegraph.folded
 
 default /output.ext

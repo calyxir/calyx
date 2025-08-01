@@ -211,7 +211,7 @@ fn compute_path_descriptors_static(
 ) {
     match control {
         ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
-            let body_id = format!("{}-b", current_id);
+            let body_id = format!("{current_id}-b");
             compute_path_descriptors_static(
                 body,
                 body_id,
@@ -222,7 +222,7 @@ fn compute_path_descriptors_static(
         ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
             let group_id = if parent_is_component {
                 // edge case: the entire control is just one static enable
-                format!("{}0", current_id)
+                format!("{current_id}0")
             } else {
                 current_id
             };
@@ -232,9 +232,9 @@ fn compute_path_descriptors_static(
                 .insert(group_name.to_string(), group_id);
         }
         ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
-            let par_id = format!("{}-", current_id);
+            let par_id = format!("{current_id}-");
             for (acc, stmt) in stmts.iter().enumerate() {
-                let stmt_id = format!("{}{}", par_id, acc);
+                let stmt_id = format!("{par_id}{acc}");
                 compute_path_descriptors_static(
                     stmt,
                     stmt_id,
@@ -246,7 +246,7 @@ fn compute_path_descriptors_static(
         }
         ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => {
             for (acc, stmt) in stmts.iter().enumerate() {
-                let stmt_id = format!("{}-{}", current_id, acc);
+                let stmt_id = format!("{current_id}-{acc}");
                 compute_path_descriptors_static(
                     stmt,
                     stmt_id,
@@ -259,7 +259,7 @@ fn compute_path_descriptors_static(
             tbranch, fbranch, ..
         }) => {
             // process true branch
-            let true_id = format!("{}-t", current_id);
+            let true_id = format!("{current_id}-t");
             compute_path_descriptors_static(
                 tbranch,
                 true_id,
@@ -267,7 +267,7 @@ fn compute_path_descriptors_static(
                 false,
             );
             // process false branch
-            let false_id = format!("{}-f", current_id);
+            let false_id = format!("{current_id}-f");
             compute_path_descriptors_static(
                 fbranch,
                 false_id,
@@ -291,7 +291,7 @@ fn compute_path_descriptors(
     match control {
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
             for (acc, stmt) in stmts.iter().enumerate() {
-                let stmt_id = format!("{}-{}", current_id, acc);
+                let stmt_id = format!("{current_id}-{acc}");
                 compute_path_descriptors(
                     stmt,
                     stmt_id,
@@ -301,9 +301,9 @@ fn compute_path_descriptors(
             }
         }
         ir::Control::Par(ir::Par { stmts, .. }) => {
-            let par_id = format!("{}-", current_id);
+            let par_id = format!("{current_id}-");
             for (acc, stmt) in stmts.iter().enumerate() {
-                let stmt_id = format!("{}{}", par_id, acc);
+                let stmt_id = format!("{par_id}{acc}");
                 compute_path_descriptors(
                     stmt,
                     stmt_id,
@@ -317,7 +317,7 @@ fn compute_path_descriptors(
             tbranch, fbranch, ..
         }) => {
             // process true branch
-            let true_id = format!("{}-t", current_id);
+            let true_id = format!("{current_id}-t");
             compute_path_descriptors(
                 tbranch,
                 true_id,
@@ -325,7 +325,7 @@ fn compute_path_descriptors(
                 false,
             );
             // process false branch
-            let false_id = format!("{}-f", current_id);
+            let false_id = format!("{current_id}-f");
             compute_path_descriptors(
                 fbranch,
                 false_id,
@@ -334,7 +334,7 @@ fn compute_path_descriptors(
             );
         }
         ir::Control::While(ir::While { body, .. }) => {
-            let body_id = format!("{}-b", current_id);
+            let body_id = format!("{current_id}-b");
             compute_path_descriptors(
                 body,
                 body_id,
@@ -345,7 +345,7 @@ fn compute_path_descriptors(
         ir::Control::Enable(ir::Enable { group, .. }) => {
             let group_id = if parent_is_component {
                 // edge case: the entire control is just one enable
-                format!("{}0", current_id)
+                format!("{current_id}0")
             } else {
                 current_id
             };
@@ -355,7 +355,7 @@ fn compute_path_descriptors(
                 .insert(group_name.to_string(), group_id);
         }
         ir::Control::Repeat(ir::Repeat { body, .. }) => {
-            let body_id = format!("{}-b", current_id);
+            let body_id = format!("{current_id}-b");
             compute_path_descriptors(
                 body,
                 body_id,
@@ -389,7 +389,7 @@ impl Visitor for UniquefyEnables {
     ) -> VisResult {
         let group_name = s.group.borrow().name();
         // UG stands for "unique group". This is to separate these names from the original group names
-        let unique_group_name: String = format!("{}UG", group_name);
+        let unique_group_name: String = format!("{group_name}UG");
         // create an unique-ified version of the group
         let mut builder = ir::Builder::new(comp, sigs);
         let unique_group = builder.add_group(unique_group_name);
@@ -429,7 +429,7 @@ impl Visitor for UniquefyEnables {
     ) -> VisResult {
         let group_name = s.group.borrow().name();
         // UG stands for "unique group". This is to separate these names from the original group names
-        let unique_group_name = format!("{}UG", group_name);
+        let unique_group_name = format!("{group_name}UG");
         // create an unique-ified version of the group
         let mut builder = ir::Builder::new(comp, sigs);
         let unique_group = builder.add_static_group(

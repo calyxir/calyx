@@ -185,7 +185,7 @@ fn emit_primitive_extmodule<F: io::Write>(
     param_binding: &Binding,
     f: &mut F,
 ) -> io::Result<()> {
-    writeln!(f, "{}extmodule {}:", SPACING, curr_module_name)?;
+    writeln!(f, "{SPACING}extmodule {curr_module_name}:")?;
     for port in ports {
         let port_borrowed = port.borrow();
         emit_port(port_borrowed, false, f)?;
@@ -251,16 +251,16 @@ fn get_guard_string(guard: &ir::Guard<ir::Nothing>) -> String {
         ir::Guard::Or(l, r) => {
             let l_str = get_guard_string(l.as_ref());
             let r_str = get_guard_string(r.as_ref());
-            format!("or({}, {})", l_str, r_str)
+            format!("or({l_str}, {r_str})")
         }
         ir::Guard::And(l, r) => {
             let l_str = get_guard_string(l.as_ref());
             let r_str = get_guard_string(r.as_ref());
-            format!("and({}, {})", l_str, r_str)
+            format!("and({l_str}, {r_str})")
         }
         ir::Guard::Not(g) => {
             let g_str = get_guard_string(g);
-            format!("not({})", g_str)
+            format!("not({g_str})")
         }
         ir::Guard::True => String::from(""),
         ir::Guard::CompOp(op, l, r) => {
@@ -274,7 +274,7 @@ fn get_guard_string(guard: &ir::Guard<ir::Nothing>) -> String {
                 ir::PortComp::Geq => "geq",
                 ir::PortComp::Leq => "leq",
             };
-            format!("{}({}, {})", op_str, l_str, r_str)
+            format!("{op_str}({l_str}, {r_str})")
         }
         ir::Guard::Port(port) => get_port_string(&port.borrow(), false),
         ir::Guard::Info(_) => {
@@ -293,7 +293,7 @@ fn get_port_string(port: &calyx_ir::Port, is_dst: bool) -> String {
             match parent.prototype {
                 ir::CellType::Constant { val, width: _ } => {
                     if !is_dst {
-                        format!("UInt({})", val)
+                        format!("UInt({val})")
                     } else {
                         unreachable!()
                     }

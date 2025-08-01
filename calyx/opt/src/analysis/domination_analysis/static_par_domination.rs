@@ -40,7 +40,7 @@ impl Debug for StaticParDomination {
         par_ids.sort();
         for par_id in par_ids.into_iter() {
             write!(f, "========")?;
-            write!(f, "Par Node ID: {:?}", par_id)?;
+            write!(f, "Par Node ID: {par_id:?}")?;
             writeln!(f, "========")?;
             write!(f, "====")?;
             write!(f, "MUST EXECUTE")?;
@@ -54,8 +54,8 @@ impl Debug for StaticParDomination {
                     vec1.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
                     for (enable_id, interval) in vec1 {
                         // print enable id -- (interval)
-                        write!(f, "{:?} -- ", enable_id)?;
-                        writeln!(f, "{:?}", interval)?;
+                        write!(f, "{enable_id:?} -- ")?;
+                        writeln!(f, "{interval:?}")?;
                     }
                 }
             }
@@ -71,8 +71,8 @@ impl Debug for StaticParDomination {
                     vec1.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
                     for (enable_id, interval) in vec1 {
                         // print enable id -- (interval)
-                        write!(f, "{:?} -- ", enable_id)?;
-                        writeln!(f, "{:?}", interval)?;
+                        write!(f, "{enable_id:?} -- ")?;
+                        writeln!(f, "{interval:?}")?;
                     }
                 }
             }

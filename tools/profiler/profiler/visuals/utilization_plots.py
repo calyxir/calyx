@@ -55,7 +55,7 @@ class Plotter:
                     aggregated.append(
                         {"cycle": cycle, "primitive": prim, "value": value}
                     )
-                    usage_sum[prim] += value
+                    usage_sum[prim] = value
                     if value != 0:
                         active_cycles[prim] += 1
 
@@ -89,7 +89,7 @@ class Plotter:
         for obj in self.data.values():
             for prim, varmap in obj.utilization_per_primitive.items():
                 if var in varmap:
-                    usage_sum[prim] += int(varmap[var])
+                    usage_sum[prim] = int(varmap[var])
                     if varmap[var] != 0:
                         active_cycles[prim] += 1
 

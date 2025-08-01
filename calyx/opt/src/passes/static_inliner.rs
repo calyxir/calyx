@@ -2,10 +2,12 @@ use crate::analysis::GraphColoring;
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
+use calyx_frontend::SetAttr;
 use calyx_ir::LibrarySignatures;
 use calyx_ir::structure;
 use calyx_ir::{self as ir, StaticTiming};
 use calyx_utils::CalyxResult;
+use ir::GetAttributes;
 use ir::build_assignments;
 use itertools::Itertools;
 use std::collections::{BTreeMap, HashMap};
@@ -760,8 +762,13 @@ impl Visitor for StaticInliner {
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
         let replacement_group = self.inline_static_control(s, &mut builder);
-        Ok(Action::Change(Box::new(ir::Control::from(
-            ir::StaticControl::from(replacement_group),
-        ))))
+        // the replacement group should inherit the original control's position attributes
+        let mut replacement_ctrl =
+            ir::Control::from(ir::StaticControl::from(replacement_group));
+        // the new control node should carry over the position attributes of the original control node
+        replacement_ctrl
+            .get_mut_attributes()
+            .copy_from_set(s.get_attributes(), vec![SetAttr::Pos]);
+        Ok(Action::Change(Box::new(replacement_ctrl)))
     }
 }

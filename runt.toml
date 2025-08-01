@@ -626,44 +626,6 @@ fud2  {} -s sim.cycle_limit=500 \
          --to dat -q
 """
 
-##### Calyx AXI tests #####
-[[tests]]
-name = "calyx-py read-write-compute AXI wrapper generation"
-paths = ["yxi/tests/axi/read-compute-write/*.yxi"]
-cmd = """
-python3 yxi/axi-calyx/axi_generator.py {}
-"""
-
-[[tests]]
-name = "calyx-py dynamic AXI wrapper generation"
-paths = ["yxi/tests/axi/dynamic/*.yxi"]
-cmd = """
-python3 yxi/axi-calyx/dynamic_axi_generator.py {}
-"""
-
-#Ignore fud2 stderr for now due to ninja nondeterminism
-[[tests]]
-name = "fud2 AXI wrapper invocation"
-paths = ["yxi/tests/axi/*/*-mem-vec-add.futil"]
-cmd = """
-dynamic=$(head -n 2 {} | tail -n 1 | cut -c 4-)
-fud2 {} --to calyx --through axi-wrapped --set $dynamic 2> /dev/null
-"""
-
-[[tests]]
-name = "fud2 AXI-wrapped to verilog"
-paths = ["yxi/tests/axi/*/*-mem-vec-add-axi-wrapped.futil"]
-cmd = """
-fud2 {} --from calyx --to verilog-noverify 2> /dev/null
-"""
-
-[[tests]]
-name = "fud2 cocotb AXI-wrapped xecution"
-paths = ["yxi/tests/axi/*/*-mem-vec-add-verilog.v"]
-cmd = """
-fud2 {} --from verilog-noverify --to cocotb-axi --set sim.data=yxi/tests/axi/vectorized-add.data 2> /dev/null
-"""
-
 ##### Xilinx Tests ######
 [[tests]]
 name = "AXI wrapper generation"
@@ -683,7 +645,7 @@ target/debug/calyx {} -b xilinx-xml
 
 [[tests]]
 name = "kernel.xml generation from yxi"
-paths = ["yxi/tests/axi/xml/*.yxi"]
+paths = ["yxi/tests/axi/xml-gen/*.yxi"]
 cmd = """
 python3 yxi/xml/xml_generator.py {}
 """

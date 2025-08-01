@@ -36,11 +36,11 @@ impl Shape {
 
     pub fn as_string(&self) -> String {
         match self {
-            Shape::D1(d0) => format!("({})", d0),
-            Shape::D2(d0, d1) => format!("({}, {})", d0, d1),
-            Shape::D3(d0, d1, d2) => format!("({}, {}, {})", d0, d1, d2),
+            Shape::D1(d0) => format!("({d0})"),
+            Shape::D2(d0, d1) => format!("({d0}, {d1})"),
+            Shape::D3(d0, d1, d2) => format!("({d0}, {d1}, {d2})"),
             Shape::D4(d0, d1, d2, d3) => {
-                format!("({}, {}, {}, {})", d0, d1, d2, d3)
+                format!("({d0}, {d1}, {d2}, {d3})")
             }
         }
     }
@@ -159,9 +159,9 @@ impl Entry {
 impl Display for Entry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Entry::U(v) => write!(f, "{}", v),
-            Entry::I(v) => write!(f, "{}", v),
-            Entry::Frac(v) => write!(f, "{}", v),
+            Entry::U(v) => write!(f, "{v}"),
+            Entry::I(v) => write!(f, "{v}"),
+            Entry::Frac(v) => write!(f, "{v}"),
             Entry::Value(v) => write!(f, "{}", v.to_bit_str()),
         }
     }
@@ -169,7 +169,7 @@ impl Display for Entry {
 
 impl Debug for Entry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{self}")
     }
 }
 
@@ -198,9 +198,9 @@ impl Display for PrintCode {
                 PrintCode::Unsigned => "\\u".stylize_print_code().to_string(),
                 PrintCode::Signed => "\\s".stylize_print_code().to_string(),
                 PrintCode::UFixed(n) =>
-                    format!("\\u.{}", n).stylize_print_code().to_string(),
+                    format!("\\u.{n}").stylize_print_code().to_string(),
                 PrintCode::SFixed(n) =>
-                    format!("\\s.{}", n).stylize_print_code().to_string(),
+                    format!("\\s.{n}").stylize_print_code().to_string(),
             }
         )
     }
@@ -223,7 +223,7 @@ impl Display for Serializable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Serializable::Empty => write!(f, ""),
-            Serializable::Val(v) => write!(f, "{}", v),
+            Serializable::Val(v) => write!(f, "{v}"),
             Serializable::Array(arr, shape) => {
                 write!(f, "{}", format_array(arr, shape))
             }
@@ -310,7 +310,7 @@ fn format_array(arr: &[Entry], shape: &Shape) -> String {
                 .into_iter()
                 .map(|x| x.into_iter().collect::<Vec<_>>())
                 .collect::<Vec<_>>();
-            format!("{:?}", mem)
+            format!("{mem:?}")
         }
         Shape::D3(_d0, d1, d2) => {
             let mem = arr
@@ -325,7 +325,7 @@ fn format_array(arr: &[Entry], shape: &Shape) -> String {
                         .collect::<Vec<_>>()
                 })
                 .collect::<Vec<_>>();
-            format!("{:?}", mem)
+            format!("{mem:?}")
         }
         Shape::D4(_d0, d1, d2, d3) => {
             let mem = arr
@@ -346,10 +346,10 @@ fn format_array(arr: &[Entry], shape: &Shape) -> String {
                         .collect::<Vec<_>>()
                 })
                 .collect::<Vec<_>>();
-            format!("{:?}", mem)
+            format!("{mem:?}")
         }
         Shape::D1(_) => {
-            format!("{:?}", arr)
+            format!("{arr:?}")
         }
     }
 }

@@ -620,7 +620,7 @@ mod tests {
 }"#;
 
         let json_data: JsonData = serde_json::from_str(data).unwrap();
-        println!("{:?}", json_data);
+        println!("{json_data:?}");
         println!("{}", serde_json::to_string_pretty(&json_data).unwrap());
     }
 }

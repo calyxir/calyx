@@ -110,7 +110,7 @@ impl Marker {
             location.as_ref().to_string().to_ascii_uppercase(),
             self.id
                 .as_ref()
-                .map(|id| format!(": {}", id))
+                .map(|id| format!(": {id}"))
                 .unwrap_or_default()
         )
     }
@@ -283,7 +283,7 @@ impl AttributeProvider for Port {
 impl Display for Port {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(parent) = &self.parent {
-            write!(f, "{}.", parent)?;
+            write!(f, "{parent}.")?;
         }
         write!(f, "{}", self.name)
     }
@@ -293,7 +293,7 @@ impl CalyxWriter for Port {
     /// Behaves identically to [`Port::fmt`]. Please read [`CalyxWriter::write`]
     /// for documentation on this function.
     fn write(&self, f: &mut IndentFormatter<'_, '_>) -> fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{self}")
     }
 }
 
@@ -479,11 +479,11 @@ impl CalyxWriter for Group {
     fn write(&self, f: &mut IndentFormatter<'_, '_>) -> fmt::Result {
         if let Some(description) = &self.description {
             for line in description.lines() {
-                writeln!(f, "// {}", line)?;
+                writeln!(f, "// {line}")?;
             }
         }
         if let Some(latency) = self.latency {
-            write!(f, "static<{}> ", latency)?;
+            write!(f, "static<{latency}> ")?;
         }
         if self.is_comb {
             write!(f, "comb ")?;

@@ -468,7 +468,7 @@ impl std::fmt::Debug for AssignedValue {
 impl std::fmt::Display for AssignedValue {
     // TODO: replace with something more reasonable
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -755,6 +755,13 @@ impl PortValue {
             }
         } else {
             "undef".to_string()
+        }
+    }
+
+    pub fn eq_no_transitive_clocks(&self, other: &Self) -> bool {
+        match (self.as_option().as_ref(), other.as_option().as_ref()) {
+            (Some(a), Some(b)) => a.eq_no_transitive_clocks(b),
+            _ => false,
         }
     }
 }

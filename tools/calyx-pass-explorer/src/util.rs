@@ -10,21 +10,17 @@ pub fn capture_command_stdout(
 ) -> std::io::Result<String> {
     let output = Command::new(cmd).args(args).output()?;
     if !output.status.success() && wants_zero {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!(
-                "Command `{} {}` did not execute successfully (code={}). Stderr: {}",
-                cmd,
-                args.iter()
-                    .map(|str| str.to_string())
-                    .collect::<Vec<_>>()
-                    .join(" "),
-                output.status.code().unwrap(),
-                String::from_utf8(output.stderr).unwrap_or_default()
-            ),
-        ))
+        Err(std::io::Error::other(format!(
+            "Command `{} {}` did not execute successfully (code={}). Stderr: {}",
+            cmd,
+            args.iter()
+                .map(|str| str.to_string())
+                .collect::<Vec<_>>()
+                .join(" "),
+            output.status.code().unwrap(),
+            String::from_utf8(output.stderr).unwrap_or_default()
+        )))
     } else {
-        String::from_utf8(output.stdout)
-            .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))
+        String::from_utf8(output.stdout).map_err(std::io::Error::other)
     }
 }

@@ -51,7 +51,7 @@ fn lower_guard(
             let r_low = lower_guard(*r, assigns, builder);
 
             let prim = maybe_prim.unwrap();
-            let prim_name = format!("std_{}", prim);
+            let prim_name = format!("std_{prim}");
             let prim_cell =
                 builder.add_primitive(prim, prim_name, &[l_low.borrow().width]);
             let prim = prim_cell.borrow();
@@ -71,7 +71,7 @@ fn lower_guard(
 
         ir::Guard::CompOp(_, l, r) => {
             let prim = maybe_prim.unwrap();
-            let prim_name = format!("std_{}", prim);
+            let prim_name = format!("std_{prim}");
             let prim_cell =
                 builder.add_primitive(prim, prim_name, &[l.borrow().width]);
             let prim = prim_cell.borrow();

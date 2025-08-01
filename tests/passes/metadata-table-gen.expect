@@ -48,18 +48,18 @@ component main<"pos"={1}>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done don
 }
 sourceinfo #{
 FILES
-1: tests/passes/metadata-table-gen.futil
+  1: tests/passes/metadata-table-gen.futil
 POSITIONS
-1: 1 5
-2: 1 14
-3: 1 19
-4: 1 24
-5: 1 29
-6: 1 40
-7: 1 41
-8: 1 42
-9: 1 43
-10: 1 45
-11: 1 46
-12: 1 48
+  1: 1 5
+  2: 1 14
+  3: 1 19
+  4: 1 24
+  5: 1 29
+  6: 1 40
+  7: 1 41
+  8: 1 42
+  9: 1 43
+  10: 1 45
+  11: 1 46
+  12: 1 48
 }#

@@ -67,6 +67,14 @@ def register_stages(registry):
     )
     registry.register(
         futil.CalyxStage(
+            "fsms-synth-verilog",
+            "-b verilog --synthesis -p synthesis-papercut -p fsm-opt -x \
+tdcc:infer-fsms -p lower -p externalize --disable-verify",
+            "Compile Calyx to synthesizable Verilog",
+        )
+    )
+    registry.register(
+        futil.CalyxStage(
             "calyx-lowered",
             "-b calyx",
             "Compile Calyx to Calyx to remove all control and inline groups",
@@ -124,6 +132,7 @@ def register_stages(registry):
 
     # # Vivado / vivado hls
     registry.register(vivado.VivadoStage())
+    registry.register(vivado.VivadoStageFSMs())
     registry.register(vivado.VivadoExtractStage())
     registry.register(vivado.VivadoHLSStage())
     registry.register(vivado.VivadoHLSExtractStage())

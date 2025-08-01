@@ -25,7 +25,7 @@
 //!   // Parse the calyx program
 //!   let ws = frontend::Workspace::construct(&Some(file), &lib_path)?;
 //!   // Convert it into an ir::Context
-//!   let mut ctx = ir::from_ast::ast_to_ir(ws)?;
+//!   let mut ctx = ir::from_ast::ast_to_ir(ws, AstConversionConfig::default())?;
 //!   // Print out the components in the program
 //!   let out = &mut std::io::stdout();
 //!   for comp in &ctx.components {

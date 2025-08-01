@@ -9,9 +9,11 @@ component main() -> () {
 
     wires {
         group write_reg1 {
-            reg2.write_en = 1'd1;
+            reg2.write_en = !reg1.done & !reg2.done ? 1'd1;
             reg2.in = 32'd15;
-            write_reg1[done] = reg1.done; // oops! This done signal will never go high
+            reg1.write_en = reg2.done;
+            reg1.in = 32'd10;
+            write_reg1[done] = reg1.done & reg2.done ? 1'd1; // oops! This done signal will never go high
         }
     }
 

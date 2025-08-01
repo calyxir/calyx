@@ -82,7 +82,7 @@ impl ScriptContext {
                 None => {
                     s.clone().try_cast::<SetupRef>().ok_or_else(move || {
                         RhaiSystemError::setup_ref(s)
-                            .with_pos(ctx.position())
+                            .with_pos(ctx.call_position())
                             .into()
                     })
                 }
@@ -336,7 +336,7 @@ impl ScriptContext {
                         let mut c = c.clone();
                         if let Some(v) = c.last_mut() {
                             let outputs =
-                                outputs.iter().map(|v| format!("${}", v));
+                                outputs.iter().map(|v| format!("${v}"));
                             v.gens.extend(outputs);
                         }
 
@@ -345,8 +345,7 @@ impl ScriptContext {
                             .map(|i| crate::run::io_file_var_name(i, true))
                             .collect();
                         if let Some(v) = c.first_mut() {
-                            let inputs =
-                                inputs.iter().map(|v| format!("${}", v));
+                            let inputs = inputs.iter().map(|v| format!("${v}"));
                             v.deps.extend(inputs);
                         }
                         c
@@ -639,7 +638,7 @@ impl ScriptRunner {
                   gens: rhai::Array|
                   -> RhaiResult<_> {
                 sctx.add_shell(
-                    ctx.position(),
+                    ctx.call_position(),
                     cmd.to_string(),
                     deps,
                     gens,
@@ -656,7 +655,7 @@ impl ScriptRunner {
             "shell",
             move |ctx: rhai::NativeCallContext, cmd: &str| -> RhaiResult<_> {
                 sctx.add_shell(
-                    ctx.position(),
+                    ctx.call_position(),
                     cmd.to_string(),
                     rhai::Array::new(),
                     rhai::Array::new(),
@@ -672,10 +671,10 @@ impl ScriptRunner {
             "config",
             move |ctx: rhai::NativeCallContext, key: &str| -> RhaiResult<_> {
                 sctx.add_config_var(
-                    ctx.position(),
+                    ctx.call_position(),
                     crate::run::ConfigVar::Required(key.to_string()),
                 )?;
-                Ok(format!("${{{}}}", key))
+                Ok(format!("${{{key}}}"))
             },
         );
     }
@@ -690,13 +689,13 @@ impl ScriptRunner {
                   default: &str|
                   -> RhaiResult<_> {
                 sctx.add_config_var(
-                    ctx.position(),
+                    ctx.call_position(),
                     crate::run::ConfigVar::Optional(
                         key.to_string(),
                         default.to_string(),
                     ),
                 )?;
-                Ok(format!("${{{}}}", key))
+                Ok(format!("${{{key}}}"))
             },
         );
     }

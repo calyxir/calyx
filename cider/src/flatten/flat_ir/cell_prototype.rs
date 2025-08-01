@@ -293,6 +293,16 @@ pub struct MemoryPrototype {
     pub is_external: bool,
 }
 
+impl MemoryPrototype {
+    /// Checks equality between two memory prototypes but excludes the is
+    /// external flag
+    pub fn eq_minus_external(&self, other: &Self) -> bool {
+        self.mem_type == other.mem_type
+            && self.width == other.width
+            && self.dims == other.dims
+    }
+}
+
 /// Represents the type of a Calyx cell and contains its definition information
 #[derive(Debug, Clone)]
 pub enum CellPrototype {

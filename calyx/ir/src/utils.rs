@@ -78,7 +78,7 @@ impl GetMemInfo for Vec<RRC<Cell>> {
                     else if dimensions > 1 && dimensions <= 4{
                         for i in 0..dimensions {
                             dimension_sizes.push(mem.get_parameter(dimension_params[i as usize]).unwrap());
-                            idx_sizes.push(mem.get_parameter(format!("D{}_IDX_SIZE",i)).unwrap());
+                            idx_sizes.push(mem.get_parameter(format!("D{i}_IDX_SIZE")).unwrap());
                         }
                     }
                     else{
@@ -118,8 +118,7 @@ fn dimension_count(mem_id: Id) -> u64 {
         4
     } else {
         panic!(
-            "Cell {} does not seem to be a memory primitive. Memory primitives are expected to have 1-4 dimensions inclusive.",
-            mem_name
+            "Cell {mem_name} does not seem to be a memory primitive. Memory primitives are expected to have 1-4 dimensions inclusive."
         );
     }
 }

@@ -160,7 +160,7 @@ impl Backend for XilinxXmlBackend {
             })
             .enumerate()
             .map(|(i, cell_ref)| {
-                (cell_ref.borrow().name().to_string(), format!("m{}_axi", i))
+                (cell_ref.borrow().name().to_string(), format!("m{i}_axi"))
             })
             .collect();
         // make the lifetime of the &str long enough

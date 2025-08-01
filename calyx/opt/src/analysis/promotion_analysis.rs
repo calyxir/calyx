@@ -12,8 +12,7 @@ impl PromotionAnalysis {
     fn check_latencies_match(actual: u64, inferred: u64) {
         assert_eq!(
             actual, inferred,
-            "Inferred and Annotated Latencies do not match. Latency: {}. Inferred: {}",
-            actual, inferred
+            "Inferred and Annotated Latencies do not match. Latency: {actual}. Inferred: {inferred}"
         );
     }
 

@@ -53,7 +53,7 @@ impl Papercut {
                             .join(", ")
                     })
                     .join("; ");
-                format!("{}: [{}]", prim, writes)
+                format!("{prim}: [{writes}]")
             })
             .join("\n")
     }
@@ -278,9 +278,8 @@ impl Papercut {
                             .join(", ");
                         let msg = format!(
                             "Required signal not driven inside the group.\
-                                        \nWhen reading the port `{}.{}', the ports [{}] must be written to.\
-                                        \nThe primitive type `{}' requires this invariant.",
-                            inst, read, missing, comp_type
+                                        \nWhen reading the port `{inst}.{read}', the ports [{missing}] must be written to.\
+                                        \nThe primitive type `{comp_type}' requires this invariant."
                         );
                         self.diag.err(Error::papercut(msg).with_pos(pos));
                     }
@@ -307,13 +306,12 @@ impl Papercut {
                     let missing = diff
                         .drain()
                         .sorted()
-                        .map(|port| format!("{}.{}", inst, port))
+                        .map(|port| format!("{inst}.{port}"))
                         .join(", ");
                     let msg = format!(
                         "Required signal not driven inside the group. \
-                                 When writing to the port `{}.{}', the ports [{}] must also be written to. \
-                                 The primitive type `{}' specifies this using a @write_together spec.",
-                        inst, first, missing, comp_type
+                                 When writing to the port `{inst}.{first}', the ports [{missing}] must also be written to. \
+                                 The primitive type `{comp_type}' specifies this using a @write_together spec."
                     );
                     self.diag.err(Error::papercut(msg).with_pos(pos));
                 }

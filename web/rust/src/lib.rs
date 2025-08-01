@@ -32,7 +32,10 @@ fn compile(
     let ws = ws_from_ns(ns)?;
 
     // Build the IR representation
-    let mut rep = ir::from_ast::ast_to_ir(ws)?;
+    let mut rep = ir::from_ast::ast_to_ir(
+        ws,
+        ir::from_ast::AstConversionConfig::default(),
+    )?;
 
     pm.execute_plan(&mut rep, passes, &[], &[], false)?;
 
@@ -50,6 +53,6 @@ pub fn run(passes: &JsValue, library: &str, namespace: &str) -> String {
         serde_wasm_bindgen::from_value(passes.clone()).unwrap();
     match compile(&test, library, namespace) {
         Ok(s) => s,
-        Err(e) => format!("Error:\n{:?}", e),
+        Err(e) => format!("Error:\n{e:?}"),
     }
 }

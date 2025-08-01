@@ -17,7 +17,7 @@ fn cell_share_bench(c: &mut Criterion) {
                 b.iter_batched(
                     || {
                         let name =
-                            format!("benches/component-sharing/{}.futil", name);
+                            format!("benches/component-sharing/{name}.futil");
                         let bench = Path::new(&name);
                         let lib = [PathBuf::from(".")];
 
@@ -27,7 +27,11 @@ fn cell_share_bench(c: &mut Criterion) {
                         )
                         .unwrap();
 
-                        let mut rep = ir::from_ast::ast_to_ir(ws).unwrap();
+                        let mut rep = ir::from_ast::ast_to_ir(
+                            ws,
+                            ir::from_ast::AstConversionConfig::default(),
+                        )
+                        .unwrap();
 
                         passes::SimplifyWithControl::do_pass_default(&mut rep)
                             .unwrap();

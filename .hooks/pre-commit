@@ -1,6 +1,6 @@
-#/bin/sh
+#!/bin/sh
 
-function check {
+check() {
     prog=$1
     shift
     "$prog" "$@"

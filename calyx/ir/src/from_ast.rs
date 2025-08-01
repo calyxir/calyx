@@ -24,6 +24,19 @@ struct SigCtx {
     lib: LibrarySignatures,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct AstConversionConfig {
+    pub extend_signatures: bool,
+}
+
+impl Default for AstConversionConfig {
+    fn default() -> Self {
+        Self {
+            extend_signatures: true,
+        }
+    }
+}
+
 // Assumes cell has a name (i.e., not a constant/ThisComponent)
 // uses sig_ctx to check the latency of comp_name, either thru static<n> or
 // @interval(n)
@@ -139,8 +152,7 @@ fn check_valid_port(
         };
     if !sig_ports.contains(port_name) {
         return Err(Error::malformed_structure(format!(
-            "cell `{}` (which is an instance of {}) does not have port named `{}`",
-            cell_name, comp_name, port_name
+            "cell `{cell_name}` (which is an instance of {comp_name}) does not have port named `{port_name}`"
         ))
         .with_pos(attrs));
     };
@@ -177,7 +189,10 @@ fn check_signature(pds: &[PortDef<u64>]) -> CalyxResult<()> {
 }
 
 /// Construct an IR representation using a parsed AST and command line options.
-pub fn ast_to_ir(mut workspace: Workspace) -> CalyxResult<Context> {
+pub fn ast_to_ir(
+    mut workspace: Workspace,
+    config: AstConversionConfig,
+) -> CalyxResult<Context> {
     let prims = workspace.lib.signatures().collect_vec();
     let mut all_names: HashSet<&Id> =
         HashSet::with_capacity(workspace.components.len() + prims.len());
@@ -215,7 +230,10 @@ pub fn ast_to_ir(mut workspace: Workspace) -> CalyxResult<Context> {
         let sig = &mut comp.signature;
         check_signature(&*sig)?;
         // extend the signature if the component does not have the @nointerface attribute.
-        if !comp.attributes.has(BoolAttr::NoInterface) && !comp.is_comb {
+        if !comp.attributes.has(BoolAttr::NoInterface)
+            && !comp.is_comb
+            && config.extend_signatures
+        {
             Component::extend_signature(sig);
         }
         sig_ctx
@@ -227,7 +245,7 @@ pub fn ast_to_ir(mut workspace: Workspace) -> CalyxResult<Context> {
     let comps: Vec<Component> = workspace
         .components
         .into_iter()
-        .map(|comp| build_component(comp, &mut sig_ctx))
+        .map(|comp| build_component(comp, &mut sig_ctx, config))
         .collect::<Result<_, _>>()?;
 
     // Find the entrypoint for the program.
@@ -314,6 +332,7 @@ fn validate_component(
 fn build_component(
     comp: ast::ComponentDef,
     sig_ctx: &mut SigCtx,
+    config: AstConversionConfig,
 ) -> CalyxResult<Component> {
     // Validate the component before building it.
     validate_component(&comp, sig_ctx)?;
@@ -321,7 +340,9 @@ fn build_component(
     let mut ir_component = Component::new(
         comp.name,
         comp.signature,
-        !comp.attributes.has(BoolAttr::NoInterface) && !comp.is_comb,
+        !comp.attributes.has(BoolAttr::NoInterface)
+            && !comp.is_comb
+            && config.extend_signatures,
         comp.is_comb,
         // we may change latency from None to Some(inferred latency)
         // after we iterate thru the control of the Component
@@ -490,7 +511,7 @@ fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
             .find(port)
             .ok_or_else(|| {
                 Error::undefined(
-                    Id::new(format!("{}.{}", component, port)),
+                    Id::new(format!("{component}.{port}")),
                     "port".to_string(),
                 )
             }),
@@ -917,8 +938,7 @@ fn build_static_control(
                 v
             } else {
                 return Err(Error::malformed_control(format!(
-                    "component {} is statically invoked, but is neither static nor does it have @interval attribute its @go port",
-                    comp_name
+                    "component {comp_name} is statically invoked, but is neither static nor does it have @interval attribute its @go port"
                 ))
                 .with_pos(&attributes));
             };
@@ -1108,8 +1128,7 @@ fn build_control(
                 v
             } else {
                 return Err(Error::malformed_control(format!(
-                    "component {} is statically invoked, but is neither static nor does it have @interval attribute its @go port",
-                    comp_name
+                    "component {comp_name} is statically invoked, but is neither static nor does it have @interval attribute its @go port"
                 ))
                 .with_pos(&attributes));
             };
@@ -1201,8 +1220,7 @@ fn build_control(
                 .is_some()
             {
                 return Err(Error::malformed_control(format!(
-                    "static component {} is dynamically invoked",
-                    comp_name
+                    "static component {comp_name} is dynamically invoked"
                 ))
                 .with_pos(&attributes));
             }

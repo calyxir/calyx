@@ -7,7 +7,7 @@ name = "profiler"
 authors = [{ name = "The Calyx Authors" }]
 classifiers = ["License :: OSI Approved :: MIT License"]
 dynamic = ["version", "description"]
-dependencies = ["vcdvcd", "pandas", "plotly"]
+dependencies = ["vcdvcd", "pandas", "plotly", "perfetto"]
 readme = "README.md"
 
 [project.scripts]

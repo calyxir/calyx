@@ -255,7 +255,7 @@ impl Driver {
         for (_, state) in self.states.iter() {
             print!("  {}:", state.name);
             for ext in &state.extensions {
-                print!(" .{}", ext);
+                print!(" .{ext}");
             }
             if let Some(src) = &state.source {
                 print!(" ({src})")

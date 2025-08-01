@@ -1,5 +1,6 @@
 use crate::analysis;
 use crate::traversal::{Action, Named, VisResult, Visitor};
+use calyx_frontend::SetAttr;
 use calyx_ir::{self as ir, GetAttributes, LibrarySignatures, RRC, structure};
 use calyx_utils::{CalyxResult, Error};
 use std::collections::HashMap;
@@ -105,8 +106,7 @@ impl Visitor for SimplifyWithControl {
                 // Register the ports read by the combinational group's usages.
                 let used_ports = used_ports.remove(&name).ok_or_else(|| {
                     Error::malformed_structure(format!(
-                        "values from combinational group `{}` never used",
-                        name
+                        "values from combinational group `{name}` never used"
                     ))
                 })?;
 
@@ -190,18 +190,31 @@ impl Visitor for SimplifyWithControl {
             s.port.borrow().canonical(),
         );
         let (port_ref, cond_ref) = self.port_rewrite.get(&key).unwrap();
-        let cond_in_body = ir::Control::static_enable(Rc::clone(cond_ref));
+        let mut cond_in_body = ir::Control::static_enable(Rc::clone(cond_ref));
+        cond_in_body
+            .get_mut_attributes()
+            .copy_from_set(&s.attributes, vec![SetAttr::Pos]);
         let body = std::mem::replace(s.body.as_mut(), ir::Control::empty());
-        let new_body = ir::Control::seq(vec![body, cond_in_body]);
+        let mut new_body = ir::Control::seq(vec![body, cond_in_body]);
+        new_body
+            .get_mut_attributes()
+            .copy_from_set(&s.attributes, vec![SetAttr::Pos]);
         let mut while_ =
             ir::Control::while_(Rc::clone(port_ref), None, Box::new(new_body));
         let attrs = while_.get_mut_attributes();
-        *attrs = std::mem::take(&mut s.attributes);
-        let cond_before_body = ir::Control::static_enable(Rc::clone(cond_ref));
-        Ok(Action::change(ir::Control::seq(vec![
-            cond_before_body,
-            while_,
-        ])))
+        *attrs = s.attributes.clone();
+        let mut cond_before_body =
+            ir::Control::static_enable(Rc::clone(cond_ref));
+        cond_before_body
+            .get_mut_attributes()
+            .copy_from_set(&s.attributes, vec![SetAttr::Pos]);
+
+        let mut new_seq = ir::Control::seq(vec![cond_before_body, while_]);
+        new_seq
+            .get_mut_attributes()
+            .copy_from_set(&s.attributes, vec![SetAttr::Pos]);
+
+        Ok(Action::change(new_seq))
     }
 
     /// Transforms a `if-with` into a `seq-if` which first runs the cond group
@@ -241,9 +254,18 @@ impl Visitor for SimplifyWithControl {
             Box::new(fbranch),
         );
         let attrs = if_.get_mut_attributes();
-        *attrs = std::mem::take(&mut s.attributes);
-        let cond = ir::Control::static_enable(Rc::clone(cond_ref));
-        Ok(Action::change(ir::Control::seq(vec![cond, if_])))
+        *attrs = s.attributes.clone();
+
+        let mut cond = ir::Control::static_enable(Rc::clone(cond_ref));
+        cond.get_mut_attributes()
+            .copy_from_set(&s.attributes, vec![SetAttr::Pos]);
+
+        let mut new_seq = ir::Control::seq(vec![cond, if_]);
+        new_seq
+            .get_mut_attributes()
+            .copy_from_set(&s.attributes, vec![SetAttr::Pos]);
+
+        Ok(Action::change(new_seq))
     }
 
     fn finish(

@@ -442,7 +442,7 @@ impl Context {
                          self.secondary[comp].definitions.groups().iter().find(|x| {
                             let grp_info = &self.primary[*x];
                             grp_info.done == l || grp_info.go == l
-                        }).unwrap_or_else(|| panic!("Port {:?} does not belong to any normal cell in the given component", l)).into()
+                        }).unwrap_or_else(|| panic!("Port {l:?} does not belong to any normal cell in the given component")).into()
                     }
 
 
@@ -685,7 +685,7 @@ impl Context {
                 };
 
                 // memories need to be the same in shape and type
-                if cell_prototype != mem_prototype {
+                if !cell_prototype.eq_minus_external(mem_prototype) {
                     return Err(CiderError::generic_error(format!(
                         "Entangled memories must have identical definitions. '{}' and '{}' do not have matching definitions",
                         self.lookup_name(first_cell),

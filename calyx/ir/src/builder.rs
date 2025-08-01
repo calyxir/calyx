@@ -203,9 +203,7 @@ impl<'a> Builder<'a> {
             // constant. Note that this will not work for constants that require
             // more than 64 bits as those currently cannot be parsed
             (64 - val.leading_zeros()) as u64 <= width,
-            "Constant value {} cannot fit in {} bits",
-            val,
-            width
+            "Constant value {val} cannot fit in {width} bits"
         );
         let name = ir::Cell::constant_name(val, width);
         // If this constant has already been instantiated, return the relevant

@@ -21,7 +21,7 @@ use crate::{
         setup_simulation_with_metadata,
         structures::{
             context::Context,
-            environment::{Path, PathError, Simulator},
+            environment::{Path, PathError, PolicyChoice, Simulator},
         },
         text_utils::{Color, print_debugger_welcome},
     },
@@ -108,8 +108,13 @@ impl OwnedDebugger {
             false,
         )?;
 
-        let debugger: Debugger<Rc<Context>> =
-            Self::new(Rc::new(ctx), &None, &None, RuntimeConfig::default())?;
+        let debugger: Debugger<Rc<Context>> = Self::new(
+            Rc::new(ctx),
+            &None,
+            &None,
+            RuntimeConfig::default(),
+            PolicyChoice::Default,
+        )?;
 
         Ok((debugger, map))
     }
@@ -122,12 +127,14 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         data_file: &Option<std::path::PathBuf>,
         wave_file: &Option<std::path::PathBuf>,
         runtime_config: RuntimeConfig,
+        policy: PolicyChoice,
     ) -> CiderResult<Self> {
         let mut interpreter = Simulator::build_simulator(
             program_context.clone(),
             data_file,
             wave_file,
             runtime_config,
+            policy,
         )?;
         interpreter.converge()?;
 
@@ -453,14 +460,14 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                                 println!(
                                     "Source info unavailable, falling back to Calyx"
                                 );
-                                self.interpreter.print_pc();
+                                println!("{}", self.interpreter.print_pc());
                             }
                         } else {
-                            self.interpreter.print_pc();
+                            println!("{}", self.interpreter.print_pc());
                         }
                     }
                     PrintCommand::PrintCalyx => {
-                        self.interpreter.print_pc();
+                        println!("{}", self.interpreter.print_pc());
                     }
                     PrintCommand::PrintNodes => {
                         self.interpreter.print_pc_string();
@@ -741,7 +748,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                         code,
                         name_override.as_deref(),
                     ) {
-                        println!("{}", state);
+                        println!("{state}");
                         return Ok(());
                     } else {
                         println!("{}","Target cell has no internal state, printing port information instead".stylize_warning());

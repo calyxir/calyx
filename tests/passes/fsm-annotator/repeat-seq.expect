@@ -1,0 +1,49 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    a = std_reg(2);
+    b = std_reg(2);
+    c = std_reg(2);
+    d = std_reg(2);
+  }
+  wires {
+    group dyn_A {
+      a.write_en = 1'd1;
+      a.in = 2'd2;
+      dyn_A[done] = a.done;
+    }
+    group dyn_B {
+      b.write_en = 1'd1;
+      b.in = 2'd2;
+      dyn_B[done] = b.done;
+    }
+    static<2> group A {
+      a.in = 2'd0;
+      a.write_en = %0 ? 1'd1;
+      b.in = 2'd1;
+      b.write_en = %1 ? 1'd1;
+    }
+    static<1> group C {
+      c.in = 2'd2;
+      c.write_en = %0 ? 1'd1;
+    }
+    static<1> group D {
+      d.in = 2'd2;
+      d.write_en = %0 ? 1'd1;
+    }
+  }
+  control {
+    @NUM_STATES(14) @INLINE seq {
+      @NUM_STATES @INLINE dyn_A;
+      @NUM_STATES(12) @UNROLL @ACYCLIC static repeat 3 {
+        @NUM_STATES(4) @INLINE @ACYCLIC static<4> seq  {
+          @NUM_STATES(2) @INLINE @ACYCLIC A;
+          @NUM_STATES @INLINE @ACYCLIC C;
+          @NUM_STATES @INLINE @ACYCLIC D;
+        }
+      }
+      @NUM_STATES @INLINE dyn_B;
+    }
+  }
+}

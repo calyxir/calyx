@@ -40,21 +40,21 @@ impl Debug for StaticParTiming {
         vec.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
         for (par_id, thread_timing_map) in vec.into_iter() {
             write!(f, "========")?;
-            write!(f, "Par Node ID: {:?}", par_id)?;
+            write!(f, "Par Node ID: {par_id:?}")?;
             writeln!(f, " ========")?;
             let mut vec1: Vec<(u64, CellTimingMap)> =
                 thread_timing_map.into_iter().collect::<Vec<_>>();
             vec1.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
             for (thread_id, cell_timing_map) in vec1 {
                 write!(f, "====")?;
-                write!(f, "Child/Thread ID: {:?}", thread_id)?;
+                write!(f, "Child/Thread ID: {thread_id:?}")?;
                 writeln!(f, " ====")?;
                 let mut vec2: Vec<(ir::Id, Vec<(u64, u64)>)> =
                     cell_timing_map.into_iter().collect::<Vec<_>>();
                 vec2.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
                 for (cell_name, clock_intervals) in vec2 {
-                    write!(f, "{:?} -- ", cell_name)?;
-                    writeln!(f, "{:?}", clock_intervals)?;
+                    write!(f, "{cell_name:?} -- ")?;
+                    writeln!(f, "{clock_intervals:?}")?;
                 }
             }
             writeln!(f)?

@@ -116,7 +116,7 @@ impl Bookkeeper {
                 for defs in &sets[1..] {
                     let new_name = builder
                         .add_primitive(
-                            format!("unshr_{}", name),
+                            format!("unshr_{name}"),
                             "std_reg",
                             &[*self.widths.get(name).unwrap()],
                         )
