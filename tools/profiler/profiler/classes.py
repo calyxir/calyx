@@ -1088,9 +1088,10 @@ class TraceData:
                             leaf_group_split = leaf_group.split(".")
                             leaf_group_name: str = leaf_group_split[-1]
                             leaf_group_cell: str = ".".join(leaf_group_split[:-1])
-                            assert (
-                                leaf_group_cell == current_cell
-                            )  # a leaf node should be in this cell? maybe I'm wrong
+                            if leaf_group_cell != current_cell:
+                                # filter out any control groups that are not in the current cell
+                                # (leaf control groups in ancestor cells)
+                                continue
                             leaf_stack: list[StackElement] = (
                                 events_stack_with_ctrl.copy()
                             )

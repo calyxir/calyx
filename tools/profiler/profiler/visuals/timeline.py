@@ -79,7 +79,7 @@ class ProtoTimelineCell:
         for group, threadid in enable_to_thread.items():
             if threadid not in threadid_to_uuid:
                 threadid_to_uuid[threadid] = self._define_track(
-                    f"Thread {threadid}", parent_track_uuid=self.cell_uuid
+                    f"Thread {threadid:03}", parent_track_uuid=self.cell_uuid
                 )
             self.enable_id_to_uuid[group] = threadid_to_uuid[threadid]
 

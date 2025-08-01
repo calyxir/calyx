@@ -26,11 +26,13 @@ def write_flame_maps(
     flat_flame_map,
     scaled_flame_map,
     flames_out_dir,
-    flame_out_file,
-    scaled_flame_out_file=None,
+    flame_out_file: str,
+    scaled_flame_out_filename:str =None,
 ):
     """
     Utility function for writing flat and scaled flame maps to file.
+    flame_out_file is the full path; scaled_flame_out_filename is just the name of the file.
+    FIXME: we should be consistent with the paths.
     """
     if not os.path.exists(flames_out_dir):
         os.mkdir(flames_out_dir)
@@ -39,8 +41,9 @@ def write_flame_maps(
     write_flame_map(flat_flame_map, flame_out_file)
 
     # write scaled flame map
-    if scaled_flame_out_file is None:
-        scaled_flame_out_file = os.path.join(flames_out_dir, "scaled-flame.folded")
+    if scaled_flame_out_filename is None:
+        scaled_flame_out_filename = "scaled-flame.folded"
+    scaled_flame_out_file = os.path.join(flames_out_dir, scaled_flame_out_filename)
     write_flame_map(scaled_flame_map, scaled_flame_out_file)
 
 
