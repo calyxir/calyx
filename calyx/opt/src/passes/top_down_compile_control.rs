@@ -863,8 +863,7 @@ impl Schedule<'_, '_> {
 
                 // Activate this fsm in the current state
                 let en_go: [ir::Assignment<Nothing>; 1] = build_assignments!(self.builder;
-                    fsm["start"] = not_done  ? signal_on["out"];
-
+                    fsm["start"] = not_done ? signal_on["out"];
                 );
 
                 // store enable conditions for this FSM
