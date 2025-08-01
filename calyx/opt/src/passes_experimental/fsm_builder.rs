@@ -314,6 +314,7 @@ impl StaticSchedule<'_, '_> {
         let mut state_assigns: Vec<_> = self.state2assigns.drain().collect();
         state_assigns.sort_by_key(|(state, _)| *state);
 
+        // Build up the fsm here and return.
         self.builder.add_continuous_assignments(
             state_assigns
                 .into_iter()
