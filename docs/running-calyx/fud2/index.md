@@ -1,6 +1,6 @@
-# `fud2`: The Calyx Driver
+# fud2: The Calyx Driver
 
-`fud2` is the compiler driver tool for orchestrating the Calyx ecosystem.
+fud2 is the compiler driver tool for orchestrating the Calyx ecosystem.
 
 Working with Calyx involves a lot of command-line tools. For example, an
 incomplete yet daunting list of CLI tools used by Calyx is:
@@ -10,10 +10,10 @@ incomplete yet daunting list of CLI tools used by Calyx is:
 - Verilator, the Verilog simulation framework used to test Calyx-generated designs
 - Waveform viewers to see the results of simulation
 
-`fud2` aims to provide a simple interface for using these toolchains and executing them in a pipeline.
-The source for `fud2` is [here](https://github.com/calyxir/calyx/tree/master/fud2).
+fud2 aims to provide a simple interface for using these toolchains and executing them in a pipeline.
+The source for fud2 is [here](https://github.com/calyxir/calyx/tree/master/fud2).
 
-"Original" [fud][] was replaced by `fud2` in a push to add some fundamental new capabilities and resolve some underlying problems with `fud`.
+"Original" [fud][] was replaced by fud2 in a push to add some fundamental new capabilities and resolve some underlying problems with fud.
 
 [fud]: ./fud/index.md
 
@@ -21,15 +21,15 @@ The source for `fud2` is [here](https://github.com/calyxir/calyx/tree/master/fud
 
 If you already have Calyx installed, you can `cargo install --path fud2` from this repository's root to automatically add the binary to your path.
 
-Alternatively, if you would like to work on development of `fud2` and/or keep up with the latest changes when you `git pull`, you can build it along with everything else in this monorepo with `cargo build`.
+Alternatively, if you would like to work on development of fud2 and/or keep up with the latest changes when you `git pull`, you can build it along with everything else in this monorepo with `cargo build`.
 You might then want to do something like ``ln -s `pwd`/target/debug/fud2 ~/.local/bin`` for easy access to the `fud2` binary.
 
-`fud2` depends on [Ninja][].
+fud2 depends on [Ninja][].
 Install it using your OS package manager or by downloading a binary.
 
 ### Configuration
 
-Run the following command to edit `fud2`'s configuration file (usually `~/.config/fud2.toml`):
+Run the following command to edit fud2's configuration file (usually `~/.config/fud2.toml`):
 
 ```sh
 fud2 edit-config
@@ -44,7 +44,7 @@ base = "<path to calyx checkout>"
 
 ### Environment Setup
 
-Some parts of Calyx and `fud2` require setting up and installing various python packages. With Python removing support for installing packages system wide, it's recommended to install relevant packages into a python virtual environment. `fud2` can set up this environment for you and instruct `fud2` to automatically run relevant tools in the correct virtual environment.
+Some parts of Calyx and fud2 require setting up and installing various python packages. With Python removing support for installing packages system wide, it's recommended to install relevant packages into a python virtual environment. fud2 can set up this environment for you and instruct fud2 to automatically run relevant tools in the correct virtual environment.
 
 To do this, simply run:
 
@@ -123,7 +123,7 @@ milliseconds.
 
 For example running
 
-```
+```sh
 fud2 --from calyx --to jq --through icarus -s sim.data=tests/correctness/invoke-with.futil.data -s calyx.flags=' --nested' -s verilog.cycle_limit=500 -s jq.expr=".memories" tests/correctness/invoke-with.futil -q --csv timing.csv
 ```
 
@@ -141,34 +141,34 @@ dat.json,133
 _to_stdout_jq.jq,7
 ```
 
-## The Design of `fud2`
+## The Design of fud2
 
 <div class="warning">
 
-This section is about the *implementation* of `fud2`; it is only relevant if you want to work on it yourself.
-No need to read any farther if all you want is to *use* `fud2`.
+This section is about the *implementation* of fud2; it is only relevant if you want to work on it yourself.
+No need to read any farther if all you want is to *use* fud2.
 
 </div>
 
-### `fud2` is a Command Orchestrator
+### fud2 is a Command Orchestrator
 
-`fud2` consists of two pieces, which are two separate Rust crates:
+fud2 consists of two pieces, which are two separate Rust crates:
 
-- FudCore (the `fud-core` crate): is a *generic compiler driver* library. This library is not specific to Calyx and could hypothetically be used to build a `fud2`-like driver for any compiler ecosystem. Clients of the `fud-core` library work by constructing a `Driver` object that encapsulates a set of *states* and *operations* that define the driver's behavior.
-- `fud2` itself is a program that uses the FudCore library. All of the Calyx-specific logic lives in `fud2`. For the most part, all of the code in the `fud2` crate consists of declaring a bunch of states and operations. The `main` function does little more than dispatch to the resulting `Driver` object's generic command-line interface.
+- FudCore (the `fud-core` crate): is a *generic compiler driver* library. This library is not specific to Calyx and could hypothetically be used to build a fud2-like driver for any compiler ecosystem. Clients of the `fud-core` library work by constructing a `Driver` object that encapsulates a set of *states* and *operations* that define the driver's behavior.
+- fud2 itself is a program that uses the FudCore library. All of the Calyx-specific logic lives in fud2. For the most part, all of the code in the `fud2` crate consists of declaring a bunch of states and operations. The `main` function does little more than dispatch to the resulting `Driver` object's generic command-line interface.
 
-The central design philosophy of FudCore (and by extension, `fud2` itself) is that its sole job is to orchestrate external functionality.
+The central design philosophy of FudCore (and by extension, fud2 itself) is that its sole job is to orchestrate external functionality.
 All that functionality must be available as separate tools that can be invoked via the command line.
 This is an important goal because it means the driver has a clear, discrete goal: *all it does* is decide on a list of commands to execute to perform a build.
 All the "interesting work" must be delegated to separate tools outside of the driver.
 This philosophy has both advantages and disadvantages:
 
-- On the positive side, it forces all the interesting logic to be invokable via a command that you, the user, can run equally well yourself. So if something is going wrong, there is *always* a command line you can copy and paste into your terminal to reproduce the problem at that particular step. It also means that the input and output of every step must be written to files in the filesystem, so you can easily inspect the intermediate state between every command. This file-based operation also means that `fud2` builds are parallel and incremental by default.
-- On the other hand, requiring everything to be separate commands means that `fud2` has a complicated dependency story. It is not a monolith: to get meaningful work done, you currently have to install a bunch of Python components (among other things) so `fud2` can invoke them. (We hope to mitigate the logistical pain this incurs over time, but we're not there yet.) Also, writing everything to a file in between each step comes at a performance cost. Someday, it may be a performance bottleneck that two steps in a build cannot simply exchange their data directly, through memory, and must serialize everything to disk first. (This has not been a problem in practice yet.)
+- On the positive side, it forces all the interesting logic to be invokable via a command that you, the user, can run equally well yourself. So if something is going wrong, there is *always* a command line you can copy and paste into your terminal to reproduce the problem at that particular step. It also means that the input and output of every step must be written to files in the filesystem, so you can easily inspect the intermediate state between every command. This file-based operation also means that fud2 builds are parallel and incremental by default.
+- On the other hand, requiring everything to be separate commands means that fud2 has a complicated dependency story. It is not a monolith: to get meaningful work done, you currently have to install a bunch of Python components (among other things) so fud2 can invoke them. (We hope to mitigate the logistical pain this incurs over time, but we're not there yet.) Also, writing everything to a file in between each step comes at a performance cost. Someday, it may be a performance bottleneck that two steps in a build cannot simply exchange their data directly, through memory, and must serialize everything to disk first. (This has not been a problem in practice yet.)
 
-If you want to extend `fud2` to do something new, the consequence is that you first need to come up with a sequence of commands that do that thing.
+If you want to extend fud2 to do something new, the consequence is that you first need to come up with a sequence of commands that do that thing.
 If necessary, you may find that you need to create new executables to do some minor glue tasks that would otherwise be implicit.
-Then "all you need to do" is teach `fud2` to execute those commands.
+Then "all you need to do" is teach fud2 to execute those commands.
 
 ### States, Operations, and Setups
 
@@ -177,7 +177,7 @@ You can think of a FudCore driver as a graph, where the vertices are *states* an
 Any build is a transformation from one state to another, traversing a path through this graph.
 The operations (edges) along this path are the commands that must be executed to transform a file from the initial state to the final state.
 
-To make `fud2` do something new, you probably want to add one or more operations, and you may need to add new states.
+To make fud2 do something new, you probably want to add one or more operations, and you may need to add new states.
 Aside from declaring the source and destination states,
 operations generate chunks of [Ninja][] code.
 So to implement an operation, you write a Rust function with this signature:
