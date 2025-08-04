@@ -235,6 +235,9 @@ pub enum RuntimeError {
         idx: GlobalCellIdx,
     },
 
+    #[error("Assertion has been tripped")]
+    AssertionError,
+
     // TODO (Griffin): Make this error message better please
     #[error("Computation has under/overflowed its bounds")]
     OverflowError,
