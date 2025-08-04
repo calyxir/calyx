@@ -199,14 +199,14 @@ impl GPosIdx {
         let mut buf = String::new();
 
         let l = lines[0];
-        let linum_text = format!("{} ", linum);
+        let linum_text = format!("{linum} ");
         let linum_space: String = " ".repeat(linum_text.len());
         let mark: String = "^".repeat(cmp::min(
             pos_d.end - pos_d.start,
             l.len() - (pos_d.start - pos),
         ));
         let space: String = " ".repeat(pos_d.start - pos);
-        writeln!(buf, "{}|{}", linum_text, l).unwrap();
+        writeln!(buf, "{linum_text}|{l}").unwrap();
         write!(
             buf,
             "{}|{}{} {}",
@@ -240,8 +240,8 @@ impl GPosIdx {
     pub fn show(&self) -> String {
         let (lines, _, linum) = self.get_lines();
         let l = lines[0];
-        let linum_text = format!("{} ", linum);
-        format!("{}|{}\n", linum_text, l)
+        let linum_text = format!("{linum} ");
+        format!("{linum_text}|{l}\n")
     }
 }
 

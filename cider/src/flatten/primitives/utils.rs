@@ -55,12 +55,23 @@ impl<T, const N: usize> Default for ShiftBuffer<T, N> {
 }
 
 impl<T, const N: usize> ShiftBuffer<T, N> {
-    /// Shifts an element on to the front of the buffer and returns the element
+    /// Shifts an option on to the front of the buffer and returns the option
     /// on the end of the buffer.
     pub fn shift(&mut self, element: Option<T>) -> Option<T> {
         let out = self.buffer.pop_back().flatten();
         self.buffer.push_front(element);
         out
+    }
+
+    /// Shifts an element out of the buffer without adding a new one
+    pub fn shift_none(&mut self) -> Option<T> {
+        self.shift(None)
+    }
+
+    /// Shifts an element on to the buffer and returns the option removed off
+    /// the end of the buffer
+    pub fn shift_new(&mut self, element: T) -> Option<T> {
+        self.shift(Some(element))
     }
 
     /// Removes all instantiated elements in the buffer and replaces them with
@@ -69,6 +80,21 @@ impl<T, const N: usize> ShiftBuffer<T, N> {
         for x in self.buffer.iter_mut() {
             *x = None
         }
+    }
+
+    pub fn all<F>(&self, query: F) -> bool
+    where
+        F: Fn(&Option<T>) -> bool,
+    {
+        self.buffer.iter().all(query)
+    }
+}
+
+impl<T: PartialEq, const N: usize> ShiftBuffer<T, N> {
+    /// Returns true if all entries in the shift buffer ar full and equal the
+    /// given element
+    pub fn all_equal_to(&self, query: &T) -> bool {
+        self.buffer.iter().all(|x| x.as_ref() == Some(query))
     }
 }
 

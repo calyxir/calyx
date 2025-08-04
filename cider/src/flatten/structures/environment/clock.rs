@@ -299,7 +299,7 @@ fn format_assignment_location<C: Clone + AsRef<Context>>(
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ClockMap {
     clocks: IndexedMap<ClockIdx, VectorClock<ThreadIdx>>,
     reverse_map: HashMap<ClockPair, ClockPairInfo>,
@@ -398,12 +398,6 @@ impl ClockMap {
     ) -> Option<(&mut VectorClock<ThreadIdx>, &mut VectorClock<ThreadIdx>)>
     {
         self.clocks.split_mut_indices(idx1, idx2)
-    }
-}
-
-impl Default for ClockMap {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

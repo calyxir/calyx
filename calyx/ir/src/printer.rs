@@ -20,9 +20,9 @@ impl Printer {
             " ",
             |name, val| {
                 if val == 1 {
-                    format!("@{}", name)
+                    format!("@{name}")
                 } else {
-                    format!("@{}({val})", name)
+                    format!("@{name}({val})")
                 }
             },
             |name, vals| format!("@{}{{{}}}", name, vals.iter().join(", ")),
@@ -43,7 +43,7 @@ impl Printer {
                 "<{}>",
                 attrs.to_string_with(
                     ", ",
-                    |name, val| { format!("\"{}\"={}", name, val) },
+                    |name, val| { format!("\"{name}\"={val}") },
                     |name, vals| {
                         format!("\"{}\"={{{}}}", name, vals.iter().join(", "))
                     },
@@ -146,7 +146,7 @@ impl Printer {
             write!(f, "comb ")?;
         }
         if let Some(latency_val) = prim.latency {
-            write!(f, "static<{}> ", latency_val)?;
+            write!(f, "static<{latency_val}> ")?;
         }
         write!(
             f,
@@ -482,7 +482,7 @@ impl Printer {
         {
             // WRITE ASSIGNMENTS
             write!(f, "{}", " ".repeat(indent_level + 2))?;
-            write!(f, "{} : ", i)?;
+            write!(f, "{i} : ")?;
             match assigns.is_empty() {
                 true => {
                     // skip directly to transitions section
@@ -504,14 +504,14 @@ impl Printer {
             // WRITE TRANSITIONS
             match trans {
                 ir::Transition::Unconditional(s) => {
-                    writeln!(f, "{},", s)?;
+                    writeln!(f, "{s},")?;
                 }
                 ir::Transition::Conditional(cond_dsts) => {
                     writeln!(f, "{{")?;
                     for (i, (g, dst)) in cond_dsts.iter().enumerate() {
                         write!(f, "{}", " ".repeat(indent_level + 4))?;
                         if i == cond_dsts.len() - 1 {
-                            writeln!(f, "default -> {},", dst)?;
+                            writeln!(f, "default -> {dst},")?;
                         } else {
                             writeln!(f, "{} -> {},", Self::guard_str(g), dst)?;
                         }
@@ -546,7 +546,7 @@ impl Printer {
                 ..
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                write!(f, "static repeat {} ", num_repeats)?;
+                write!(f, "static repeat {num_repeats} ")?;
                 writeln!(f, "{{")?;
                 Self::write_static_control(body, indent_level + 2, f)?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))
@@ -557,7 +557,7 @@ impl Printer {
                 latency,
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "static<{}> seq  {{", latency)?;
+                writeln!(f, "static<{latency}> seq  {{")?;
                 for stmt in stmts {
                     Self::write_static_control(stmt, indent_level + 2, f)?;
                 }
@@ -569,7 +569,7 @@ impl Printer {
                 latency,
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "static<{}> par {{", latency)?;
+                writeln!(f, "static<{latency}> par {{")?;
                 for stmt in stmts {
                     Self::write_static_control(stmt, indent_level + 2, f)?;
                 }
@@ -771,7 +771,7 @@ impl Printer {
                 ..
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                write!(f, "repeat {} ", num_repeats)?;
+                write!(f, "repeat {num_repeats} ")?;
                 writeln!(f, "{{")?;
                 Self::write_control(body, indent_level + 2, f)?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))
@@ -868,7 +868,7 @@ impl Printer {
                 } else {
                     Self::guard_str(g)
                 };
-                format!("!{}", s)
+                format!("!{s}")
             }
             ir::Guard::Port(port_ref) => Self::port_to_str(&port_ref.borrow()),
             ir::Guard::True => "1'b1".to_string(),
@@ -890,7 +890,7 @@ impl Printer {
                 let cell = cell_ref.borrow();
                 match cell.prototype {
                     ir::CellType::Constant { val, width } => {
-                        format!("{}'d{}", width, val)
+                        format!("{width}'d{val}")
                     }
                     ir::CellType::ThisComponent => port.name.to_string(),
                     _ => format!("{}.{}", cell.name().id, port.name.id),
@@ -902,8 +902,7 @@ impl Printer {
                     .internal
                     .upgrade()
                     .unwrap_or_else(|| panic!(
-                        "Malformed AST: No reference to Group for port `{:#?}'",
-                        port
+                        "Malformed AST: No reference to Group for port `{port:#?}'"
                     ))
                     .borrow()
                     .name()
@@ -916,8 +915,7 @@ impl Printer {
                     .internal
                     .upgrade()
                     .unwrap_or_else(|| panic!(
-                        "Malformed AST: No reference to FSM for port `{:#?}'",
-                        port
+                        "Malformed AST: No reference to FSM for port `{port:#?}'"
                     ))
                     .borrow()
                     .name()
@@ -930,8 +928,7 @@ impl Printer {
                     .internal
                     .upgrade()
                     .unwrap_or_else(|| panic!(
-                        "Malformed AST: No reference to Group for port `{:#?}'",
-                        port
+                        "Malformed AST: No reference to Group for port `{port:#?}'"
                     ))
                     .borrow()
                     .name()
@@ -944,7 +941,7 @@ impl Printer {
     /// Formats the top-level metadata if present
     pub fn format_metadata(metadata: &Option<String>) -> String {
         if let Some(metadata_str) = metadata {
-            format!("metadata #{{\n{}\n}}#\n", metadata_str)
+            format!("metadata #{{\n{metadata_str}\n}}#\n")
         } else {
             String::new()
         }

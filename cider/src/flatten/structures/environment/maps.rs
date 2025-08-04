@@ -4,8 +4,8 @@ use cider_idx::{
     iter::IndexRange,
     maps::{IndexedMap, SemiContiguousSecondaryMap},
 };
+use std::fmt::Debug;
 use std::{collections::HashMap, ops::Index};
-use std::{fmt::Debug, ops::IndexMut};
 
 use crate::{
     errors::{ConflictingAssignments, RuntimeError, RuntimeResult},
@@ -66,6 +66,7 @@ impl PortMap {
     /// Sets the given index to the given value without checking whether or not
     /// the assignment would conflict with an existing assignment. Should only
     /// be used by cells to set values that may be undefined
+    #[must_use]
     pub fn write_exact_unchecked(
         &mut self,
         target: GlobalPortIdx,
@@ -347,12 +348,6 @@ pub struct MemoryMap {
     clocks: SemiContiguousSecondaryMap<MemoryLocation, ClockPair>,
 }
 
-impl IndexMut<MemoryLocation> for MemoryMap {
-    fn index_mut(&mut self, index: MemoryLocation) -> &mut Self::Output {
-        &mut self.data[index]
-    }
-}
-
 impl Index<MemoryLocation> for MemoryMap {
     type Output = BitVecValue;
 
@@ -373,6 +368,17 @@ impl MemoryMap {
             data: IndexedMap::new(),
             clocks: SemiContiguousSecondaryMap::new(),
         }
+    }
+
+    #[must_use]
+    pub fn set_location(
+        &mut self,
+        idx: MemoryLocation,
+        value: BitVecValue,
+    ) -> UpdateStatus {
+        let changed = self.data[idx] != value;
+        self.data[idx] = value;
+        changed.into()
     }
 
     pub fn push_clockless(&mut self, val: BitVecValue) -> MemoryLocation {

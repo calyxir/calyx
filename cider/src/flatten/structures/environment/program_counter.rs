@@ -182,7 +182,7 @@ impl TryFrom<usize> for ParEntry {
 /// the active leaf statements for each component instance.
 #[derive(Debug, Default, Clone)]
 pub(crate) struct ProgramCounter {
-    vec: Vec<ControlTuple>,
+    vec: Vec<ProgramPointer>,
     par_map: HashMap<ControlPoint, ParEntry>,
     continuous_assigns: Vec<ContinuousAssignments>,
     with_map: HashMap<ControlPoint, WithEntry>,
@@ -191,11 +191,94 @@ pub(crate) struct ProgramCounter {
     thread_memoizer: HashMap<(GlobalCellIdx, ThreadIdx, ControlIdx), ThreadIdx>,
 }
 
-pub type ControlTuple = (Option<ThreadIdx>, ControlPoint);
-// we need a few things from the program counter
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExecutionStatus {
+    Active,
+    Paused,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProgramPointer {
+    thread: Option<ThreadIdx>,
+    control_point: ControlPoint,
+    status: ExecutionStatus,
+}
 
+impl ProgramPointer {
+    pub fn new(
+        thread: Option<ThreadIdx>,
+        control_point: ControlPoint,
+        status: ExecutionStatus,
+    ) -> Self {
+        Self {
+            thread,
+            control_point,
+            status,
+        }
+    }
+
+    pub fn new_active(thread: Option<ThreadIdx>, point: ControlPoint) -> Self {
+        Self::new(thread, point, ExecutionStatus::Active)
+    }
+
+    pub fn new_paused(thread: Option<ThreadIdx>, point: ControlPoint) -> Self {
+        Self::new(thread, point, ExecutionStatus::Paused)
+    }
+
+    pub fn thread(&self) -> Option<ThreadIdx> {
+        self.thread
+    }
+
+    pub fn thread_mut(&mut self) -> &mut Option<ThreadIdx> {
+        &mut self.thread
+    }
+
+    pub fn get_mut(&mut self) -> (&mut ControlPoint, &mut Option<ThreadIdx>) {
+        (&mut self.control_point, &mut self.thread)
+    }
+
+    pub fn control_point(&self) -> &ControlPoint {
+        &self.control_point
+    }
+
+    pub fn set_control_point(&mut self, new: ControlPoint) {
+        self.control_point = new
+    }
+
+    pub fn status(&self) -> ExecutionStatus {
+        self.status
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        matches!(self.status, ExecutionStatus::Active)
+    }
+
+    /// Suspend execution of this portion of the program
+    pub fn pause(&mut self) {
+        self.status = ExecutionStatus::Paused
+    }
+
+    /// Unpause this portion of the program
+    pub fn unpause(&mut self) {
+        self.status = ExecutionStatus::Active
+    }
+
+    pub fn control_point_mut(&mut self) -> &mut ControlPoint {
+        &mut self.control_point
+    }
+
+    pub fn control_idx(&self) -> ControlIdx {
+        self.control_point.control_node_idx
+    }
+
+    /// Returns the cell of the component instance
+    pub fn component(&self) -> GlobalCellIdx {
+        self.control_point.comp
+    }
+}
+// Type alias for fields that need to be extracted from the PC during execution
+// for mutability reasons
 pub type PcFields = (
-    Vec<ControlTuple>,
+    Vec<ProgramPointer>,
     HashMap<ControlPoint, ParEntry>,
     HashMap<ControlPoint, WithEntry>,
     HashMap<ControlPoint, u64>,
@@ -220,15 +303,15 @@ impl ProgramCounter {
         }
     }
 
-    pub fn iter(&self) -> std::slice::Iter<'_, ControlTuple> {
+    pub fn iter(&self) -> std::slice::Iter<'_, ProgramPointer> {
         self.vec.iter()
     }
 
-    pub fn node_slice(&self) -> &[ControlTuple] {
+    pub fn node_slice(&self) -> &[ProgramPointer] {
         &self.vec
     }
 
-    pub fn vec_mut(&mut self) -> &mut Vec<ControlTuple> {
+    pub fn vec_mut(&mut self) -> &mut Vec<ProgramPointer> {
         &mut self.vec
     }
 
@@ -301,9 +384,9 @@ impl ProgramCounter {
 }
 
 impl<'a> IntoIterator for &'a ProgramCounter {
-    type Item = &'a ControlTuple;
+    type Item = &'a ProgramPointer;
 
-    type IntoIter = std::slice::Iter<'a, ControlTuple>;
+    type IntoIter = std::slice::Iter<'a, ProgramPointer>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()

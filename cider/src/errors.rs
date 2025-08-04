@@ -244,6 +244,9 @@ pub enum RuntimeError {
 
     #[error(transparent)]
     ConflictingAssignments(Box<ConflictingAssignments>),
+
+    #[error("Execution has stalled without a means of correcting it")]
+    StalledExecution,
 }
 
 // this is silly but needed to make the program print something sensible when returning
@@ -446,6 +449,12 @@ impl RuntimeError {
             }
             RuntimeError::AssertionError => todo!(),
             RuntimeError::OverflowError => todo!(),
+            RuntimeError::StalledExecution => {
+                CiderError::GenericError(format!(
+                    "Program execution has stalled. The following groups are running but not making progress:\n{}",
+                    env.print_pc()
+                ))
+            }
         }
     }
 }

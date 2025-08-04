@@ -45,7 +45,7 @@ categories = ["compilers"]
 homepage = "https://calyxir.org"
 edition = "2024"
 version = "0.7.1"
-rust-version = "1.85"
+rust-version = "1.88"
 
 [workspace.dependencies]
 # Internal crates

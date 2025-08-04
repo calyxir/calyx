@@ -495,7 +495,7 @@ fn build_reaching_def_static(
                             .unwrap_or_else(|| ir::Id::from(""))
                             == "std_reg"
                         {
-                            let name = format!("{}{}", INVOKE_PREFIX, counter);
+                            let name = format!("{INVOKE_PREFIX}{counter}");
                             rd.meta.attach_label_static(
                                 invoke,
                                 ir::Id::from(name.clone()),
@@ -647,7 +647,7 @@ fn build_reaching_def(
                             .unwrap_or_else(|| ir::Id::from(""))
                             == "std_reg"
                         {
-                            let name = format!("{}{}", INVOKE_PREFIX, counter);
+                            let name = format!("{INVOKE_PREFIX}{counter}");
                             rd.meta.attach_label(
                                 invoke,
                                 ir::Id::from(name.clone()),

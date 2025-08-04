@@ -154,12 +154,12 @@ impl Visitor for WireInliner {
             .map(|gr| {
                 let name = gr.borrow().name();
                 let go = builder.add_primitive(
-                    format!("{}_go", name),
+                    format!("{name}_go"),
                     "std_wire",
                     &[1],
                 );
                 let done = builder.add_primitive(
-                    format!("{}_done", name),
+                    format!("{name}_done"),
                     "std_wire",
                     &[1],
                 );
@@ -174,12 +174,12 @@ impl Visitor for WireInliner {
             .map(|fsm| {
                 let name = fsm.borrow().name();
                 let start = builder.add_primitive(
-                    format!("{}_start", name),
+                    format!("{name}_start"),
                     "std_wire",
                     &[1],
                 );
                 let done = builder.add_primitive(
-                    format!("{}_done", name),
+                    format!("{name}_done"),
                     "std_wire",
                     &[1],
                 );

@@ -152,8 +152,7 @@ fn check_valid_port(
         };
     if !sig_ports.contains(port_name) {
         return Err(Error::malformed_structure(format!(
-            "cell `{}` (which is an instance of {}) does not have port named `{}`",
-            cell_name, comp_name, port_name
+            "cell `{cell_name}` (which is an instance of {comp_name}) does not have port named `{port_name}`"
         ))
         .with_pos(attrs));
     };
@@ -512,7 +511,7 @@ fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
             .find(port)
             .ok_or_else(|| {
                 Error::undefined(
-                    Id::new(format!("{}.{}", component, port)),
+                    Id::new(format!("{component}.{port}")),
                     "port".to_string(),
                 )
             }),
@@ -939,8 +938,7 @@ fn build_static_control(
                 v
             } else {
                 return Err(Error::malformed_control(format!(
-                    "component {} is statically invoked, but is neither static nor does it have @interval attribute its @go port",
-                    comp_name
+                    "component {comp_name} is statically invoked, but is neither static nor does it have @interval attribute its @go port"
                 ))
                 .with_pos(&attributes));
             };
@@ -1130,8 +1128,7 @@ fn build_control(
                 v
             } else {
                 return Err(Error::malformed_control(format!(
-                    "component {} is statically invoked, but is neither static nor does it have @interval attribute its @go port",
-                    comp_name
+                    "component {comp_name} is statically invoked, but is neither static nor does it have @interval attribute its @go port"
                 ))
                 .with_pos(&attributes));
             };
@@ -1223,8 +1220,7 @@ fn build_control(
                 .is_some()
             {
                 return Err(Error::malformed_control(format!(
-                    "static component {} is dynamically invoked",
-                    comp_name
+                    "static component {comp_name} is dynamically invoked"
                 ))
                 .with_pos(&attributes));
             }

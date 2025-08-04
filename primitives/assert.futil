@@ -2,5 +2,4 @@
 extern "assert.sv" {
   primitive std_assert(@data in: 1, en: 1, @clk clk:1, @reset reset: 1) -> (out: 1);
   // WARNING: the assert will be optimized out unless it is `@protected`, or `out` is referenced
-
 }

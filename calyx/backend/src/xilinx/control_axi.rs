@@ -80,13 +80,13 @@ impl ControlInterface for AxiInterface {
     ) -> Self {
         // read channels
         let read_address = AxiChannel {
-            prefix: format!("{}AR", prefix),
+            prefix: format!("{prefix}AR"),
             direction: ChannelDirection::Recv,
             state: vec![v::Decl::new_wire("raddr", address_width)],
             data_ports: vec![("ADDR".to_string(), address_width)],
         };
         let read_data = AxiChannel {
-            prefix: format!("{}R", prefix),
+            prefix: format!("{prefix}R"),
             direction: ChannelDirection::Send,
             state: vec![v::Decl::new_reg("rdata", data_width)],
             data_ports: vec![
@@ -97,19 +97,19 @@ impl ControlInterface for AxiInterface {
 
         // write channels
         let write_address = AxiChannel {
-            prefix: format!("{}AW", prefix),
+            prefix: format!("{prefix}AW"),
             direction: ChannelDirection::Recv,
             state: vec![v::Decl::new_reg("waddr", address_width)],
             data_ports: vec![("ADDR".to_string(), address_width)],
         };
         let write_data = AxiChannel {
-            prefix: format!("{}W", prefix),
+            prefix: format!("{prefix}W"),
             direction: ChannelDirection::Recv,
             state: vec![v::Decl::new_wire("wdata", data_width)],
             data_ports: vec![("DATA".to_string(), data_width)],
         };
         let write_response = AxiChannel {
-            prefix: format!("{}B", prefix),
+            prefix: format!("{prefix}B"),
             direction: ChannelDirection::Send,
             state: vec![],
             data_ports: vec![("RESP".to_string(), 2)],
@@ -146,9 +146,9 @@ impl ControlInterface for AxiInterface {
             vec![(0..32, "int_timeout", 0..32, Flags::default().write())],
         );
         for (idx, memory_name) in memories.iter().enumerate() {
-            let part0_name = format!("{}_0", memory_name);
-            let part1_name = format!("{}_1", memory_name);
-            let addr_name = format!("addr_{}", memory_name);
+            let part0_name = format!("{memory_name}_0");
+            let part1_name = format!("{memory_name}_1");
+            let addr_name = format!("addr_{memory_name}");
             addr_space.add_address(
                 0x18 + (idx * 8),
                 &part0_name,
@@ -257,9 +257,9 @@ impl ControlInterface for AxiInterface {
         );
 
         for memory in memories {
-            let part0_name = format!("{}_0", memory);
-            let part1_name = format!("{}_1", memory);
-            let addr_name = format!("addr_{}", memory);
+            let part0_name = format!("{memory}_0");
+            let part1_name = format!("{memory}_1");
+            let addr_name = format!("addr_{memory}");
             module.add_stmt(v::Parallel::Assign(
                 memory.as_str().into(),
                 addr_name.into(),

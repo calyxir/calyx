@@ -6,7 +6,7 @@ use dap::requests::Command;
 pub enum MyAdapterError {
     /// Represents an unhandled command error.
     #[error("Unhandled command: {0:?}")]
-    UnhandledCommandError(Command),
+    UnhandledCommandError(Box<Command>),
 
     /// Represents an error when unable to parse the file.
     #[error("Unable to parse the file: {0}")]

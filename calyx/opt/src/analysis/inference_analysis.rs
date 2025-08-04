@@ -477,7 +477,7 @@ impl InferenceAnalysis {
             }
         }
 
-        log::debug!("SUCCESS: Latency = {}", latency_sum);
+        log::debug!("SUCCESS: Latency = {latency_sum}");
         Some(latency_sum)
     }
 
@@ -505,7 +505,8 @@ impl InferenceAnalysis {
             ir::Control::Empty(_)
             | ir::Control::Invoke(_)
             | ir::Control::Enable(_)
-            | ir::Control::Static(_) => (),
+            | ir::Control::Static(_)
+            | ir::Control::FSMEnable(_) => (),
             ir::Control::While(ir::While { body, .. })
             | ir::Control::Repeat(ir::Repeat { body, .. }) => {
                 Self::remove_promotable_attribute(body);
@@ -521,9 +522,6 @@ impl InferenceAnalysis {
                 for stmt in stmts {
                     Self::remove_promotable_attribute(stmt);
                 }
-            }
-            ir::Control::FSMEnable(_) => {
-                todo!()
             }
         }
     }

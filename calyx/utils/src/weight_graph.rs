@@ -154,6 +154,6 @@ impl<T: Eq + Hash + ToString + Clone + Ord> Display for WeightGraph<T> {
             })
             .collect::<Vec<_>>()
             .join("\n");
-        write!(f, "graph {{ \n{}\n{}\n }}", nodes, edges)
+        write!(f, "graph {{ \n{nodes}\n{edges}\n }}")
     }
 }

@@ -106,8 +106,7 @@ impl Visitor for SimplifyWithControl {
                 // Register the ports read by the combinational group's usages.
                 let used_ports = used_ports.remove(&name).ok_or_else(|| {
                     Error::malformed_structure(format!(
-                        "values from combinational group `{}` never used",
-                        name
+                        "values from combinational group `{name}` never used"
                     ))
                 })?;
 

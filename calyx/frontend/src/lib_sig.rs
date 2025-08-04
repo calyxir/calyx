@@ -76,7 +76,7 @@ impl LibrarySignatures {
         );
         let name = primitive.name;
         if self.find_primitive(name).is_some() {
-            panic!("Primitive `{}` is already defined in the context.", name);
+            panic!("Primitive `{name}` is already defined in the context.");
         }
         let prim = PrimitiveInfo::inline(primitive);
         self.prims.push(prim);
@@ -97,7 +97,7 @@ impl LibrarySignatures {
         );
         let name = primitive.name;
         if self.find_primitive(name).is_some() {
-            panic!("Primitive `{}` is already defined in the context.", name);
+            panic!("Primitive `{name}` is already defined in the context.");
         }
         let definined_ext = self.prims.iter_mut().find(|prim| match prim {
             PrimitiveInfo::Extern { path, .. } => path == &file,
@@ -161,7 +161,7 @@ impl LibrarySignatures {
     {
         let key = name.into();
         self.find_primitive(key).unwrap_or_else(|| {
-            panic!("Primitive `{}` is not defined in the context.", key)
+            panic!("Primitive `{key}` is not defined in the context.")
         })
     }
 
@@ -173,7 +173,7 @@ impl LibrarySignatures {
             PrimitiveInfo::Inline { primitive, .. } => primitive.name == name,
             PrimitiveInfo::Extern { .. } => false,
         }) else {
-            panic!("Primitive `{}` is not defined in the context.", name);
+            panic!("Primitive `{name}` is not defined in the context.");
         };
         inlined.set_source()
     }

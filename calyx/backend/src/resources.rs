@@ -135,7 +135,7 @@ fn estimated_size(count_map: HashMap<(ir::Id, ir::Binding, bool), u32>) {
         };
     let externalize_name = |name: ir::Id, is_external: bool| {
         if is_external {
-            format!("external {}", name)
+            format!("external {name}")
         } else {
             name.to_string()
         }
@@ -275,9 +275,6 @@ fn estimated_size(count_map: HashMap<(ir::Id, ir::Binding, bool), u32>) {
             _ => (),
         }
     }
-    eprintln!("Estimated size in bit(s): {}", estimated_size);
-    eprintln!(
-        "Estimated external size in bit(s): {}",
-        estimated_external_size
-    );
+    eprintln!("Estimated size in bit(s): {estimated_size}");
+    eprintln!("Estimated external size in bit(s): {estimated_external_size}");
 }

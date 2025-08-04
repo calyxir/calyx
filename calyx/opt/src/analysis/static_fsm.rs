@@ -210,7 +210,7 @@ impl StaticFSM {
         builder: &mut ir::Builder,
     ) -> ir::RRC<ir::Port> {
         // The wire that holds the query
-        let formatted_name = format!("bw_{}_{}", lb, ub);
+        let formatted_name = format!("bw_{lb}_{ub}");
         let wire: ir::RRC<ir::Cell> =
             builder.add_primitive(formatted_name, "std_wire", &[1]);
         let wire_out = wire.borrow().get("out");

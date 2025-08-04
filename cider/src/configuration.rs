@@ -32,6 +32,8 @@ pub struct RuntimeConfig {
     pub undef_guard_check: bool,
     /// Color Config
     pub color_config: ColorConfig,
+    /// Whether to step through multiple program nodes in a single step
+    pub allow_multistep: bool,
 }
 #[bon]
 impl RuntimeConfig {
@@ -44,6 +46,7 @@ impl RuntimeConfig {
         error_on_overflow: bool,
         undef_guard_check: bool,
         color_config: ColorConfig,
+        allow_multistep: bool,
     ) -> Self {
         let out = Self {
             check_data_race,
@@ -53,6 +56,7 @@ impl RuntimeConfig {
             error_on_overflow,
             undef_guard_check,
             color_config,
+            allow_multistep,
         };
 
         out.configure_color_setting();
@@ -103,8 +107,7 @@ impl FromArgValue for ColorConfig {
             "false" | "0" | "off" => Ok(ColorConfig::Off),
             "infer" | "auto " => Ok(ColorConfig::Auto),
             _ => Err(format!(
-                "Invalid color configuration: '{}'. Expected 'on', 'off', or 'auto'.",
-                value
+                "Invalid color configuration: '{value}'. Expected 'on', 'off', or 'auto'."
             )),
         }
     }

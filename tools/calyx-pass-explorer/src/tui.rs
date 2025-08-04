@@ -168,7 +168,7 @@ impl<'a> PassExplorerTUI<'a> {
             write!(self.scrollback_buffer, "Passes: ")?;
             let start_index = max(0, (incoming_pos as isize) - 3) as usize;
             if start_index > 0 {
-                write!(self.scrollback_buffer, "[{} more] ... ", start_index)?;
+                write!(self.scrollback_buffer, "[{start_index} more] ... ")?;
             }
 
             let length = min(5, current_pass_application.len() - start_index);
@@ -182,11 +182,11 @@ impl<'a> PassExplorerTUI<'a> {
                     PassApplicationStatus::Applied => name.green().bold(),
                     PassApplicationStatus::Skipped => name.grey().dim(),
                     PassApplicationStatus::Incoming => {
-                        format!("[INCOMING] {}", name).yellow().bold()
+                        format!("[INCOMING] {name}").yellow().bold()
                     }
                     PassApplicationStatus::Future => name.magenta().bold(),
                 };
-                write!(self.scrollback_buffer, "{}", colored_name)?;
+                write!(self.scrollback_buffer, "{colored_name}")?;
             }
 
             let remaining_count =
@@ -194,8 +194,7 @@ impl<'a> PassExplorerTUI<'a> {
             if remaining_count > 0 {
                 write!(
                     self.scrollback_buffer,
-                    " ... [{} more]",
-                    remaining_count
+                    " ... [{remaining_count} more]"
                 )?;
             }
 
@@ -210,7 +209,7 @@ impl<'a> PassExplorerTUI<'a> {
                 "{}",
                 "─".repeat(self.scrollback_buffer.cols()).dim()
             )?;
-            write!(self.scrollback_buffer, "{}", review)?;
+            write!(self.scrollback_buffer, "{review}")?;
         }
 
         Ok(())

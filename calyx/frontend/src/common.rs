@@ -143,8 +143,8 @@ pub enum Width {
 impl std::fmt::Display for Width {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Width::Const { value } => write!(f, "{}", value),
-            Width::Param { value } => write!(f, "{}", value),
+            Width::Const { value } => write!(f, "{value}"),
+            Width::Param { value } => write!(f, "{value}"),
         }
     }
 }

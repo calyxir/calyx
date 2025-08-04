@@ -403,9 +403,9 @@ impl CalyxParser {
     fn attribute(input: Node) -> ParseResult<ParseAttributeWrapper> {
         match_nodes!(
             input.clone().into_children();
-            [string_lit(key), bitwidth(num)] => Attribute::from_str(key.as_ref()).map(|attr| (attr, num).into()).map_err(|e| input.error(format!("{:?}", e))),
+            [string_lit(key), bitwidth(num)] => Attribute::from_str(key.as_ref()).map(|attr| (attr, num).into()).map_err(|e| input.error(format!("{e:?}"))),
             [string_lit(key), attr_set(nums)] => {
-                let attr = SetAttribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{:?}", e)))?;
+                let attr = SetAttribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{e:?}")))?;
                 Ok((attr, nums).into())
             }
         )
@@ -413,7 +413,7 @@ impl CalyxParser {
     fn attributes(input: Node) -> ParseResult<Attributes> {
         match_nodes!(
             input.clone().into_children();
-            [attribute(kvs)..] => kvs.collect::<Vec<_>>().try_into().map_err(|e| input.error(format!("{:?}", e)))
+            [attribute(kvs)..] => kvs.collect::<Vec<_>>().try_into().map_err(|e| input.error(format!("{e:?}")))
         )
     }
     fn name_with_attribute(input: Node) -> ParseResult<(Id, Attributes)> {
@@ -464,19 +464,19 @@ impl CalyxParser {
     fn at_attribute(input: Node) -> ParseResult<ParseAttributeWrapper> {
         match_nodes!(
             input.clone().into_children();
-            [identifier(key), attr_val(num)] => Attribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{:?}", e))).map(|attr| (attr, num).into()),
+            [identifier(key), attr_val(num)] => Attribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{e:?}"))).map(|attr| (attr, num).into()),
             [identifier(key), attr_set(nums)] => {
-                let attr = SetAttribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{:?}", e)))?;
+                let attr = SetAttribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{e:?}")))?;
                 Ok((attr, nums).into())
             },
-            [identifier(key)] => Attribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{:?}", e))).map(|attr| (attr, 1).into()),
+            [identifier(key)] => Attribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{e:?}"))).map(|attr| (attr, 1).into()),
         )
     }
 
     fn at_attributes(input: Node) -> ParseResult<Attributes> {
         match_nodes!(
             input.clone().into_children();
-            [at_attribute(kvs)..] => kvs.collect::<Vec<_>>().try_into().map_err(|e| input.error(format!("{:?}", e)))
+            [at_attribute(kvs)..] => kvs.collect::<Vec<_>>().try_into().map_err(|e| input.error(format!("{e:?}")))
         )
     }
 
