@@ -309,9 +309,14 @@ impl StaticSchedule<'_, '_> {
         }
 
         // Build up the fsm here and return.
+
+        // For test cases, we want to maintain a reliable order!
+        let mut state_assigns: Vec<_> = self.state2assigns.drain().collect();
+        state_assigns.sort_by_key(|(state, _)| *state);
+
         self.builder.add_continuous_assignments(
-            self.state2assigns
-                .drain()
+            state_assigns
+                .into_iter()
                 .flat_map(|(state, mut assigns)| {
                     assigns.iter_mut().for_each(|assign| {
                         assign.and_guard(ir::Guard::port(

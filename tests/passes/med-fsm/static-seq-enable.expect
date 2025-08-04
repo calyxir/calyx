@@ -23,7 +23,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
         fsm_1.in = 1'd1;
       } => 0,
     }
-    a.write_en = fsm_1.out | fsm_0.out ? 1'd1;
+    a.write_en = fsm_0.out | fsm_1.out ? 1'd1;
     a.in = fsm_1.out ? 2'd1;
     a.in = fsm_0.out ? 2'd0;
   }

@@ -59,9 +59,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
         fsm_10.in = 1'd1;
       } => 0,
     }
-    a.write_en = fsm_0.out | fsm_8.out | fsm_7.out | fsm_2.out | fsm_5.out | fsm_10.out | fsm_4.out | fsm_1.out ? 1'd1;
-    a.in = fsm_6.out | fsm_3.out | fsm_8.out | fsm_2.out | fsm_5.out | fsm_9.out ? 2'd1;
-    a.in = fsm_0.out | fsm_7.out | fsm_10.out | fsm_4.out | fsm_1.out ? 2'd0;
+    a.write_en = fsm_0.out | fsm_1.out | fsm_2.out | fsm_4.out | fsm_5.out | fsm_7.out | fsm_8.out | fsm_10.out ? 1'd1;
+    a.in = fsm_2.out | fsm_3.out | fsm_5.out | fsm_6.out | fsm_8.out | fsm_9.out ? 2'd1;
+    a.in = fsm_0.out | fsm_1.out | fsm_4.out | fsm_7.out | fsm_10.out ? 2'd0;
   }
   control {
     fsm;
