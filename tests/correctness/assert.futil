@@ -2,7 +2,7 @@ import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 import "primitives/assert.futil";
 
-// TODO: this test currently expects verilator (-> ninja) to crash.
+// TODO(elamdf): this test currently expects verilator (-> ninja) to crash.
 // A better solution would be to extend runt to parse the verilator sim log,
 // looking for the assertion as the cause of the crash.
 
