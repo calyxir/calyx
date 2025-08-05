@@ -14,7 +14,8 @@ use crate::passes::{
 };
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
-    FSMAnnotator, HoleInliner, Metadata, ParToSeq, RegisterUnsharing,
+    FSMAnnotator, FSMBuilder, HoleInliner, Metadata, ParToSeq,
+    RegisterUnsharing,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -58,6 +59,7 @@ impl PassManager {
         pm.register_pass::<CompileSyncWithoutSyncReg>()?;
         pm.register_pass::<AddGuard>()?;
         pm.register_pass::<FSMAnnotator>()?;
+        pm.register_pass::<FSMBuilder>()?;
 
         // Lowering passes
         pm.register_pass::<GoInsertion>()?;
@@ -149,6 +151,35 @@ impl PassManager {
 
         register_alias!(
             pm,
+            "med-fsm",
+            [
+                DataPathInfer,
+                CollapseControl,
+                CompileSyncWithoutSyncReg,
+                GroupToSeq, // FIXME: may make programs *slower*
+                DeadAssignmentRemoval,
+                GroupToInvoke,
+                ComponentInliner,
+                CombProp,
+                // DeadCellRemoval,
+                CellShare,
+                SimplifyWithControl,
+                CompileInvoke,
+                StaticInference,
+                StaticPromotion,
+                DeadGroupRemoval,
+                CollapseControl,
+                FSMAnnotator,
+                FSMBuilder,
+                DeadGroupRemoval,
+                MergeAssign,
+                CompileRepeat,
+                TopDownCompileControl,
+            ]
+        );
+
+        register_alias!(
+            pm,
             "compile-fsm",
             [
                 DataPathInfer,
@@ -160,6 +191,7 @@ impl PassManager {
                 ComponentInliner,
                 CombProp,
                 DeadCellRemoval,
+                CellShare,
                 SimplifyWithControl,
                 CompileInvoke,
                 StaticInference,
