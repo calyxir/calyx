@@ -86,6 +86,10 @@ RUN ln -s /home/calyx/target/debug/fud2 ~/.local/bin/
 RUN printf "dahlia = \"/home/dahlia/fuse\"\n" >> ~/.config/fud2.toml
 RUN printf "[calyx]\nbase = \"/home/calyx\"\n" >> ~/.config/fud2.toml
 
+# Install calyx-py (for use by ad hoc generator scripts in tests)
+WORKDIR /home/calyx
+RUN uv pip install --system --break-system-packages ./calyx-py
+
 # Setup fud
 RUN fud config --create global.root /home/calyx && \
     fud config stages.dahlia.exec '/home/dahlia/fuse' && \
