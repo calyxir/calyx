@@ -1,0 +1,22 @@
+// -p med-fsm
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+  cells {
+    a = std_reg(2);
+  }
+  wires {
+    static<1> group A {
+      a.in = 2'd0;
+      a.write_en = %0 ? 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      A;
+      A;
+    }
+  }
+}

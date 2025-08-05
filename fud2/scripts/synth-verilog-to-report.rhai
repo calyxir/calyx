@@ -37,7 +37,9 @@ fn synth_setup(e) {
     e.rule("parse-rpt", "synthrep viz -t flamegraph -f $in > $out");
     e.rule("extract-util-json", "synthrep summary -m utilization > $out");
     e.rule("extract-hierarchy-json", "synthrep summary -m hierarchy > $out");
+}
 
+fn flamegraph_setup(e) {
     // Bash script to create a FlameGraph
     e.config_var("flamegraph-script", "flamegraph.script");
     e.var_("create-visuals-script", "$calyx-base/tools/profiler/create-visuals.sh");
@@ -124,7 +126,7 @@ op(
 // Op to get FlameGraph from area report
 op(
     "area-report-to-flamegraph",
-    [synth_setup],
+    [synth_setup, flamegraph_setup],
     area_report_state,
     p::flamegraph,
     |e, input, output| {
