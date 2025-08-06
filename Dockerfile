@@ -1,7 +1,7 @@
 # Use the official rust image as a parent image.
 FROM rust:1.76
 
-# Connect to the Calux repository.
+# Connect to the Calyx repository.
 LABEL org.opencontainers.image.source https://github.com/calyxir/calyx
 
 # Install apt dependencies
@@ -9,22 +9,26 @@ RUN echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | tee /etc/ap
     echo "deb https://repo.scala-sbt.org/scalasbt/debian /" | tee /etc/apt/sources.list.d/sbt_old.list && \
     curl -sL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2EE0EA64E40A89B84B2DF73499E82A75642AC823" | apt-key add && \
     apt-get update -y && \
-    apt-get install -y jq python3.10 python3-pip python3-venv sbt make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake autoconf gperf
+    apt-get install -y jq python3-dev sbt make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake autoconf gperf clang
 
-# Setup python venv to install python dependencies. Python no longer supports installing packages globally into your system
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# Install uv and create a virtualenv
+WORKDIR /home
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
+RUN uv venv
+ENV PATH="/home/.venv/bin:$PATH"
 
-# Install python dependencies cocotb==1.6.2 seems to be for Xilinx cocotb tests
-# Need to pin the numpy version since there are TVM issues with versions 2 and above
-RUN python3 -m pip install numpy==1.26.4 flit prettytable wheel hypothesis pytest simplejson cocotb==1.6.2
-# Current cocotb-bus has a bug that is fixed in more up to date repo
-RUN python3 -m pip install git+https://github.com/cocotb/cocotb-bus.git cocotbext-axi
-# Vcdvcd for profiling
-RUN python3 -m pip install vcdvcd
-
-# Install clang
-RUN apt-get install -y clang
+# Install python dependencies:
+# * cocotb==1.6.2 seems to be for Xilinx cocotb tests
+# * Need to pin the numpy version since there are TVM issues with versions 2 and above
+# * Current cocotb-bus has a bug that is fixed in more up to date repo
+# * Vcdvcd for profiling
+# Someday, all of these should come from a pyproject.toml.
+RUN uv pip install numpy==1.26.4 prettytable wheel hypothesis pytest \
+    simplejson cocotb==1.6.2 \
+    git+https://github.com/cocotb/cocotb-bus.git cocotbext-axi \
+    vcdvcd
 
 # Install Verilator
 WORKDIR /home
@@ -33,7 +37,7 @@ RUN git clone --depth 1 --branch v5.002 https://github.com/verilator/verilator
 WORKDIR /home/verilator
 RUN autoconf && ./configure && make && make install
 
-# Install Icarus verilog
+# Install Icarus Verilog
 WORKDIR /home
 RUN git clone --depth 1 --branch v12_0 https://github.com/steveicarus/iverilog
 WORKDIR /home/iverilog
@@ -72,10 +76,9 @@ RUN cargo build --workspace && \
     cargo install vcdump && \
     cargo install runt --version 0.4.1
 
-# Install uv and then fud
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# Install uv fud
 WORKDIR /home/calyx
-RUN uv tool install ./fud
+RUN uv pip install ./fud
 RUN mkdir -p /root/.config
 ENV PATH=$PATH:/root/.local/bin
 
@@ -85,10 +88,6 @@ run mkdir -p ~/.local/bin
 RUN ln -s /home/calyx/target/debug/fud2 ~/.local/bin/
 RUN printf "dahlia = \"/home/dahlia/fuse\"\n" >> ~/.config/fud2.toml
 RUN printf "[calyx]\nbase = \"/home/calyx\"\n" >> ~/.config/fud2.toml
-
-# Install calyx-py (for use by ad hoc generator scripts in tests)
-WORKDIR /home/calyx
-RUN uv pip install --system --break-system-packages ./calyx-py
 
 # Setup fud
 RUN fud config --create global.root /home/calyx && \
@@ -101,7 +100,7 @@ RUN fud config --create global.root /home/calyx && \
 
 # Install MrXL
 WORKDIR /home/calyx
-RUN uv tool install ./frontends/mrxl
+RUN uv pip install ./frontends/mrxl
 
 WORKDIR /home/calyx
 
