@@ -78,7 +78,6 @@ RUN cargo build --workspace && \
 # Install fud
 WORKDIR /home/calyx
 RUN uv pip install ./fud
-RUN uv pip install ./calyx-py  # Install separately for source-position stuff.
 RUN mkdir -p /root/.config
 
 # Link fud2
@@ -100,7 +99,10 @@ RUN fud config --create global.root /home/calyx && \
 WORKDIR /home/calyx
 RUN uv pip install ./frontends/mrxl
 
-WORKDIR /home/calyx
+# Install calyx-py. We do this separately from the other `uv pip install`s to
+# ensure that it gets installed in non-editable mode, which can affect its
+# stacktrace-walking magic that dictates source position generation.
+RUN uv pip install ./calyx-py
 
 # Used to make runt cocotb tests happy
 ENV LANG=C.UTF-8
