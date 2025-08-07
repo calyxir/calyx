@@ -78,6 +78,7 @@ RUN cargo build --workspace && \
 # Install fud
 WORKDIR /home/calyx
 RUN uv pip install ./fud
+RUN uv pip install ./calyx-py  # Install separately for source-position stuff.
 RUN mkdir -p /root/.config
 
 # Link fud2
