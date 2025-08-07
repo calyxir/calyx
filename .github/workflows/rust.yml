@@ -182,7 +182,7 @@ jobs:
     - name: Install calyx-py, MrXL, and queues
       working-directory: /home/calyx
       run: |
-        uv pip install ./frontends/mrxl ./frontends/queues
+        uv pip install -e ./frontends/mrxl ./frontends/queues
         uv pip install ./calyx-py
 
     - name: Generate queue .data and .expect files
