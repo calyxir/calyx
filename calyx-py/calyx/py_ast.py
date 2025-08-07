@@ -69,6 +69,13 @@ class PosTable:
             # skip frames that do not have a real filename
             if frame.filename == "<string>":
                 continue
+            # Special-case the `gen_*.py` modules, which are clients themselves
+            # despite being part of the library.
+            # TODO(adrian): Move these out of the library and remove this hack.
+            if frame.filename.startswith(os.path.join(library_path, "gen_")):
+                user = frame
+                break
+            # Exclude everything else in the library.
             if not frame.filename.startswith(library_path):
                 user = frame
                 break
