@@ -83,9 +83,7 @@ RUN mkdir -p /root/.config
 
 # Link fud2
 WORKDIR /home/calyx
-RUN mkdir -p ~/.local/bin
-ENV PATH=$PATH:$HOME/.local/bin
-RUN ln -s /home/calyx/target/debug/fud2 ~/.local/bin/
+RUN ln -s /home/calyx/target/debug/fud2 /bin/
 RUN printf "dahlia = \"/home/dahlia/fuse\"\n" >> ~/.config/fud2.toml
 RUN printf "[calyx]\nbase = \"/home/calyx\"\n" >> ~/.config/fud2.toml
 
