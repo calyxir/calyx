@@ -75,11 +75,10 @@ RUN cargo build --workspace && \
     cargo install vcdump && \
     cargo install runt --version 0.4.1
 
-# Install uv fud
+# Install fud
 WORKDIR /home/calyx
 RUN uv pip install ./fud
 RUN mkdir -p /root/.config
-ENV PATH=$PATH:/root/.local/bin
 
 # Link fud2
 WORKDIR /home/calyx
