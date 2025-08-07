@@ -182,14 +182,7 @@ jobs:
     - name: Install calyx-py, MrXL, and queues
       working-directory: /home/calyx
       run: |
-        cd calyx-py
-        FLIT_ROOT_INSTALL=1 flit install --symlink
-        cd -
-        cd frontends/mrxl
-        FLIT_ROOT_INSTALL=1 flit install --symlink
-        cd -
-        cd frontends/queues
-        FLIT_ROOT_INSTALL=1 flit install --symlink
+        uv pip install ./calyx-py ./frontends/mrxl ./frontends/queues
 
     - name: Generate queue .data and .expect files
       working-directory: /home/calyx
