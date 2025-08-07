@@ -54,10 +54,9 @@ RUN git checkout v0.10.dev0 && \
 RUN mkdir build
 WORKDIR /home/tvm/build
 RUN cp ../cmake/config.cmake . && \
-    cmake -G Ninja .. && ninja && \
-    python3 -m pip install -Iv antlr4-python3-runtime==4.7.2
+    cmake -G Ninja .. && ninja
 WORKDIR /home/tvm/python
-RUN python3 setup.py bdist_wheel && python3 -m pip install dist/tvm-*.whl
+RUN uv pip install antlr4-python3-runtime==4.7.2 .
 
 # Install Dahlia
 WORKDIR /home
