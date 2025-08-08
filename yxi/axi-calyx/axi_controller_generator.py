@@ -185,9 +185,9 @@ def add_bresp_channel(prog):
 
     with bresp_channel.continuous:
         bresp_channel.this()["BVALID"] = bvalid.out
-        bresp_channel.this()[
-            "BRESP"
-        ] = 0b00  # Assume OKAY. Could make this dynamic in the future by passing in a ref cell.
+        bresp_channel.this()["BRESP"] = (
+            0b00  # Assume OKAY. Could make this dynamic in the future by passing in a ref cell.
+        )
 
     with bresp_channel.group("block_transfer") as block_transfer:
         BREADY = bresp_channel.this()["BREADY"]
@@ -593,16 +593,16 @@ def build():
 def check_mems_welformed(mems):
     """Checks if memories from yxi are well formed. Returns true if they are, false otherwise."""
     for mem in mems:
-        assert (
-            mem[width_key] % 8 == 0
-        ), "Width must be a multiple of 8 to alow byte addressing to host"
-        assert log2(
-            mem[width_key]
-        ).is_integer(), "Width must be a power of 2 to be correctly described by xSIZE"
+        assert mem[width_key] % 8 == 0, (
+            "Width must be a multiple of 8 to alow byte addressing to host"
+        )
+        assert log2(mem[width_key]).is_integer(), (
+            "Width must be a power of 2 to be correctly described by xSIZE"
+        )
         assert mem[size_key] > 0, "Memory size must be greater than 0"
-        assert (
-            mem[type_key] == "Dynamic"
-        ), "Only dynamic memories are currently supported for dynamic axi"
+        assert mem[type_key] == "Dynamic", (
+            "Only dynamic memories are currently supported for dynamic axi"
+        )
 
 
 if __name__ == "__main__":
