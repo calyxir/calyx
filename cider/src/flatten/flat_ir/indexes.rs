@@ -700,6 +700,10 @@ impl PortValue {
         self.0.as_ref().and_then(|x| x.clocks)
     }
 
+    pub fn thread(&self) -> Option<ThreadIdx> {
+        self.0.as_ref().and_then(|x| x.thread())
+    }
+
     /// Returns a reference to the underlying [`AssignmentWinner`] if it is
     /// defined. Otherwise returns `None`.
     pub fn winner(&self) -> Option<&AssignmentWinner> {

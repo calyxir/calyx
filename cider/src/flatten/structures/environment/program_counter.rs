@@ -148,9 +148,21 @@ impl WithEntry {
 pub struct ParEntry {
     child_count: ChildCount,
     finished_threads: SmallVec<[ThreadIdx; 4]>,
+    original_thread: Option<ThreadIdx>,
 }
 
 impl ParEntry {
+    pub fn new(
+        child_count: ChildCount,
+        original_thread: Option<ThreadIdx>,
+    ) -> Self {
+        Self {
+            child_count,
+            finished_threads: Default::default(),
+            original_thread,
+        }
+    }
+
     pub fn child_count_mut(&mut self) -> &mut ChildCount {
         &mut self.child_count
     }
@@ -165,16 +177,9 @@ impl ParEntry {
     pub fn iter_finished_threads(&self) -> impl Iterator<Item = ThreadIdx> {
         self.finished_threads.iter().copied()
     }
-}
 
-impl TryFrom<usize> for ParEntry {
-    type Error = std::num::TryFromIntError;
-
-    fn try_from(value: usize) -> Result<Self, Self::Error> {
-        Ok(ParEntry {
-            child_count: value.try_into()?,
-            finished_threads: SmallVec::new(),
-        })
+    pub fn original_thread(&self) -> Option<ThreadIdx> {
+        self.original_thread
     }
 }
 

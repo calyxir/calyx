@@ -2099,7 +2099,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         parent_clock.sync(child_clock);
                     }
 
-                    *node_thread = Some(parent);
+                    *node_thread = par_entry.original_thread();
                     self.env.clocks[parent_clock].increment(&parent);
                 }
                 node.mutate_into_next(self.env.ctx.as_ref())
@@ -2109,9 +2109,10 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         } else {
             par_map.insert(
                 node.clone(),
-                par.stms().len().try_into().expect(
+                ParEntry::new(par.stms().len().try_into().expect(
                     "More than (2^16 - 1 threads) in a par block. Are you sure this is a good idea?",
-                ),
+                ), *node_thread)
+                ,
             );
             new_nodes.extend(par.stms().iter().map(|x| {
                 let thread = if self.conf.check_data_race {
@@ -2134,6 +2135,11 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     self.env.clocks[new_clock_idx] = self.env.clocks
                         [self.env.thread_map.unwrap_clock_id(thread)]
                     .clone();
+
+                    assert_eq!(
+                        self.env.thread_map[new_thread_idx].parent().unwrap(),
+                        thread
+                    );
 
                     self.env.clocks[new_clock_idx].increment(&new_thread_idx);
 
