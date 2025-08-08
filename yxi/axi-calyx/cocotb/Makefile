@@ -13,7 +13,7 @@ VERILOG_SOURCES += $(VERILOG_SOURCE)
 SIM_BUILD=sim_build/
 
 # TOPLEVEL is the name of the toplevel module in your Verilog or VHDL file
-TOPLEVEL = wrapper
+TOPLEVEL = Toplevel
 
 # MODULE is the basename of the Python test file
 MODULE = run_axi_test
