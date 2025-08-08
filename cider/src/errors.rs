@@ -385,8 +385,11 @@ impl RuntimeError {
                     ClockError::WriteAfterRead { write, reads } => {
                         let plural_reads = reads.len() > 1;
                         let read_s = if plural_reads { "s" } else { "" };
-                        let formatted_reads =
-                            reads.iter().map(|r| r.format(env)).join("\n  ");
+                        let formatted_reads = reads
+                            .iter()
+                            .sorted_by(|a, b| a.thread().cmp(&b.thread()))
+                            .map(|r| r.format(env))
+                            .join("\n  ");
 
                         CiderError::GenericError(format!(
                             "Concurrent read{read_s} and write to the same {race_location}\n  {}\n  {formatted_reads}",
