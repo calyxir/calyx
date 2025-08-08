@@ -16,8 +16,8 @@ async def run(toplevel):
     data_path = os.environ.get("DATA_PATH")
     if data_path and not os.path.isabs(data_path):
         data_path = os.getcwd() + "/" + data_path
-    assert data_path is not None and os.path.isfile(
-        data_path
-    ), f"DATA_PATH must be set and must be a valid file. Got: {data_path}"
+    assert data_path is not None and os.path.isfile(data_path), (
+        f"DATA_PATH must be set and must be a valid file. Got: {data_path}"
+    )
 
     await run_kernel_test(toplevel, data_path)
