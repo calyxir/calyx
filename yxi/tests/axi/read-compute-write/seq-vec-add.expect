@@ -35,19 +35,19 @@
   },
   "Sum0": {
     "data": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
+      2,
+      4,
+      8,
+      16,
+      32,
+      64,
+      128,
+      256
     ],
     "format": {
       "numeric_type": "bitnum",
       "is_signed": false,
       "width": 32
     }
-}
+  }
 }
