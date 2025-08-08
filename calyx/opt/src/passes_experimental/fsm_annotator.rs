@@ -298,6 +298,57 @@ impl FSMPolicy for ir::Repeat {
     }
 }
 
+/// For each of the following three bullets, this pass will annotate each
+/// control node in a program with one of the given possibilities in that bullet:
+///
+/// - num_states: in the attribute @NUM_STATES(n), either n = 1 or n is an arbitrary
+/// - acyclic: either the node has an @ACYCLIC attribute or it does not
+/// - attr: one of the following will appear on the node: @UNROLL, @INLINE, @OFFLOAD
+///
+/// Then, in total, there are 12 possibilities for annotations on any given
+/// control node, but some cases are not possible or can be combined.
+/// We enumerate the cases and list the complete set of nodes on
+/// which these annotations can appear:
+///
+///     @NUM_STATES(n) @ACYCLIC @UNROLL -- possible only for:
+///         - static repeat
+///
+///     @NUM_STATES(n) @ACYCLIC @INLINE -- possible only for:
+///         - static enable
+///         - static seq
+///         - static par
+///         - static if
+///
+///     @NUM_STATES(n) @ACYCLIC @OFFLOAD
+///         - not possible: @ACYCLIC and @OFFLOAD cannot exist together
+///
+///     @NUM_STATES(n) @UNROLL -- possible only for:
+///         - dynamic repeat
+///
+///     @NUM_STATES(n) @INLINE -- possible only for:
+///         - while
+///         - static / dynamic repeat
+///         - static / dynamic enable
+///         - static / dynamic seq
+///
+///     @NUM_STATES(1) @OFFLOAD -- possible only for:
+///         - while
+///         - fsm enable
+///         - static / dynamic par
+///         - static / dynamic if
+///         - static / dynamic repeat
+///         - static / dynamic seq
+///
+///     @NUM_STATES(n) @OFFLOAD
+///         - not possible: if a child FSM is offloaded, it cannot occupy an
+///           arbitrary number of states in the parent
+///
+/// A strange quirk about the @offload annotation is that it does not specify
+/// how the child schedule should be implemented. For dynamic schedules,
+/// @OFFLOAD just means the parent should wait for the [done] of the child, and
+/// for static schedules, it means the parent should wait the correct number of
+/// cycles. It gives no indication about how the child should be implemented.
+/// This is an area of improvement for the above attribute system.
 pub struct FSMAnnotator {
     child_fsm_cutoff: u64,
 }
