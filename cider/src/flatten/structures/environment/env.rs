@@ -556,7 +556,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                         .unwrap_comp()
                         .index_bases
                         + self.ctx().primary[x.group()].go;
-                    write!(
+                    writeln!(
                         out,
                         "{}::{}{}",
                         self.get_full_name(point.component()),
@@ -590,7 +590,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                         }
                     };
 
-                    write!(
+                    writeln!(
                         out,
                         "{}: invoke {}",
                         self.get_full_name(point.component()),
