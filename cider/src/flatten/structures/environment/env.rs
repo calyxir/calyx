@@ -2119,15 +2119,21 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     let thread =
                         thread.expect("par nodes should have a thread");
 
-                    let new_thread_idx: ThreadIdx = *(self
-                        .env
-                        .pc
-                        .lookup_thread(node.comp, thread, *x)
-                        .or_insert_with(|| {
-                            let new_clock_idx = self.env.clocks.new_clock();
+                    let new_thread_idx: ThreadIdx = if self.conf.disable_memo {
+                        self.env
+                            .thread_map
+                            .spawn(thread, self.env.clocks.new_clock())
+                    } else {
+                        *(self
+                            .env
+                            .pc
+                            .lookup_thread(node.comp, thread, *x)
+                            .or_insert_with(|| {
+                                let new_clock_idx = self.env.clocks.new_clock();
 
-                            self.env.thread_map.spawn(thread, new_clock_idx)
-                        }));
+                                self.env.thread_map.spawn(thread, new_clock_idx)
+                            }))
+                    };
 
                     let new_clock_idx =
                         self.env.thread_map.unwrap_clock_id(new_thread_idx);
