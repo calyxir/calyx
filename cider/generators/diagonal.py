@@ -80,7 +80,7 @@ def middle_loop1(main: ComponentBuilder, m: int):
     cond = main.lt_use(n_reg.out, BSIZE)
 
     load = main.mem_load_d2(buffer_up_1, m, n_reg.out, tmp, f"load_temp_l1_{m}")
-    inner = inner_loop(main, m, tmp, "l1", n_reg.out, m)
+    inner = inner_loop(main, m, tmp, "_l1", n_reg.out, m)
     write_buf1 = main.mem_store_d2(
         buffer_up_1, m, n_reg.out, tmp.out, f"write_b1_l1_{m}"
     )
@@ -144,7 +144,13 @@ def middle_loop2(main: ComponentBuilder, m: int):
 
 def outer_loop_unrolled(main: ComponentBuilder):
     return par(
-        *([middle_loop1(main, m), middle_loop2(main, m)] for m in range(0, BSIZE))
+        *(
+            [
+                middle_loop1(main, m),
+                # middle_loop2(main, m)
+            ]
+            for m in range(0, BSIZE)
+        )
     )
 
 

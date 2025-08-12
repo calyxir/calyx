@@ -113,7 +113,7 @@ def make_tree_adder(array_size: int, full_unroll: bool):
             comp, array_size, outer_loop_count, shared_items
         )
     else:
-        control_list = gen_unroll_only_inner(comp, array_size, True, shared_items)
+        control_list = gen_unroll_only_inner(comp, array_size, False, shared_items)
 
     comp.control += control_list
     print(f"// --entangle '{','.join(shared_items['mems'])}'")
@@ -121,7 +121,7 @@ def make_tree_adder(array_size: int, full_unroll: bool):
 
 
 def main():
-    make_tree_adder(64, False)
+    make_tree_adder(2048, False)
 
 
 if __name__ == "__main__":
