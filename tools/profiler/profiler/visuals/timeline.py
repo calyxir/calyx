@@ -46,6 +46,7 @@ class ProtoTimelineCell:
     fully_qualified_cell_name: str
     sid_name: str
     sid_val: int
+    enable_to_thread: dict[str, int]
     enable_id_to_uuid: dict[str, int]
     control_group_id_to_uuid: dict[str, int]
 
@@ -61,6 +62,7 @@ class ProtoTimelineCell:
         self.sid_name = self.fully_qualified_cell_name.replace(".", "_").upper()
         self.sid_val = sid
         self.events = list()
+        self.enable_to_thread = enable_to_thread
         self.enable_id_to_uuid = {}
         self.control_group_id_to_uuid = {}
         self.cell_uuid = self._define_track(fully_qualified_cell_name)
@@ -74,14 +76,14 @@ class ProtoTimelineCell:
         self.misc_group_uuid = self._define_track(
             "Non-id-ed groups", parent_track_uuid=self.cell_uuid
         )
-        # convert threadids to uuids
-        threadid_to_uuid: dict[int, int] = {}
-        for group, threadid in enable_to_thread.items():
-            if threadid not in threadid_to_uuid:
-                threadid_to_uuid[threadid] = self._define_track(
-                    f"Thread {threadid:03}", parent_track_uuid=self.cell_uuid
-                )
-            self.enable_id_to_uuid[group] = threadid_to_uuid[threadid]
+        # # convert threadids to uuids
+        # threadid_to_uuid: dict[int, int] = {}
+        # for group, threadid in enable_to_thread.items():
+        #     if threadid not in threadid_to_uuid:
+        #         threadid_to_uuid[threadid] = self._define_track(
+        #             f"Thread {threadid:03}", parent_track_uuid=self.cell_uuid
+        #         )
+        #     self.enable_id_to_uuid[group] = threadid_to_uuid[threadid]
 
         # self.group_uuid = self._define_track("Groups", self.cell_uuid)
 
@@ -117,9 +119,20 @@ class ProtoTimelineCell:
     ):
         # NOTE: enable_id is not fully qualified.
         group_name = enable_id.split("UG")[0]
-        if enable_id in self.enable_id_to_uuid:
-            uuid = self.enable_id_to_uuid[enable_id]
-            self._add_slice_event(timestamp, event_type, uuid, group_name)
+                #     if threadid not in threadid_to_uuid:
+        #         threadid_to_uuid[threadid] = self._define_track(
+        #             f"Thread {threadid:03}", parent_track_uuid=self.cell_uuid
+        #         )
+
+        if enable_id in self.enable_to_thread:
+            if enable_id in self.enable_id_to_uuid:
+                uuid = self.enable_id_to_uuid[enable_id]
+                self._add_slice_event(timestamp, event_type, uuid, group_name)
+            else:
+                thread_id = self.enable_to_thread[enable_id]
+                uuid = self._define_track(f"Thread {thread_id:03}", parent_track_uuid=self.cell_uuid)
+                self._add_slice_event(timestamp, event_type, uuid, group_name)
+                self.enable_id_to_uuid[enable_id] = uuid
         else:
             self._add_slice_event(
                 timestamp, event_type, self.misc_group_uuid, group_name
