@@ -2107,6 +2107,10 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 false
             }
         } else {
+            if par.is_empty() {
+                return node.mutate_into_next(self.env.ctx.as_ref());
+            }
+
             par_map.insert(
                 node.clone(),
                 ParEntry::new(par.stms().len().try_into().expect(
