@@ -1167,6 +1167,17 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             })
             .map(|(idx, _)| idx)
     }
+
+    pub fn get_prototype(&self, cell: GlobalCellIdx) -> &CellPrototype {
+        assert!(self.cells[cell].as_primitive().is_some());
+        let parent = self.get_parent_cell_from_cell(cell).unwrap();
+        let comp = self.cells[parent].unwrap_comp();
+        let comp_idx = comp.comp_id;
+        let local_idx = cell - &comp.index_bases;
+
+        let def_idx = self.ctx().secondary[comp_idx].cell_offset_map[local_idx];
+        &self.ctx().secondary[def_idx].prototype
+    }
 }
 
 enum ControlNodeEval {

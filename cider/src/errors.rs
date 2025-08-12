@@ -1,6 +1,7 @@
 use crate::{
     flatten::{
         flat_ir::{
+            cell_prototype::{CellPrototype, MemoryDimensions},
             indexes::{
                 AssignmentIdx, AssignmentWinner, ComponentIdx, GlobalCellIdx,
                 GlobalPortIdx,
@@ -361,7 +362,33 @@ impl RuntimeError {
                 entry_number,
             }) => {
                 let race_location = if let Some(num) = entry_number {
-                    format!("memory {} at entry {num}", env.get_full_name(cell))
+                    let prototype = env.get_prototype(cell);
+                    let entry: String = match prototype {
+                        CellPrototype::Memory(memory_prototype) => {
+                            match memory_prototype.dims {
+                                MemoryDimensions::D1 { .. } => {
+                                    format!("{num}")
+                                }
+                                MemoryDimensions::D2 { d1_size, .. } => {
+                                    let d1_count = num / d1_size;
+                                    let d0_count = num % d1_size;
+                                    format!("{d1_count},{d0_count}")
+                                }
+                                MemoryDimensions::D3 { .. }
+                                | MemoryDimensions::D4 { .. } => {
+                                    //TODO griffin: need to do these later but I
+                                    //am very busy rn
+                                    format!("{num}")
+                                }
+                            }
+                        }
+                        _ => unreachable!(),
+                    };
+
+                    format!(
+                        "memory {} at entry {entry}",
+                        env.get_full_name(cell)
+                    )
                 } else {
                     // register
                     format!("register {}", env.get_full_name(cell))
@@ -450,8 +477,9 @@ impl RuntimeError {
             RuntimeError::OverflowError => todo!(),
             RuntimeError::StalledExecution => {
                 CiderError::GenericError(format!(
-                    "Program execution has stalled. The following groups are running but not making progress:\n{}",
-                    env.print_pc()
+                    "Program execution has stalled. The following groups are running but not making progress:\n{} {:?}",
+                    env.print_pc(),
+                    env.pc_iter().collect_vec()
                 ))
             }
         }
