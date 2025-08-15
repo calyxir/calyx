@@ -91,21 +91,22 @@ def create_simple_flame_graph(
     flame_base_map: dict[CycleType, set[int]] = {t: set() for t in CycleType}
     for i in range(len(tracedata.trace)):
         if tracedata.trace[i].is_useful_cycle:
-            flame_base_map[CycleType.GROUP_OR_PRIMITIVE].add(i)
+            cycle_type = CycleType.GROUP_OR_PRIMITIVE
         elif i not in control_reg_updates:
             # most likely cycles devoted to compiler-generated groups (repeats, etc)
-            flame_base_map[CycleType.OTHER].add(i)
+            cycle_type = CycleType.OTHER
             tracedata.trace[
                 i
             ].is_useful_cycle = True  # FIXME: hack to flag this as a "useful" cycle
         else:
             match control_reg_updates[i]:
                 case ControlRegUpdateType.FSM:
-                    flame_base_map[CycleType.FSM_UPDATE].add(i)
+                    cycle_type = CycleType.FSM_UPDATE
                 case ControlRegUpdateType.PAR_DONE:
-                    flame_base_map[CycleType.PD_UPDATE].add(i)
+                    cycle_type = CycleType.PD_UPDATE
                 case ControlRegUpdateType.BOTH:
-                    flame_base_map[CycleType.MULT_CONTROL].add(i)
+                    cycle_type = CycleType.MULT_CONTROL
+        flame_base_map[cycle_type].add(i)
 
     # modify names to contain their cycles (for easier viewing)
     flame_map = {}
