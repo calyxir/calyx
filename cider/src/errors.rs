@@ -477,9 +477,8 @@ impl RuntimeError {
             RuntimeError::OverflowError => todo!(),
             RuntimeError::StalledExecution => {
                 CiderError::GenericError(format!(
-                    "Program execution has stalled. The following groups are running but not making progress:\n{} {:?}",
+                    "Program execution has stalled. The following groups are running but not making progress:\n{}",
                     env.print_pc(),
-                    env.pc_iter().collect_vec()
                 ))
             }
         }
