@@ -467,7 +467,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                         }
                     }
                     PrintCommand::PrintCalyx => {
-                        println!("{}", self.interpreter.print_pc());
+                        println!("{}", self.interpreter.print_pc().trim_end());
                     }
                     PrintCommand::PrintNodes => {
                         self.interpreter.print_pc_string();

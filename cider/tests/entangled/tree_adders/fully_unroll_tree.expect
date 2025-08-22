@@ -1,0 +1,10 @@
+---STDERR---
+Error: Concurrent reads and write to the same memory main.input_array at entry 0
+  write in thread ThreadIdx(3) from assignment lane_mem__0__0.write_en = 1'd1; in group main::write__0__0
+  read in thread ThreadIdx(35) from RHS in assignment reg_2i__1__0.in = lane_mem__1__0.read_data; in group main::first_read__1__0
+  read in thread ThreadIdx(51) from RHS in assignment reg_2i__2__0.in = lane_mem__2__0.read_data; in group main::first_read__2__0
+  read in thread ThreadIdx(59) from RHS in assignment reg_2i__3__0.in = lane_mem__3__0.read_data; in group main::first_read__3__0
+  read in thread ThreadIdx(63) from RHS in assignment reg_2i__4__0.in = lane_mem__4__0.read_data; in group main::first_read__4__0
+  read in thread ThreadIdx(65) from RHS in assignment reg_2i__5__0.in = lane_mem__5__0.read_data; in group main::first_read__5__0
+ninja: build stopped: subcommand failed.
+Error: ninja exited with exit status: 1

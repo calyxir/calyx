@@ -5,13 +5,14 @@ b = Builder()
 b.import_("primitives/memories/seq.futil")
 b.import_("primitives/binary_operators.futil")
 
-array_size = 64
+array_size = 2048
 unroll_amount = array_size >> 1
 
 comp = b.component("main")
 i = comp.reg(32, "i")
 input_array = comp.seq_mem_d1("input_array", 32, array_size, 32, True)
 
+memories = [input_array.name]
 
 for idx in range(unroll_amount):
     comp.reg(32, f"reg_first__{idx}")
@@ -19,6 +20,7 @@ for idx in range(unroll_amount):
     comp.add(32, f"adder__{idx}")
     comp.add(32, f"second_adder__{idx}")
     comp.seq_mem_d1(f"lane_mem__{idx}", 32, array_size, 32)
+    memories.append(f"lane_mem__{idx}")
 
 
 for idx in range(unroll_amount):
@@ -80,4 +82,5 @@ while current_unroll > 0:
 comp.control += control_list
 
 
+print(f"// --entangle '{','.join(memories)}'")
 b.program.emit()
