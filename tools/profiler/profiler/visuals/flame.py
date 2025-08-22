@@ -27,7 +27,7 @@ def write_flame_maps(
     scaled_flame_map,
     flames_out_dir,
     flame_out_file: str,
-    scaled_flame_out_filename:str =None,
+    scaled_flame_out_filename: str = None,
 ):
     """
     Utility function for writing flat and scaled flame maps to file.

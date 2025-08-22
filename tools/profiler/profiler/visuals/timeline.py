@@ -119,7 +119,7 @@ class ProtoTimelineCell:
     ):
         # NOTE: enable_id is not fully qualified.
         group_name = enable_id.split("UG")[0]
-                #     if threadid not in threadid_to_uuid:
+        #     if threadid not in threadid_to_uuid:
         #         threadid_to_uuid[threadid] = self._define_track(
         #             f"Thread {threadid:03}", parent_track_uuid=self.cell_uuid
         #         )
@@ -130,7 +130,9 @@ class ProtoTimelineCell:
                 self._add_slice_event(timestamp, event_type, uuid, group_name)
             else:
                 thread_id = self.enable_to_thread[enable_id]
-                uuid = self._define_track(f"Thread {thread_id:03}", parent_track_uuid=self.cell_uuid)
+                uuid = self._define_track(
+                    f"Thread {thread_id:03}", parent_track_uuid=self.cell_uuid
+                )
                 self._add_slice_event(timestamp, event_type, uuid, group_name)
                 self.enable_id_to_uuid[enable_id] = uuid
         else:
@@ -160,7 +162,6 @@ class ProtoTimelineCell:
         else:
             uuid = self.control_group_id_to_uuid[ctrl_group]
         # NOTE: ctrl_group is not fully qualified.
-        
 
         self._add_slice_event(timestamp, event_type, uuid, name)
 
@@ -289,14 +290,14 @@ def compute_protobuf_timeline(
 
         # control groups
 
-        for gone_ctrl_group in sorted(currently_active_ctrl_groups.difference(
-            this_cycle_active_ctrl_groups
-        )):
+        for gone_ctrl_group in sorted(
+            currently_active_ctrl_groups.difference(this_cycle_active_ctrl_groups)
+        ):
             proto.register_control_event(gone_ctrl_group, i, TrackEvent.TYPE_SLICE_END)
 
-        for new_ctrl_group in sorted(this_cycle_active_ctrl_groups.difference(
-            currently_active_ctrl_groups
-        )):
+        for new_ctrl_group in sorted(
+            this_cycle_active_ctrl_groups.difference(currently_active_ctrl_groups)
+        ):
             proto.register_control_event(new_ctrl_group, i, TrackEvent.TYPE_SLICE_BEGIN)
 
         # normal groups
@@ -315,15 +316,15 @@ def compute_protobuf_timeline(
     # elements that are active until the very end
 
     for active_at_end_cell in currently_active_cells:
-        proto.register_cell_event(active_at_end_cell, i+1, TrackEvent.TYPE_SLICE_END)
+        proto.register_cell_event(active_at_end_cell, i + 1, TrackEvent.TYPE_SLICE_END)
 
     for active_at_end_ctrl_group in currently_active_ctrl_groups:
         proto.register_control_event(
-            active_at_end_ctrl_group, i+1, TrackEvent.TYPE_SLICE_END
+            active_at_end_ctrl_group, i + 1, TrackEvent.TYPE_SLICE_END
         )
 
     for active_at_end_group in currently_active_groups:
-        proto.register_event(active_at_end_group, i+1, TrackEvent.TYPE_SLICE_END)
+        proto.register_event(active_at_end_group, i + 1, TrackEvent.TYPE_SLICE_END)
 
     out_path = os.path.join(out_dir, "timeline_trace.pftrace")
     proto.emit(out_path)

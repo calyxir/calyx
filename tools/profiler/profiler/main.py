@@ -119,7 +119,13 @@ def create_visuals(
     # create flame graphs without control
     nc_flat_flame_map, nc_scaled_flame_map = flame.create_flame_maps(tracedata.trace)
     nc_flat_flame_file = os.path.join(out_dir, "nc-flat-flame.folded")
-    flame.write_flame_maps(nc_flat_flame_map, nc_scaled_flame_map, out_dir, nc_flat_flame_file, "nc-scaled-flame.folded")
+    flame.write_flame_maps(
+        nc_flat_flame_map,
+        nc_scaled_flame_map,
+        out_dir,
+        nc_flat_flame_file,
+        "nc-scaled-flame.folded",
+    )
 
     flat_flame_map, scaled_flame_map = flame.create_flame_maps(
         tracedata.trace_with_control_groups

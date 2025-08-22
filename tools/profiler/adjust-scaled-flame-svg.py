@@ -8,6 +8,7 @@ control_group_fill = 'fill="rgb(255,128,0)"'
 group_fill = 'fill="rgb(255,255,102)"'
 primitive_fill = 'fill="rgb(204,255,153)"'
 
+
 def main(svg_in, scale_opt):
     oin = open(svg_in, "r")
 
@@ -30,7 +31,7 @@ def main(svg_in, scale_opt):
                 if line_split[i].startswith("fill="):
                     fill_target_idx = i
             if scale_opt == "--noScale":
-                new_number_str = line_split[target_idx].split("(")[1] # unmodified
+                new_number_str = line_split[target_idx].split("(")[1]  # unmodified
             else:
                 new_number = (
                     int(line_split[target_idx].split("(")[1].replace(",", "")) / 1000
@@ -42,7 +43,9 @@ def main(svg_in, scale_opt):
                 + new_number_str
                 + " "
                 + " ".join(line_split[target_idx + 1 : fill_target_idx])
-                + " " + fill + " "
+                + " "
+                + fill
+                + " "
                 + " ".join(line_split[fill_target_idx + 1 :])
             )
         else:
