@@ -11,6 +11,7 @@
   - [Experimental: Synchronization](./lang/sync.md)
   - [Undefined Behaviors](./lang/undefined.md)
 - [Attributes](./lang/attributes.md)
+- [Modularized Control Flow](./optimizations/modular-fsms.md)
 
 # Running Calyx Programs
 
