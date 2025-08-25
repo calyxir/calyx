@@ -1,4 +1,3 @@
-use crate::errors::{ConflictingAssignments, RuntimeError, RuntimeResult};
 use num_bigint::{BigInt, BigUint, Sign};
 use std::collections::VecDeque;
 
@@ -140,37 +139,4 @@ pub fn infer_thread_id<'a, I: Iterator<Item = &'a PortValue>>(
         }
     }
     result
-}
-
-#[derive(Clone)]
-pub struct UnsynAssert {
-    base_port: GlobalPortIdx,
-    done_is_high: bool,
-}
-
-impl UnsynAssert {
-    declare_ports![IN: 0, EN: 1, _CLK:2, RESET: 3, GO: 4, | OUT: 5, DONE: 6];
-    pub fn new(base_port: GlobalPortIdx) -> Self {
-        Self {
-            base_port,
-            done_is_high: false,
-        }
-    }
-
-    fn exec_cycle(&mut self, port_map: &mut PortMap) -> RuntimeResult<()> {
-        ports![&self.base_port;
-            _in: Self::IN,
-            en: Self::EN,
-            reset: Self::RESET,
-            go: Self::GO,
-            out: Self::OUT,
-            done: Self::DONE
-        ];
-        if port_map[en].as_bool().unwrap_or_default()
-            && !port_map[_in].as_bool().unwrap_or_default()
-        {
-            RuntimeError::AssertionError();
-        }
-        Ok(());
-    }
 }

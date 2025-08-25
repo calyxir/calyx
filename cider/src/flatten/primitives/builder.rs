@@ -136,7 +136,7 @@ pub fn build_primitive(
                     Box::new(StdUndef::new(base_port, *width))
                 }
                 SingleWidthType::UnsynAssert => {
-                    todo!()
+                    Box::new(UnsynAssert::new(base_port, cell_idx))
                 }
             }
         }
