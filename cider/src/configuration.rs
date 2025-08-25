@@ -34,6 +34,8 @@ pub struct RuntimeConfig {
     pub color_config: ColorConfig,
     /// Whether to step through multiple program nodes in a single step
     pub allow_multistep: bool,
+    /// disable memoization
+    pub disable_memo: bool,
 }
 #[bon]
 impl RuntimeConfig {
@@ -47,6 +49,7 @@ impl RuntimeConfig {
         undef_guard_check: bool,
         color_config: ColorConfig,
         allow_multistep: bool,
+        disable_memo: bool,
     ) -> Self {
         let out = Self {
             check_data_race,
@@ -57,6 +60,7 @@ impl RuntimeConfig {
             undef_guard_check,
             color_config,
             allow_multistep,
+            disable_memo,
         };
 
         out.configure_color_setting();

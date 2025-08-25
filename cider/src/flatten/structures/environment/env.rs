@@ -556,7 +556,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                         .unwrap_comp()
                         .index_bases
                         + self.ctx().primary[x.group()].go;
-                    write!(
+                    writeln!(
                         out,
                         "{}::{}{}",
                         self.get_full_name(point.component()),
@@ -590,7 +590,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                         }
                     };
 
-                    write!(
+                    writeln!(
                         out,
                         "{}: invoke {}",
                         self.get_full_name(point.component()),
@@ -1166,6 +1166,17 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 }
             })
             .map(|(idx, _)| idx)
+    }
+
+    pub fn get_prototype(&self, cell: GlobalCellIdx) -> &CellPrototype {
+        assert!(self.cells[cell].as_primitive().is_some());
+        let parent = self.get_parent_cell_from_cell(cell).unwrap();
+        let comp = self.cells[parent].unwrap_comp();
+        let comp_idx = comp.comp_id;
+        let local_idx = cell - &comp.index_bases;
+
+        let def_idx = self.ctx().secondary[comp_idx].cell_offset_map[local_idx];
+        &self.ctx().secondary[def_idx].prototype
     }
 }
 
@@ -2099,7 +2110,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         parent_clock.sync(child_clock);
                     }
 
-                    *node_thread = Some(parent);
+                    *node_thread = par_entry.original_thread();
                     self.env.clocks[parent_clock].increment(&parent);
                 }
                 node.mutate_into_next(self.env.ctx.as_ref())
@@ -2107,26 +2118,37 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 false
             }
         } else {
+            if par.is_empty() {
+                return node.mutate_into_next(self.env.ctx.as_ref());
+            }
+
             par_map.insert(
                 node.clone(),
-                par.stms().len().try_into().expect(
+                ParEntry::new(par.stms().len().try_into().expect(
                     "More than (2^16 - 1 threads) in a par block. Are you sure this is a good idea?",
-                ),
+                ), *node_thread)
+                ,
             );
             new_nodes.extend(par.stms().iter().map(|x| {
                 let thread = if self.conf.check_data_race {
                     let thread =
                         thread.expect("par nodes should have a thread");
 
-                    let new_thread_idx: ThreadIdx = *(self
-                        .env
-                        .pc
-                        .lookup_thread(node.comp, thread, *x)
-                        .or_insert_with(|| {
-                            let new_clock_idx = self.env.clocks.new_clock();
+                    let new_thread_idx: ThreadIdx = if self.conf.disable_memo {
+                        self.env
+                            .thread_map
+                            .spawn(thread, self.env.clocks.new_clock())
+                    } else {
+                        *(self
+                            .env
+                            .pc
+                            .lookup_thread(node.comp, thread, *x)
+                            .or_insert_with(|| {
+                                let new_clock_idx = self.env.clocks.new_clock();
 
-                            self.env.thread_map.spawn(thread, new_clock_idx)
-                        }));
+                                self.env.thread_map.spawn(thread, new_clock_idx)
+                            }))
+                    };
 
                     let new_clock_idx =
                         self.env.thread_map.unwrap_clock_id(new_thread_idx);
@@ -2134,6 +2156,11 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     self.env.clocks[new_clock_idx] = self.env.clocks
                         [self.env.thread_map.unwrap_clock_id(thread)]
                     .clone();
+
+                    assert_eq!(
+                        self.env.thread_map[new_thread_idx].parent().unwrap(),
+                        thread
+                    );
 
                     self.env.clocks[new_clock_idx].increment(&new_thread_idx);
 

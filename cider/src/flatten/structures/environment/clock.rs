@@ -223,6 +223,10 @@ impl ReadInfoWithThread {
 
         format!("read in thread {:?} from {}", self.thread, read_string)
     }
+
+    pub fn thread(&self) -> ThreadIdx {
+        self.thread
+    }
 }
 
 impl WriteInfo {

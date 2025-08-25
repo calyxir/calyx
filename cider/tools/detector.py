@@ -93,7 +93,7 @@ def detect_data_race(
             sys.stderr.flush()
 
             cleanup()
-            sys.exit(101)
+            sys.exit(i + 1)
         else:
             i += 1
 

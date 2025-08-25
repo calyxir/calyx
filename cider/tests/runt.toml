@@ -334,3 +334,12 @@ flags="$(head -n 1 {} | cut -c 3-)"
 dir=$(dirname {})
 RUST_LIB_BACKTRACE=0 fud2 --to dat --through cider {} -s sim.data=$dir/simple.data -s cider.flags="--check-data-race $flags --force-color off -q" 2> {}.tmp_err_file || tail -n +3 {}.tmp_err_file 1>&2; rm {}.tmp_err_file
 """
+
+[[tests]]
+name = "Diagonal"
+paths = ["entangled/diagonal/*.futil"]
+cmd = """
+flags="$(head -n 1 {} | cut -c 3-)"
+dir=$(dirname {})
+RUST_LIB_BACKTRACE=0 fud2 --to dat --through cider {} -s sim.data=$dir/diagonal.data -s cider.flags="--check-data-race $flags --force-color off -q" 2> {}.tmp_err_file || tail -n +3 {}.tmp_err_file 1>&2; rm {}.tmp_err_file
+"""

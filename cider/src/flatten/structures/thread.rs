@@ -4,7 +4,7 @@ use cider_idx::{impl_index_nonzero, maps::IndexedMap};
 
 use super::environment::clock::ClockIdx;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ThreadIdx(NonZeroU32);
 impl_index_nonzero!(ThreadIdx);
 
