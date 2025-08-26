@@ -378,8 +378,17 @@ impl<'a> Run<'a> {
         dir: &Utf8Path,
         print_cmds: bool,
         quiet_mode: bool,
+        force_rebuild: bool,
         csv_file: Option<&Utf8Path>,
     ) -> EmitResult {
+        if force_rebuild && dir.join("build.ninja").exists() {
+            let mut cmd = Command::new(&self.global_config.ninja);
+            cmd.current_dir(dir);
+            cmd.args(["-t", "clean"]);
+            cmd.stdout(std::process::Stdio::null());
+            cmd.status()?;
+        }
+
         // Emit the Ninja file.
         let dir = self.emit_to_dir(dir)?;
 

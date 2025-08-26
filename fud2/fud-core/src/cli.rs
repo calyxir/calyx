@@ -194,6 +194,10 @@ pub struct FudArgs<T: CliExt> {
     #[argh(switch, short = 'q')]
     quiet: bool,
 
+    /// force rebuild
+    #[argh(switch, long = "force-rebuild")]
+    force_rebuild: bool,
+
     /// log level for debugging fud internal
     #[argh(option, long = "log", default = "log::LevelFilter::Warn")]
     pub log_level: log::LevelFilter,
@@ -493,8 +497,20 @@ fn cli_ext<T: CliExt>(
         Mode::ShowDot => run.show_dot(),
         Mode::EmitNinja => run.emit_to_stdout()?,
         Mode::Generate => run.emit_to_dir(&workdir)?.keep(),
-        Mode::Run => run.emit_and_run(&workdir, false, args.quiet, csv_path)?,
-        Mode::Cmds => run.emit_and_run(&workdir, true, false, csv_path)?,
+        Mode::Run => run.emit_and_run(
+            &workdir,
+            false,
+            args.quiet,
+            args.force_rebuild,
+            csv_path,
+        )?,
+        Mode::Cmds => run.emit_and_run(
+            &workdir,
+            true,
+            false,
+            args.force_rebuild,
+            csv_path,
+        )?,
     }
 
     Ok(())
