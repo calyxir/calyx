@@ -2900,6 +2900,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
         let mut changed = UpdateStatus::Unchanged;
 
+        let mut working_set = vec![];
         for cell in cells_to_run {
             let cell = &mut self.env.cells[cell];
             match cell {
@@ -2911,7 +2912,6 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
                     if self.conf.check_data_race && cell_dyn.is_combinational()
                     {
-                        let mut working_set = vec![];
                         let signature = cell_dyn.get_ports();
 
                         for port in signature.iter_first() {
@@ -2934,7 +2934,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                             let port = signature.iter_second().next().unwrap();
                             let val = &mut self.env.ports[port];
                             if let Some(val) = val.as_option_mut() {
-                                val.add_transitive_clocks(working_set);
+                                val.add_transitive_clocks(
+                                    working_set.drain(..),
+                                );
                             }
                         } else {
                             todo!("comb primitive with multiple outputs")
