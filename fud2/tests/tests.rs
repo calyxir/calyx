@@ -174,7 +174,7 @@ impl InstaTest for Request {
     }
 
     fn emit(self, driver: &Driver) -> String {
-        let plan = driver.plan(self).unwrap();
+        let plan = driver.plan(&self).unwrap();
         plan.emit(driver)
     }
 }
@@ -377,7 +377,7 @@ fn emit_bad_config() {
         .merge(("sim.data", "/test/data.json"));
 
     let req = request(&driver, &["dahlia"], &["verilog"], &[]);
-    let plan = driver.plan(req).unwrap();
+    let plan = driver.plan(&req).unwrap();
 
     let err = emit_with_config(plan, &driver, config).unwrap_err();
     if let RunError::RhaiError(err_str) = err {
