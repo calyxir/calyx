@@ -10,7 +10,7 @@ pub struct State {
     ///
     /// The first extension in the list is used when generating a new filename for the state. If
     /// the list is empty, this is a "pseudo-state" that doesn't correspond to an actual file.
-    /// Pseudo-states can only be final outputs; they are appropraite for representing actions that
+    /// Pseudo-states can only be final outputs; they are appropriate for representing actions that
     /// interact directly with the user, for example.
     pub extensions: Vec<String>,
 
