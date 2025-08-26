@@ -1,5 +1,7 @@
 mod discover_external;
 mod external_to_ref;
+mod fsm_annotator;
+mod fsm_builder;
 mod hole_inliner;
 mod metadata_table_gen;
 mod par_to_seq;
@@ -8,6 +10,8 @@ mod sync;
 
 pub use discover_external::DiscoverExternal;
 pub use external_to_ref::ExternalToRef;
+pub use fsm_annotator::FSMAnnotator;
+pub use fsm_builder::FSMBuilder;
 pub use hole_inliner::HoleInliner;
 pub use metadata_table_gen::Metadata;
 pub use par_to_seq::ParToSeq;

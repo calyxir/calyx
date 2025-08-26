@@ -19,10 +19,7 @@ use crate::{
             utils::infer_thread_id,
         },
         structures::{
-            environment::{
-                MemoryMap, PortMap,
-                clock::{ClockMap, ReadSource},
-            },
+            environment::{MemoryMap, PortMap, clock::ClockMap},
             thread::{ThreadIdx, ThreadMap},
         },
     },
@@ -70,7 +67,7 @@ impl Primitive for StdReg {
         &mut self,
         port_map: &mut PortMap,
         state_map: &mut MemoryMap,
-    ) -> RuntimeResult<()> {
+    ) -> UpdateResult {
         ports![&self.base_port;
             input: Self::IN,
             write_en: Self::WRITE_EN,
@@ -79,43 +76,48 @@ impl Primitive for StdReg {
             done: Self::DONE
         ];
 
+        let mut changed = UpdateStatus::Unchanged;
+
         if port_map[reset].as_bool().unwrap_or_default() {
-            state_map[self.internal_state] =
-                BitVecValue::zero(state_map[self.internal_state].width());
-            port_map.insert_val_general(
+            changed |= state_map.set_location(
+                self.internal_state,
+                BitVecValue::zero(state_map[self.internal_state].width()),
+            );
+            changed |= port_map.insert_val_general(
                 done,
                 AssignedValue::cell_value(BitVecValue::new_false()),
-            )?
+            )?;
         } else if port_map[write_en].as_bool().unwrap_or_default() {
             let Some(port_value) = port_map[input].as_option() else {
                 return Err(
                     RuntimeError::UndefinedWrite(self.global_idx).into()
                 );
             };
-            state_map[self.internal_state] = port_value.val().clone();
+            changed |= state_map
+                .set_location(self.internal_state, port_value.val().clone());
 
             self.done_is_high = true;
 
-            port_map.insert_val_general(
+            changed |= port_map.insert_val_general(
                 done,
                 AssignedValue::cell_value(BitVecValue::new_true()),
-            )?
+            )?;
         } else {
             self.done_is_high = false;
-            port_map.insert_val_general(
+            changed |= port_map.insert_val_general(
                 done,
                 AssignedValue::cell_value(BitVecValue::new_false()),
-            )?
+            )?;
         };
 
-        port_map.insert_val_general(
+        changed |= port_map.insert_val_general(
             out_idx,
             AssignedValue::cell_value(state_map[self.internal_state].clone())
                 .with_clocks(
                     state_map.get_clock_or_default(self.internal_state),
                 ),
         )?;
-        Ok(())
+        Ok(changed)
     }
 
     fn exec_comb(
@@ -191,7 +193,7 @@ impl RaceDetectionPrimitive for StdReg {
         clock_map: &mut ClockMap,
         thread_map: &ThreadMap,
         state_map: &mut MemoryMap,
-    ) -> RuntimeResult<()> {
+    ) -> UpdateResult {
         ports![&self.base_port;
             input: Self::IN,
             write_en: Self::WRITE_EN,
@@ -587,10 +589,12 @@ impl Primitive for CombMem {
         &mut self,
         port_map: &mut PortMap,
         state_map: &mut MemoryMap,
-    ) -> RuntimeResult<()> {
+    ) -> UpdateResult {
         // These two behave like false when undefined
         let reset = port_map[self.reset_port()].as_bool().unwrap_or_default();
         let write_en = port_map[self.write_en()].as_bool().unwrap_or_default();
+
+        let mut changed = UpdateStatus::Unchanged;
 
         let addr = self.addresser.calculate_addr(
             port_map,
@@ -610,18 +614,20 @@ impl Primitive for CombMem {
             let write_data = port_map[self.write_data()]
                 .as_option()
                 .ok_or(RuntimeError::UndefinedWrite(self.global_idx))?;
-            state_map[addr] = write_data.val().clone();
+            changed |= state_map.set_location(addr, write_data.val().clone());
             self.done_is_high = true;
-            port_map.insert_val_general(done, AssignedValue::cell_b_high())?
+            changed |= port_map
+                .insert_val_general(done, AssignedValue::cell_b_high())?
         } else {
             self.done_is_high = false;
-            port_map.insert_val_general(done, AssignedValue::cell_b_low())?
+            changed |= port_map
+                .insert_val_general(done, AssignedValue::cell_b_low())?;
         };
 
         if let Some(addr) = addr {
             let addr = self.internal_state.nth_entry(addr);
 
-            port_map.insert_val_general(
+            changed |= port_map.insert_val_general(
                 read_data,
                 AssignedValue::cell_value(state_map[addr].clone())
                     .with_clocks(state_map.get_clock_or_default(addr)),
@@ -629,7 +635,7 @@ impl Primitive for CombMem {
         } else {
             port_map.write_undef(read_data)?;
         }
-        Ok(())
+        Ok(changed)
     }
 
     fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
@@ -686,7 +692,7 @@ impl RaceDetectionPrimitive for CombMem {
         clock_map: &mut ClockMap,
         thread_map: &ThreadMap,
         state_map: &mut MemoryMap,
-    ) -> RuntimeResult<()> {
+    ) -> UpdateResult {
         let thread = self.infer_thread(port_map);
         if let Some(addr) = self.addresser.calculate_addr(
             port_map,
@@ -749,7 +755,12 @@ impl MemOut {
 
     fn get_value(&self, data: &MemoryMap, width: u32) -> PortValue {
         match self {
-            MemOut::Valid(addr) => PortValue::new_cell(data[*addr].clone()),
+            MemOut::Valid(addr) => {
+                let assigned_val =
+                    AssignedValue::cell_value(data[*addr].clone())
+                        .with_clocks_optional(data.get_clock(*addr));
+                assigned_val.into()
+            }
             MemOut::Zero => PortValue::new_cell(BitVecValue::zero(width)),
             MemOut::Undef => PortValue::new_undef(),
         }
@@ -947,7 +958,9 @@ impl Primitive for SeqMem {
         &mut self,
         port_map: &mut PortMap,
         state_map: &mut MemoryMap,
-    ) -> RuntimeResult<()> {
+    ) -> UpdateResult {
+        let mut changed = UpdateStatus::Unchanged;
+
         let reset = port_map[self.reset()].as_bool().unwrap_or_default();
         let write_en =
             port_map[self.write_enable()].as_bool().unwrap_or_default();
@@ -972,7 +985,8 @@ impl Primitive for SeqMem {
             let write_data = port_map[self.write_data()]
                 .as_option()
                 .ok_or(RuntimeError::UndefinedWrite(self.global_idx))?;
-            state_map[addr_actual] = write_data.val().clone();
+            changed |=
+                state_map.set_location(addr_actual, write_data.val().clone());
         } else if content_en {
             self.done_is_high = true;
             let addr_actual =
@@ -983,7 +997,7 @@ impl Primitive for SeqMem {
             self.done_is_high = false;
         }
 
-        port_map.insert_val_general(
+        changed |= port_map.insert_val_general(
             self.done(),
             AssignedValue::cell_value(if self.done_is_high {
                 BitVecValue::new_true()
@@ -991,11 +1005,11 @@ impl Primitive for SeqMem {
                 BitVecValue::new_false()
             }),
         )?;
-        port_map.write_exact_unchecked(
+        changed |= port_map.write_exact_unchecked(
             self.read_data(),
             self.read_out.get_value(state_map, self.width),
         );
-        Ok(())
+        Ok(changed)
     }
 
     fn has_comb_path(&self) -> bool {
@@ -1060,7 +1074,7 @@ impl RaceDetectionPrimitive for SeqMem {
         clock_map: &mut ClockMap,
         thread_map: &ThreadMap,
         state_map: &mut MemoryMap,
-    ) -> RuntimeResult<()> {
+    ) -> UpdateResult {
         let thread = self.infer_thread(port_map);
         if let Some(addr) = self.addresser.calculate_addr(
             port_map,
@@ -1068,8 +1082,6 @@ impl RaceDetectionPrimitive for SeqMem {
             self.global_idx,
         )? {
             if addr < self.internal_state.size() {
-                let thread_clock =
-                    thread.map(|thread| thread_map.unwrap_clock_id(thread));
                 let addr_loc = self.internal_state.nth_entry(addr);
 
                 let clock = state_map.get_clock(addr_loc).unwrap();
@@ -1100,30 +1112,9 @@ impl RaceDetectionPrimitive for SeqMem {
                     .as_bool()
                     .unwrap_or_default()
                 {
-                    let (assignment_idx, cell) = port_map
-                        [self.content_enable()]
-                    .winner()
-                    .unwrap()
-                    .as_assign()
-                    .unwrap();
-                    clock
-                        .check_read_with_ascription(
-                            (
-                                thread.expect(
-                                    "unable to determine thread for seq mem",
-                                ),
-                                thread_clock.unwrap(),
-                            ),
-                            ReadSource::Assignment(assignment_idx),
-                            cell,
-                            clock_map,
-                        )
-                        .map_err(|e| {
-                            e.add_cell_info(
-                                self.global_idx,
-                                Some(addr.try_into().unwrap()),
-                            )
-                        })?;
+                    // we don't want to check the read here, since that makes
+                    // merely assigning the content_en constitute a read even if
+                    // the value is never used
                 }
             }
         }

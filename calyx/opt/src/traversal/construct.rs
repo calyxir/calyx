@@ -3,7 +3,6 @@ use calyx_ir as ir;
 use calyx_utils::{CalyxResult, OutputFile};
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
-use std::iter;
 
 #[derive(Clone)]
 /// The value returned from parsing an option.
@@ -66,7 +65,7 @@ impl ParseVal {
         }
         list.into_iter()
             .map(Some)
-            .chain(iter::repeat(None).take(N - len))
+            .chain(std::iter::repeat_n(None, N - len))
             .collect::<Vec<_>>()
             .try_into()
             .unwrap()
@@ -102,7 +101,7 @@ impl std::fmt::Display for ParseVal {
                 }
                 write!(f, "]")
             }
-            ParseVal::OutStream(o) => write!(f, "{}", o),
+            ParseVal::OutStream(o) => write!(f, "{o}"),
         }
     }
 }

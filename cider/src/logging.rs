@@ -28,7 +28,11 @@ pub fn initialize_logger(conf: LoggingConfig) -> Logger {
     let drain = drain.filter_level(filter_level).fuse();
 
     // TODO griffin: make this configurable
-    let drain = slog_async::Async::new(drain).chan_size(1024).build().fuse();
+    let drain = slog_async::Async::new(drain)
+        .chan_size(1024)
+        .overflow_strategy(slog_async::OverflowStrategy::Block)
+        .build()
+        .fuse();
 
     let logger = slog::Logger::root(drain, o!());
 

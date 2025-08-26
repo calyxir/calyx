@@ -453,7 +453,7 @@ impl Cell {
     /// Return the canonical name for the cell generated to represent this
     /// (val, width) constant.
     pub fn constant_name(val: u64, width: u64) -> Id {
-        format!("_{}_{}", val, width).into()
+        format!("_{val}_{width}").into()
     }
 
     /// Return the value associated with this attribute key.
@@ -854,6 +854,11 @@ impl FSM {
             wires: SmallVec::new(),
             attributes: Attributes::default(),
         }
+    }
+
+    /// Gets the number of states in the FSM.
+    pub fn num_states(&self) -> u64 {
+        self.assignments.len().try_into().unwrap()
     }
 
     /// Get a reference to the named hole if it exists.

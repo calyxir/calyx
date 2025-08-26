@@ -1,0 +1,49 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @data a = std_reg(2);
+    @data b = std_reg(2);
+    @generated fsm_0 = std_wire(1);
+    @generated fsm_1 = std_wire(1);
+    @generated fsm_2 = std_wire(1);
+    @generated fsm_3 = std_wire(1);
+    @generated fsm_4 = std_wire(1);
+    @generated fsm_5 = std_wire(1);
+    @generated @fsm_control looped_once = std_reg(1);
+  }
+  wires {
+    fsm fsm {
+      0 : {
+        fsm_0.in = fsm[start] ? 1'd1;
+        looped_once.in = fsm[start] ? 1'd1;
+        looped_once.write_en = 1'd1;
+        fsm[done] = looped_once.out;
+      } => {
+        fsm[start] -> 1,
+        default -> 0,
+      },
+      1 : {
+        fsm_1.in = 1'd1;
+      } => 2,
+      2 : {
+        fsm_2.in = 1'd1;
+      } => 3,
+      3 : {
+        fsm_3.in = 1'd1;
+      } => 4,
+      4 : {
+        fsm_4.in = 1'd1;
+      } => 5,
+      5 : {
+        fsm_5.in = 1'd1;
+      } => 0,
+    }
+    a.write_en = fsm_0.out | fsm_1.out | fsm_2.out | fsm_3.out | fsm_4.out | fsm_5.out ? 1'd1;
+    a.in = fsm_2.out | fsm_4.out ? 2'd1;
+    a.in = fsm_0.out | fsm_1.out | fsm_3.out | fsm_5.out ? 2'd0;
+  }
+  control {
+    fsm;
+  }
+}

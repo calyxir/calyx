@@ -90,6 +90,7 @@ impl InstaTest for Plan {
             .merge(("xilinx.vivado", "/test/xilinx/vivado"))
             .merge(("xilinx.vitis", "/test/xilinx/vitis"))
             .merge(("xilinx.xrt", "/test/xilinx/xrt"))
+            .merge(("yxi.file", "/test/yxi/file"))
             .merge(("dahlia", "/test/bin/dahlia"))
             .merge(("jq.expr", "."))
             .merge(("flamegraph.script", "/test/calyx/non-existent.script"))
@@ -137,7 +138,7 @@ impl InstaTest for Request {
             .iter()
             .map(|&state| &driver.states[state].name)
             .join(" ");
-        let mut desc = format!("emit request: {} -> {}", start_str, end_str);
+        let mut desc = format!("emit request: {start_str} -> {end_str}");
         if !self.through.is_empty() {
             desc.push_str(" through");
             for op in &self.through {
@@ -196,6 +197,7 @@ fn request_with_planner(
         through: through.iter().map(|s| driver.get_op(s).unwrap()).collect(),
         workdir: ".".into(),
         planner: Box::new(planner),
+        timing_csv: None,
     }
 }
 

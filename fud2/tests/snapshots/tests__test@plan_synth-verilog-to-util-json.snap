@@ -30,10 +30,6 @@ rule extract-util-json
   command = synthrep summary -m utilization > $out
 rule extract-hierarchy-json
   command = synthrep summary -m hierarchy > $out
-flamegraph-script = /test/calyx/non-existent.script
-create-visuals-script = $calyx-base/tools/profiler/create-visuals.sh
-rule create-visuals
-  command = bash $create-visuals-script $flamegraph-script . $in $out
 
 build device.xdc: copy $device_xdc
 build IGNOREME: vivado | main.sv synth.tcl device.xdc

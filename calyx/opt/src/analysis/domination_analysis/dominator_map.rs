@@ -124,10 +124,10 @@ impl Debug for DominatorMap {
         let mut vec1: Vec<(u64, HashSet<u64>)> = map.into_iter().collect();
         vec1.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
         for (k, hs) in vec1.into_iter() {
-            write!(f, "Node: {:?} --", k)?;
+            write!(f, "Node: {k:?} --")?;
             let mut vec = hs.into_iter().collect::<Vec<_>>();
             vec.sort_unstable();
-            writeln!(f, " Dominators: {:?}", vec)?;
+            writeln!(f, " Dominators: {vec:?}")?;
         }
         write!(f, "}}")
     }

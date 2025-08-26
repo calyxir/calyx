@@ -93,7 +93,7 @@ impl Debug for Prop {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{{")?;
         let names = self.map.iter().flat_map(|(_, ids)| ids).join(", ");
-        write!(f, "{}", names)?;
+        write!(f, "{names}")?;
         write!(f, "}}")
     }
 }
@@ -338,7 +338,7 @@ impl Debug for LiveRangeAnalysis {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Live variables {{")?;
         for (k, v) in self.live.iter() {
-            writeln!(f, "  {}: {:?}", k, v)?;
+            writeln!(f, "  {k}: {v:?}")?;
         }
         write!(f, "}}")
     }
@@ -679,7 +679,7 @@ impl LiveRangeAnalysis {
         &self
             .live
             .get(node)
-            .unwrap_or_else(|| panic!("Live set missing for {}", node))
+            .unwrap_or_else(|| panic!("Live set missing for {node}"))
             .map
     }
 

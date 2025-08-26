@@ -1,0 +1,6 @@
+---STDERR---
+Error: Concurrent writes to the same memory main.main_memory at entry 34
+  write in thread ThreadIdx(7) from assignment lane_0_memory.write_en = 1'd1; in group main::write_res_0
+  write in thread ThreadIdx(8) from assignment lane_1_memory.write_en = 1'd1; in group main::write_res_1
+ninja: build stopped: subcommand failed.
+Error: ninja exited with exit status: 1

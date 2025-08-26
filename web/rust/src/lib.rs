@@ -53,6 +53,6 @@ pub fn run(passes: &JsValue, library: &str, namespace: &str) -> String {
         serde_wasm_bindgen::from_value(passes.clone()).unwrap();
     match compile(&test, library, namespace) {
         Ok(s) => s,
-        Err(e) => format!("Error:\n{:?}", e),
+        Err(e) => format!("Error:\n{e:?}"),
     }
 }

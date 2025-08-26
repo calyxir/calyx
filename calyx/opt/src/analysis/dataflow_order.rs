@@ -141,7 +141,7 @@ impl DataflowOrder {
                 .write_map
                 .get(&comp)
                 .unwrap_or_else(|| {
-                    panic!("Component `{}` write map is not defined", comp)
+                    panic!("Component `{comp}` write map is not defined")
                 })
                 .get(&port)
                 .unwrap_or_else(|| {
@@ -193,7 +193,7 @@ impl DataflowOrder {
                     ir::Printer::assignment_to_str(gr[*idx].as_ref().unwrap())
                 })
                 .join("\n");
-            Err(Error::misc(format!("Found combinational cycle:\n{}", msg)))
+            Err(Error::misc(format!("Found combinational cycle:\n{msg}")))
         }
     }
 }

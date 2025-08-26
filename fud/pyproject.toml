@@ -21,8 +21,12 @@ dependencies = [
     "numpy",
     "simplejson",
     "networkx>=2.6",
+    "calyx-ast",
 ]
 
 [project.optional-dependencies]
 remote = ["paramiko", "scp"]
 fpga = ["pynq"]
+
+[project.scripts]
+fud = "fud.main:main"

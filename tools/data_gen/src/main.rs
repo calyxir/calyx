@@ -93,7 +93,7 @@ fn main() -> CalyxResult<()> {
     }
 
     let json_map: Value = map.into();
-    println!("{}", json_map);
+    println!("{json_map}");
     Ok(())
 }
 

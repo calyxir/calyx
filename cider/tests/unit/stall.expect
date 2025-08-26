@@ -1,0 +1,7 @@
+---CODE---
+1
+---STDERR---
+Error: Program execution has stalled. The following groups are running but not making progress:
+main::[4mbad[0m
+
+Error: Input is not a valid data dump

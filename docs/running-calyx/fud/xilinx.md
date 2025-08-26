@@ -17,14 +17,6 @@ You can set `fud` up to use either a local installation of the Xilinx tools or o
 The simplest way to use the Xilinx tools is to synthesize RTL or HLS designs to collect statistics about them.
 This route will not produce actual, runnable executables; see the next section for that.
 
-### Installing Dependencies
-
-`fud` uses extra dependencies to invoke the Xilinx toolchains.
-Run the following command to install all required dependencies:
-```
-cd fud && flit install -s --deps all
-```
-
 ### Setting up Remote Tools
 
 > Follow these instructions if you're attempting to run `vivado` or `vivado-hls` on a server from your local machine. If you are working directly on a server with these tools, skip to the [run instructions](#run).
@@ -157,6 +149,69 @@ The VCD file is at `.run/*/hw_em/device0/binary_0/behav_waveform/xsim/dump.vcd` 
 [emconfig.json]: https://docs.amd.com/r/en-US/ug1702-vitis-accelerated-reference/emconfigutil-Utility
 [xrt-debug]: https://xilinx.github.io/Vitis_Accel_Examples/2021.1/html/debug_profile.html
 [vcd]: https://en.wikipedia.org/wiki/Value_change_dump
+
+### WIP: Calyx-native & fud2 Xilinx Workflows
+
+<div class="warning">
+
+The two pieces described in this section (the [fud2][] workflow and the Calyx-implemented AXI controllers) are a work in progress.
+Use at your own risk and expect some hiccups!
+
+</div>
+
+The workflows described elsewhere on this page rely on an AXI interfaces that are implemented as a Verilog code generator, as part of the Calyx compiler.
+Work is ongoing to instead implement AXI interfaces entirely in Calyx.
+This work also includes [fud2][] support.
+This section describes this work-in-progress alternative route.
+
+To take a Calyx file to something that can be emulated/executed with Xilinx via fud2,
+there are a few commands that need to be run. The following assumes the
+existence of a `dyn-vec-add.futil` file. The `dyn` prefix suggests that the Calyx memories
+used are [dynamic memories](https://github.com/calyxir/calyx/blob/main/primitives/memories/dyn.sv), such as `dyn_mem_d1`.
+
+You will need to build the YXI interface analysis tool, which you can do with `cargo build -p yxi`.
+
+1. Create a `.yxi` file, which describes the memory interface of the vector adder:
+
+   ```bash
+   fud2 dyn-vec-add.futil -o dyn-vec-add.yxi
+   ```
+
+2. Wrap the Calyx file with AXI memory controllers (implemented in Calyx):
+
+   ```bash
+   fud2 dyn-vec-add.futil --from calyx --to calyx --through axi-wrapped --set dynamic=true --set xilinx.controlled=true -o axi-wrapped.futil
+   ```
+
+   If your original Calyx file uses `std_mem_*` memories, you'll want to leave out the `--set dynamic=true`.
+   Setting `xilinx.controlled=true` is required to run through Xilinx. Setting this generates a subordinate AXI controller for managing the accelerator's execution according
+   to Vitis [requirements](https://docs.amd.com/r/en-US/ug1701-vitis-accelerated-embedded/RTL-Kernel-Interface-Requirements).
+   AXI-wrapped Calyx that does *not* have this Xilinx-specific management controller can be tested via [Cocotb](../interfacing.md#cocotb).
+
+3. Translate the wrapped Calyx file into Verilog. At this point, you need to decide if you
+are targeting emulation or execution. If you are targeting execution make sure the target is `verilog-noverify`, as opposed to (the default) `verilog`:
+
+    ```bash
+    fud2 axi-wrapped.futil --set calyx.args=--synthesis --to verilog-noverify -o axi-wrapped.v
+    ```
+
+4. Generate a `.xo` from the verilog created, and the `.yxi` file created in step 1.
+Based on what was targeted in the last step, either `xilinx.mode=hw_emu` (the default)
+or set `xilinx.mode=hw`.
+
+    ```bash
+    fud2 axi-wrapped.v -o axi-wrapped.xo --set yxi.file=dyn-vec-add.yxi --set xilinx.mode=hw_emu
+    ```
+
+5. Generate a `.xclbin`. Use the same `xilinx.mode` setting from the previous step:
+
+    ```bash
+    fud2 axi-wrapped.xo -o axi-wrapped.xclbin --set xilinx.mode=hw_emu
+    ```
+
+Now that we have a `.xclbin` file, we can execute our design with our [xclrun tool](#execution-via-xclrun).
+
+[fud2]: ../fud2
 
 ### How it Works
 

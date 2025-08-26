@@ -237,8 +237,8 @@ fn compute_path_descriptors_static(
             attributes,
             ..
         }) => {
-            let repeat_id = format!("{}-", current_id);
-            let body_id = format!("{}b", repeat_id);
+            let repeat_id = format!("{current_id}-");
+            let body_id = format!("{repeat_id}b");
             compute_path_descriptors_static(
                 body,
                 body_id,
@@ -253,7 +253,7 @@ fn compute_path_descriptors_static(
         ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
             let group_id = if parent_is_component {
                 // edge case: the entire control is just one static enable
-                format!("{}0", current_id)
+                format!("{current_id}0")
             } else {
                 current_id
             };
@@ -265,9 +265,9 @@ fn compute_path_descriptors_static(
         ir::StaticControl::Par(ir::StaticPar {
             stmts, attributes, ..
         }) => {
-            let par_id = format!("{}-", current_id);
+            let par_id = format!("{current_id}-");
             for (acc, stmt) in stmts.iter().enumerate() {
-                let stmt_id = format!("{}{}", par_id, acc);
+                let stmt_id = format!("{par_id}{acc}");
                 compute_path_descriptors_static(
                     stmt,
                     stmt_id,
@@ -281,9 +281,9 @@ fn compute_path_descriptors_static(
         ir::StaticControl::Seq(ir::StaticSeq {
             stmts, attributes, ..
         }) => {
-            let seq_id = format!("{}-", current_id);
+            let seq_id = format!("{current_id}-");
             for (acc, stmt) in stmts.iter().enumerate() {
-                let stmt_id = format!("{}{}", seq_id, acc);
+                let stmt_id = format!("{seq_id}{acc}");
                 compute_path_descriptors_static(
                     stmt,
                     stmt_id,
@@ -300,9 +300,9 @@ fn compute_path_descriptors_static(
             attributes,
             ..
         }) => {
-            let if_id = format!("{}-", current_id);
+            let if_id = format!("{current_id}-");
             // process true branch
-            let true_id = format!("{}t", if_id);
+            let true_id = format!("{if_id}t");
             compute_path_descriptors_static(
                 tbranch,
                 true_id,
@@ -310,7 +310,7 @@ fn compute_path_descriptors_static(
                 false,
             );
             // process false branch
-            let false_id = format!("{}f", if_id);
+            let false_id = format!("{if_id}f");
             compute_path_descriptors_static(
                 fbranch,
                 false_id,
@@ -338,9 +338,9 @@ fn compute_path_descriptors(
         ir::Control::Seq(ir::Seq {
             stmts, attributes, ..
         }) => {
-            let seq_id = format!("{}-", current_id);
+            let seq_id = format!("{current_id}-");
             for (acc, stmt) in stmts.iter().enumerate() {
-                let stmt_id = format!("{}-{}", current_id, acc);
+                let stmt_id = format!("{current_id}-{acc}");
                 compute_path_descriptors(
                     stmt,
                     stmt_id,
@@ -354,9 +354,9 @@ fn compute_path_descriptors(
         ir::Control::Par(ir::Par {
             stmts, attributes, ..
         }) => {
-            let par_id = format!("{}-", current_id);
+            let par_id = format!("{current_id}-");
             for (acc, stmt) in stmts.iter().enumerate() {
-                let stmt_id = format!("{}{}", par_id, acc);
+                let stmt_id = format!("{par_id}{acc}");
                 compute_path_descriptors(
                     stmt,
                     stmt_id,
@@ -375,17 +375,17 @@ fn compute_path_descriptors(
             cond,
             ..
         }) => {
-            let if_id = format!("{}-", current_id);
+            let if_id = format!("{current_id}-");
             // process condition if it exists
             if let Some(comb_group) = cond {
-                let comb_id = format!("{}c", if_id);
+                let comb_id = format!("{if_id}c");
                 path_descriptor_info
                     .enables
                     .insert(comb_group.borrow().name().to_string(), comb_id);
             }
 
             // process true branch
-            let true_id = format!("{}t", if_id);
+            let true_id = format!("{if_id}t");
             compute_path_descriptors(
                 tbranch,
                 true_id,
@@ -393,7 +393,7 @@ fn compute_path_descriptors(
                 false,
             );
             // process false branch
-            let false_id = format!("{}f", if_id);
+            let false_id = format!("{if_id}f");
             compute_path_descriptors(
                 fbranch,
                 false_id,
@@ -410,18 +410,17 @@ fn compute_path_descriptors(
             cond,
             ..
         }) => {
-            let while_id = format!("{}-", current_id);
-            let body_id = format!("{}b", while_id);
+            let while_id = format!("{current_id}-");
+            let body_id = format!("{while_id}b");
             // FIXME: we need to create unique enables for comb groups associated with `while`s and `if`s`
 
             // add path descriptor for comb group associated with while if exists
             if let Some(comb_group) = cond {
-                let comb_id = format!("{}c", while_id);
+                let comb_id = format!("{while_id}c");
                 path_descriptor_info
                     .enables
                     .insert(comb_group.borrow().name().to_string(), comb_id);
             }
-
             compute_path_descriptors(
                 body,
                 body_id,
@@ -437,7 +436,7 @@ fn compute_path_descriptors(
         ir::Control::Enable(ir::Enable { group, .. }) => {
             let group_id = if parent_is_component {
                 // edge case: the entire control is just one enable
-                format!("{}0", current_id)
+                format!("{current_id}0")
             } else {
                 current_id
             };
@@ -449,8 +448,8 @@ fn compute_path_descriptors(
         ir::Control::Repeat(ir::Repeat {
             body, attributes, ..
         }) => {
-            let repeat_id = format!("{}-", current_id);
-            let body_id = format!("{}b", repeat_id);
+            let repeat_id = format!("{current_id}-");
+            let body_id = format!("{repeat_id}b");
             compute_path_descriptors(
                 body,
                 body_id,
@@ -497,7 +496,7 @@ fn create_unique_comb_group(
     comp: &mut calyx_ir::Component,
     sigs: &calyx_ir::LibrarySignatures,
 ) -> Option<std::rc::Rc<std::cell::RefCell<calyx_ir::CombGroup>>> {
-    let new_comb_group = if let Some(comb_group) = cond {
+    if let Some(comb_group) = cond {
         // UG stands for "unique group". This is to separate these names from the original group names
         let unique_comb_group_name: String =
             format!("{}UG", comb_group.borrow().name());
@@ -510,8 +509,7 @@ fn create_unique_comb_group(
         Some(unique_comb_group)
     } else {
         None
-    };
-    new_comb_group
+    }
 }
 
 impl Visitor for UniquefyEnables {
@@ -549,7 +547,7 @@ impl Visitor for UniquefyEnables {
         // create a unique group for this particular enable.
         let group_name = s.group.borrow().name();
         // UG stands for "unique group". This is to separate these names from the original group names
-        let unique_group_name: String = format!("{}UG", group_name);
+        let unique_group_name: String = format!("{group_name}UG");
         // create an unique-ified version of the group
         let mut builder = ir::Builder::new(comp, sigs);
         let unique_group = builder.add_group(unique_group_name);
@@ -590,7 +588,7 @@ impl Visitor for UniquefyEnables {
         // create a unique group for this particular static enable.
         let group_name = s.group.borrow().name();
         // UG stands for "unique group". This is to separate these names from the original group names
-        let unique_group_name = format!("{}UG", group_name);
+        let unique_group_name = format!("{group_name}UG");
         // create an unique-ified version of the group
         let mut builder = ir::Builder::new(comp, sigs);
         let unique_group = builder.add_static_group(

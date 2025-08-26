@@ -6,8 +6,11 @@ use calyx_utils::OutputFile;
 use cider::{
     configuration::{self, ColorConfig},
     debugger::{Debugger, DebuggerInfo, DebuggerReturnStatus},
-    errors::{CiderError, CiderResult},
-    flatten::structures::{context::Context, environment::Simulator},
+    errors::CiderResult,
+    flatten::structures::{
+        context::Context,
+        environment::{PolicyChoice, Simulator},
+    },
 };
 
 use std::{
@@ -85,6 +88,20 @@ pub struct Opts {
     #[argh(option, long = "force-color", default = "ColorConfig::On")]
     color_conf: ColorConfig,
 
+    /// the policy for pausing and unpausing threads in the execution
+    #[argh(option, long = "policy", default = "PolicyChoice::Default")]
+    policy: PolicyChoice,
+
+    /// disables the ability to step through multiple control program nodes in a
+    /// single step
+    #[argh(switch, long = "no-multistep")]
+    disable_multistep: bool,
+
+    /// disables the thread memoization optimization. Only used with data race
+    /// detection
+    #[argh(switch, long = "no-memo")]
+    disable_thread_memoization: bool,
+
     /// entangle memories with the given name. This option should only be used
     /// if you know what you are doing and as a result is hidden from the help output.
     #[argh(option, hidden_help, long = "entangle")]
@@ -128,21 +145,19 @@ fn main() -> CiderResult<()> {
         .error_on_overflow(opts.error_on_overflow)
         .undef_guard_check(opts.undef_guard_check)
         .color_config(opts.color_conf)
+        .allow_multistep(!opts.disable_multistep)
+        .disable_memo(opts.disable_thread_memoization)
         .build();
 
     let command = opts.mode.unwrap_or(Command::Interpret(CommandInterpret {}));
 
-    if !opts.entangle.is_empty() && !opts.check_data_race {
-        return Err(CiderError::generic_error(
-            "Entangling memories must be used in conjunction with data race detection. Please enable it via `--check-data-race`.",
-        ).into());
-    } else if !opts.entangle.is_empty() {
+    if !opts.entangle.is_empty() {
         let logger = cider::logging::initialize_logger(
             runtime_config.get_logging_config(),
         );
         cider::logging::warn!(
             logger,
-            "Memory entanglement has been enabled. This is an experimental feature and is liable to cause errors. It should only be used if you know what you are doing"
+            "Memory entanglement has been enabled. This is an experimental feature and should only be used if you know what you are doing"
         );
     }
 
@@ -160,6 +175,7 @@ fn main() -> CiderResult<()> {
                 &opts.data_file,
                 &opts.wave_file,
                 runtime_config,
+                opts.policy,
             )?;
 
             sim.run_program()?;
@@ -178,6 +194,7 @@ fn main() -> CiderResult<()> {
                     &opts.data_file,
                     &opts.wave_file,
                     runtime_config,
+                    opts.policy,
                 )?;
 
                 let result = debugger.main_loop(info)?;

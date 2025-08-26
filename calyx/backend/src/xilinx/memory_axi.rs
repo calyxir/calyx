@@ -39,13 +39,13 @@ impl MemoryInterface for AxiInterface {
         ];
         // read channels
         let read_address = AxiChannel {
-            prefix: format!("{}AR", prefix),
+            prefix: format!("{prefix}AR"),
             direction: ChannelDirection::Send,
             state: vec![],
             data_ports: addr_data_ports.clone(),
         };
         let read_data = AxiChannel {
-            prefix: format!("{}R", prefix),
+            prefix: format!("{prefix}R"),
             direction: ChannelDirection::Recv,
             state: vec![],
             data_ports: vec![
@@ -58,13 +58,13 @@ impl MemoryInterface for AxiInterface {
 
         // write channels
         let write_address = AxiChannel {
-            prefix: format!("{}AW", prefix),
+            prefix: format!("{prefix}AW"),
             direction: ChannelDirection::Send,
             state: vec![],
             data_ports: addr_data_ports,
         };
         let write_data = AxiChannel {
-            prefix: format!("{}W", prefix),
+            prefix: format!("{prefix}W"),
             direction: ChannelDirection::Send,
             state: vec![],
             data_ports: vec![
@@ -75,7 +75,7 @@ impl MemoryInterface for AxiInterface {
             ],
         };
         let write_response = AxiChannel {
-            prefix: format!("{}B", prefix),
+            prefix: format!("{prefix}B"),
             direction: ChannelDirection::Recv,
             state: vec![],
             data_ports: vec![
@@ -342,7 +342,7 @@ fn bram_logic(
     let suffix_idx = "Memory_controller_axi_".len();
     let suffix = &name[suffix_idx..];
     let mut ram_instance =
-        v::Instance::new("bram", &format!("SINGLE_PORT_BRAM_{}", suffix));
+        v::Instance::new("bram", &format!("SINGLE_PORT_BRAM_{suffix}"));
     ram_instance.connect_ref("ACLK", "ACLK");
     ram_instance.connect_ref("ADDR", "bram_addr");
     ram_instance.connect_ref("Din", "bram_write_data");

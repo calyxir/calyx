@@ -23,6 +23,14 @@ fud2 --from calyx --to dat \
 """
 timeout = 10
 
+[[tests]]
+name = "data-race-baseline multi-comp"
+paths = ["multi-comp/*.futil"]
+cmd = """
+python3 ../tools/detector.py {} -t 5
+"""
+expect_dir = "baseline"
+
 # [[tests]]
 # name = "errors"
 # paths = ["tests/errors/*.futil"]
@@ -308,4 +316,30 @@ paths = ["entangled/*.futil"]
 cmd = """
 flags="$(head -n 1 {} | cut -c 3-)"
 RUST_LIB_BACKTRACE=0 fud2 --to dat --through cider {} -s cider.flags="--check-data-race $flags --force-color off -q" 2> {}.tmp_err_file || tail -n +3 {}.tmp_err_file 1>&2; rm {}.tmp_err_file
+"""
+
+[[tests]]
+name = "Tree Adders"
+paths = ["entangled/tree_adders/*.futil"]
+cmd = """
+flags="$(head -n 1 {} | cut -c 3-)"
+RUST_LIB_BACKTRACE=0 fud2 --to dat --through cider {} -s sim.data={}.data -s cider.flags="--check-data-race $flags --force-color off -q" 2> {}.tmp_err_file || tail -n +3 {}.tmp_err_file 1>&2; rm {}.tmp_err_file
+"""
+
+[[tests]]
+name = "Tiny Processor (simple.data input)"
+paths = ["entangled/tiny_processor/*.futil"]
+cmd = """
+flags="$(head -n 1 {} | cut -c 3-)"
+dir=$(dirname {})
+RUST_LIB_BACKTRACE=0 fud2 --to dat --through cider {} -s sim.data=$dir/simple.data -s cider.flags="--check-data-race $flags --force-color off -q" 2> {}.tmp_err_file || tail -n +3 {}.tmp_err_file 1>&2; rm {}.tmp_err_file
+"""
+
+[[tests]]
+name = "Diagonal"
+paths = ["entangled/diagonal/*.futil"]
+cmd = """
+flags="$(head -n 1 {} | cut -c 3-)"
+dir=$(dirname {})
+RUST_LIB_BACKTRACE=0 fud2 --to dat --through cider {} -s sim.data=$dir/diagonal.data -s cider.flags="--check-data-race $flags --force-color off -q" 2> {}.tmp_err_file || tail -n +3 {}.tmp_err_file 1>&2; rm {}.tmp_err_file
 """

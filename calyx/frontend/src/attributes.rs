@@ -55,8 +55,7 @@ impl TryFrom<Vec<ParseAttributeWrapper>> for Attributes {
                 ParseAttributeWrapper::Attribute(k, v) => {
                     if attrs.has(k) {
                         return Err(Self::Error::malformed_structure(format!(
-                            "Multiple entries for attribute: {}",
-                            k
+                            "Multiple entries for attribute: {k}"
                         )));
                     }
                     attrs.insert(k, v);
@@ -64,8 +63,7 @@ impl TryFrom<Vec<ParseAttributeWrapper>> for Attributes {
                 ParseAttributeWrapper::Set(set_attr, vec) => {
                     if attrs.hinfo.set_attrs.contains_key(&set_attr) {
                         return Err(Self::Error::malformed_structure(format!(
-                            "Multiple entries for attribute: {}",
-                            set_attr
+                            "Multiple entries for attribute: {set_attr}"
                         )));
                     }
 

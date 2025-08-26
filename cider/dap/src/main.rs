@@ -115,9 +115,9 @@ where
         }
 
         unknown_command => {
-            return Err(MyAdapterError::UnhandledCommandError(
+            return Err(MyAdapterError::UnhandledCommandError(Box::new(
                 unknown_command.clone(),
-            ));
+            )));
         }
     }
 
@@ -351,9 +351,9 @@ fn run_server<R: Read, W: Write>(
             }
 
             unknown_command => {
-                return Err(MyAdapterError::UnhandledCommandError(
+                return Err(MyAdapterError::UnhandledCommandError(Box::new(
                     unknown_command.clone(),
-                ));
+                )));
             }
         }
     }
