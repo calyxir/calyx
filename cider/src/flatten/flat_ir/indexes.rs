@@ -10,7 +10,7 @@ use crate::{
 };
 use baa::{BitVecOps, BitVecValue};
 use cider_idx::{IndexRef, impl_index, impl_index_nonzero, iter::IndexRange};
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 // making these all u32 for now, can give the macro an optional type as the
 // second arg to contract or expand as needed
@@ -439,7 +439,7 @@ pub struct AssignedValue {
     thread: Option<ThreadIdx>,
     clocks: Option<ClockPair>,
     propagate_clocks: bool,
-    transitive_clocks: Option<HashSet<ClockPair>>,
+    transitive_clocks: Option<BTreeSet<ClockPair>>,
 }
 
 impl AssignedValue {
@@ -534,7 +534,7 @@ impl AssignedValue {
 
     pub fn with_transitive_clocks_opt(
         mut self,
-        clocks: Option<HashSet<ClockPair>>,
+        clocks: Option<BTreeSet<ClockPair>>,
     ) -> Self {
         self.transitive_clocks = clocks;
         self
@@ -605,7 +605,7 @@ impl AssignedValue {
         self.clocks.as_ref()
     }
 
-    pub fn transitive_clocks(&self) -> Option<&HashSet<ClockPair>> {
+    pub fn transitive_clocks(&self) -> Option<&BTreeSet<ClockPair>> {
         self.transitive_clocks.as_ref()
     }
 
@@ -670,7 +670,7 @@ impl PortValue {
         self
     }
 
-    pub fn transitive_clocks(&self) -> Option<&HashSet<ClockPair>> {
+    pub fn transitive_clocks(&self) -> Option<&BTreeSet<ClockPair>> {
         self.0.as_ref().and_then(|x| x.transitive_clocks())
     }
 

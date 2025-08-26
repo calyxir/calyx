@@ -1,6 +1,6 @@
 use std::{
     cmp::{Ordering, max},
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     hash::Hash,
     num::NonZeroU32,
     ops::{Index, IndexMut},
@@ -485,16 +485,16 @@ pub fn new_clock_pair(
 #[derive(Debug, Clone)]
 pub struct VectorClock<I, C = u32>
 where
-    I: Hash + Eq + Clone,
+    I: Hash + Eq + Clone + Ord,
     C: Ord + Clone + Counter,
 {
     // TODO: maybe use `ahash` instead
-    map: HashMap<I, C>,
+    map: BTreeMap<I, C>,
 }
 
 impl<I, C> std::ops::Index<&I> for VectorClock<I, C>
 where
-    I: Hash + Eq + Clone,
+    I: Hash + Eq + Clone + Ord,
     C: Ord + Clone + Counter,
 {
     type Output = C;
@@ -506,7 +506,7 @@ where
 
 impl<I, C> std::ops::Index<I> for VectorClock<I, C>
 where
-    I: Hash + Eq + Clone,
+    I: Hash + Eq + Clone + Ord,
     C: Ord + Clone + Counter,
 {
     type Output = C;
@@ -518,14 +518,14 @@ where
 
 impl<I, C> Eq for VectorClock<I, C>
 where
-    I: Hash + Eq + Clone,
+    I: Hash + Eq + Clone + Ord,
     C: Ord + Clone + Counter,
 {
 }
 
 impl<I, C> PartialEq for VectorClock<I, C>
 where
-    I: Hash + Eq + Clone,
+    I: Hash + Eq + Clone + Ord,
     C: Ord + Clone + Counter,
 {
     fn eq(&self, other: &Self) -> bool {
@@ -539,7 +539,7 @@ where
 
 impl<I, C> FromIterator<(I, C)> for VectorClock<I, C>
 where
-    I: Hash + Eq + Clone,
+    I: Hash + Eq + Clone + Ord,
     C: Ord + Clone + Counter,
 {
     fn from_iter<T: IntoIterator<Item = (I, C)>>(iter: T) -> Self {
@@ -551,12 +551,12 @@ where
 
 impl<I, C> VectorClock<I, C>
 where
-    I: Hash + Eq + Clone,
+    I: Hash + Eq + Clone + Ord,
     C: Ord + Clone + Counter,
 {
     pub fn new() -> Self {
         Self {
-            map: HashMap::new(),
+            map: BTreeMap::new(),
         }
     }
 
@@ -624,7 +624,7 @@ where
 
 impl<I, C> Default for VectorClock<I, C>
 where
-    I: Hash + Eq + Clone,
+    I: Hash + Eq + Clone + Ord,
     C: Ord + Clone + Counter,
 {
     fn default() -> Self {
@@ -634,7 +634,7 @@ where
 
 impl<I, C> PartialOrd for VectorClock<I, C>
 where
-    I: Hash + Eq + Clone,
+    I: Hash + Eq + Clone + Ord,
     C: Ord + Clone + Counter,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -709,7 +709,7 @@ impl ValueWithClock {
 
 /// A struct containing the read and write clocks for a value. This is small
 /// enough to be copied around easily
-#[derive(Debug, Clone, PartialEq, Eq, Copy, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Copy, Hash, PartialOrd, Ord)]
 pub struct ClockPair {
     pub read_clock: ClockIdx,
     pub write_clock: ClockIdx,
