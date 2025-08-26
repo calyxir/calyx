@@ -471,7 +471,7 @@ fn cli_ext<T: CliExt>(
     let workdir = req.workdir.clone();
     let csv_file = req.timing_csv.clone();
     let csv_path = csv_file.as_ref().map(Utf8PathBuf::as_path);
-    let plan = driver.plan(req).ok_or(anyhow!("could not find path"))?;
+    let plan = driver.plan(&req).ok_or(anyhow!("could not find path"))?;
 
     // Configure.
     let mut run = Run::new(driver, plan, config.clone());
