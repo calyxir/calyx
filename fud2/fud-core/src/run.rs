@@ -385,7 +385,11 @@ impl<'a> Run<'a> {
             let mut cmd = Command::new(&self.global_config.ninja);
             cmd.current_dir(dir);
             cmd.args(["-t", "clean"]);
-            cmd.stdout(std::process::Stdio::null());
+            if !quiet_mode {
+                cmd.stdout(std::io::stderr());
+            } else {
+                cmd.stdout(std::process::Stdio::null());
+            }
             cmd.status()?;
         }
 
