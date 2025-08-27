@@ -167,7 +167,7 @@ impl Driver {
     ///
     /// This works by searching for a path through the available operations from the input state
     /// to the output state. If no such path exists in the operation graph, we return None.
-    pub fn plan(&self, req: Request) -> Option<Plan> {
+    pub fn plan(&self, req: &Request) -> Option<Plan> {
         // Find a plan through the states.
         let path = req.planner.find_plan(
             &req.start_states,
@@ -182,24 +182,24 @@ impl Driver {
             .into_iter()
             .map(|(op, used)| {
                 let input_filenames =
-                    self.gen_names(&self.ops[op].input, &req, true, &used);
+                    self.gen_names(&self.ops[op].input, req, true, &used);
                 let output_filenames =
-                    self.gen_names(&self.ops[op].output, &req, false, &used);
+                    self.gen_names(&self.ops[op].output, req, false, &used);
                 (op, input_filenames, output_filenames)
             })
             .collect::<Vec<_>>();
 
         // Collect filenames of inputs and outputs
         let results =
-            self.gen_names(&req.end_states, &req, false, &req.end_states);
+            self.gen_names(&req.end_states, req, false, &req.end_states);
         let inputs =
-            self.gen_names(&req.start_states, &req, true, &req.start_states);
+            self.gen_names(&req.start_states, req, true, &req.start_states);
 
         Some(Plan {
             steps,
             inputs,
             results,
-            workdir: req.workdir,
+            workdir: req.workdir.clone(),
         })
     }
 
