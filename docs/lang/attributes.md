@@ -251,3 +251,7 @@ as before.
 ### `@protected`
 
 Marks that the cell should not be removed or shared during optimization.
+
+### `@pos`
+
+Contains the position IDs for source location(s) of the marked component/cell/group/control statement.
