@@ -16,7 +16,7 @@ fn hls_setup(e) {
 }
 
 fn hls_build(e, input, output, impl) {
-    let suffix = if impl { "" } else { "-impl" };
+    let suffix = if impl { "-impl" } else { "" };
 
     e.build_cmd(["IGNOREME"], `vitis-hls${suffix}`, [], [input, "hls.tcl"]);
     e.build_cmd([output], `extract-hls${suffix}-json`, ["IGNOREME"], []);
