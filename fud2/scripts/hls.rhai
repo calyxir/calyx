@@ -13,12 +13,15 @@ fn hls_setup(e) {
 
     e.rule("extract-hls-json", "synthrep summary -m hls --top $vitis-hls-top > $out");
     e.rule("extract-hls-impl-json", "synthrep summary -m hls-impl --top $vitis-hls-top > $out");
+
+    e.rule("copy", "cp $in $out");
 }
 
 fn hls_build(e, input, output, impl) {
     let suffix = if impl { "-impl" } else { "" };
 
-    e.build_cmd(["IGNOREME"], `vitis-hls${suffix}`, [], [input, "hls.tcl"]);
+    e.build_cmd(["kernel.cpp"], "copy", [input], []);
+    e.build_cmd(["IGNOREME"], `vitis-hls${suffix}`, [], ["kernel.cpp", "hls.tcl"]);
     e.build_cmd([output], `extract-hls${suffix}-json`, ["IGNOREME"], []);
 }
 
