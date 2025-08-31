@@ -16,8 +16,11 @@ rule extract-hls-json
   command = synthrep summary -m hls --top $vitis-hls-top > $out
 rule extract-hls-impl-json
   command = synthrep summary -m hls-impl --top $vitis-hls-top > $out
+rule copy
+  command = cp $in $out
 
-build IGNOREME: vitis-hls | /input.ext hls.tcl
+build kernel.cpp: copy /input.ext
+build IGNOREME: vitis-hls | kernel.cpp hls.tcl
 build /output.ext: extract-hls-json IGNOREME
 
 default /output.ext
