@@ -9,9 +9,9 @@ rule get-rsrc
 vitis-hls-top = kernel
 build hls.tcl: get-rsrc
 rule vitis-hls
-  command = vitis_hls -f hls.tcl -tclargs top $vitis-hls-top
+  command = vitis_hls -f hls.tcl -tclargs top $vitis-hls-top > /dev/null
 rule vitis-hls-impl
-  command = vitis_hls -f hls.tcl -tclargs top $vitis-hls-top impl
+  command = vitis_hls -f hls.tcl -tclargs top $vitis-hls-top impl > /dev/null
 rule extract-hls-json
   command = synthrep summary -m hls --top $vitis-hls-top > $out
 rule extract-hls-impl-json
