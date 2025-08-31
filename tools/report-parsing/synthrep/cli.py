@@ -45,14 +45,10 @@ def hls_summary(dir, top):
 def hls_impl_summary(dir, top):
     print(
         place_and_route_extract(
-            Path(dir, "solution1", "impl", "verilog"),
-            PurePath("report", f"{top}_utilization_routed.rpt"),
-            PurePath("report", f"{top}_timing_routed.rpt"),
-            PurePath(
-                "project.runs",
-                "bd_0_hls_inst_0_synth_1",
-                f"{top}_utilization_synth.rpt",
-            ),
+            Path(dir, "solution1", "impl", "verilog", "report"),
+            PurePath(f"{top}_utilization_routed.rpt"),
+            PurePath(f"{top}_timing_routed.rpt"),
+            PurePath(f"{top}_utilization_synth.rpt"),
         )
     )
 
