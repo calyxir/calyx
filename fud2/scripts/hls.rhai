@@ -8,8 +8,8 @@ fn hls_setup(e) {
 
     e.rsrc("hls.tcl");
 
-    e.rule("vitis-hls", "vitis_hls -f hls.tcl -tclargs top $vitis-hls-top");
-    e.rule("vitis-hls-impl", "vitis_hls -f hls.tcl -tclargs top $vitis-hls-top impl");
+    e.rule("vitis-hls", "vitis_hls -f hls.tcl -tclargs top $vitis-hls-top > /dev/null");
+    e.rule("vitis-hls-impl", "vitis_hls -f hls.tcl -tclargs top $vitis-hls-top impl > /dev/null");
 
     e.rule("extract-hls-json", "synthrep summary -m hls --top $vitis-hls-top > $out");
     e.rule("extract-hls-impl-json", "synthrep summary -m hls-impl --top $vitis-hls-top > $out");
