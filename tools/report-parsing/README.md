@@ -35,7 +35,7 @@ synthrep summary [-d DIRECTORY] [-m {utilization,hierarchy,hls,hls-impl}] [--top
 
 **Options:**
 
-- `-d`, `--directory` – specify Vivado output directory (default: `out`)
+- `-d`, `--directory` – specify Vivado output directory (default: \<mode dependent\>)
 - `-m`, `--mode` – set summary mode (default: `utilization`)
 - `--top` – specify top-level module/function (default: `main`)
 

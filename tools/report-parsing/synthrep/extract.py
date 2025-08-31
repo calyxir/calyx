@@ -1,5 +1,4 @@
 import json
-import os
 from pathlib import Path, PurePath
 import re
 import traceback
@@ -97,18 +96,10 @@ def rpt_extract(file: PurePath):
 
 def place_and_route_extract(
     directory: Path,
-    files_root: str,
     utilization_file: PurePath,
     timing_file: PurePath,
     synthesis_file: PurePath,
 ):
-    # Search for the given root directory
-    for root, dirs, _ in os.walk(directory):
-        for d in dirs:
-            if d == files_root:
-                directory = Path(os.path.join(root, d))
-                break
-
     util_file = directory / utilization_file
     synth_file = directory / synthesis_file
     timing_file = directory / timing_file
@@ -161,13 +152,6 @@ def place_and_route_extract(
 
 
 def hls_extract(directory: Path, top: str):
-    # Search for directory named benchmark.prj
-    for root, dirs, _ in os.walk(directory):
-        for d in dirs:
-            if d == "benchmark.prj":
-                directory = Path(os.path.join(root, d))
-                break
-
     directory = directory / "solution1"
 
     try:

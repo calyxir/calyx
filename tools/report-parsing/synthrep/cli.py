@@ -11,8 +11,7 @@ import json
 def summary(dir, top):
     print(
         place_and_route_extract(
-            Path(dir),
-            "FutilBuild.runs",
+            Path(dir, "FutilBuild.runs"),
             PurePath("impl_1", f"{top}_utilization_placed.rpt"),
             PurePath("impl_1", f"{top}_timing_summary_routed.rpt"),
             PurePath("synth_1", f"{top}_utilization_synth.rpt"),
@@ -44,17 +43,16 @@ def hls_summary(dir, top):
 
 
 def hls_impl_summary(dir, top):
-    verilog_dir = PurePath("solution1", "impl", "verilog")
     print(
         place_and_route_extract(
-            Path(dir),
-            "benchmark.prj",
-            verilog_dir / "report" / f"{top}_utilization_routed.rpt",
-            verilog_dir / "report" / f"{top}_timing_routed.rpt",
-            verilog_dir
-            / "project.runs"
-            / "bd_0_hls_inst_0_synth_1"
-            / f"{top}_utilization_synth.rpt",
+            Path(dir, "solution1", "impl", "verilog"),
+            PurePath("report", f"{top}_utilization_routed.rpt"),
+            PurePath("report", f"{top}_timing_routed.rpt"),
+            PurePath(
+                "project.runs",
+                "bd_0_hls_inst_0_synth_1",
+                f"{top}_utilization_synth.rpt",
+            ),
         )
     )
 
@@ -131,8 +129,7 @@ def main():
     summary_parser.add_argument(
         "-d",
         "--directory",
-        help="specify Vivado output directory (default: %(default)s)",
-        default="out",
+        help="specify Vivado output directory (default: <mode dependent>)",
     )
     summary_parser.add_argument(
         "-m",
@@ -151,13 +148,13 @@ def main():
         case "summary":
             match args.mode:
                 case "utilization":
-                    summary(args.directory, args.top)
+                    summary(args.directory or "out", args.top)
                 case "hierarchy":
-                    hierarchy_summary(args.directory)
+                    hierarchy_summary(args.directory or "out")
                 case "hls":
-                    hls_summary(args.directory, args.top)
+                    hls_summary(args.directory or "benchmark.prj", args.top)
                 case "hls-impl":
-                    hls_impl_summary(args.directory, args.top)
+                    hls_impl_summary(args.directory or "benchmark.prj", args.top)
         case "viz":
             match args.type:
                 case "flamegraph":
