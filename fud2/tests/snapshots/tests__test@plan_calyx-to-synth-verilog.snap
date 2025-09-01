@@ -18,7 +18,7 @@ cider-calyx-passes = -p none
 rule calyx-cider
   command = $calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out
 
-build main.sv: calyx /input.ext
+build /output.ext: calyx /input.ext
   backend = verilog
   args = --synthesis -p external --disable-verify
 
