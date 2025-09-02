@@ -194,6 +194,10 @@ pub struct FudArgs<T: CliExt> {
     #[argh(switch, short = 'q')]
     quiet: bool,
 
+    /// force rebuild
+    #[argh(switch, long = "force-rebuild")]
+    force_rebuild: bool,
+
     /// log level for debugging fud internal
     #[argh(option, long = "log", default = "log::LevelFilter::Warn")]
     pub log_level: log::LevelFilter,
@@ -471,7 +475,19 @@ fn cli_ext<T: CliExt>(
     let workdir = req.workdir.clone();
     let csv_file = req.timing_csv.clone();
     let csv_path = csv_file.as_ref().map(Utf8PathBuf::as_path);
-    let plan = driver.plan(req).ok_or(anyhow!("could not find path"))?;
+    let plan = driver.plan(&req).ok_or_else(|| {
+        let dest = req
+            .end_states
+            .iter()
+            .map(|state_ref| &driver.states[*state_ref].name)
+            .join(", ");
+        let src = req
+            .start_states
+            .iter()
+            .map(|state_ref| &driver.states[*state_ref].name)
+            .join(", ");
+        anyhow!("could not find path from {{{src}}} to {{{dest}}}")
+    })?;
 
     // Configure.
     let mut run = Run::new(driver, plan, config.clone());
@@ -493,8 +509,20 @@ fn cli_ext<T: CliExt>(
         Mode::ShowDot => run.show_dot(),
         Mode::EmitNinja => run.emit_to_stdout()?,
         Mode::Generate => run.emit_to_dir(&workdir)?.keep(),
-        Mode::Run => run.emit_and_run(&workdir, false, args.quiet, csv_path)?,
-        Mode::Cmds => run.emit_and_run(&workdir, true, false, csv_path)?,
+        Mode::Run => run.emit_and_run(
+            &workdir,
+            false,
+            args.quiet,
+            args.force_rebuild,
+            csv_path,
+        )?,
+        Mode::Cmds => run.emit_and_run(
+            &workdir,
+            true,
+            false,
+            args.force_rebuild,
+            csv_path,
+        )?,
     }
 
     Ok(())

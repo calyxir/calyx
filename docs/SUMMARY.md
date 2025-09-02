@@ -64,6 +64,7 @@
 - [Editor Highlighting](./tools/editor-highlighting.md)
 - [Language Server](./tools/language-server.md)
 - [Visualizing Compiler Passes](./dev/calyx-pass-explorer.md)
+- [Source Location Metadata](./tools/source-locations.md)
 
 ----
 [Contributors](./contributors.md)
