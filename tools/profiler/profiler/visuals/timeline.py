@@ -46,7 +46,9 @@ class ProtoTimelineCell:
     fully_qualified_cell_name: str
     sid_name: str
     sid_val: int
+    enable_to_thread: dict[str, int]
     enable_id_to_uuid: dict[str, int]
+    control_group_id_to_uuid: dict[str, int]
 
     def __init__(
         self,
@@ -60,7 +62,9 @@ class ProtoTimelineCell:
         self.sid_name = self.fully_qualified_cell_name.replace(".", "_").upper()
         self.sid_val = sid
         self.events = list()
+        self.enable_to_thread = enable_to_thread
         self.enable_id_to_uuid = {}
+        self.control_group_id_to_uuid = {}
         self.cell_uuid = self._define_track(fully_qualified_cell_name)
         self.control_uuid = self._define_track(
             "Control Groups", parent_track_uuid=self.cell_uuid
@@ -72,14 +76,14 @@ class ProtoTimelineCell:
         self.misc_group_uuid = self._define_track(
             "Non-id-ed groups", parent_track_uuid=self.cell_uuid
         )
-        # convert threadids to uuids
-        threadid_to_uuid: dict[int, int] = {}
-        for group, threadid in enable_to_thread.items():
-            if threadid not in threadid_to_uuid:
-                threadid_to_uuid[threadid] = self._define_track(
-                    f"Thread {threadid}", parent_track_uuid=self.cell_uuid
-                )
-            self.enable_id_to_uuid[group] = threadid_to_uuid[threadid]
+        # # convert threadids to uuids
+        # threadid_to_uuid: dict[int, int] = {}
+        # for group, threadid in enable_to_thread.items():
+        #     if threadid not in threadid_to_uuid:
+        #         threadid_to_uuid[threadid] = self._define_track(
+        #             f"Thread {threadid:03}", parent_track_uuid=self.cell_uuid
+        #         )
+        #     self.enable_id_to_uuid[group] = threadid_to_uuid[threadid]
 
         # self.group_uuid = self._define_track("Groups", self.cell_uuid)
 
@@ -113,16 +117,24 @@ class ProtoTimelineCell:
     def register_group_event(
         self, enable_id: str, timestamp: int, event_type: TrackEvent.Type
     ):
-        if timestamp < 100:
-            if "reg_4_incr_1_8_groupUG" == enable_id:
-                print(f"{enable_id} AT {timestamp}: {event_type}")
-            if "write_pushUG" == enable_id:
-                print(f"{enable_id} AT {timestamp}: {event_type}")
         # NOTE: enable_id is not fully qualified.
         group_name = enable_id.split("UG")[0]
-        if enable_id in self.enable_id_to_uuid:
-            uuid = self.enable_id_to_uuid[enable_id]
-            self._add_slice_event(timestamp, event_type, uuid, group_name)
+        #     if threadid not in threadid_to_uuid:
+        #         threadid_to_uuid[threadid] = self._define_track(
+        #             f"Thread {threadid:03}", parent_track_uuid=self.cell_uuid
+        #         )
+
+        if enable_id in self.enable_to_thread:
+            if enable_id in self.enable_id_to_uuid:
+                uuid = self.enable_id_to_uuid[enable_id]
+                self._add_slice_event(timestamp, event_type, uuid, group_name)
+            else:
+                thread_id = self.enable_to_thread[enable_id]
+                uuid = self._define_track(
+                    f"Thread {thread_id:03}", parent_track_uuid=self.cell_uuid
+                )
+                self._add_slice_event(timestamp, event_type, uuid, group_name)
+                self.enable_id_to_uuid[enable_id] = uuid
         else:
             self._add_slice_event(
                 timestamp, event_type, self.misc_group_uuid, group_name
@@ -139,8 +151,19 @@ class ProtoTimelineCell:
         timestamp: int,
         event_type: TrackEvent.Type,
     ):
+        # use source locations when available. FIXME: make this less hacky
+        if "~ " in ctrl_group:
+            name = ctrl_group.split("~ ")[1].split("(")[0]
+        else:
+            name = ctrl_group.split("(")[0]
+        if ctrl_group not in self.control_group_id_to_uuid:
+            uuid = self._define_track(f"Control Group: {name}", self.control_uuid)
+            self.control_group_id_to_uuid[ctrl_group] = uuid
+        else:
+            uuid = self.control_group_id_to_uuid[ctrl_group]
         # NOTE: ctrl_group is not fully qualified.
-        self._add_slice_event(timestamp, event_type, self.control_uuid, ctrl_group)
+
+        self._add_slice_event(timestamp, event_type, uuid, name)
 
 
 @dataclass
@@ -267,13 +290,13 @@ def compute_protobuf_timeline(
 
         # control groups
 
-        for gone_ctrl_group in currently_active_ctrl_groups.difference(
-            this_cycle_active_ctrl_groups
+        for gone_ctrl_group in sorted(
+            currently_active_ctrl_groups.difference(this_cycle_active_ctrl_groups)
         ):
             proto.register_control_event(gone_ctrl_group, i, TrackEvent.TYPE_SLICE_END)
 
-        for new_ctrl_group in this_cycle_active_ctrl_groups.difference(
-            currently_active_ctrl_groups
+        for new_ctrl_group in sorted(
+            this_cycle_active_ctrl_groups.difference(currently_active_ctrl_groups)
         ):
             proto.register_control_event(new_ctrl_group, i, TrackEvent.TYPE_SLICE_BEGIN)
 
@@ -293,15 +316,15 @@ def compute_protobuf_timeline(
     # elements that are active until the very end
 
     for active_at_end_cell in currently_active_cells:
-        proto.register_cell_event(active_at_end_cell, i, TrackEvent.TYPE_SLICE_END)
+        proto.register_cell_event(active_at_end_cell, i + 1, TrackEvent.TYPE_SLICE_END)
 
     for active_at_end_ctrl_group in currently_active_ctrl_groups:
         proto.register_control_event(
-            active_at_end_ctrl_group, i, TrackEvent.TYPE_SLICE_END
+            active_at_end_ctrl_group, i + 1, TrackEvent.TYPE_SLICE_END
         )
 
     for active_at_end_group in currently_active_groups:
-        proto.register_event(active_at_end_group, i, TrackEvent.TYPE_SLICE_END)
+        proto.register_event(active_at_end_group, i + 1, TrackEvent.TYPE_SLICE_END)
 
     out_path = os.path.join(out_dir, "timeline_trace.pftrace")
     proto.emit(out_path)

@@ -3,6 +3,7 @@ use std::{cmp, collections::BTreeMap, collections::BTreeSet};
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
+use calyx_frontend::SetAttr;
 use calyx_ir::{self as ir, Nothing};
 use calyx_utils::{CalyxResult, OutputFile};
 use serde::Serialize;
@@ -49,8 +50,12 @@ impl Named for UniquefyEnables {
 /// Information to serialize for locating path descriptors
 #[derive(Serialize)]
 struct PathDescriptorInfo {
+    /// enable id --> descriptor
     pub enables: BTreeMap<String, String>,
-    pub pars: BTreeSet<String>,
+    /// descriptor --> position set
+    /// (Ideally I'd do a position set --> descriptor mapping but
+    /// a set shouldn't be a key.)
+    pub control_pos: BTreeMap<String, BTreeSet<u32>>,
 }
 
 impl ConstructVisitor for UniquefyEnables {
@@ -169,11 +174,21 @@ fn assign_par_threads(
             idx
         }
         ir::Control::If(ir::If {
-            tbranch, fbranch, ..
+            tbranch,
+            fbranch,
+            cond,
+            ..
         }) => {
+            let true_next_idx = if let Some(comb_group) = cond {
+                enable_to_track
+                    .insert(comb_group.borrow().name().to_string(), start_idx);
+                start_idx + 1
+            } else {
+                start_idx
+            };
             let false_next_idx = assign_par_threads(
                 tbranch,
-                start_idx,
+                true_next_idx,
                 next_idx,
                 enable_to_track,
             );
@@ -184,8 +199,15 @@ fn assign_par_threads(
                 enable_to_track,
             )
         }
-        ir::Control::While(ir::While { body, .. }) => {
-            assign_par_threads(body, start_idx, next_idx, enable_to_track)
+        ir::Control::While(ir::While { body, cond, .. }) => {
+            let body_start_idx = if let Some(comb_group) = cond {
+                enable_to_track
+                    .insert(comb_group.borrow().name().to_string(), start_idx);
+                start_idx + 1
+            } else {
+                start_idx
+            };
+            assign_par_threads(body, body_start_idx, next_idx, enable_to_track)
         }
         ir::Control::Repeat(ir::Repeat { body, .. }) => {
             assign_par_threads(body, start_idx, next_idx, enable_to_track)
@@ -197,7 +219,7 @@ fn assign_par_threads(
             enable_to_track,
         ),
         ir::Control::Invoke(_) => {
-            panic!("compile-invoke should be run before unique-control!")
+            panic!("compile-invoke should be run before uniquefy-enables!")
         }
         _ => next_idx,
     }
@@ -210,14 +232,23 @@ fn compute_path_descriptors_static(
     parent_is_component: bool,
 ) {
     match control {
-        ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
-            let body_id = format!("{current_id}-b");
+        ir::StaticControl::Repeat(ir::StaticRepeat {
+            body,
+            attributes,
+            ..
+        }) => {
+            let repeat_id = format!("{current_id}-");
+            let body_id = format!("{repeat_id}b");
             compute_path_descriptors_static(
                 body,
                 body_id,
                 path_descriptor_info,
                 false,
             );
+            let new_pos_set = retrieve_pos_set(attributes);
+            path_descriptor_info
+                .control_pos
+                .insert(repeat_id, new_pos_set);
         }
         ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
             let group_id = if parent_is_component {
@@ -231,7 +262,9 @@ fn compute_path_descriptors_static(
                 .enables
                 .insert(group_name.to_string(), group_id);
         }
-        ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+        ir::StaticControl::Par(ir::StaticPar {
+            stmts, attributes, ..
+        }) => {
             let par_id = format!("{current_id}-");
             for (acc, stmt) in stmts.iter().enumerate() {
                 let stmt_id = format!("{par_id}{acc}");
@@ -242,11 +275,15 @@ fn compute_path_descriptors_static(
                     false,
                 );
             }
-            path_descriptor_info.pars.insert(par_id);
+            let new_pos_set: BTreeSet<u32> = retrieve_pos_set(attributes);
+            path_descriptor_info.control_pos.insert(par_id, new_pos_set);
         }
-        ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => {
+        ir::StaticControl::Seq(ir::StaticSeq {
+            stmts, attributes, ..
+        }) => {
+            let seq_id = format!("{current_id}-");
             for (acc, stmt) in stmts.iter().enumerate() {
-                let stmt_id = format!("{current_id}-{acc}");
+                let stmt_id = format!("{seq_id}{acc}");
                 compute_path_descriptors_static(
                     stmt,
                     stmt_id,
@@ -254,12 +291,18 @@ fn compute_path_descriptors_static(
                     false,
                 );
             }
+            let new_pos_set: BTreeSet<u32> = retrieve_pos_set(attributes);
+            path_descriptor_info.control_pos.insert(seq_id, new_pos_set);
         }
         ir::StaticControl::If(ir::StaticIf {
-            tbranch, fbranch, ..
+            tbranch,
+            fbranch,
+            attributes,
+            ..
         }) => {
+            let if_id = format!("{current_id}-");
             // process true branch
-            let true_id = format!("{current_id}-t");
+            let true_id = format!("{if_id}t");
             compute_path_descriptors_static(
                 tbranch,
                 true_id,
@@ -267,13 +310,16 @@ fn compute_path_descriptors_static(
                 false,
             );
             // process false branch
-            let false_id = format!("{current_id}-f");
+            let false_id = format!("{if_id}f");
             compute_path_descriptors_static(
                 fbranch,
                 false_id,
                 path_descriptor_info,
                 false,
             );
+            path_descriptor_info
+                .control_pos
+                .insert(if_id, retrieve_pos_set(attributes));
         }
         ir::StaticControl::Empty(_empty) => (),
         ir::StaticControl::Invoke(_static_invoke) => {
@@ -289,7 +335,10 @@ fn compute_path_descriptors(
     parent_is_component: bool,
 ) {
     match control {
-        ir::Control::Seq(ir::Seq { stmts, .. }) => {
+        ir::Control::Seq(ir::Seq {
+            stmts, attributes, ..
+        }) => {
+            let seq_id = format!("{current_id}-");
             for (acc, stmt) in stmts.iter().enumerate() {
                 let stmt_id = format!("{current_id}-{acc}");
                 compute_path_descriptors(
@@ -299,8 +348,12 @@ fn compute_path_descriptors(
                     false,
                 );
             }
+            let new_pos_set = retrieve_pos_set(attributes);
+            path_descriptor_info.control_pos.insert(seq_id, new_pos_set);
         }
-        ir::Control::Par(ir::Par { stmts, .. }) => {
+        ir::Control::Par(ir::Par {
+            stmts, attributes, ..
+        }) => {
             let par_id = format!("{current_id}-");
             for (acc, stmt) in stmts.iter().enumerate() {
                 let stmt_id = format!("{par_id}{acc}");
@@ -311,13 +364,28 @@ fn compute_path_descriptors(
                     false,
                 );
             }
-            path_descriptor_info.pars.insert(par_id);
+            // add this node to path_descriptor_info
+            let new_pos_set = retrieve_pos_set(attributes);
+            path_descriptor_info.control_pos.insert(par_id, new_pos_set);
         }
         ir::Control::If(ir::If {
-            tbranch, fbranch, ..
+            tbranch,
+            fbranch,
+            attributes,
+            cond,
+            ..
         }) => {
+            let if_id = format!("{current_id}-");
+            // process condition if it exists
+            if let Some(comb_group) = cond {
+                let comb_id = format!("{if_id}c");
+                path_descriptor_info
+                    .enables
+                    .insert(comb_group.borrow().name().to_string(), comb_id);
+            }
+
             // process true branch
-            let true_id = format!("{current_id}-t");
+            let true_id = format!("{if_id}t");
             compute_path_descriptors(
                 tbranch,
                 true_id,
@@ -325,22 +393,45 @@ fn compute_path_descriptors(
                 false,
             );
             // process false branch
-            let false_id = format!("{current_id}-f");
+            let false_id = format!("{if_id}f");
             compute_path_descriptors(
                 fbranch,
                 false_id,
                 path_descriptor_info,
                 false,
             );
+            // add this node to path_descriptor_info
+            let new_pos_set = retrieve_pos_set(attributes);
+            path_descriptor_info.control_pos.insert(if_id, new_pos_set);
         }
-        ir::Control::While(ir::While { body, .. }) => {
-            let body_id = format!("{current_id}-b");
+        ir::Control::While(ir::While {
+            body,
+            attributes,
+            cond,
+            ..
+        }) => {
+            let while_id = format!("{current_id}-");
+            let body_id = format!("{while_id}b");
+            // FIXME: we need to create unique enables for comb groups associated with `while`s and `if`s`
+
+            // add path descriptor for comb group associated with while if exists
+            if let Some(comb_group) = cond {
+                let comb_id = format!("{while_id}c");
+                path_descriptor_info
+                    .enables
+                    .insert(comb_group.borrow().name().to_string(), comb_id);
+            }
             compute_path_descriptors(
                 body,
                 body_id,
                 path_descriptor_info,
                 false,
             );
+            // add this node to path_descriptor_info
+            let new_pos_set = retrieve_pos_set(attributes);
+            path_descriptor_info
+                .control_pos
+                .insert(while_id, new_pos_set);
         }
         ir::Control::Enable(ir::Enable { group, .. }) => {
             let group_id = if parent_is_component {
@@ -354,14 +445,22 @@ fn compute_path_descriptors(
                 .enables
                 .insert(group_name.to_string(), group_id);
         }
-        ir::Control::Repeat(ir::Repeat { body, .. }) => {
-            let body_id = format!("{current_id}-b");
+        ir::Control::Repeat(ir::Repeat {
+            body, attributes, ..
+        }) => {
+            let repeat_id = format!("{current_id}-");
+            let body_id = format!("{repeat_id}b");
             compute_path_descriptors(
                 body,
                 body_id,
                 path_descriptor_info,
                 false,
             );
+            // add this node to path_descriptor_info
+            let new_pos_set = retrieve_pos_set(attributes);
+            path_descriptor_info
+                .control_pos
+                .insert(repeat_id, new_pos_set);
         }
         ir::Control::Static(static_control) => {
             compute_path_descriptors_static(
@@ -379,7 +478,65 @@ fn compute_path_descriptors(
     }
 }
 
+/// Returns a BTreeSet with the elements contained in the @pos set attribute.
+fn retrieve_pos_set(attributes: &calyx_ir::Attributes) -> BTreeSet<u32> {
+    let new_pos_set: BTreeSet<u32> =
+        if let Some(pos_set) = attributes.get_set(SetAttr::Pos) {
+            pos_set.iter().copied().collect()
+        } else {
+            BTreeSet::new()
+        };
+    new_pos_set
+}
+
+/// Helper function to construct a unique version of a combinational group used as the
+/// condition in an if or a while, if one exists. Otherwise returns None.
+fn create_unique_comb_group(
+    cond: &Option<std::rc::Rc<std::cell::RefCell<calyx_ir::CombGroup>>>,
+    comp: &mut calyx_ir::Component,
+    sigs: &calyx_ir::LibrarySignatures,
+) -> Option<std::rc::Rc<std::cell::RefCell<calyx_ir::CombGroup>>> {
+    if let Some(comb_group) = cond {
+        // UG stands for "unique group". This is to separate these names from the original group names
+        let unique_comb_group_name: String =
+            format!("{}UG", comb_group.borrow().name());
+        let mut builder = ir::Builder::new(comp, sigs);
+        let unique_comb_group = builder.add_comb_group(unique_comb_group_name);
+        unique_comb_group.borrow_mut().assignments =
+            comb_group.borrow().assignments.clone();
+        unique_comb_group.borrow_mut().attributes =
+            comb_group.borrow().attributes.clone();
+        Some(unique_comb_group)
+    } else {
+        None
+    }
+}
+
 impl Visitor for UniquefyEnables {
+    fn finish_while(
+        &mut self,
+        s: &mut calyx_ir::While,
+        comp: &mut calyx_ir::Component,
+        sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        // create a freshly named version of the condition comb group if one exists.
+        s.cond = create_unique_comb_group(&s.cond, comp, sigs);
+        Ok(Action::Continue)
+    }
+
+    fn finish_if(
+        &mut self,
+        s: &mut calyx_ir::If,
+        comp: &mut calyx_ir::Component,
+        sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        // create a freshly named version of the condition comb group if one exists.
+        s.cond = create_unique_comb_group(&s.cond, comp, sigs);
+        Ok(Action::Continue)
+    }
+
     fn enable(
         &mut self,
         s: &mut calyx_ir::Enable,
@@ -387,6 +544,7 @@ impl Visitor for UniquefyEnables {
         sigs: &calyx_ir::LibrarySignatures,
         _comps: &[calyx_ir::Component],
     ) -> VisResult {
+        // create a unique group for this particular enable.
         let group_name = s.group.borrow().name();
         // UG stands for "unique group". This is to separate these names from the original group names
         let unique_group_name: String = format!("{group_name}UG");
@@ -427,6 +585,7 @@ impl Visitor for UniquefyEnables {
         sigs: &calyx_ir::LibrarySignatures,
         _comps: &[calyx_ir::Component],
     ) -> VisResult {
+        // create a unique group for this particular static enable.
         let group_name = s.group.borrow().name();
         // UG stands for "unique group". This is to separate these names from the original group names
         let unique_group_name = format!("{group_name}UG");
@@ -458,7 +617,7 @@ impl Visitor for UniquefyEnables {
         let control = comp.control.borrow();
         let mut path_descriptor_info = PathDescriptorInfo {
             enables: BTreeMap::new(),
-            pars: BTreeSet::new(),
+            control_pos: BTreeMap::new(),
         };
         compute_path_descriptors(
             &control,
