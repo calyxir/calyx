@@ -6,11 +6,11 @@ use crate::passes::{
     ConstantPortProp, DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval,
     DeadGroupRemoval, DefaultAssigns, Externalize, GoInsertion, GroupToInvoke,
     GroupToSeq, InferShare, LowerGuards, MergeAssign, Papercut,
-    ProfilerInstrumentation, RemoveIds, ResetInsertion, SimplifyStaticGuards,
-    SimplifyWithControl, StaticFSMAllocation, StaticFSMOpts, StaticInference,
-    StaticInliner, StaticPromotion, StaticRepeatFSMAllocation,
-    SynthesisPapercut, TopDownCompileControl, UniquefyEnables, UnrollBounded,
-    WellFormed, WireInliner, WrapMain,
+    ProfilerInstrumentation, PropagateProtected, RemoveIds, ResetInsertion,
+    SimplifyStaticGuards, SimplifyWithControl, StaticFSMAllocation,
+    StaticFSMOpts, StaticInference, StaticInliner, StaticPromotion,
+    StaticRepeatFSMAllocation, SynthesisPapercut, TopDownCompileControl,
+    UniquefyEnables, UnrollBounded, WellFormed, WireInliner, WrapMain,
 };
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
@@ -60,6 +60,7 @@ impl PassManager {
         pm.register_pass::<AddGuard>()?;
         pm.register_pass::<FSMAnnotator>()?;
         pm.register_pass::<FSMBuilder>()?;
+        pm.register_pass::<PropagateProtected>()?;
 
         // Lowering passes
         pm.register_pass::<GoInsertion>()?;
@@ -98,6 +99,7 @@ impl PassManager {
             pm,
             "pre-opt",
             [
+                PropagateProtected,
                 DataPathInfer,
                 CollapseControl, // Run it twice: once at beginning of pre-opt, once at end.
                 CompileSyncWithoutSyncReg,
