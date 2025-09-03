@@ -48,6 +48,7 @@ fn flamegraph_setup(e) {
 
 // Helper to compile Calyx to SV and run Vivado on it
 fn synth_verilog_through_vivado(e, input, output) {
+    e.build_cmd(["main.sv"], "copy", [input], []);
     // Copy over XDC file
     e.build_cmd(["device.xdc"], "copy", ["$device_xdc"], []);
     // IGNOREME is needed by Ninja to consider this command as a build target
