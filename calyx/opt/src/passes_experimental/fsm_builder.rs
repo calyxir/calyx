@@ -135,23 +135,56 @@ impl StaticSchedule<'_, '_> {
                     )
                 }
             }
-            ir::StaticControl::Seq(sseq) => (
-                // For now, we'll automatically inline static seqs.
-                // Added support for more annotations will be coming in the future.
-                sseq.stmts.iter().fold(
-                    transitions_to_curr,
-                    |transitions_to_this_stmt, stmt| {
-                        self.build_abstract(
-                            stmt,
-                            guard.clone(),
-                            transitions_to_this_stmt,
-                            looped_once_guard.clone(),
+            ir::StaticControl::Seq(sseq) => {
+                (if is_acyclic(sseq) {
+                    if is_inline(sseq) {
+                        // @NUM_STATES(n) @ACYCLIC @INLINE
+                        (
+                            sseq.stmts.iter().fold(
+                                transitions_to_curr,
+                                |transitions_to_this_stmt, stmt| {
+                                    self.build_abstract(
+                                        stmt,
+                                        guard.clone(),
+                                        transitions_to_this_stmt,
+                                        looped_once_guard.clone(),
+                                    )
+                                    .0
+                                },
+                            ),
+                            None,
                         )
-                        .0
-                    },
-                ),
-                None,
-            ),
+                    } else {
+                        todo!()
+                    }
+                } else {
+                    if is_inline(sseq) {
+                        // @NUM_STATES(n) @INLINE
+                        // may be incorrect for now, must think about what back edges might be possible for a static seq
+                        (
+                            sseq.stmts.iter().fold(
+                                transitions_to_curr,
+                                |transitions_to_this_stmt, stmt| {
+                                    self.build_abstract(
+                                        stmt,
+                                        guard.clone(),
+                                        transitions_to_this_stmt,
+                                        looped_once_guard.clone(),
+                                    )
+                                    .0
+                                },
+                            ),
+                            None,
+                        )
+                    } else if is_offload(sseq) {
+                        // @NUM_STATES(1) @OFFLOAD
+                        todo!()
+                    } else {
+                        // cyclic static seqs are not possible
+                        unreachable!()
+                    }
+                })
+            }
             ir::StaticControl::Repeat(srep) => {
                 // Matching for the `@ACYCLIC` attribute coming soon.
                 if is_unroll(srep) {
