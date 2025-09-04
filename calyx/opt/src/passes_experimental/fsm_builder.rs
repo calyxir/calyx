@@ -136,7 +136,7 @@ impl StaticSchedule<'_, '_> {
                 }
             }
             ir::StaticControl::Seq(sseq) => {
-                (if is_acyclic(sseq) {
+                if is_acyclic(sseq) {
                     if is_inline(sseq) {
                         // @NUM_STATES(n) @ACYCLIC @INLINE
                         (
@@ -183,7 +183,7 @@ impl StaticSchedule<'_, '_> {
                         // cyclic static seqs are not possible
                         unreachable!()
                     }
-                })
+                }
             }
             ir::StaticControl::Repeat(srep) => {
                 // Matching for the `@ACYCLIC` attribute coming soon.
