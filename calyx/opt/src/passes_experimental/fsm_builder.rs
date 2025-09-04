@@ -136,58 +136,55 @@ impl StaticSchedule<'_, '_> {
                 }
             }
             ir::StaticControl::Seq(sseq) => {
-                if is_acyclic(sseq) {
-                    if is_inline(sseq) {
-                        // @NUM_STATES(n) @ACYCLIC @INLINE
-                        (
-                            sseq.stmts.iter().fold(
-                                transitions_to_curr,
-                                |transitions_to_this_stmt, stmt| {
-                                    self.build_abstract(
-                                        stmt,
-                                        guard.clone(),
-                                        transitions_to_this_stmt,
-                                        looped_once_guard.clone(),
-                                    )
-                                    .0
-                                },
-                            ),
-                            None,
-                        )
-                    } else {
-                        todo!()
-                    }
+                if is_acyclic(sseq) && is_inline(sseq) {
+                    // @NUM_STATES(n) @ACYCLIC @INLINE
+                    (
+                        sseq.stmts.iter().fold(
+                            transitions_to_curr,
+                            |transitions_to_this_stmt, stmt| {
+                                self.build_abstract(
+                                    stmt,
+                                    guard.clone(),
+                                    transitions_to_this_stmt,
+                                    looped_once_guard.clone(),
+                                )
+                                .0
+                            },
+                        ),
+                        None,
+                    )
+                } else if is_inline(sseq) {
+                    // @NUM_STATES(n) @INLINE
+                    // may be incorrect for now, must think about what back edges might be possible for a static seq
+                    (
+                        sseq.stmts.iter().fold(
+                            transitions_to_curr,
+                            |transitions_to_this_stmt, stmt| {
+                                self.build_abstract(
+                                    stmt,
+                                    guard.clone(),
+                                    transitions_to_this_stmt,
+                                    looped_once_guard.clone(),
+                                )
+                                .0
+                            },
+                        ),
+                        None,
+                    )
+                } else if is_offload(sseq) {
+                    // @NUM_STATES(1) @OFFLOAD
+                    todo!()
                 } else {
-                    if is_inline(sseq) {
-                        // @NUM_STATES(n) @INLINE
-                        // may be incorrect for now, must think about what back edges might be possible for a static seq
-                        (
-                            sseq.stmts.iter().fold(
-                                transitions_to_curr,
-                                |transitions_to_this_stmt, stmt| {
-                                    self.build_abstract(
-                                        stmt,
-                                        guard.clone(),
-                                        transitions_to_this_stmt,
-                                        looped_once_guard.clone(),
-                                    )
-                                    .0
-                                },
-                            ),
-                            None,
-                        )
-                    } else if is_offload(sseq) {
-                        // @NUM_STATES(1) @OFFLOAD
-                        todo!()
-                    } else {
-                        // cyclic static seqs are not possible
-                        unreachable!()
-                    }
+                    // cyclic static seqs are not possible
+                    // we must have at least one `attr` annotation
+                    unreachable!(
+                        "`build_abstract` encountered a node without any annotations."
+                    )
                 }
             }
             ir::StaticControl::Repeat(srep) => {
-                // Matching for the `@ACYCLIC` attribute coming soon.
-                if is_unroll(srep) {
+                if is_acyclic(srep) && is_unroll(srep) {
+                    // @ACYCLIC @UNROLL
                     // In the encounter of a `@UNROLL` attribute, we'll want to create a state for each child.
                     (
                         (0..srep.num_repeats).fold(
@@ -205,21 +202,50 @@ impl StaticSchedule<'_, '_> {
                         None,
                     )
                 } else if is_offload(srep) {
+                    // @NUM_STATES(1) @OFFLOAD
+                    // In the case of offload, we'll want to create a state with a register to count the number of
+                    // times to loop in place
                     todo!()
                 } else if is_inline(srep) {
+                    // @NUM_STATES(n) @INLINE
                     // In the case of inline, we'll want to assign as many states as children of this loop,
                     // but create a register to count the amount of times looped, and assign
                     // backward edges from the end to the beginning.
                     todo!()
                 } else {
-                    todo!()
+                    // we must have at least one `attr` annotation
+                    unreachable!(
+                        "`build_abstract` encountered a node without any annotations."
+                    )
                 }
             }
-            ir::StaticControl::If(_sif) => {
-                todo!()
+            ir::StaticControl::If(sif) => {
+                if is_acyclic(sif) && is_inline(sif) {
+                    // @NUM_STATES(n) @ACYCLIC @INLINE
+                    todo!()
+                } else if is_offload(sif) {
+                    // @NUM_STATES(1) @OFFLOAD
+                    todo!()
+                } else {
+                    // we must have at least one `attr` annotation
+                    unreachable!(
+                        "`build_abstract` encountered a node without any annotations."
+                    )
+                }
             }
-            ir::StaticControl::Par(_spar) => {
-                todo!()
+            ir::StaticControl::Par(spar) => {
+                if is_acyclic(spar) && is_inline(spar) {
+                    // @NUM_STATES(n) @ACYCLIC @INLINE
+                    todo!()
+                } else if is_offload(spar) {
+                    // @NUM_STATES(1) @OFFLOAD
+                    todo!()
+                } else {
+                    // we must have at least one `attr` annotation
+                    unreachable!(
+                        "`build_abstract` encountered a node without any annotations."
+                    )
+                }
             }
             ir::StaticControl::Invoke(_) => {
                 unreachable!(
