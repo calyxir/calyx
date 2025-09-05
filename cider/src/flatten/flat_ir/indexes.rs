@@ -11,7 +11,6 @@ use crate::{
 use baa::{BitVecOps, BitVecValue};
 use cider_idx::{IndexRef, impl_index, impl_index_nonzero, iter::IndexRange};
 use fxhash::FxHashSet;
-use std::collections::BTreeSet;
 
 // making these all u32 for now, can give the macro an optional type as the
 // second arg to contract or expand as needed
