@@ -7,5 +7,6 @@ pub mod run;
 pub mod script;
 mod uninterrupt;
 pub mod utils;
+pub mod plan_files;
 
 pub use exec::{Driver, DriverBuilder};

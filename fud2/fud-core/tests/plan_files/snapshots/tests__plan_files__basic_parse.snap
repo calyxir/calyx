@@ -1,0 +1,32 @@
+---
+source: fud2/fud-core/tests/plan_files/mod.rs
+expression: ast
+---
+AssignmentList {
+    assigns: [
+        Assignment {
+            vars: [
+                "x",
+            ],
+            value: Function {
+                name: "input",
+                args: [
+                    "a",
+                    "b",
+                ],
+            },
+        },
+        Assignment {
+            vars: [
+                "z",
+                "y",
+            ],
+            value: Function {
+                name: "f",
+                args: [
+                    "x",
+                ],
+            },
+        },
+    ],
+}

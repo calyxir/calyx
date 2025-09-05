@@ -1313,6 +1313,7 @@ dependencies = [
  "egg",
  "env_logger",
  "figment",
+ "insta",
  "itertools 0.11.0",
  "libc",
  "log",
