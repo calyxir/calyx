@@ -492,6 +492,7 @@ impl AssignedValue {
             .insert(clock_pair);
     }
 
+    #[inline]
     pub fn add_transitive_clocks<I: IntoIterator<Item = ClockPair>>(
         &mut self,
         clocks: I,
