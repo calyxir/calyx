@@ -19,11 +19,13 @@ use crate::flatten::{
     text_utils::Color,
 };
 
+use ahash::HashMapExt;
 use baa::BitVecValue;
 use cider_idx::{
     impl_index_nonzero,
     maps::{IndexedMap, SecondarySparseMap},
 };
+use fxhash::FxHashMap;
 use itertools::Itertools;
 use thiserror::Error;
 
@@ -489,7 +491,7 @@ where
     C: Ord + Clone + Counter,
 {
     // TODO: maybe use `ahash` instead
-    map: BTreeMap<I, C>,
+    map: FxHashMap<I, C>,
 }
 
 impl<I, C> std::ops::Index<&I> for VectorClock<I, C>
@@ -556,7 +558,7 @@ where
 {
     pub fn new() -> Self {
         Self {
-            map: BTreeMap::new(),
+            map: FxHashMap::new(),
         }
     }
 
