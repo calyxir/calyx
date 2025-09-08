@@ -742,16 +742,19 @@ class ControlRegUpdates:
 
 @dataclass
 class PTrace:
-    trace: dict[int, CycleTrace] = field(default_factory=dict)
-
-    def __getitem__(self, index):
-        assert(index in self.trace)
-        return self.trace[index]
+    trace: list[CycleTrace] = field(default_factory=list)
 
     def add_cycle(self, i: int, cycle_trace: CycleTrace):
-        assert(i not in self.trace)
-        self.trace[i] = cycle_trace
+        assert(i >= len(self.trace))
+        # padding with empty cycle traces, if there exists a gap
+        while i > len(self.trace):
+            self.trace.append(CycleTrace())
+        self.trace.append(cycle_trace)
     
+    def __getitem__(self, index):
+        assert(index <= len(self.trace))
+        return self.trace[index]
+
     def __contains__(self, key):
         return key in self.trace
     
