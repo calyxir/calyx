@@ -742,10 +742,22 @@ class ControlRegUpdates:
 
 @dataclass
 class PTrace:
+    """
+    A trace. Maps cycle indices to the CycleTrace that represents the
+    stacks active in that cycle.
+    When iterating over a PTrace, the values returned are cycle numbers/indices.
+    """
+
     trace: list[CycleTrace] = field(default_factory=list)
     iter_idx: int = field(default=0)
 
     def add_cycle(self, i: int, cycle_trace: CycleTrace):
+        """
+        Adds an entry at cycle i to cycle_trace. If i is greater than the current number of cycles,
+        adds blank CycleTraces between the current length and i.
+
+        Invariant: i is not an existing cycle entry in the trace.
+        """
         assert i >= len(self.trace)
         # padding with empty cycle traces, if there exists a gap
         while i > len(self.trace):

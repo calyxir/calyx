@@ -2,7 +2,6 @@ import os
 
 from profiler.classes import (
     PTrace,
-    CycleTrace,
     CycleType,
     TraceData,
     ControlRegUpdateType,
