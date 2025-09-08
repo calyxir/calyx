@@ -209,6 +209,7 @@ name = "fud"
 source = { editable = "fud" }
 dependencies = [
     { name = "appdirs" },
+    { name = "calyx-ast" },
     { name = "halo" },
     { name = "networkx" },
     { name = "numpy" },
@@ -231,6 +232,7 @@ remote = [
 [package.metadata]
 requires-dist = [
     { name = "appdirs" },
+    { name = "calyx-ast", editable = "calyx-py" },
     { name = "halo" },
     { name = "networkx", specifier = ">=2.6" },
     { name = "numpy" },
