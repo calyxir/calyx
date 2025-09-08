@@ -20,7 +20,7 @@ def create_group_summaries(cell_metadata: CellMetadata, tracedata: TraceData):
     currently_active_to_start: dict[str, int] = {}
     for i in range(len(tracedata.trace)):
         active_this_cycle: set[str] = set()
-        for stack in tracedata.trace.get_cycle(i).stacks:
+        for stack in tracedata.trace[i].stacks:
             stack_acc = cell_metadata.main_component
             current_component = cell_metadata.main_component
             for stack_elem in stack:

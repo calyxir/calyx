@@ -745,15 +745,12 @@ class PTrace:
     trace: dict[int, CycleTrace] = field(default_factory=dict)
 
     def __getitem__(self, index):
-        return self.get_cycle(index)
+        assert(index in self.trace)
+        return self.trace[index]
 
     def add_cycle(self, i: int, cycle_trace: CycleTrace):
         assert(i not in self.trace)
         self.trace[i] = cycle_trace
-
-    def get_cycle(self, i: int):
-        assert(i in self.trace)
-        return self.trace[i]
     
     def __contains__(self, key):
         return key in self.trace
@@ -792,7 +789,7 @@ class TraceData:
                 print(f"\n... (total {len(self.trace)} cycles)")
                 return
             print(i)
-            print(trace.get_cycle(i))
+            print(trace[i])
         if self.cont_assignments:
             print(f"\nCONT\t{', '.join(self.cont_assignments)}\n")
 
@@ -850,7 +847,7 @@ class TraceData:
 
                 active_control_groups_missed: set[str] | None = None
                 cell_to_stack_trace: dict[str, list[StackElement]] = {}
-                for events_stack in self.trace.get_cycle(i).stacks:
+                for events_stack in self.trace[i].stacks:
                     stacks_to_add, missed_groups = (
                         self._add_events_stack_with_control_groups(
                             events_stack,
@@ -884,7 +881,7 @@ class TraceData:
                 self.trace_with_control_groups.add_cycle(i, new_cycletrace)
 
             else:
-                self.trace_with_control_groups.add_cycle(i, copy.copy(self.trace.get_cycle(i)))
+                self.trace_with_control_groups.add_cycle(i, copy.copy(self.trace[i]))
 
         for no_desc_group in sorted(ctrl_groups_without_descriptor):
             print(
@@ -1172,6 +1169,6 @@ class TraceData:
         assert len(trace) > 0  # can't add sourceloc info on an empty trace
 
         for i in len(trace):
-            trace.get_cycle(i).add_sourceloc_info(adl_map)
+            trace[i].add_sourceloc_info(adl_map)
 
         return trace
