@@ -99,7 +99,9 @@ def create_simple_flame_graph(
         elif i not in control_reg_updates:
             # most likely cycles devoted to compiler-generated groups (repeats, etc)
             cycle_type = CycleType.OTHER
-            cycle_trace.is_useful_cycle = True  # FIXME: hack to flag this as a "useful" cycle
+            cycle_trace.is_useful_cycle = (
+                True  # FIXME: hack to flag this as a "useful" cycle
+            )
         else:
             match control_reg_updates[i]:
                 case ControlRegUpdateType.FSM:

@@ -746,19 +746,19 @@ class PTrace:
     iter_idx: int = field(default=0)
 
     def add_cycle(self, i: int, cycle_trace: CycleTrace):
-        assert(i >= len(self.trace))
+        assert i >= len(self.trace)
         # padding with empty cycle traces, if there exists a gap
         while i > len(self.trace):
             self.trace.append(CycleTrace())
         self.trace.append(cycle_trace)
-    
+
     def __getitem__(self, index):
-        assert(index <= len(self.trace))
+        assert index <= len(self.trace)
         return self.trace[index]
 
     def __contains__(self, key):
         return key in self.trace
-    
+
     def __iter__(self):
         self.iter_idx = 0
         return self
@@ -772,6 +772,7 @@ class PTrace:
 
     def __len__(self):
         return len(self.trace)
+
 
 @dataclass
 class TraceData:
@@ -874,9 +875,7 @@ class TraceData:
                     )
                     # Add all control stacks
                     for stack in stacks_to_add:
-                        new_cycletrace.add_stack(
-                            stack, cell_metadata.main_shortname
-                        )
+                        new_cycletrace.add_stack(stack, cell_metadata.main_shortname)
                     if active_control_groups_missed is None:
                         # need to populate with the first set that gets returned
                         active_control_groups_missed = missed_groups
