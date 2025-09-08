@@ -57,7 +57,7 @@ def create_flame_maps(
 
     # flat flame graph; each par arm is counted for 1 cycle
     flat_flame_map = {}  # stack to number of cycles
-    for i in range(len(trace)):
+    for i in trace:
         i_trace = trace[i]
         for stack_id in i_trace.get_stack_str_list(mode):
             if stack_id not in flat_flame_map:
@@ -67,7 +67,7 @@ def create_flame_maps(
 
     # scaled flame graph; each cycle is divided by the number of par arms that are concurrently active.
     scaled_flame_map = {}
-    for i in range(len(trace)):
+    for i in trace:
         i_trace = trace[i]
         num_stacks = i_trace.get_num_stacks()
         cycle_slice = round(1 / num_stacks, 3)
@@ -92,7 +92,7 @@ def create_simple_flame_graph(
     describing how "useful" a cycle is.
     """
     flame_base_map: dict[CycleType, set[int]] = {t: set() for t in CycleType}
-    for i in range(len(tracedata.trace)):
+    for i in tracedata.trace:
         cycle_trace = tracedata.trace[i]
         if cycle_trace.is_useful_cycle:
             cycle_type = CycleType.GROUP_OR_PRIMITIVE

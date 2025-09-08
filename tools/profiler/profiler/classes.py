@@ -743,6 +743,7 @@ class ControlRegUpdates:
 @dataclass
 class PTrace:
     trace: list[CycleTrace] = field(default_factory=list)
+    iter_idx: int = field(default=0)
 
     def add_cycle(self, i: int, cycle_trace: CycleTrace):
         assert(i >= len(self.trace))
@@ -758,6 +759,17 @@ class PTrace:
     def __contains__(self, key):
         return key in self.trace
     
+    def __iter__(self):
+        self.iter_idx = 0
+        return self
+
+    def __next__(self):
+        if self.iter_idx >= len(self.trace):
+            raise StopIteration
+        ret = self.iter_idx
+        self.iter_idx += 1
+        return ret
+
     def __len__(self):
         return len(self.trace)
 
@@ -787,7 +799,7 @@ class TraceData:
         if threshold == 0:
             return
         trace = self.trace_with_control_groups if ctrl_trace else self.trace
-        for i in range(len(trace)):
+        for i in trace:
             if 0 < threshold < i:
                 print(f"\n... (total {len(self.trace)} cycles)")
                 return
@@ -831,7 +843,7 @@ class TraceData:
         Does not modify self.trace.
         """
         ctrl_groups_without_descriptor: set[str] = set()
-        for i in range(len(self.trace)):
+        for i in self.trace:
             if i in control_groups_trace:
                 new_cycletrace = (
                     CycleTrace()

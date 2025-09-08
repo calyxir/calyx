@@ -261,7 +261,7 @@ def compute_protobuf_timeline(
     currently_active_cells: set[str] = set()
     currently_active_groups: set[str] = set()
 
-    for i in range(len(tracedata.trace_with_control_groups)):
+    for i in tracedata.trace_with_control_groups:
         this_cycle_active_ctrl_groups: set[str] = set()
         this_cycle_active_cells: set[str] = set()
         this_cycle_active_groups: set[str] = set()
@@ -479,7 +479,7 @@ def compute_timeline(
     pid_acc = 2
     currently_active_cells: set[ActiveCell] = set()
     currently_active_groups: set[ActiveEnable] = set()
-    for i in range(len(tracedata.trace)):
+    for i in tracedata.trace:
         cells_active_this_cycle: set[ActiveCell] = set()
         groups_active_this_cycle: set[ActiveEnable] = set()
         for stack in tracedata.trace[i].stacks:

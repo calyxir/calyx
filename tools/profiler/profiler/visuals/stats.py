@@ -18,7 +18,7 @@ def create_group_summaries(cell_metadata: CellMetadata, tracedata: TraceData):
     """
     group_summaries: dict[str, GroupSummary] = {}  # names would be component.group
     currently_active_to_start: dict[str, int] = {}
-    for i in range(len(tracedata.trace)):
+    for i in tracedata.trace:
         active_this_cycle: set[str] = set()
         for stack in tracedata.trace[i].stacks:
             stack_acc = cell_metadata.main_component
