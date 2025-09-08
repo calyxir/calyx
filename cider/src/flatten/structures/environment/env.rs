@@ -2759,6 +2759,8 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         &mut self,
         assigns_bundle: &[ScheduledAssignments],
     ) -> Result<(), BoxedRuntimeError> {
+        let mut set_extension = HashSet::new();
+
         for ScheduledAssignments {
             active_cell,
             assignments,
@@ -2788,8 +2790,6 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         .get(assign.guard)
                     {
                         if self.env.ports[dest].is_def() {
-                            let mut set_extension = HashSet::new();
-
                             for port in read_ports {
                                 let port = self
                                     .get_global_port_idx(port, *active_cell);
@@ -2805,11 +2805,14 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                         .extend(clocks.iter().copied());
                                 }
                             }
-
-                            self.env.ports[dest]
-                                .as_option_mut()
-                                .unwrap()
-                                .add_transitive_clocks(set_extension);
+                            if !set_extension.is_empty() {
+                                self.env.ports[dest]
+                                    .as_option_mut()
+                                    .unwrap()
+                                    .add_transitive_clocks(
+                                        set_extension.drain(),
+                                    );
+                            }
 
                             // this is necessary for ports which were implicitly
                             // assigned zero and is redundant for other ports
@@ -2933,7 +2936,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         if signature.iter_second().len() == 1 {
                             let port = signature.iter_second().next().unwrap();
                             let val = &mut self.env.ports[port];
-                            if let Some(val) = val.as_option_mut() {
+                            if let Some(val) = val.as_option_mut()
+                                && !working_set.is_empty()
+                            {
                                 val.add_transitive_clocks(
                                     working_set.drain(..),
                                 );
