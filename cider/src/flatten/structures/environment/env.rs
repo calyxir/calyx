@@ -3012,7 +3012,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     e.add_cell_info(info.attached_cell, info.entry_number)
                 })?
         } else if let Some(transitive_clocks) = val.transitive_clocks() {
-            for clock_pair in transitive_clocks {
+            for clock_pair in transitive_clocks.iter() {
                 clock_pair
                     .check_read_with_ascription(
                         (thread, thread_clock),

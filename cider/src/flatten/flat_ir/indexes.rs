@@ -5,7 +5,10 @@ use std::{
 
 use super::{cell_prototype::CellPrototype, prelude::Identifier};
 use crate::{
-    flatten::structures::{environment::clock::ClockPair, thread::ThreadIdx},
+    flatten::structures::{
+        environment::clock::{ClockPair, TransitiveSet},
+        thread::ThreadIdx,
+    },
     serialization::PrintCode,
 };
 use baa::{BitVecOps, BitVecValue};
@@ -439,7 +442,7 @@ pub struct AssignedValue {
     thread: Option<ThreadIdx>,
     clocks: Option<ClockPair>,
     propagate_clocks: bool,
-    transitive_clocks: Option<FxHashSet<ClockPair>>,
+    transitive_clocks: Option<TransitiveSet<3>>,
 }
 
 impl AssignedValue {
@@ -535,7 +538,7 @@ impl AssignedValue {
 
     pub fn with_transitive_clocks_opt(
         mut self,
-        clocks: Option<FxHashSet<ClockPair>>,
+        clocks: Option<TransitiveSet<3>>,
     ) -> Self {
         self.transitive_clocks = clocks;
         self
@@ -606,7 +609,7 @@ impl AssignedValue {
         self.clocks.as_ref()
     }
 
-    pub fn transitive_clocks(&self) -> Option<&FxHashSet<ClockPair>> {
+    pub fn transitive_clocks(&self) -> Option<&TransitiveSet<3>> {
         self.transitive_clocks.as_ref()
     }
 
@@ -671,7 +674,7 @@ impl PortValue {
         self
     }
 
-    pub fn transitive_clocks(&self) -> Option<&FxHashSet<ClockPair>> {
+    pub fn transitive_clocks(&self) -> Option<&TransitiveSet<3>> {
         self.0.as_ref().and_then(|x| x.transitive_clocks())
     }
 
