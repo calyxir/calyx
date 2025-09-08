@@ -741,16 +741,37 @@ class ControlRegUpdates:
 
 
 @dataclass
+class PTrace:
+    trace: dict[int, CycleTrace] = field(default_factory=dict)
+
+    def __getitem__(self, index):
+        return self.get_cycle(index)
+
+    def add_cycle(self, i: int, cycle_trace: CycleTrace):
+        assert(i not in self.trace)
+        self.trace[i] = cycle_trace
+
+    def get_cycle(self, i: int):
+        assert(i in self.trace)
+        return self.trace[i]
+    
+    def __contains__(self, key):
+        return key in self.trace
+    
+    def __len__(self):
+        return len(self.trace)
+
+@dataclass
 class TraceData:
     # Set of all primitives and cells with continuous assignments
     cont_assignments: set[str] = field(default_factory=set)
-    trace: dict[int, CycleTrace] = field(default_factory=dict)
+    trace: PTrace = field(default_factory=PTrace)
     trace_classified: dict[int, CycleType] = field(default_factory=dict)
     cell_to_active_cycles: dict[str, Summary] = field(default_factory=dict)
     # primitive to active cycles?
 
     # fields relating to control groups/registers
-    trace_with_control_groups: dict[int, CycleTrace] = field(default_factory=dict)
+    trace_with_control_groups: PTrace = field(default_factory=PTrace)
     control_group_to_active_cycles: dict[str, Summary] = field(default_factory=dict)
     # cell --> ControlRegUpdate. This is for constructing timeline later.
     control_reg_updates: dict[str, list[ControlRegUpdates]] = field(
@@ -766,12 +787,12 @@ class TraceData:
         if threshold == 0:
             return
         trace = self.trace_with_control_groups if ctrl_trace else self.trace
-        for i in trace:
+        for i in range(len(trace)):
             if 0 < threshold < i:
                 print(f"\n... (total {len(self.trace)} cycles)")
                 return
             print(i)
-            print(trace[i])
+            print(trace.get_cycle(i))
         if self.cont_assignments:
             print(f"\nCONT\t{', '.join(self.cont_assignments)}\n")
 
@@ -810,9 +831,9 @@ class TraceData:
         Does not modify self.trace.
         """
         ctrl_groups_without_descriptor: set[str] = set()
-        for i in self.trace:
+        for i in range(len(self.trace)):
             if i in control_groups_trace:
-                self.trace_with_control_groups[i] = (
+                new_cycletrace = (
                     CycleTrace()
                     if utilization is None
                     else UtilizationCycleTrace(utilization, control_metadata)
@@ -829,7 +850,7 @@ class TraceData:
 
                 active_control_groups_missed: set[str] | None = None
                 cell_to_stack_trace: dict[str, list[StackElement]] = {}
-                for events_stack in self.trace[i].stacks:
+                for events_stack in self.trace.get_cycle(i).stacks:
                     stacks_to_add, missed_groups = (
                         self._add_events_stack_with_control_groups(
                             events_stack,
@@ -841,7 +862,7 @@ class TraceData:
                     )
                     # Add all control stacks
                     for stack in stacks_to_add:
-                        self.trace_with_control_groups[i].add_stack(
+                        new_cycletrace.add_stack(
                             stack, cell_metadata.main_shortname
                         )
                     if active_control_groups_missed is None:
@@ -859,8 +880,11 @@ class TraceData:
                     control_metadata,
                 )
 
+                # add cycletrace to control groups trace
+                self.trace_with_control_groups.add_cycle(i, new_cycletrace)
+
             else:
-                self.trace_with_control_groups[i] = copy.copy(self.trace[i])
+                self.trace_with_control_groups.add_cycle(i, copy.copy(self.trace.get_cycle(i)))
 
         for no_desc_group in sorted(ctrl_groups_without_descriptor):
             print(
@@ -1144,10 +1168,10 @@ class TraceData:
         """
         Wrapper function to add SourceLoc info to elements in self.trace
         """
-        trace: dict[int, CycleTrace] = self.trace_with_control_groups
+        trace: PTrace = self.trace_with_control_groups
         assert len(trace) > 0  # can't add sourceloc info on an empty trace
 
-        for i in self.trace:
-            trace[i].add_sourceloc_info(adl_map)
+        for i in len(trace):
+            trace.get_cycle(i).add_sourceloc_info(adl_map)
 
         return trace

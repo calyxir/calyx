@@ -358,7 +358,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         utilization,
                     )
                 )  # True to track primitives
-                self.tracedata.trace[clock_cycles] = cycle_trace
+                self.tracedata.trace.add_cycle(clock_cycles, cycle_trace)
         self.clock_cycles = (
             clock_cycles  # last rising edge does not count as a full cycle (probably)
         )
