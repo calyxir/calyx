@@ -52,7 +52,7 @@ impl ParseSession {
             let tok = lexer.next_token()?;
             toks.push(tok);
         }
-        let mut parser = Parser::from_token_stream(toks);
+        let mut parser = Parser::from_parts(toks, self);
         parser.parse()
     }
 }

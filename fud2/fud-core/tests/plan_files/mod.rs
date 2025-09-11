@@ -76,3 +76,146 @@ fn weird_whitespace() {
         Err(e) => panic!("{:?}", e.msg()),
     }
 }
+
+#[test]
+fn ignore_input() {
+    let src = "_ = input();";
+    let sess = ParseSession::with_str_buf(src);
+    let ast = sess.parse();
+    match ast {
+        Ok(ast) => insta::assert_debug_snapshot!(ast),
+        Err(e) => panic!("{:?}", e.msg()),
+    }
+}
+
+#[test]
+fn missing_ident() {
+    let src = " = input();";
+    let sess = ParseSession::with_str_buf(src);
+    let ast = sess.parse();
+    match ast {
+        Ok(ast) => panic!("this was supposed to be an error, but got: {ast:?}"),
+        Err(e) => insta::assert_snapshot!(e.msg()),
+    }
+}
+
+#[test]
+fn empty_file() {
+    let src = "";
+    let sess = ParseSession::with_str_buf(src);
+    let ast = sess.parse();
+    match ast {
+        Ok(ast) => insta::assert_debug_snapshot!(ast),
+        Err(e) => insta::assert_snapshot!(e.msg()),
+    }
+}
+
+#[test]
+fn only_whitespace() {
+    let src = "  \n \t ";
+    let sess = ParseSession::with_str_buf(src);
+    let ast = sess.parse();
+    match ast {
+        Ok(ast) => insta::assert_debug_snapshot!(ast),
+        Err(e) => insta::assert_snapshot!(e.msg()),
+    }
+}
+
+#[test]
+fn missing_value() {
+    let src = "x = ;";
+    let sess = ParseSession::with_str_buf(src);
+    let ast = sess.parse();
+    match ast {
+        Ok(ast) => insta::assert_debug_snapshot!(ast),
+        Err(e) => insta::assert_snapshot!(e.msg()),
+    }
+}
+
+#[test]
+fn missing_assign_operator() {
+    let src = "x input();";
+    let sess = ParseSession::with_str_buf(src);
+    let ast = sess.parse();
+    match ast {
+        Ok(ast) => insta::assert_debug_snapshot!(ast),
+        Err(e) => insta::assert_snapshot!(e.msg()),
+    }
+}
+
+#[test]
+fn missing_arguments() {
+    let src = "x = input;";
+    let sess = ParseSession::with_str_buf(src);
+    let ast = sess.parse();
+    match ast {
+        Ok(ast) => insta::assert_debug_snapshot!(ast),
+        Err(e) => insta::assert_snapshot!(e.msg()),
+    }
+}
+
+#[test]
+fn missing_semicolon() {
+    let src = "x = input()";
+    let sess = ParseSession::with_str_buf(src);
+    let ast = sess.parse();
+    match ast {
+        Ok(ast) => insta::assert_debug_snapshot!(ast),
+        Err(e) => insta::assert_snapshot!(e.msg()),
+    }
+}
+
+#[test]
+fn missing_semicolon_with_more_after() {
+    let src = "x = input() y = more();";
+    let sess = ParseSession::with_str_buf(src);
+    let ast = sess.parse();
+    match ast {
+        Ok(ast) => insta::assert_debug_snapshot!(ast),
+        Err(e) => insta::assert_snapshot!(e.msg()),
+    }
+}
+
+#[test]
+fn trailing_comma_in_vars() {
+    let src = "x, = input();";
+    let sess = ParseSession::with_str_buf(src);
+    let ast = sess.parse();
+    match ast {
+        Ok(ast) => insta::assert_debug_snapshot!(ast),
+        Err(e) => insta::assert_snapshot!(e.msg()),
+    }
+}
+
+#[test]
+fn trailing_comma_in_args() {
+    let src = "x, y = input(a, );";
+    let sess = ParseSession::with_str_buf(src);
+    let ast = sess.parse();
+    match ast {
+        Ok(ast) => insta::assert_debug_snapshot!(ast),
+        Err(e) => insta::assert_snapshot!(e.msg()),
+    }
+}
+
+#[test]
+fn total_gibberish() {
+    let src = "x, y, != i39(nput/(a, ),;:";
+    let sess = ParseSession::with_str_buf(src);
+    let ast = sess.parse();
+    match ast {
+        Ok(ast) => insta::assert_debug_snapshot!(ast),
+        Err(e) => insta::assert_snapshot!(e.msg()),
+    }
+}
+
+#[test]
+fn double_semicolon() {
+    let src = "x, y = _XxDarkNightxX_(oops, two, semicolons);;";
+    let sess = ParseSession::with_str_buf(src);
+    let ast = sess.parse();
+    match ast {
+        Ok(ast) => insta::assert_debug_snapshot!(ast),
+        Err(e) => insta::assert_snapshot!(e.msg()),
+    }
+}

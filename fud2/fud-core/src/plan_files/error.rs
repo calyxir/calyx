@@ -100,3 +100,13 @@ impl Error for UnexpectedChar {
         )
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct EmptyVarListInAssignment<'a> {
+    pub _span: Span<'a>,
+}
+impl Error for EmptyVarListInAssignment<'_> {
+    fn msg(&self) -> String {
+        "no variables found to assign to".to_string()
+    }
+}

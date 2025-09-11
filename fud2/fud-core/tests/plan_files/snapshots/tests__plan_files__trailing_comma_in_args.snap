@@ -1,0 +1,5 @@
+---
+source: fud2/fud-core/tests/plan_files/mod.rs
+expression: e.msg()
+---
+expected Id("<id>") but found CloseParen

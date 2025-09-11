@@ -127,15 +127,17 @@ type TokenStream<'a> = Vec<Token<'a>>;
 
 pub struct Parser<'a> {
     buf: Vec<Token<'a>>,
+    sess: &'a ParseSession,
     cursor: usize,
     cache: Option<Result<AssignmentList, ParseError<'a>>>,
 }
 
 /// TODO: make this a state machine for better parse errors.
 impl<'a> Parser<'a> {
-    pub fn from_token_stream(buf: TokenStream<'a>) -> Self {
+    pub fn from_parts(buf: TokenStream<'a>, sess: &'a ParseSession) -> Self {
         Parser {
             buf,
+            sess,
             cursor: 0,
             cache: None,
         }
@@ -233,6 +235,14 @@ impl<'a> Parser<'a> {
 
     fn parse_assignment(&mut self) -> Result<Assignment, ParseError<'a>> {
         let vars = self.parse_id_list()?;
+        if vars.is_empty() {
+            let span = Span {
+                hi: self.cursor,
+                lo: self.cursor,
+                sess: self.sess,
+            };
+            return Err(Wrap::new(EmptyVarListInAssignment { _span: span }));
+        }
         self.parse_simple_token_kind(TokenKind::Assign)?;
         let value = self.parse_function()?;
         self.parse_simple_token_kind(TokenKind::Semicolon)?;
