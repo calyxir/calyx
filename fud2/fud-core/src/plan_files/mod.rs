@@ -3,4 +3,3 @@ mod span;
 mod parser;
 pub mod error;
 pub mod session;
-mod macros;
