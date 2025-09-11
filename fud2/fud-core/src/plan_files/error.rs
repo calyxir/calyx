@@ -1,0 +1,102 @@
+use std::io;
+use std::rc::Rc;
+
+use super::{
+    ast::{Token, TokenKind},
+    span::Span,
+};
+
+pub trait Error {
+    /// Returns the error message corresponding to the error.
+    fn msg(&self) -> String;
+}
+
+impl Error for io::Error {
+    fn msg(&self) -> String {
+        self.to_string()
+    }
+}
+
+pub type Wrap<T> = Rc<T>;
+pub type LexError = Wrap<dyn Error>;
+pub type ParseError<'a> = Wrap<dyn Error + 'a>;
+
+#[derive(Clone, Debug)]
+pub struct FileReadError {
+    msg: String,
+}
+
+impl<'a> FileReadError {
+    pub fn from_msg(msg: &str) -> ParseError<'a> {
+        Wrap::new(FileReadError {
+            msg: msg.to_string(),
+        })
+    }
+}
+
+impl Error for FileReadError {
+    fn msg(&self) -> String {
+        self.msg.clone()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct NoMoreToLexError {}
+impl Error for NoMoreToLexError {
+    fn msg(&self) -> String {
+        "no more to lex".to_string()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct InvalidStartToId<'a> {
+    pub context: Span<'a>,
+    pub char: char,
+}
+
+impl Error for InvalidStartToId<'_> {
+    fn msg(&self) -> String {
+        format!("found {}, expected '_' or alphabetic character", self.char)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct UnexpectedToken<'a> {
+    pub found_token: Token<'a>,
+    pub expected_token_kind: TokenKind,
+}
+impl Error for UnexpectedToken<'_> {
+    fn msg(&self) -> String {
+        format!(
+            "expected {:?} but found {:?}",
+            self.expected_token_kind, self.found_token.kind
+        )
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(super) struct UnexpectedChar {
+    pub found_char: Option<char>,
+    pub expected_char: char,
+}
+
+impl<'a> UnexpectedChar {
+    pub fn from_parts(
+        found_char: Option<char>,
+        expected_char: char,
+    ) -> ParseError<'a> {
+        Wrap::new(UnexpectedChar {
+            found_char,
+            expected_char,
+        })
+    }
+}
+
+impl Error for UnexpectedChar {
+    fn msg(&self) -> String {
+        format!(
+            "expected {:?} but found {:?}",
+            self.expected_char, self.found_char,
+        )
+    }
+}

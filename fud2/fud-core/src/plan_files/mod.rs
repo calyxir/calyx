@@ -1,3 +1,6 @@
 pub mod ast;
-pub mod span;
-pub mod parser;
+mod span;
+mod parser;
+pub mod error;
+pub mod session;
+mod macros;

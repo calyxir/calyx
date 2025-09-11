@@ -4,19 +4,20 @@ use super::span::Span;
 use std::ops::ControlFlow;
 
 #[derive(Clone, Debug)]
-pub(crate) enum TokenKind {
+pub enum TokenKind {
     Id(String),
     Assign,
     OpenParen,
     CloseParen,
     Semicolon,
     Comma,
+    /* TODO: add EOF kind for use in error handling */
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct Token {
+pub struct Token<'a> {
     pub kind: TokenKind,
-    pub span: Span,
+    pub span: Span<'a>,
 }
 
 pub trait VisitorResult {
