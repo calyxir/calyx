@@ -1,5 +1,5 @@
 pub mod ast;
-mod span;
-mod parser;
 pub mod error;
+mod parser;
 pub mod session;
+mod span;
