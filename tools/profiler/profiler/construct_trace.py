@@ -1,6 +1,6 @@
 import vcdvcd
 
-from profiler.classes import (
+from profiler.classes.classes import (
     CellMetadata,
     ControlMetadata,
     CycleTrace,

@@ -1,6 +1,6 @@
 import os
 
-from profiler.classes import (
+from profiler.classes.classes import (
     PTrace,
     CycleType,
     TraceData,

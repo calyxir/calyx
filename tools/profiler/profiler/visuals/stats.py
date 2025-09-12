@@ -1,7 +1,7 @@
 import csv
 import os
 
-from profiler.classes import (
+from profiler.classes.classes import (
     TraceData,
     CellMetadata,
     ControlMetadata,

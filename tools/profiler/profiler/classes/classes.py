@@ -1194,7 +1194,7 @@ class TraceData:
         trace: PTrace = self.trace_with_control_groups
         assert len(trace) > 0  # can't add sourceloc info on an empty trace
 
-        for i in len(trace):
+        for i in trace:
             trace[i].add_sourceloc_info(adl_map)
 
         return trace

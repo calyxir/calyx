@@ -10,7 +10,7 @@ from perfetto.protos.perfetto.trace.perfetto_trace_pb2 import (
 )
 
 from enum import Enum
-from profiler.classes import (
+from profiler.classes.classes import (
     TraceData,
     ControlRegUpdates,
     StackElementType,

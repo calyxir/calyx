@@ -10,7 +10,7 @@ import profiler.construct_trace as construct_trace
 import profiler.preprocess as preprocess
 from profiler.visuals import flame, timeline, stats
 
-from profiler.classes import (
+from profiler.classes.classes import (
     CellMetadata,
     ControlMetadata,
     TraceData,
