@@ -1,4 +1,8 @@
 from dataclasses import dataclass, field
+from enum import Enum
+
+from .adl import SourceLoc
+
 
 class StackElementType(Enum):
     GROUP = 1

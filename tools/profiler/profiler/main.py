@@ -10,14 +10,13 @@ import profiler.construct_trace as construct_trace
 import profiler.preprocess as preprocess
 from profiler.visuals import flame, timeline, stats
 
-from profiler.classes.classes import (
-    CellMetadata,
-    ControlMetadata,
+from profiler.classes.cell_metadata import CellMetadata
+from profiler.classes.control_metadata import ControlMetadata
+from profiler.classes.tracedata import (
     TraceData,
     ControlRegUpdateType,
-    Utilization,
+    Utilization
 )
-
 
 def setup_metadata(args):
     """

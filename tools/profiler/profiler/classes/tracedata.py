@@ -1,7 +1,38 @@
+import copy
 from dataclasses import dataclass, field
 from enum import Enum
 
-from stack_element import StackElement, StackElementType
+from .stack_element import StackElement, StackElementType
+from .cell_metadata import CellMetadata
+from .control_metadata import ControlMetadata
+from .adl import AdlMap
+from .summaries import Summary
+from collections import defaultdict
+
+
+class ControlRegUpdateType(Enum):
+    FSM = 1
+    PAR_DONE = 2
+    BOTH = 3
+
+
+@dataclass(frozen=True)
+class ControlRegUpdates:
+    """
+    Updates to control registers in a cell.
+    Retain this info to add to the timeline
+    """
+
+    cell_name: str
+    clock_cycle: int
+    updates: str
+
+
+class FlameMapMode(Enum):
+    CALYX = 1
+    ADL = 2
+    MIXED = 3
+
 
 class CycleType(Enum):
     GROUP_OR_PRIMITIVE = 1  # at least one group/primitive is executing this cycle
@@ -111,6 +142,7 @@ class CycleTrace:
                         ]
 
         self.sourceloc_info_added = True
+
 
 @dataclass
 class Utilization:
@@ -317,7 +349,6 @@ class PTrace:
 
     def __len__(self):
         return len(self.trace)
-
 
 
 @dataclass

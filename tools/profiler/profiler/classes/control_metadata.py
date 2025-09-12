@@ -1,7 +1,25 @@
 from dataclasses import dataclass, field
 from collections import defaultdict
+from enum import Enum
 
-from cell_metadata import CellMetadata
+from .cell_metadata import CellMetadata
+
+
+class ParChildType(Enum):
+    GROUP = 1
+    PAR = 2
+
+
+@dataclass(frozen=True)
+class ParChildInfo:
+    child_name: str
+    child_type: ParChildType
+    parents: set[str] = field(default_factory=set)
+
+    def register_new_parent(self, new_parent: str):
+        # FIXME: deprecate this method and instead obtain the entire parent set upfront.
+        self.parents.add(new_parent)
+
 
 @dataclass
 class ControlMetadata:

@@ -1,15 +1,16 @@
 import csv
 import os
 
-from profiler.classes.classes import (
+from profiler.classes.cell_metadata import CellMetadata
+from profiler.classes.control_metadata import ControlMetadata
+from profiler.classes.tracedata import (
     TraceData,
-    CellMetadata,
-    ControlMetadata,
     CycleType,
     CycleTrace,
-    StackElementType,
-    GroupSummary,
+    StackElementType
 )
+
+from profiler.classes.summaries import GroupSummary
 
 
 def create_group_summaries(cell_metadata: CellMetadata, tracedata: TraceData):
