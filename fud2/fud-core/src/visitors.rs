@@ -91,3 +91,32 @@ impl Visitor for ASTToStepList {
         Self::Result::output()
     }
 }
+
+#[derive(Default)]
+pub struct ASTStringifier {
+    assigns: Vec<String>,
+}
+
+impl ASTStringifier {
+    pub fn new() -> Self {
+        ASTStringifier { assigns: vec![] }
+    }
+
+    pub fn string_from_ast(&mut self, ast: &AssignmentList) -> String {
+        self.assigns = vec![];
+        let _ = ast.visit(self);
+        self.assigns.join("\n")
+    }
+}
+
+impl Visitor for ASTStringifier {
+    type Result = ops::ControlFlow<()>;
+
+    fn visit_assignment(&mut self, a: &Assignment) -> Self::Result {
+        let vars = a.vars.join(", ");
+        let args = a.value.args.join(", ");
+        let assign_string = format!("{} = {}({});", vars, a.value.name, args);
+        self.assigns.push(assign_string);
+        Self::Result::output()
+    }
+}

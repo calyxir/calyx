@@ -18,6 +18,7 @@ enum Mode {
     Generate,
     Run,
     Cmds,
+    OpSeq,
 }
 
 impl FromStr for Mode {
@@ -31,6 +32,7 @@ impl FromStr for Mode {
             "run" => Ok(Mode::Run),
             "dot" => Ok(Mode::ShowDot),
             "cmds" => Ok(Mode::Cmds),
+            "op-seq" => Ok(Mode::OpSeq),
             _ => Err("unknown mode".to_string()),
         }
     }
@@ -45,6 +47,7 @@ impl Display for Mode {
             Mode::Run => write!(f, "run"),
             Mode::ShowDot => write!(f, "dot"),
             Mode::Cmds => write!(f, "cmds"),
+            Mode::OpSeq => write!(f, "op-seq"),
         }
     }
 }
@@ -523,6 +526,7 @@ fn cli_ext<T: CliExt>(
             args.force_rebuild,
             csv_path,
         )?,
+        Mode::OpSeq => run.show_ops(),
     }
 
     Ok(())
