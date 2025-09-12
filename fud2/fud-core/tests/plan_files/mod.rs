@@ -1,4 +1,4 @@
-use fud_core::plan_files::session::ParseSession;
+use fud_core::plan_files::{ast::ASTStringifier, session::ParseSession};
 
 #[test]
 fn basic_parse() {
@@ -216,6 +216,51 @@ fn double_semicolon() {
     let ast = sess.parse();
     match ast {
         Ok(ast) => insta::assert_debug_snapshot!(ast),
+        Err(e) => insta::assert_snapshot!(e.msg()),
+    }
+}
+
+#[test]
+fn simple_serialization() {
+    let src = "a, b, c, d, e, f = input(g, h, i, j, k); l, m, n, o = go(p, q, r, s, t); u, v = stop(w, x, y, z);";
+    let sess = ParseSession::with_str_buf(src);
+    let ast = sess.parse();
+    match ast {
+        Ok(ast) => {
+            let mut visistor = ASTStringifier::new();
+            let s = visistor.string_from_ast(&ast);
+            insta::assert_snapshot!(s)
+        }
+        Err(e) => insta::assert_snapshot!(e.msg()),
+    }
+}
+
+#[test]
+fn empty_serialization() {
+    let src = "";
+    let sess = ParseSession::with_str_buf(src);
+    let ast = sess.parse();
+    match ast {
+        Ok(ast) => {
+            let mut visistor = ASTStringifier::new();
+            let s = visistor.string_from_ast(&ast);
+            insta::assert_snapshot!(s)
+        }
+        Err(e) => insta::assert_snapshot!(e.msg()),
+    }
+}
+
+#[test]
+fn no_args_serialization() {
+    let src = "x = input();";
+    let sess = ParseSession::with_str_buf(src);
+    let ast = sess.parse();
+    match ast {
+        Ok(ast) => {
+            let mut visistor = ASTStringifier::new();
+            let s = visistor.string_from_ast(&ast);
+            insta::assert_snapshot!(s)
+        }
         Err(e) => insta::assert_snapshot!(e.msg()),
     }
 }

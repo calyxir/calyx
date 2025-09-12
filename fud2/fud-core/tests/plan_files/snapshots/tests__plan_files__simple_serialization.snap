@@ -1,0 +1,7 @@
+---
+source: fud2/fud-core/tests/plan_files/mod.rs
+expression: s
+---
+a, b, c, d, e, f = input(g, h, i, j, k);
+l, m, n, o = go(p, q, r, s, t);
+u, v = stop(w, x, y, z);

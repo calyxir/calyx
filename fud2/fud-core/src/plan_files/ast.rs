@@ -1,7 +1,7 @@
 //! The AST types used to represent plan files and ways to traverse them
 
 use super::span::Span;
-use std::ops::ControlFlow;
+use std::ops::{self, ControlFlow};
 
 #[derive(Clone, Debug)]
 pub enum TokenKind {
@@ -27,6 +27,22 @@ pub trait VisitorResult {
     fn branch(self) -> ControlFlow<Self::Residual>;
 }
 
+impl<T> VisitorResult for ControlFlow<T> {
+    type Residual = T;
+
+    fn output() -> Self {
+        ControlFlow::Continue(())
+    }
+
+    fn from_residual(r: Self::Residual) -> Self {
+        ControlFlow::Break(r)
+    }
+
+    fn branch(self) -> ControlFlow<Self::Residual> {
+        self
+    }
+}
+
 macro_rules! try_visit {
     ($e:expr) => {
         match $crate::plan_files::ast::VisitorResult::branch($e) {
@@ -50,6 +66,10 @@ pub trait Visitor {
     }
 
     fn visit_assignment(&mut self, _a: &Assignment) -> Self::Result {
+        Self::Result::output()
+    }
+
+    fn visit_assignment_list(&mut self, _a: &AssignmentList) -> Self::Result {
         Self::Result::output()
     }
 }
@@ -97,5 +117,34 @@ impl<V: Visitor> Visitable<V> for AssignmentList {
             try_visit!(assign.visit(visitor));
         }
         V::Result::output()
+    }
+}
+
+#[derive(Default)]
+pub struct ASTStringifier {
+    assigns: Vec<String>,
+}
+
+impl ASTStringifier {
+    pub fn new() -> Self {
+        ASTStringifier { assigns: vec![] }
+    }
+
+    pub fn string_from_ast(&mut self, ast: &AssignmentList) -> String {
+        self.assigns = vec![];
+        let _ = ast.visit(self);
+        self.assigns.join("\n")
+    }
+}
+
+impl Visitor for ASTStringifier {
+    type Result = ops::ControlFlow<()>;
+
+    fn visit_assignment(&mut self, a: &Assignment) -> Self::Result {
+        let vars = a.vars.join(", ");
+        let args = a.value.args.join(", ");
+        let assign_string = format!("{} = {}({});", vars, a.value.name, args);
+        self.assigns.push(assign_string);
+        Self::Result::output()
     }
 }

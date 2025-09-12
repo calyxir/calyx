@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::io;
 use std::rc::Rc;
 
@@ -14,6 +15,12 @@ pub trait Error {
 impl Error for io::Error {
     fn msg(&self) -> String {
         self.to_string()
+    }
+}
+
+impl Debug for dyn Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.msg())
     }
 }
 
