@@ -74,7 +74,7 @@ pub trait Visitor {
     }
 }
 
-pub(super) trait Visitable<V: Visitor> {
+pub trait Visitable<V: Visitor> {
     fn visit(&self, visitor: &mut V) -> V::Result;
 }
 
