@@ -69,8 +69,10 @@ impl StaticSchedule<'_, '_> {
         match scon {
             ir::StaticControl::Empty(_) => (transitions_to_curr, None),
             ir::StaticControl::Enable(sen) => {
-                if is_acyclic(sen) {
+                if is_acyclic(sen) && is_inline(sen) {
+                    // @NUM_STATES(n) @ACYCLIC @INLINE
                     // The `@ACYCLIC` attribute requires that one state is allocated per cycle in a static enable.
+                    // The `@INLINE` attribute requires that this node must allocate states for this enable.
                     // For all parts of the FSM that want to transition to this enable,
                     // register their transitions in self.state2trans.
                     self.register_transitions(
@@ -112,10 +114,12 @@ impl StaticSchedule<'_, '_> {
                         )],
                         looped_once_guard,
                     )
-                } else {
+                } else if is_inline(sen) {
+                    // @NUM_STATES(n) @INLINE
                     // In the absence of `@ACYCLIC`, the node must contain cycles,
-                    // or have children that contain cycles; We'll run this placeholder code that
-                    // creates one state for now.
+                    // or have children that contain cycles
+                    // We should create `n` states.
+                    // We'll run this placeholder code that creates one state for now.
                     self.register_transitions(
                         self.state,
                         &mut transitions_to_curr,
@@ -132,6 +136,10 @@ impl StaticSchedule<'_, '_> {
                             final_state_guard,
                         )],
                         None,
+                    )
+                } else {
+                    unreachable!(
+                        "`build_abstract` encountered a node without any annotations."
                     )
                 }
             }
