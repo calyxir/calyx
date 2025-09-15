@@ -5,7 +5,7 @@ from profiler.classes.tracedata import (
     CycleType,
     TraceData,
     ControlRegUpdateType,
-    FlameMapMode
+    FlameMapMode,
 )
 
 SCALED_FLAME_MULTIPLIER = (

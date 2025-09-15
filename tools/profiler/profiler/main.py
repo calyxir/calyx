@@ -12,11 +12,8 @@ from profiler.visuals import flame, timeline, stats
 
 from profiler.classes.cell_metadata import CellMetadata
 from profiler.classes.control_metadata import ControlMetadata
-from profiler.classes.tracedata import (
-    TraceData,
-    ControlRegUpdateType,
-    Utilization
-)
+from profiler.classes.tracedata import TraceData, ControlRegUpdateType, Utilization
+
 
 def setup_metadata(args):
     """

@@ -2,6 +2,7 @@ import json
 import os
 from dataclasses import dataclass
 
+
 @dataclass
 class SourceLoc:
     """
@@ -22,8 +23,6 @@ class SourceLoc:
 
     def loc_str(self):
         return f"{{{self.filename}: {self.linenum}}}"
-
-
 
 
 @dataclass

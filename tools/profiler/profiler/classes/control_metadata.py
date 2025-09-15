@@ -1,24 +1,7 @@
 from dataclasses import dataclass, field
 from collections import defaultdict
-from enum import Enum
 
 from .cell_metadata import CellMetadata
-
-
-class ParChildType(Enum):
-    GROUP = 1
-    PAR = 2
-
-
-@dataclass(frozen=True)
-class ParChildInfo:
-    child_name: str
-    child_type: ParChildType
-    parents: set[str] = field(default_factory=set)
-
-    def register_new_parent(self, new_parent: str):
-        # FIXME: deprecate this method and instead obtain the entire parent set upfront.
-        self.parents.add(new_parent)
 
 
 @dataclass
@@ -101,37 +84,3 @@ class ControlMetadata:
 
     def register_par(self, par_group: str, component: str):
         self.component_to_par_groups[component].add(par_group)
-
-    def register_par_child(
-        self,
-        component: str,
-        child_name: str,
-        parent: str,
-        child_type: ParChildType,
-        cell_metadata: CellMetadata,
-    ):
-        """
-        Add information about a par child to the fields component_to_child_to_par_parent and par_to_children.
-        """
-        if component in self.component_to_child_to_par_parent:
-            if child_name in self.component_to_child_to_par_parent[component]:
-                self.component_to_child_to_par_parent[component][
-                    child_name
-                ].register_new_parent(parent)
-            else:
-                child_info = ParChildInfo(child_name, child_type, {parent})
-                self.component_to_child_to_par_parent[component][child_name] = (
-                    child_info
-                )
-        else:
-            child_info = ParChildInfo(child_name, child_type, {parent})
-            self.component_to_child_to_par_parent[component] = {child_name: child_info}
-
-        if child_type == ParChildType.PAR:
-            for cell in cell_metadata.component_to_cells[component]:
-                fully_qualified_par = f"{cell}.{parent}"
-                fully_qualified_child = f"{cell}.{child_name}"
-
-                self.par_to_par_children[fully_qualified_par].append(
-                    fully_qualified_child
-                )

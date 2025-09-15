@@ -7,7 +7,7 @@ from profiler.classes.tracedata import (
     TraceData,
     CycleType,
     CycleTrace,
-    StackElementType
+    StackElementType,
 )
 
 from profiler.classes.summaries import GroupSummary
