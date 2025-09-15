@@ -5,7 +5,7 @@ from enum import Enum
 from .stack_element import StackElement, StackElementType
 from .cell_metadata import CellMetadata
 from .control_metadata import ControlMetadata
-from .adl import AdlMap
+from .adl import AdlMap, Adl
 from .summaries import Summary
 from collections import defaultdict
 
@@ -104,7 +104,9 @@ class CycleTrace:
         # Maybe we use `stack_elem.internal_name` instead? I'm not 100% sure.
         for stack in self.stacks:
             curr_component: str | None = None
+    
             for stack_elem in stack:
+                print(curr_component)
                 match stack_elem.element_type:
                     case StackElementType.CELL:
                         if stack_elem.is_main:
@@ -143,19 +145,17 @@ class CycleTrace:
 
         self.sourceloc_info_added = True
 
-    def find_deepest_groups(self) -> list[StackElement]:
-        ret = []
-        ret_names_to_ret = {}
+    def find_leaf_groups(self) -> set[str]:
+        leaf_groups = set()
         for stack in self.stacks:
-            ret_this_stack: StackElement = None
+            leaf_group_name: str = None
             for stack_elem in stack:
                 match stack_elem.element_type:
                     case StackElementType.GROUP:
-                        ret_this_stack = stack_elem
-        if ret_this_stack is not None and ret_this_stack.name not in ret_names_to_ret:
-            ret.append(copy.copy(ret_this_stack))
-            ret_names_to_ret[ret_this_stack.name] = ret_this_stack
-        return ret
+                        leaf_group_name = stack_elem.internal_name
+            leaf_groups.add(leaf_group_name)
+        return leaf_groups
+
 
 @dataclass
 class Utilization:
@@ -771,8 +771,29 @@ class TraceData:
         """
         trace: PTrace = self.trace_with_control_groups
         assert len(trace) > 0  # can't add sourceloc info on an empty trace
+        match adl_map.adl:
+            case Adl.PY:
+                for i in trace:
+                    i_trace: CycleTrace = trace[i]
+                    i_trace.add_sourceloc_info(adl_map)
+                return trace
 
-        for i in trace:
-            trace[i].add_sourceloc_info(adl_map)
+            case Adl.DAHLIA:
+                dahlia_trace: PTrace = PTrace()
+                print(adl_map.group_map)
+                for i in trace:
+                    # find the deepest group (there should only be one?)
+                    i_trace: CycleTrace = trace[i]
+                    leaf_groups: set = i_trace.find_leaf_groups()
+                    # FIXME: hardcoding to main right now.
+                    group_map = adl_map.group_map.get("main")
+                    dahlia_stacks: list[list[StackElement]] = []
+                    for group in leaf_groups:
+                        entry = group_map[group]
+                        dahlia_group = StackElement(entry, StackElementType.GROUP)
+                        dahlia_stacks.append([dahlia_group])
 
-        return trace
+                    dahlia_trace.add_cycle(i, CycleTrace(dahlia_stacks))
+
+                print(dahlia_trace)
+                return dahlia_trace
