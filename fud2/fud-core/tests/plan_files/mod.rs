@@ -1,4 +1,5 @@
-use fud_core::plan_files::{ast::ASTStringifier, session::ParseSession};
+use fud_core::plan_files::session::ParseSession;
+use fud_core::visitors::ASTStringifier;
 
 #[test]
 fn basic_parse() {

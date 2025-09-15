@@ -63,7 +63,7 @@ pub struct InvalidStartToId<'a> {
 
 impl Error for InvalidStartToId<'_> {
     fn msg(&self) -> String {
-        format!("found {}, expected '_' or alphabetic character", self.char)
+        format!("found {}, invalid start to identifier", self.char)
     }
 }
 

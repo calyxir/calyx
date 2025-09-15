@@ -8,6 +8,6 @@ pub mod run;
 pub mod script;
 mod uninterrupt;
 pub mod utils;
-mod visitors;
+pub mod visitors;
 
 pub use exec::{Driver, DriverBuilder};

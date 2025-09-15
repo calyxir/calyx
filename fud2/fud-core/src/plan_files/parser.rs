@@ -8,6 +8,9 @@ pub(super) struct Lexer<'a> {
     cursor: usize,
 }
 
+static VALID_NON_ALPHANUMERIC_CHARACTERS: [char; 6] =
+    ['-', '_', '/', '\\', '.', ':'];
+
 impl<'a> Lexer<'a> {
     pub fn from_parts(sess: &'a ParseSession, cursor: usize) -> Self {
         Lexer { sess, cursor }
@@ -84,7 +87,9 @@ impl<'a> Lexer<'a> {
         // Identifiers are defined as some alphabetic character or "_" followed by a string of
         // alphanumeric or "_" characters.
         let first_char = buf[self.cursor];
-        if !first_char.is_alphabetic() && first_char != '_' {
+        if !first_char.is_alphabetic()
+            && !VALID_NON_ALPHANUMERIC_CHARACTERS.contains(&first_char)
+        {
             let error = InvalidStartToId {
                 context: Span {
                     hi: self.cursor,
@@ -105,7 +110,10 @@ impl<'a> Lexer<'a> {
             .split_at(self.cursor)
             .1
             .iter()
-            .take_while(|&&c| c.is_alphanumeric() || c == '_')
+            .take_while(|&&c| {
+                c.is_alphanumeric()
+                    || VALID_NON_ALPHANUMERIC_CHARACTERS.contains(&c)
+            })
             .collect();
         let lo = self.cursor;
         let len_in_chars = id_string.chars().count();

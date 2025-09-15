@@ -2,4 +2,4 @@
 source: fud2/fud-core/tests/plan_files/mod.rs
 expression: e.msg()
 ---
-found !, expected '_' or alphabetic character
+found !, invalid start to identifier
