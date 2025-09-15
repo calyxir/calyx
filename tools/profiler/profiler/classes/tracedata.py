@@ -1,435 +1,31 @@
-import os
 import copy
-import json
-from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-import statistics
 
-from profiler.errors import ProfilerException
-
-
-@dataclass
-class SourceLoc:
-    """
-    ADL source location information obtained from metadata.
-    """
-
-    filename: str
-    linenum: int
-    varname: str
-
-    def __init__(self, json_dict):
-        self.filename = os.path.basename(json_dict["filename"]) if json_dict["filename"] != None else None
-        self.linenum = json_dict["linenum"]
-        self.varname = json_dict["varname"]
-
-    def adl_str(self):
-        return f"{self.varname} {{{self.filename}: {self.linenum}}}"
-
-    def loc_str(self):
-        return f"{{{self.filename}: {self.linenum}}}"
+from .stack_element import StackElement, StackElementType
+from .cell_metadata import CellMetadata
+from .control_metadata import ControlMetadata
+from .adl import AdlMap
+from .summaries import Summary
+from collections import defaultdict
 
 
-@dataclass
-class Utilization:
-    """
-    Hierarchical utilization wrapper.
-    """
-
-    map: dict[str, dict[str, str]]
-    accessed: set[str]
-
-    def __init__(self, json_dict):
-        self.map = json_dict
-        self.accessed = set()
-
-    def get_module(self, name: str) -> dict[str, str]:
-        """
-        Get the utilization map for a module. `name` is a fully qualified name
-        of a module on a stack.
-        """
-        if name in self.map:
-            self.accessed.add(name)
-        return self.map.get(name, {})
-
-    def get_unaccessed(self):
-        """
-        Get a set of unaccessed modules in the utilization map.
-        """
-        module_set = set(k for k in self.map)
-        return module_set.difference(self.accessed)
-
-class Adl(Enum):
-    DAHLIA = 1
-    PY = 2
-
-@dataclass
-class AdlMap:
-    """
-    Mappings from Calyx components, cells, and groups to the corresponding ADL SourceLoc.
-    """
-
-    # component --> (filename, linenum)
-    component_map: dict[str, SourceLoc]
-    # component --> {cell --> (filename, linenum)}
-    cell_map: dict[str, dict[str, SourceLoc]]
-    # component --> {group --> (filename, linenum)}
-    group_map: dict[str, dict[str, SourceLoc]]
-
-    adl: Adl
-
-    def __init__(self, adl_mapping_file: str):
-        self.component_map = {}
-        self.cell_map = {}
-        self.group_map = {}
-        with open(adl_mapping_file, "r") as json_file:
-            json_data = json.load(json_file)
-            if json_data["adl"] == "Dahlia":
-                self.adl = Adl.DAHLIA
-            elif json_data["adl"] == "Py":
-                self.adl = Adl.PY
-            else:
-                raise ProfilerException(f"Unimplemented ADL {json_data['adl']}")
-            for component_dict in json_data["components"]:
-                component_name = component_dict["component"]
-                self.component_map[component_name] = SourceLoc(component_dict)
-                self.cell_map[component_name] = {}
-                for cell_dict in component_dict["cells"]:
-                    self.cell_map[component_name][cell_dict["name"]] = SourceLoc(
-                        cell_dict
-                    )
-                # probably worth removing code clone at some point
-                self.group_map[component_name] = {}
-                for group_dict in component_dict["groups"]:
-                    self.group_map[component_name][group_dict["name"]] = SourceLoc(
-                        group_dict
-                    )
-
-
-@dataclass
-class CellMetadata:
-    """
-    Preprocessed information related to cells.
-    """
-
-    main_component: str
-    # component name --> [cell names]
-    component_to_cells: dict[str, list[str]]
-    # component name --> { old cell --> new cell}
-    shared_cells: dict[str, dict[str, str]] = field(default_factory=dict)
-    added_signal_prefix: bool = field(default=False)
-
-    # optional fields to fill in later
-
-    # OS-specific Verilator prefix
-    signal_prefix: str | None = field(default=None)
-
-    def add_signal_prefix(self, signal_prefix: str):
-        """
-        Add OS-specific Verilator prefix to all cell names
-        """
-        assert not self.added_signal_prefix
-        self.signal_prefix = signal_prefix
-        str_to_add = signal_prefix + "."
-        self.main_component = str_to_add + self.main_component
-
-        for component in self.component_to_cells:
-            fq_cells = [
-                f"{signal_prefix}.{cell}" for cell in self.component_to_cells[component]
-            ]
-            self.component_to_cells[component] = fq_cells
-
-        self.added_signal_prefix = True
-
-    def get_component_of_cell(self, cell: str):
-        """
-        Obtain the name of the component from which a cell comes from.
-        """
-        for component in self.component_to_cells:
-            if cell in self.component_to_cells[component]:
-                return component
-        raise ProfilerException(
-            f"Lookup of cell that doesn't have a corresponding component! Cell name: {cell}"
-        )
-
-    @property
-    def cells(self) -> list[str]:
-        cells = []
-        for component in self.component_to_cells:
-            cells += self.component_to_cells[component]
-        return cells
-
-    @property
-    def main_shortname(self):
-        # Name of the main component without the signal prefix
-        suffix = self.main_component.rsplit(".", 1)[-1]
-        return suffix
-
-
-class ParChildType(Enum):
-    GROUP = 1
-    PAR = 2
+class ControlRegUpdateType(Enum):
+    FSM = 1
+    PAR_DONE = 2
+    BOTH = 3
 
 
 @dataclass(frozen=True)
-class ParChildInfo:
-    child_name: str
-    child_type: ParChildType
-    parents: set[str] = field(default_factory=set)
-
-    def register_new_parent(self, new_parent: str):
-        # FIXME: deprecate this method and instead obtain the entire parent set upfront.
-        self.parents.add(new_parent)
-
-
-@dataclass
-class ControlMetadata:
+class ControlRegUpdates:
     """
-    Preprocessed information on TDCC-generated FSMs and control groups (only pars so far).
+    Updates to control registers in a cell.
+    Retain this info to add to the timeline
     """
 
-    # names of fully qualified FSMs
-    fsms: set[str] = field(default_factory=set)
-    # names of fully qualified par groups
-    ctrl_groups: set[str] = field(default_factory=set)
-    # component --> { fsm in the component. NOT fully qualified }
-    # components that are not in this dictionary do not contain any fsms
-    component_to_fsms: defaultdict[str, set[str]] = field(
-        default_factory=lambda: defaultdict(set)
-    )
-    # component --> { par groups in the component }
-    # components that are not in this dictionary do not contain any par groups
-    component_to_par_groups: defaultdict[str, set[str]] = field(
-        default_factory=lambda: defaultdict(set)
-    )
-    # fully qualified names of done registers for pars
-    par_done_regs: set[str] = field(default_factory=set)
-    # component name --> { control group name --> { primitives used by control group } }
-    component_to_control_to_primitives: defaultdict[str, defaultdict[str, set[str]]] = (
-        field(default_factory=lambda: defaultdict(lambda: defaultdict(set)))
-    )
-
-    cell_to_tdcc_groups: defaultdict[str, set[str]] = field(
-        default_factory=lambda: defaultdict(set)
-    )  # cell --> { tdcc groups }
-
-    component_to_ctrl_group_to_pos_str: (
-        defaultdict[str, defaultdict[str, str]] | None
-    ) = None
-
-    # Store enable to path descriptor for each component
-    component_to_enable_to_desc: dict[str, dict[str, str]] = field(default_factory=dict)
-
-    # Store control statements' descriptors to
-    component_to_ctrl_group_to_desc: dict[str, dict[str, int]] = field(
-        default_factory=dict
-    )
-
-    added_signal_prefix: bool = field(default=False)
-
-    def add_par_done_reg(self, component, par_group, par_done_reg, stack):
-        self.par_done_regs.add(stack)
-        self.component_to_control_to_primitives[component][par_group].add(par_done_reg)
-
-    def register_fully_qualified_ctrl_gp(self, fully_qualified_gp):
-        self.ctrl_groups.add(fully_qualified_gp)
-
-    def add_signal_prefix(self, signal_prefix: str):
-        assert not self.added_signal_prefix
-        self.fsms = {f"{signal_prefix}.{fsm}" for fsm in self.fsms}
-        self.par_done_regs = {f"{signal_prefix}.{pd}" for pd in self.par_done_regs}
-        self.ctrl_groups = {
-            f"{signal_prefix}.{ctrl_group}" for ctrl_group in self.ctrl_groups
-        }
-        self.added_signal_prefix = True
-        fully_qualified_tdccs = {
-            f"{signal_prefix}.{c}": g for c, g in self.cell_to_tdcc_groups.items()
-        }
-        self.cell_to_tdcc_groups = fully_qualified_tdccs
-
-    def register_fsm(self, fsm_name, component, cell_metadata: CellMetadata):
-        """
-        Add information about a newly discovered FSM to the fields fsms and component_to_fsms.
-        """
-        if component not in cell_metadata.component_to_cells:
-            # skip FSMs from components listed in primitive files (not in user-defined code)
-            return
-        self.component_to_fsms[component].add(fsm_name)
-
-        for cell in cell_metadata.component_to_cells[component]:
-            fully_qualified_fsm = ".".join((cell, fsm_name))
-            self.fsms.add(fully_qualified_fsm)
-
-    def register_par(self, par_group: str, component: str):
-        self.component_to_par_groups[component].add(par_group)
-
-    def register_par_child(
-        self,
-        component: str,
-        child_name: str,
-        parent: str,
-        child_type: ParChildType,
-        cell_metadata: CellMetadata,
-    ):
-        """
-        Add information about a par child to the fields component_to_child_to_par_parent and par_to_children.
-        """
-        if component in self.component_to_child_to_par_parent:
-            if child_name in self.component_to_child_to_par_parent[component]:
-                self.component_to_child_to_par_parent[component][
-                    child_name
-                ].register_new_parent(parent)
-            else:
-                child_info = ParChildInfo(child_name, child_type, {parent})
-                self.component_to_child_to_par_parent[component][child_name] = (
-                    child_info
-                )
-        else:
-            child_info = ParChildInfo(child_name, child_type, {parent})
-            self.component_to_child_to_par_parent[component] = {child_name: child_info}
-
-        if child_type == ParChildType.PAR:
-            for cell in cell_metadata.component_to_cells[component]:
-                fully_qualified_par = f"{cell}.{parent}"
-                fully_qualified_child = f"{cell}.{child_name}"
-
-                self.par_to_par_children[fully_qualified_par].append(
-                    fully_qualified_child
-                )
-
-
-class StackElementType(Enum):
-    GROUP = 1
-    PRIMITIVE = 2
-    CELL = 3
-    CONTROL_GROUP = 4  # TDCC-generated groups that manage control
-
-
-@dataclass
-class StackElement:
-    """
-    An element on a trace stack.
-    """
-
-    # the name of the element determined by the profiler process; may not be the original name of the entity
-    internal_name: str
-    element_type: StackElementType
-    is_main: bool = field(default=False)
-
-    # should only contain a value if element_type is CELL
-    component_name: str | None = field(default=None)
-    # should only contain a value if element_type is CELL
-    replacement_cell_name: str | None = field(default=None)
-
-    # ADL source location of the stack element
-    sourceloc: SourceLoc | None = field(default=None)
-    # ADL source location of the replacement cell
-    # Should only contain a value if element_type is CELL
-    replacement_cell_sourceloc: SourceLoc | None = field(default=None)
-    # ADL source location of the original component definition
-    # Should only contain a value if element_type is CELL
-    component_sourceloc: SourceLoc | None = field(default=None)
-
-    # Calyx source location of the control node.
-    # Should only contain a value if element_type is CONTROL
-    ctrl_loc_str: str | None = field(default=None)
-
-    compiler_generated_msg = "compiler-generated"
-
-    # suffix after control enable group name generated by the unique-control compiler pass
-    unique_group_str = "UG"
-
-    @property
-    def name(self) -> str:
-        if (
-            self.element_type == StackElementType.GROUP
-            and self.unique_group_str in self.internal_name
-        ):
-            # control enabled group given a unique identifier name
-            return self.internal_name.split(self.unique_group_str)[0]
-        else:
-            return self.internal_name
-
-    def __repr__(self):
-        match self.element_type:
-            case StackElementType.GROUP:
-                return self.name
-            case StackElementType.PRIMITIVE:
-                return (
-                    f"{self.name} (primitive)"
-                    if self.replacement_cell_name is None
-                    else f"{self.name} (primitive) -> {self.replacement_cell_name}"
-                )
-            case StackElementType.CELL:
-                if self.is_main:
-                    return f"{self.name}"
-                elif self.replacement_cell_name is not None:
-                    return f"{self.name} ({self.replacement_cell_name}) [{self.component_name}]"
-                else:
-                    return f"{self.name} [{self.component_name}]"
-            case StackElementType.CONTROL_GROUP:
-                ctrl_string = (
-                    f" ~ {self.ctrl_loc_str}" if self.ctrl_loc_str is not None else ""
-                )
-                return f"{self.name}{ctrl_string} (ctrl)"
-
-    def adl_str(self):
-        """
-        String representation for ADL flame graph.
-        Any name in '' (single quotes) indicates an entity created by the compiler (doesn't exist in the original ADL code).
-        """
-        match self.element_type:
-            case StackElementType.GROUP:
-                if self.sourceloc is None:
-                    return f"'{self.name}' {{{self.compiler_generated_msg}}}"
-                else:
-                    return self.sourceloc.adl_str()
-            case StackElementType.PRIMITIVE:
-                return f"{self.sourceloc.adl_str()} (primitive)"
-            case StackElementType.CELL:
-                if self.is_main:
-                    return self.sourceloc.adl_str()
-                else:
-                    og_sourceloc_str = self.sourceloc.adl_str()
-                    component_sourceloc_str = self.component_sourceloc.adl_str()
-                    if self.replacement_cell_name is not None:
-                        replacement_sourceloc_str = (
-                            self.replacement_cell_sourceloc.adl_str()
-                        )
-                        return f"{og_sourceloc_str} ({replacement_sourceloc_str}) [{component_sourceloc_str}]"
-                    else:
-                        return f"{og_sourceloc_str} [{component_sourceloc_str}]"
-            case StackElementType.CONTROL_GROUP:
-                return f"{self.compiler_generated_msg} (ctrl)"
-
-    def mixed_str(self):
-        """
-        String representation for mixed (group/cell/component names in Calyx, along with sourceloc file and line #) flame graph.
-        """
-        match self.element_type:
-            case StackElementType.GROUP:
-                if self.sourceloc is None:
-                    return f"{self.name} {{{self.compiler_generated_msg}}}"
-                else:
-                    return f"{self.name} {self.sourceloc.loc_str()}"
-            case StackElementType.PRIMITIVE:
-                return f"{self.name} (primitive) {self.sourceloc.loc_str()}"
-            case StackElementType.CELL:
-                if self.is_main:
-                    return f"{self.name} {self.sourceloc.loc_str()}"
-                else:
-                    og_str = f"{self.name} {self.sourceloc.loc_str()}"
-                    component_str = (
-                        f"{self.component_name} {self.component_sourceloc.loc_str()}"
-                    )
-                    if self.replacement_cell_name is not None:
-                        replacement_str = self.replacement_cell_sourceloc.loc_str()
-                        return f"{og_str} ({replacement_str}) [{component_str}]"
-                    else:
-                        return f"{og_str} [{component_str}]"
-            case StackElementType.CONTROL_GROUP:
-                return f"{self.name} (ctrl) {{{self.compiler_generated_msg}}}"
+    cell_name: str
+    clock_cycle: int
+    updates: str
 
 
 class FlameMapMode(Enum):
@@ -561,6 +157,35 @@ class CycleTrace:
             ret_names_to_ret[ret_this_stack.name] = ret_this_stack
         return ret
 
+@dataclass
+class Utilization:
+    """
+    Hierarchical utilization wrapper.
+    """
+
+    map: dict[str, dict[str, str]]
+    accessed: set[str]
+
+    def __init__(self, json_dict):
+        self.map = json_dict
+        self.accessed = set()
+
+    def get_module(self, name: str) -> dict[str, str]:
+        """
+        Get the utilization map for a module. `name` is a fully qualified name
+        of a module on a stack.
+        """
+        if name in self.map:
+            self.accessed.add(name)
+        return self.map.get(name, {})
+
+    def get_unaccessed(self):
+        """
+        Get a set of unaccessed modules in the utilization map.
+        """
+        module_set = set(k for k in self.map)
+        return module_set.difference(self.accessed)
+
 
 class UtilizationCycleTrace(CycleTrace):
     """
@@ -691,78 +316,6 @@ class UtilizationCycleTrace(CycleTrace):
                         self.utilization_per_primitive[key][k] = (
                             self.utilization_per_primitive[key].get(k, 0) + int(v)
                         )
-
-
-@dataclass
-class GroupSummary:
-    """
-    Summary for groups on the number of times they were active vs their active cycles
-    """
-
-    display_name: str
-    num_times_active: int = 0
-    active_cycles: set[int] = field(default_factory=set)
-
-    interval_lengths: list[int] = field(default_factory=list)
-
-    def register_interval(self, interval: range):
-        self.num_times_active += 1
-        self.active_cycles.update(set(interval))
-        self.interval_lengths.append(len(interval))
-
-    def fieldnames():
-        return [
-            "group-name",
-            "num-times-active",
-            "total-cycles",
-            "min",
-            "max",
-            "avg",
-            "can-static",
-        ]
-
-    def stats(self):
-        stats = {}
-        stats["group-name"] = self.display_name
-        stats["num-times-active"] = self.num_times_active
-        stats["total-cycles"] = len(self.active_cycles)
-        min_interval = min(self.interval_lengths)
-        max_interval = max(self.interval_lengths)
-        avg_interval = round(statistics.mean(self.interval_lengths), 1)
-        stats["min"] = min_interval
-        stats["max"] = max_interval
-        stats["avg"] = avg_interval
-        stats["can-static"] = "Y" if min_interval == max_interval else "N"
-        return stats
-
-
-@dataclass
-class Summary:
-    """
-    Summary for Cells/Control groups on the number of times they were active vs their active cycles
-    FIXME: Add min/max/avg and collect these for normal groups as well?
-    """
-
-    num_times_active: int = 0
-    active_cycles: set[int] = field(default_factory=set)
-
-
-class ControlRegUpdateType(Enum):
-    FSM = 1
-    PAR_DONE = 2
-    BOTH = 3
-
-
-@dataclass(frozen=True)
-class ControlRegUpdates:
-    """
-    Updates to control registers in a cell.
-    Retain this info to add to the timeline
-    """
-
-    cell_name: str
-    clock_cycle: int
-    updates: str
 
 
 @dataclass
@@ -1218,22 +771,8 @@ class TraceData:
         """
         trace: PTrace = self.trace_with_control_groups
         assert len(trace) > 0  # can't add sourceloc info on an empty trace
-        match adl_map.adl:
-            case Adl.PY:
-                for i in trace:
-                    i_trace: CycleTrace = trace[i]
-                    i_trace.add_sourceloc_info(adl_map)
 
-                return trace
-            
-            case Adl.DAHLIA:
-                dahlia_trace: PTrace = PTrace()
-                for i in trace:
-                    # find the deepest group (there should only be one?)
-                    i_trace: CycleTrace = trace[i]
-                    deepest_groups = i_trace.find_deepest_groups()
-                    print(deepest_groups)
-                    dahlia_trace.add_cycle(i, CycleTrace([list(deepest_groups)]))
-                    dahlia_trace[i].add_sourceloc_info(adl_map)
+        for i in trace:
+            trace[i].add_sourceloc_info(adl_map)
 
-                return dahlia_trace
+        return trace
