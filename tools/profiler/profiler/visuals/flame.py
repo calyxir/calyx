@@ -46,7 +46,6 @@ def write_flame_maps(
     scaled_flame_out_file = os.path.join(flames_out_dir, scaled_flame_out_filename)
     write_flame_map(scaled_flame_map, scaled_flame_out_file)
 
-
 def create_flame_maps(
     trace: PTrace, mode: FlameMapMode = FlameMapMode.CALYX
 ) -> tuple[dict[str, int], dict[str, int]]:

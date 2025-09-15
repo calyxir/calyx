@@ -111,16 +111,24 @@ fn gen_component_info(
     comp: &ir::Component,
     adl_posids: &HashSet<u32>,
     component_info: &mut HashMap<Id, ComponentPosIds>,
+    adl: &Adl,
 ) -> CalyxResult<()> {
     // FIXME: currently assumes that there is a one-to-one mapping between groups and ADL posids
 
     // get pos for component
-    let component_pos = comp
-        .attributes
-        .get_set(SetAttribute::Set(SetAttr::Pos))
-        .map(|pos_set| {
-            *pos_set.iter().find(|x| adl_posids.contains(x)).unwrap()
-        });
+    let component_pos_first =
+        comp.attributes.get_set(SetAttribute::Set(SetAttr::Pos));
+    let component_pos = match component_pos_first {
+        Some(pos_set) => {
+            let a = pos_set.iter().find(|x| adl_posids.contains(x));
+            if let Some(num_ref) = a {
+                Some(*num_ref)
+            } else {
+                None
+            }
+        }
+        None => None,
+    };
     let mut component_pos_id = ComponentPosIds {
         component_pos_id: component_pos,
         cells: HashMap::new(),
@@ -168,6 +176,7 @@ fn gen_component_info(
                         component,
                         adl_posids,
                         component_info,
+                        adl,
                     )?;
                 }
             }
@@ -303,12 +312,22 @@ fn resolve(
             if let Some(pos_id) = curr_component_pos_ids.component_pos_id {
                 let SourceLocation { file, line } =
                     source_info_table.lookup_position(PositionId::from(pos_id));
-                let curr_component_filename = source_info_table
-                    .lookup_file_path(*file)
-                    .as_path()
-                    .to_str()
-                    .unwrap()
-                    .to_string();
+                let curr_component_filename = match adl {
+                    Adl::Dahlia => {
+                        println!("HIIIIIIIIIIIIIIIIIIIII");
+                        println!("{file_lines_map:?}");
+                        file_lines_map.keys().last().unwrap().to_string()
+                    }
+                    Adl::Py => source_info_table
+                        .lookup_file_path(*file)
+                        .as_path()
+                        .to_str()
+                        .unwrap()
+                        .to_string(),
+                    Adl::Calyx => {
+                        panic!("resolve() should only be called on ADLs!")
+                    }
+                };
                 let varname = get_adl_var_name(
                     &curr_component_filename,
                     line.as_usize(),
@@ -605,6 +624,7 @@ fn adl_wrapper(
                 main_comp,
                 &py_posids,
                 &mut component_pos_ids,
+                &adl,
             )?;
 
             resolve(

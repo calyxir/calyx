@@ -15,8 +15,8 @@ def create_and_write_adl_map(tracedata: TraceData, adl_mapping_file: str, out_di
 
     adl_flat_flame_file = os.path.join(out_dir, "adl-flat-flame.folded")
     adl_scaled_flame_file = os.path.join(out_dir, "adl-scaled-flame.folded")
-    mixed_flat_flame_file = os.path.join(out_dir, "mixed-flat-flame.folded")
-    mixed_scaled_flame_file = os.path.join(out_dir, "mixed-scaled-flame.folded")
+    # mixed_flat_flame_file = os.path.join(out_dir, "mixed-flat-flame.folded")
+    # mixed_scaled_flame_file = os.path.join(out_dir, "mixed-scaled-flame.folded")
 
     adl_flat_map, adl_scaled_map = flame.create_flame_maps(
         adl_added_trace, FlameMapMode.ADL
@@ -24,8 +24,8 @@ def create_and_write_adl_map(tracedata: TraceData, adl_mapping_file: str, out_di
     flame.write_flame_map(adl_flat_map, adl_flat_flame_file)
     flame.write_flame_map(adl_scaled_map, adl_scaled_flame_file)
 
-    mixed_flat_map, mixed_scaled_map = flame.create_flame_maps(
-        adl_added_trace, FlameMapMode.MIXED
-    )
-    flame.write_flame_map(mixed_flat_map, mixed_flat_flame_file)
-    flame.write_flame_map(mixed_scaled_map, mixed_scaled_flame_file)
+    # mixed_flat_map, mixed_scaled_map = flame.create_flame_maps(
+    #     adl_added_trace, FlameMapMode.MIXED
+    # )
+    # flame.write_flame_map(mixed_flat_map, mixed_flat_flame_file)
+    # flame.write_flame_map(mixed_scaled_map, mixed_scaled_flame_file)

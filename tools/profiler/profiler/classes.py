@@ -20,7 +20,7 @@ class SourceLoc:
     varname: str
 
     def __init__(self, json_dict):
-        self.filename = os.path.basename(json_dict["filename"])
+        self.filename = os.path.basename(json_dict["filename"]) if json_dict["filename"] != None else None
         self.linenum = json_dict["linenum"]
         self.varname = json_dict["varname"]
 
@@ -546,6 +546,17 @@ class CycleTrace:
                         ]
 
         self.sourceloc_info_added = True
+
+    def find_deepest_group_stacks(self) -> set[StackElement]:
+        ret = set()
+        for stack in self.stacks:
+            ret_this_stack: StackElement = None
+            for stack_elem in stack:
+                match stack_elem.element_type:
+                    case StackElementType.GROUP:
+                        ret_this_stack = stack_elem.name
+            ret.add(ret_this_stack)
+        return ret
 
 
 class UtilizationCycleTrace(CycleTrace):
@@ -1204,8 +1215,22 @@ class TraceData:
         """
         trace: PTrace = self.trace_with_control_groups
         assert len(trace) > 0  # can't add sourceloc info on an empty trace
+        match adl_map.adl:
+            case Adl.PY:
+                for i in trace:
+                    i_trace: CycleTrace = trace[i]
+                    i_trace.add_sourceloc_info(adl_map)
 
-        for i in trace:
-            trace[i].add_sourceloc_info(adl_map)
+                return trace
+            
+            case Adl.DAHLIA:
+                dahlia_trace: PTrace = PTrace()
+                for i in trace:
+                    # find the deepest group (there should only be one?)
+                    i_trace: CycleTrace = trace[i]
+                    deepest_groups = i_trace.find_deepest_group_stacks()
+                    print(deepest_groups)
+                    dahlia_trace[i] = CycleTrace([list(deepest_groups)])
+                    dahlia_trace[i].add_sourceloc_info(adl_map)
 
-        return trace
+                return dahlia_trace
