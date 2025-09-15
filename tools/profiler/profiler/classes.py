@@ -60,6 +60,9 @@ class Utilization:
         module_set = set(k for k in self.map)
         return module_set.difference(self.accessed)
 
+class Adl(Enum):
+    DAHLIA = 1
+    PY = 2
 
 @dataclass
 class AdlMap:
@@ -74,13 +77,21 @@ class AdlMap:
     # component --> {group --> (filename, linenum)}
     group_map: dict[str, dict[str, SourceLoc]]
 
+    adl: Adl
+
     def __init__(self, adl_mapping_file: str):
         self.component_map = {}
         self.cell_map = {}
         self.group_map = {}
         with open(adl_mapping_file, "r") as json_file:
             json_data = json.load(json_file)
-            for component_dict in json_data:
+            if json_data["adl"] == "Dahlia":
+                self.adl = Adl.DAHLIA
+            elif json_data["adl"] == "Py":
+                self.adl = Adl.PY
+            else:
+                raise ProfilerException(f"Unimplemented ADL {json_data['adl']}")
+            for component_dict in json_data["components"]:
                 component_name = component_dict["component"]
                 self.component_map[component_name] = SourceLoc(component_dict)
                 self.cell_map[component_name] = {}
@@ -1194,7 +1205,7 @@ class TraceData:
         trace: PTrace = self.trace_with_control_groups
         assert len(trace) > 0  # can't add sourceloc info on an empty trace
 
-        for i in len(trace):
+        for i in trace:
             trace[i].add_sourceloc_info(adl_map)
 
         return trace
