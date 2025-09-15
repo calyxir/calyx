@@ -547,15 +547,18 @@ class CycleTrace:
 
         self.sourceloc_info_added = True
 
-    def find_deepest_group_stacks(self) -> set[StackElement]:
-        ret = set()
+    def find_deepest_groups(self) -> list[StackElement]:
+        ret = []
+        ret_names_to_ret = {}
         for stack in self.stacks:
             ret_this_stack: StackElement = None
             for stack_elem in stack:
                 match stack_elem.element_type:
                     case StackElementType.GROUP:
-                        ret_this_stack = stack_elem.name
-            ret.add(ret_this_stack)
+                        ret_this_stack = stack_elem
+        if ret_this_stack is not None and ret_this_stack.name not in ret_names_to_ret:
+            ret.append(copy.copy(ret_this_stack))
+            ret_names_to_ret[ret_this_stack.name] = ret_this_stack
         return ret
 
 
@@ -1228,9 +1231,9 @@ class TraceData:
                 for i in trace:
                     # find the deepest group (there should only be one?)
                     i_trace: CycleTrace = trace[i]
-                    deepest_groups = i_trace.find_deepest_group_stacks()
+                    deepest_groups = i_trace.find_deepest_groups()
                     print(deepest_groups)
-                    dahlia_trace[i] = CycleTrace([list(deepest_groups)])
+                    dahlia_trace.add_cycle(i, CycleTrace([list(deepest_groups)]))
                     dahlia_trace[i].add_sourceloc_info(adl_map)
 
                 return dahlia_trace
