@@ -2,7 +2,8 @@ import json
 import os
 
 from collections import defaultdict
-from profiler.classes import CellMetadata, ControlMetadata, ParChildType
+from profiler.classes.cell_metadata import CellMetadata
+from profiler.classes.control_metadata import ControlMetadata
 
 
 def read_shared_cells_map(shared_cells_json) -> dict[str, dict[str, str]]:
@@ -221,116 +222,6 @@ def setup_control_info(
     read_path_descriptor_json(
         path_descriptor_json_file, pos_to_control_group, control_metadata
     )
-    return control_metadata
-
-
-def setup_control_info_bak(
-    tdcc_json_file: str,
-    path_descriptor_json_file: str,
-    component_to_pos_to_loc_str: defaultdict[str, defaultdict[int, str]] | None,
-    cell_metadata: CellMetadata,
-):
-    """
-    Processes tdcc_json_file to produce information about control registers (FSMs, pd registers for pars)
-    and par groups.
-    """
-    read_path_descriptor_json(path_descriptor_json_file)
-    json_data = json.load(open(tdcc_json_file))
-    control_metadata = ControlMetadata()
-    if component_to_pos_to_loc_str is not None:
-        control_metadata.component_to_ctrl_group_to_pos_str = defaultdict()
-        for component in cell_metadata.component_to_cells.keys():
-            control_metadata.component_to_ctrl_group_to_pos_str[component] = (
-                defaultdict(str)
-            )
-    # pass 1: obtain names of all par groups in each component
-    for json_entry in json_data:
-        if "Par" in json_entry:
-            control_metadata.register_par(
-                json_entry["Par"]["par_group"], json_entry["Par"]["component"]
-            )
-    # pass 2: obtain FSM register info, par group and child register information
-    for json_entry in json_data:
-        if "Fsm" in json_entry:
-            entry = json_entry["Fsm"]
-            ctrl_group = entry["group"]
-            component = entry["component"]
-            pos_list = entry["pos"]
-            control_metadata.register_fsm(
-                entry["fsm"], entry["component"], cell_metadata
-            )
-            calyx_pos_list: list[int] = list(
-                filter(
-                    lambda x: component_to_pos_to_loc_str is not None
-                    and x in component_to_pos_to_loc_str[component],
-                    pos_list,
-                )
-            )
-            assert len(calyx_pos_list) <= 1
-            if len(calyx_pos_list) == 1:
-                # if we have a control position, look up its corresponding
-                loc_str = component_to_pos_to_loc_str[component][calyx_pos_list[0]]
-                control_metadata.component_to_ctrl_group_to_pos_str[component][
-                    ctrl_group
-                ] = loc_str
-            for cell in cell_metadata.component_to_cells[entry["component"]]:
-                control_metadata.register_fully_qualified_ctrl_gp(
-                    f"{cell}.{ctrl_group}"
-                )
-                control_metadata.cell_to_tdcc_groups[cell].add(ctrl_group)
-                control_metadata.component_to_control_to_primitives[entry["component"]][
-                    entry["group"]
-                ].add(entry["fsm"])
-        if "Par" in json_entry:
-            entry = json_entry["Par"]
-            par = entry["par_group"]
-            component = entry["component"]
-            # TODO: remove code clone
-            calyx_pos_list: list[int] = list(
-                filter(
-                    lambda x: component_to_pos_to_loc_str is not None
-                    and x in component_to_pos_to_loc_str[component],
-                    entry["pos"],
-                )
-            )
-            assert len(calyx_pos_list) <= 1
-            if len(calyx_pos_list) == 1:
-                # if we have a control position, look up its corresponding
-                loc_str = component_to_pos_to_loc_str[component][calyx_pos_list[0]]
-                control_metadata.component_to_ctrl_group_to_pos_str[component][par] = (
-                    loc_str
-                )
-
-            child_par_groups = []
-            for cell in cell_metadata.component_to_cells[component]:
-                fully_qualified_par = ".".join((cell, par))
-                for child in entry["child_groups"]:
-                    child_name = child["group"]
-                    if (
-                        child_name
-                        in control_metadata.component_to_par_groups[component]
-                    ):  # child is a par
-                        control_metadata.register_par_child(
-                            component, child_name, par, ParChildType.PAR, cell_metadata
-                        )
-                        fully_qualified_child_name = ".".join((cell, child_name))
-                        child_par_groups.append(fully_qualified_child_name)
-                    else:  # normal group
-                        control_metadata.register_par_child(
-                            component,
-                            child_name,
-                            par,
-                            ParChildType.GROUP,
-                            cell_metadata,
-                        )
-                    # add par done register information
-                    child_pd_reg = child["register"]
-                    control_metadata.add_par_done_reg(
-                        component, par, child_pd_reg, ".".join((cell, child_pd_reg))
-                    )
-                # add information to control_metadata
-                control_metadata.register_fully_qualified_ctrl_gp(fully_qualified_par)
-
     return control_metadata
 
 

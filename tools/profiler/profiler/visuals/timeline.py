@@ -10,12 +10,14 @@ from perfetto.protos.perfetto.trace.perfetto_trace_pb2 import (
 )
 
 from enum import Enum
-from profiler.classes import (
+
+
+from profiler.classes.tracedata import (
     TraceData,
     ControlRegUpdates,
     StackElementType,
-    CellMetadata,
 )
+from profiler.classes.cell_metadata import CellMetadata
 
 ts_multiplier = 1  # [timeline view] ms on perfetto UI that resembles a single cycle
 JSON_INDENT = "    "  # [timeline view] indentation for generating JSON on the fly

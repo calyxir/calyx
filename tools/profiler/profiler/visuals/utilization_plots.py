@@ -1,7 +1,7 @@
 from collections import Counter
 import pandas as pd
 import plotly.express as px
-from profiler.classes import UtilizationCycleTrace
+from profiler.classes.tracedata import UtilizationCycleTrace
 
 
 class Plotter:
