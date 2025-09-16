@@ -7,6 +7,7 @@ from .cell_metadata import CellMetadata
 from .control_metadata import ControlMetadata
 from .adl import AdlMap, Adl
 from .summaries import Summary
+from .errors import ProfilerException
 from collections import defaultdict
 
 
@@ -106,7 +107,6 @@ class CycleTrace:
             curr_component: str | None = None
     
             for stack_elem in stack:
-                print(curr_component)
                 match stack_elem.element_type:
                     case StackElementType.CELL:
                         if stack_elem.is_main:
@@ -780,19 +780,4 @@ class TraceData:
                 return trace
 
             case Adl.DAHLIA:
-                dahlia_trace: PTrace = PTrace()
-                for i in trace:
-                    # find leaf groups (there could be some in parallel)
-                    i_trace: CycleTrace = trace[i]
-                    leaf_groups: set = i_trace.find_leaf_groups()
-                    # FIXME: hardcoding to main right now.
-                    group_map = adl_map.group_map.get("main")
-                    dahlia_stacks: list[list[StackElement]] = []
-                    for group in leaf_groups:
-                        entry = group_map[group].adl_str()
-                        dahlia_group = StackElement(entry, StackElementType.ADL_LINE)
-                        dahlia_stacks.append([dahlia_group])
-
-                    dahlia_trace.add_cycle(i, CycleTrace(dahlia_stacks))
-
-                return dahlia_trace
+                raise ProfilerException("Dahlia traces should be generated elsewhere!")

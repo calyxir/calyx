@@ -3,6 +3,7 @@ import os
 from profiler.classes.tracedata import (
     PTrace,
     CycleType,
+    CycleTrace,
     TraceData,
     ControlRegUpdateType,
     FlameMapMode,
@@ -56,7 +57,7 @@ def create_flame_maps(
     # flat flame graph; each par arm is counted for 1 cycle
     flat_flame_map = {}  # stack to number of cycles
     for i in trace:
-        i_trace = trace[i]
+        i_trace: CycleTrace = trace[i]
         for stack_id in i_trace.get_stack_str_list(mode):
             if stack_id not in flat_flame_map:
                 flat_flame_map[stack_id] = 1

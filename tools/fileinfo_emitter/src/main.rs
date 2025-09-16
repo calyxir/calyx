@@ -314,8 +314,6 @@ fn resolve(
                     source_info_table.lookup_position(PositionId::from(pos_id));
                 let curr_component_filename = match adl {
                     Adl::Dahlia => {
-                        println!("HIIIIIIIIIIIIIIIIIIIII");
-                        println!("{file_lines_map:?}");
                         file_lines_map.keys().last().unwrap().to_string()
                     }
                     Adl::Py => source_info_table
