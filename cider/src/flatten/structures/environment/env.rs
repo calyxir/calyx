@@ -2369,9 +2369,10 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             info!(self.env.logger, "Started combinational convergence");
         }
 
-        let mut rerun_all_primitives = true;
-
         let mut changed_cells: FxHashSet<GlobalCellIdx> = FxHashSet::new();
+
+        self.run_primitive_comb_path(self.env.cells.range().into_iter())?;
+        let mut rerun_all_primitives = false;
 
         while has_changed {
             has_changed = false;
