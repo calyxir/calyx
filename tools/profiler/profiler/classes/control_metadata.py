@@ -19,11 +19,6 @@ class ControlMetadata:
     component_to_fsms: defaultdict[str, set[str]] = field(
         default_factory=lambda: defaultdict(set)
     )
-    # component --> { par groups in the component }
-    # components that are not in this dictionary do not contain any par groups
-    component_to_par_groups: defaultdict[str, set[str]] = field(
-        default_factory=lambda: defaultdict(set)
-    )
     # fully qualified names of done registers for pars
     par_done_regs: set[str] = field(default_factory=set)
     # component name --> { control group name --> { primitives used by control group } }

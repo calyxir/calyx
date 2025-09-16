@@ -11,12 +11,12 @@ from perfetto.protos.perfetto.trace.perfetto_trace_pb2 import (
 
 from profiler.classes.tracedata import (
     TraceData,
-    ControlRegUpdates,
     StackElementType,
 )
 from profiler.classes.cell_metadata import CellMetadata
 
 ts_multiplier = 1  # [timeline view] ms on perfetto UI that resembles a single cycle
+
 
 @dataclass
 class ProtoTimelineCell:
