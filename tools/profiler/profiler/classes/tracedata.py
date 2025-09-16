@@ -81,6 +81,7 @@ class CycleTrace:
         """
         stack_str_list = []
         for stack in self.stacks:
+            print(stack)
             match mode:
                 case FlameMapMode.CALYX:
                     stack_str = ";".join(map(lambda elem: str(elem), stack))
@@ -148,12 +149,13 @@ class CycleTrace:
     def find_leaf_groups(self) -> set[str]:
         leaf_groups = set()
         for stack in self.stacks:
-            leaf_group_name: str = None
+            leaf_group_name: str | None = None
             for stack_elem in stack:
                 match stack_elem.element_type:
                     case StackElementType.GROUP:
-                        leaf_group_name = stack_elem.internal_name
-            leaf_groups.add(leaf_group_name)
+                        leaf_group_name = stack_elem.name
+            if leaf_group_name is not None:
+                leaf_groups.add(leaf_group_name)
         return leaf_groups
 
 
@@ -789,11 +791,10 @@ class TraceData:
                     group_map = adl_map.group_map.get("main")
                     dahlia_stacks: list[list[StackElement]] = []
                     for group in leaf_groups:
-                        entry = group_map[group]
-                        dahlia_group = StackElement(entry, StackElementType.GROUP)
+                        entry = group_map[group].adl_str()
+                        dahlia_group = StackElement(entry, StackElementType.CELL)
                         dahlia_stacks.append([dahlia_group])
 
                     dahlia_trace.add_cycle(i, CycleTrace(dahlia_stacks))
 
-                print(dahlia_trace)
                 return dahlia_trace

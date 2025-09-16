@@ -20,7 +20,7 @@ def create_and_write_adl_map(tracedata: TraceData, adl_mapping_file: str, out_di
     # mixed_scaled_flame_file = os.path.join(out_dir, "mixed-scaled-flame.folded")
 
     adl_flat_map, adl_scaled_map = flame.create_flame_maps(
-        adl_added_trace, FlameMapMode.ADL
+        adl_added_trace
     )
     flame.write_flame_map(adl_flat_map, adl_flat_flame_file)
     flame.write_flame_map(adl_scaled_map, adl_scaled_flame_file)
