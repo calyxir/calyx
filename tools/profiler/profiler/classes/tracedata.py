@@ -202,7 +202,6 @@ class UtilizationCycleTrace(CycleTrace):
         self.utilization = {}
         self.primitives_active = set()
         self.utilization_per_primitive = {}
-        self.control_groups_active = []
         self.control_metadata = control_metadata
         super().__init__(stacks_this_cycle)
 
@@ -356,7 +355,6 @@ class TraceData:
     # Set of all primitives and cells with continuous assignments
     cont_assignments: set[str] = field(default_factory=set)
     trace: PTrace = field(default_factory=PTrace)
-    trace_classified: dict[int, CycleType] = field(default_factory=dict)
     cell_to_active_cycles: dict[str, Summary] = field(default_factory=dict)
     # primitive to active cycles?
 

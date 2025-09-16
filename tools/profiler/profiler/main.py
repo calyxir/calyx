@@ -132,7 +132,6 @@ def create_visuals(
     timeline.compute_protobuf_timeline(
         tracedata, cell_metadata, enable_thread_metadata, out_dir
     )
-    timeline.compute_timeline(tracedata, cell_metadata, enable_thread_metadata, out_dir)
     print(f"End writing timeline view: {datetime.now()}")
 
     if utilization_variable:
