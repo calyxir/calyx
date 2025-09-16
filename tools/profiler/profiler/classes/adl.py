@@ -9,16 +9,15 @@ class Adl(Enum):
     DAHLIA = 1
     PY = 2
 
-
 @dataclass
 class SourceLoc:
     """
     ADL source location information obtained from metadata.
     """
 
-    filename: str
-    linenum: int
-    varname: str
+    filename: str | None
+    linenum: int | None
+    varname: str | None
 
     def __init__(self, json_dict):
         self.filename = (
@@ -27,7 +26,11 @@ class SourceLoc:
             else None
         )
         self.linenum = json_dict["linenum"]
-        self.varname = json_dict["varname"]
+        varname = json_dict["varname"]
+        if varname is not None:
+            self.varname = varname.replace(";", "").replace("{", "")
+        else:
+            self.varname = None
 
     def adl_str(self):
         return f"{self.varname} {{{self.filename}: {self.linenum}}}"

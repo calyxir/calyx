@@ -81,7 +81,6 @@ class CycleTrace:
         """
         stack_str_list = []
         for stack in self.stacks:
-            print(stack)
             match mode:
                 case FlameMapMode.CALYX:
                     stack_str = ";".join(map(lambda elem: str(elem), stack))
@@ -782,9 +781,8 @@ class TraceData:
 
             case Adl.DAHLIA:
                 dahlia_trace: PTrace = PTrace()
-                print(adl_map.group_map)
                 for i in trace:
-                    # find the deepest group (there should only be one?)
+                    # find leaf groups (there could be some in parallel)
                     i_trace: CycleTrace = trace[i]
                     leaf_groups: set = i_trace.find_leaf_groups()
                     # FIXME: hardcoding to main right now.
@@ -792,7 +790,7 @@ class TraceData:
                     dahlia_stacks: list[list[StackElement]] = []
                     for group in leaf_groups:
                         entry = group_map[group].adl_str()
-                        dahlia_group = StackElement(entry, StackElementType.CELL)
+                        dahlia_group = StackElement(entry, StackElementType.ADL_LINE)
                         dahlia_stacks.append([dahlia_group])
 
                     dahlia_trace.add_cycle(i, CycleTrace(dahlia_stacks))
