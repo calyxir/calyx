@@ -81,6 +81,3 @@ class ControlMetadata:
         for cell in cell_metadata.component_to_cells[component]:
             fully_qualified_fsm = ".".join((cell, fsm_name))
             self.fsms.add(fully_qualified_fsm)
-
-    def register_par(self, par_group: str, component: str):
-        self.component_to_par_groups[component].add(par_group)
