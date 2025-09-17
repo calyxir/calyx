@@ -236,6 +236,9 @@ pub enum RuntimeError {
         idx: GlobalCellIdx,
     },
 
+    #[error("Assertion has been tripped")]
+    AssertionError(GlobalCellIdx),
+
     // TODO (Griffin): Make this error message better please
     #[error("Computation has under/overflowed its bounds")]
     OverflowError,
@@ -474,6 +477,9 @@ impl RuntimeError {
                     dims.as_string()
                 ))
             }
+            RuntimeError::AssertionError(cell) => CiderError::GenericError(
+                format!("Assert '{}' failed", env.get_full_name(cell)),
+            ),
             RuntimeError::OverflowError => todo!(),
             RuntimeError::StalledExecution => {
                 CiderError::GenericError(format!(
