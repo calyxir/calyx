@@ -10,8 +10,10 @@ from perfetto.protos.perfetto.trace.perfetto_trace_pb2 import (
 
 
 from profiler.classes.tracedata import (
+    CycleTrace,
     TraceData,
     StackElementType,
+    PTrace
 )
 from profiler.classes.cell_metadata import CellMetadata
 
@@ -54,16 +56,7 @@ class ProtoTimelineCell:
         self.misc_group_uuid = self._define_track(
             "Non-id-ed groups", parent_track_uuid=self.cell_uuid
         )
-        # # convert threadids to uuids
-        # threadid_to_uuid: dict[int, int] = {}
-        # for group, threadid in enable_to_thread.items():
-        #     if threadid not in threadid_to_uuid:
-        #         threadid_to_uuid[threadid] = self._define_track(
-        #             f"Thread {threadid:03}", parent_track_uuid=self.cell_uuid
-        #         )
-        #     self.enable_id_to_uuid[group] = threadid_to_uuid[threadid]
 
-        # self.group_uuid = self._define_track("Groups", self.cell_uuid)
 
     # Helper to define a new track with a unique UUID
     def _define_track(self, track_name, parent_track_uuid=None):
@@ -96,7 +89,7 @@ class ProtoTimelineCell:
         self, enable_id: str, timestamp: int, event_type: TrackEvent.Type
     ):
         # NOTE: enable_id is not fully qualified.
-        group_name = enable_id.split("UG")[0]
+        group_name = enable_id.split("UG")[0] if "UG" in enable_id else enable_id
         #     if threadid not in threadid_to_uuid:
         #         threadid_to_uuid[threadid] = self._define_track(
         #             f"Thread {threadid:03}", parent_track_uuid=self.cell_uuid
@@ -193,9 +186,6 @@ class ProtoTimeline:
                 (update_info.clock_cycle + 1) * ts_multiplier,
                 TrackEvent.TYPE_SLICE_END,
             )
-
-        # uncomment only if/when we remove the JSON-based timeline.
-        # del control_updates[cell_name]
 
     def register_cell_event(self, cell, timestamp, event_type):
         self.add_cell_if_not_present(cell)
@@ -306,3 +296,86 @@ def compute_protobuf_timeline(
 
     out_path = os.path.join(out_dir, "timeline_trace.pftrace")
     proto.emit(out_path)
+
+@dataclass
+class DahliaProtoTimeline:
+    builder: TraceProtoBuilder
+    sid_name: str
+    sid_val: int
+    main_uuid: int
+
+
+    def __init__(
+        self,
+    ):
+        self.builder = TraceProtoBuilder()
+        self.sid_name = "main"
+        self.sid_val = 300
+        self.main_uuid = self._define_track("main")
+        self.events = list()
+        self.statement_to_uuid = {}
+    
+    # Helper to define a new track with a unique UUID
+    def _define_track(self, track_name, parent_track_uuid=None):
+        track_uuid = uuid.uuid4().int & ((1 << 63) - 1)
+        packet = self.builder.add_packet()
+        packet.track_descriptor.uuid = track_uuid
+        packet.track_descriptor.name = track_name  # self.fully_qualified_cell_name
+        if parent_track_uuid:
+            packet.track_descriptor.parent_uuid = parent_track_uuid
+        # self.enable_id_to_uuid[track_name] = track_uuid
+
+        return track_uuid
+
+    # Helper to add a begin or end slice event to a specific track
+    def _add_slice_event(self, ts, event_type, event_track_uuid, name):
+        packet = self.builder.add_packet()
+        packet.timestamp = ts
+        packet.track_event.type = event_type
+        packet.track_event.track_uuid = event_track_uuid
+        if name:
+            packet.track_event.name = name
+        packet.trusted_packet_sequence_id = self.sid_val
+
+    def register_statement_event(self, statement: str, timestamp: int, event_type: TrackEvent.Type):
+        if statement in self.statement_to_uuid:
+            uuid = self.statement_to_uuid[statement]
+            self._add_slice_event(timestamp, event_type, uuid, statement)
+        else:
+            uuid = self._define_track(statement, parent_track_uuid=self.main_uuid)
+            self._add_slice_event(timestamp, event_type, uuid, statement)
+            self.statement_to_uuid[statement] = uuid
+    
+    def emit(self, output_filename):
+        with open(output_filename, "wb") as f:
+            f.write(self.builder.serialize())
+
+def compute_adl_protobuf_timeline(dahlia_trace: PTrace, out_dir: str):
+    proto: DahliaProtoTimeline = DahliaProtoTimeline()
+
+    currently_active_statements: set[str] = set()
+
+    for i in dahlia_trace:
+        statements_active_this_cycle: set[str] = set()
+        i_trace: CycleTrace = dahlia_trace[i]
+        for stacks in i_trace.stacks:
+            for statement in stacks:
+                statements_active_this_cycle.add(statement.name)
+
+        # statements that ended 
+        for done_statement in currently_active_statements.difference(statements_active_this_cycle):
+            proto.register_statement_event(done_statement, i, TrackEvent.TYPE_SLICE_END)
+        
+        # statements that started
+        for started_statement in statements_active_this_cycle.difference(currently_active_statements):
+            proto.register_statement_event(started_statement, i, TrackEvent.TYPE_SLICE_BEGIN)
+        
+        currently_active_statements = statements_active_this_cycle
+
+    for active_at_end_statement in currently_active_statements:
+        proto.register_statement_event(active_at_end_statement, i + 1, TrackEvent.TYPE_SLICE_END)
+    
+    out_path = os.path.join(out_dir, "dahlia_timeline_trace.pftrace")
+    proto.emit(out_path)
+
+

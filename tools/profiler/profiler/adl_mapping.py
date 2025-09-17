@@ -1,6 +1,6 @@
 import os
 
-from profiler.visuals import flame
+from profiler.visuals import flame, timeline
 from profiler.classes.adl import AdlMap, Adl
 from profiler.classes.tracedata import FlameMapMode, TraceData, PTrace, CycleTrace
 from .classes.stack_element import StackElement, StackElementType
@@ -44,6 +44,9 @@ def create_and_write_adl_map(tracedata: TraceData, adl_mapping_file: str, out_di
             )
             flame.write_flame_map(adl_flat_map, adl_flat_flame_file)
             flame.write_flame_map(adl_scaled_map, adl_scaled_flame_file)
+
+            print("writing Dahlia timeline")
+            timeline.compute_adl_protobuf_timeline(dahlia_trace, out_dir)
 
         case Adl.PY:
             # for Calyx-py we can suffice with just using Calyx PTraces 
