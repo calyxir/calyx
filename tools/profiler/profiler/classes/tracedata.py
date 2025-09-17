@@ -5,8 +5,9 @@ from enum import Enum
 from .stack_element import StackElement, StackElementType
 from .cell_metadata import CellMetadata
 from .control_metadata import ControlMetadata
-from .adl import AdlMap
+from .adl import AdlMap, Adl
 from .summaries import Summary
+from .errors import ProfilerException
 from collections import defaultdict
 
 
@@ -104,6 +105,7 @@ class CycleTrace:
         # Maybe we use `stack_elem.internal_name` instead? I'm not 100% sure.
         for stack in self.stacks:
             curr_component: str | None = None
+    
             for stack_elem in stack:
                 match stack_elem.element_type:
                     case StackElementType.CELL:
@@ -142,6 +144,18 @@ class CycleTrace:
                         ]
 
         self.sourceloc_info_added = True
+
+    def find_leaf_groups(self) -> set[str]:
+        leaf_groups = set()
+        for stack in self.stacks:
+            leaf_group_name: str | None = None
+            for stack_elem in stack:
+                match stack_elem.element_type:
+                    case StackElementType.GROUP:
+                        leaf_group_name = stack_elem.name
+            if leaf_group_name is not None:
+                leaf_groups.add(leaf_group_name)
+        return leaf_groups
 
 
 @dataclass
@@ -756,8 +770,12 @@ class TraceData:
         """
         trace: PTrace = self.trace_with_control_groups
         assert len(trace) > 0  # can't add sourceloc info on an empty trace
+        match adl_map.adl:
+            case Adl.PY:
+                for i in trace:
+                    i_trace: CycleTrace = trace[i]
+                    i_trace.add_sourceloc_info(adl_map)
+                return trace
 
-        for i in trace:
-            trace[i].add_sourceloc_info(adl_map)
-
-        return trace
+            case Adl.DAHLIA:
+                raise ProfilerException("Dahlia traces should be generated elsewhere!")
