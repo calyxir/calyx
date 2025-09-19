@@ -7,6 +7,14 @@ use super::super::{OpRef, Operation, StateRef};
 /// `Step` is an op paired with its used outputs.
 pub type Step = (OpRef, Vec<StateRef>);
 
+/// The type of a planner.
+pub enum PlannerType {
+    Egg,
+    Enumerative,
+    Legacy,
+    Predetermined,
+}
+
 /// A reified function for finding a sequence of operations taking a start set of states to an end
 /// set of states while guaranteing a set of "though" operations is used in the sequence.
 pub trait FindPlan: std::fmt::Debug {
@@ -22,4 +30,7 @@ pub trait FindPlan: std::fmt::Debug {
         ops: &PrimaryMap<OpRef, Operation>,
         states: &PrimaryMap<StateRef, State>,
     ) -> Option<Vec<Step>>;
+
+    /// Returns the type of the planner.
+    fn ty(&self) -> PlannerType;
 }
