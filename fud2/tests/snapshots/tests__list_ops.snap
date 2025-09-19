@@ -1,7 +1,13 @@
 ---
 source: fud2/tests/tests.rs
+snapshot_kind: text
 ---
 [
+    (
+        "adl-compiled-profiler",
+        "calyx",
+        "flamegraph",
+    ),
     (
         "area-report-to-flamegraph",
         "area-report",
