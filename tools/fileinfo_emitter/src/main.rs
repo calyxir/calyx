@@ -111,7 +111,6 @@ fn gen_component_info(
     comp: &ir::Component,
     adl_posids: &HashSet<u32>,
     component_info: &mut HashMap<Id, ComponentPosIds>,
-    adl: &Adl,
 ) -> CalyxResult<()> {
     // FIXME: currently assumes that there is a one-to-one mapping between groups and ADL posids
 
@@ -121,11 +120,7 @@ fn gen_component_info(
     let component_pos = match component_pos_first {
         Some(pos_set) => {
             let a = pos_set.iter().find(|x| adl_posids.contains(x));
-            if let Some(num_ref) = a {
-                Some(*num_ref)
-            } else {
-                None
-            }
+            a.copied()
         }
         None => None,
     };
@@ -176,7 +171,6 @@ fn gen_component_info(
                         component,
                         adl_posids,
                         component_info,
-                        adl,
                     )?;
                 }
             }
@@ -230,7 +224,7 @@ fn get_dahlia_var_name(
     let file_lines: &Vec<String> = file_lines_map.get(filename).unwrap();
     let og_line_cloned = file_lines[linenum - 1].clone();
     let line = og_line_cloned.trim();
-    return line.to_string();
+    line.to_string()
 }
 
 /// Attempts to retrieve the Calyx-py ADL-level variable name of the component/group/cell by scanning the source line.
@@ -331,7 +325,7 @@ fn resolve(
                     line.as_usize(),
                     file_lines_map,
                     curr_component,
-                    &adl,
+                    adl,
                 );
                 ComponentInfo {
                     component: *curr_component,
@@ -357,7 +351,7 @@ fn resolve(
                 cell_pos_id,
                 source_info_table,
                 file_lines_map,
-                &adl,
+                adl,
             ) {
                 curr_component_info.cells.push(pos_info);
             };
@@ -368,7 +362,7 @@ fn resolve(
                 group_pos_id,
                 source_info_table,
                 file_lines_map,
-                &adl,
+                adl,
             ) {
                 curr_component_info.groups.push(pos_info);
             }
@@ -387,7 +381,7 @@ fn write_adl_json(
 ) -> Result<(), io::Error> {
     let created_vec: Vec<ComponentInfo> = component_info.into_iter().collect();
     let adl_info: AdlInfo = AdlInfo {
-        adl: adl,
+        adl,
         components: created_vec,
     };
     serde_json::to_writer_pretty(file.get_write(), &adl_info)?;
@@ -622,7 +616,6 @@ fn adl_wrapper(
                 main_comp,
                 &py_posids,
                 &mut component_pos_ids,
-                &adl,
             )?;
 
             resolve(
@@ -667,7 +660,7 @@ fn main() -> CalyxResult<()> {
                 p.control_output,
             )?;
 
-            if let Some(_) = adl_to_posids_to_linenums.get(&Adl::Py) {
+            if adl_to_posids_to_linenums.contains_key(&Adl::Py) {
                 adl_wrapper(
                     &ctx,
                     source_info_table,
@@ -676,8 +669,7 @@ fn main() -> CalyxResult<()> {
                     p.output,
                     Adl::Py,
                 )?;
-            } else if let Some(_) = adl_to_posids_to_linenums.get(&Adl::Dahlia)
-            {
+            } else if adl_to_posids_to_linenums.contains_key(&Adl::Dahlia) {
                 adl_wrapper(
                     &ctx,
                     source_info_table,
