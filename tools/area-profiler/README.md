@@ -8,9 +8,13 @@ yosys -p "read_verilog -sv inline.sv; hierarchy -top main; opt; write_rtlil inli
 
 ## Install
 
+The tool can be installed with:
+
 ```bash
 uv tool install .
 ```
+
+Additionally, on `havarti`, feel free to use Pedro's installation of the Yosys environment, located in `/scratch/pedro`. The environment can be loaded using the `environment` or `environment.fish` scripts.
 
 ## Usage
 
