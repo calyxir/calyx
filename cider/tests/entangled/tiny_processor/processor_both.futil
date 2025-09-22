@@ -1,4 +1,3 @@
-// --entangle 'main_memory, lane_0_memory, lane_1_memory, lane_2_memory, lane_3_memory' --entangle 'instruction_memory, lane_0_instruction, lane_1_instruction, lane_2_instruction, lane_3_instruction'
 import "primitives/core.futil";
 import "primitives/memories/seq.futil";
 import "primitives/binary_operators.futil";

@@ -1,4 +1,4 @@
-use std::ops::Index;
+use std::{io::Read, ops::Index};
 
 use ahash::{HashSet, HashSetExt};
 use calyx_frontend::source_info::SourceInfoTable;
@@ -10,7 +10,7 @@ use cider_idx::{
 };
 
 use crate::{
-    errors::{CiderError, CiderResult},
+    errors::{BoxedCiderError, CiderError, CiderResult},
     flatten::flat_ir::{
         cell_prototype::CellPrototype,
         component::{
@@ -602,107 +602,46 @@ impl Context {
     /// Set the
     pub(crate) fn entangle_memories(
         &mut self,
-        names: &[String],
+        names: Vec<String>,
+        files: &[std::path::PathBuf],
     ) -> CiderResult<()> {
+        enum EntangleGrouping {
+            CommandLine(String),
+            File(String),
+        }
+
         let mut entangled_mems = vec![];
-        for mem_grouping in names {
-            let mut iter = mem_grouping.split(",").map(|name| {
-                let name = name.trim();
-                let (comp, mem_name) = if name.contains("::") {
-                    let mut part = name.split("::");
-                    let comp_name = part.next().unwrap();
-                    let mem_name = part.next().unwrap();
-                    let comp = self.find_component(|_, info| {
-                        self.resolve_id(info.name) == comp_name
-                    });
-                    let Some(comp) = comp else {
-                        return Err(CiderError::generic_error(format!(
-                            "No component named '{comp_name}'"
-                        )));
-                    };
-                    (comp, mem_name)
-                } else {
-                    (self.entry_point, name)
-                };
+        // this is catastrophically stupid but I really don't want to duplicate
+        // the core function logic so for lifetime reasons I need to store stuff
+        // in the vector. There's probably a better way of doing this but this
+        // will work for the moment as much as it grates to read all these files
+        // into memory before doing anything
+        let file_content = files.iter().map(|file| {
+            let mut buf = String::new();
+            std::fs::File::open(file)
+                .unwrap_or_else(|_| {
+                    panic!("{} does not exist", file.to_string_lossy())
+                })
+                .read_to_string(&mut buf)
+                .expect("failed to read file");
+            EntangleGrouping::File(buf)
+        });
 
-                let mem = self.secondary[comp].definitions.cells().iter().find(
-                    |def_idx| {
-                        self.resolve_id(self.secondary[*def_idx].name)
-                            == mem_name
-                    },
-                );
-                let Some(mem) = mem else {
-                    return Err(CiderError::generic_error(format!(
-                        "No memory named '{mem_name}'"
-                    )));
-                };
-                Ok(mem)
-            });
-
-            let first_cell = iter.next().unwrap()?;
-
-            let Some(cell_prototype) = self.secondary.local_cell_defs
-                [first_cell]
-                .prototype
-                .as_memory()
-            else {
-                return Err(CiderError::generic_error(format!(
-                    "'{}' is not a memory",
-                    self.lookup_name(first_cell)
-                ))
-                .into());
-            };
-
-            let mut entangled_grouping = HashSet::new();
-            entangled_grouping.insert(first_cell);
-            let mut representative: CellDefinitionIdx = first_cell;
-
-            for res in iter {
-                let current_cell = res?;
-
-                // must be defined in the same component
-                if self.secondary[first_cell].parent
-                    != self.secondary[current_cell].parent
-                {
-                    return Err(CiderError::generic_error(format!(
-                        "Entangled memories must be defined in the same component. '{}' and '{}' are defined in '{}' and '{}'",
-                        self.lookup_name(first_cell),
-                        self.lookup_name(current_cell),
-                        self.lookup_name(self.secondary[first_cell].parent),
-                        self.lookup_name(self.secondary[current_cell].parent)
-                    )).into());
+        for entangle_content in names
+            .into_iter()
+            .map(EntangleGrouping::CommandLine)
+            .chain(file_content)
+        {
+            match entangle_content {
+                EntangleGrouping::CommandLine(c) => {
+                    let i = Box::new(c.split(","));
+                    self.entangle_memory_group(&mut entangled_mems, i)?;
                 }
-
-                // cell must be a memory
-                let Some(mem_prototype) =
-                    self.secondary[current_cell].prototype.as_memory()
-                else {
-                    return Err(CiderError::generic_error(format!(
-                        "'{}' is not a memory",
-                        self.lookup_name(current_cell)
-                    ))
-                    .into());
-                };
-
-                // memories need to be the same in shape and type
-                if !cell_prototype.eq_minus_external(mem_prototype) {
-                    return Err(CiderError::generic_error(format!(
-                        "Entangled memories must have identical definitions. '{}' and '{}' do not have matching definitions",
-                        self.lookup_name(first_cell),
-                        self.lookup_name(current_cell),
-                    )).into());
+                EntangleGrouping::File(f) => {
+                    let i = Box::new(f.lines());
+                    self.entangle_memory_group(&mut entangled_mems, i)?;
                 }
-
-                entangled_grouping.insert(current_cell);
-                representative = std::cmp::min(representative, current_cell);
-            }
-
-            let entangled_group = EntangledMemories {
-                group: entangled_grouping,
-                representative,
             };
-
-            entangled_mems.push(entangled_group);
         }
 
         // need to merge any overlapping sets together. The objectively correct
@@ -733,6 +672,116 @@ impl Context {
 
         self.secondary.entangled_mems = merged_entangled_mems;
         Ok(())
+    }
+
+    fn entangle_memory_group<'a, I>(
+        &mut self,
+        entangled_mems: &mut Vec<EntangledMemories>,
+        str_iter: I,
+    ) -> Result<(), crate::errors::BoxedCiderError>
+    where
+        I: Iterator<Item = &'a str>,
+    {
+        let mut iter = str_iter.map(|name| self.process_entangled_name(name));
+        let first_cell = iter.next().unwrap()?;
+        let Some(cell_prototype) = self.secondary.local_cell_defs[first_cell]
+            .prototype
+            .as_memory()
+        else {
+            return Err(CiderError::generic_error(format!(
+                "'{}' is not a memory",
+                self.lookup_name(first_cell)
+            ))
+            .into());
+        };
+        let mut entangled_grouping = HashSet::new();
+        entangled_grouping.insert(first_cell);
+        let mut representative: CellDefinitionIdx = first_cell;
+        for res in iter {
+            let current_cell = res?;
+
+            // must be defined in the same component
+            if self.secondary[first_cell].parent
+                != self.secondary[current_cell].parent
+            {
+                return Err(CiderError::generic_error(format!(
+                    "Entangled memories must be defined in the same component. '{}' and '{}' are defined in '{}' and '{}'",
+                    self.lookup_name(first_cell),
+                    self.lookup_name(current_cell),
+                    self.lookup_name(self.secondary[first_cell].parent),
+                    self.lookup_name(self.secondary[current_cell].parent)
+                )).into());
+            }
+
+            // cell must be a memory
+            let Some(mem_prototype) =
+                self.secondary[current_cell].prototype.as_memory()
+            else {
+                return Err(CiderError::generic_error(format!(
+                    "'{}' is not a memory",
+                    self.lookup_name(current_cell)
+                ))
+                .into());
+            };
+
+            // memories need to be the same in shape and type
+            if !cell_prototype.eq_minus_external(mem_prototype) {
+                return Err(CiderError::generic_error(format!(
+                    "Entangled memories must have identical definitions. '{}' and '{}' do not have matching definitions",
+                    self.lookup_name(first_cell),
+                    self.lookup_name(current_cell),
+                )).into());
+            }
+
+            entangled_grouping.insert(current_cell);
+            representative = std::cmp::min(representative, current_cell);
+        }
+        let entangled_group = EntangledMemories {
+            group: entangled_grouping,
+            representative,
+        };
+        entangled_mems.push(entangled_group);
+        Ok(())
+    }
+
+    fn process_entangled_name(
+        &self,
+        name: &str,
+    ) -> Result<CellDefinitionIdx, BoxedCiderError> {
+        let name = name.trim();
+        let (comp, mem_name) = if name.contains("::") {
+            let mut part = name.split("::");
+            let comp_name = part.next().unwrap();
+            let mem_name = part.next().unwrap();
+            let comp = self.find_component(|_, info| {
+                self.resolve_id(info.name) == comp_name
+            });
+            let Some(comp) = comp else {
+                return Err(CiderError::generic_error(format!(
+                    "No component named '{comp_name}'"
+                ))
+                .into());
+            };
+            (comp, mem_name)
+        } else {
+            (self.entry_point, name)
+        };
+
+        let mem =
+            self.secondary[comp]
+                .definitions
+                .cells()
+                .iter()
+                .find(|def_idx| {
+                    self.resolve_id(self.secondary[*def_idx].name) == mem_name
+                });
+        let Some(mem) = mem else {
+            return Err(CiderError::generic_error(format!(
+                "No memory named '{mem_name}'"
+            ))
+            .into());
+        };
+        Ok(mem)
     }
 }
 
