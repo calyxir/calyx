@@ -76,11 +76,11 @@ class CycleTrace:
                 # self.cycle_type = CycleType.GROUP_OR_PRIMITIVE
         self.stacks.append(stack)
 
-    def get_stack_str_list(self, mode: FlameMapMode):
+    def get_stack_str_set(self, mode: FlameMapMode) -> set[str]:
         """
         Retrieve a list of stack string representations based on what mode (Default, ADL, mixed) we're going off of.
         """
-        stack_str_list = []
+        stack_str_set = set()
         for stack in self.stacks:
             match mode:
                 case FlameMapMode.CALYX:
@@ -91,8 +91,8 @@ class CycleTrace:
                 case FlameMapMode.MIXED:
                     assert self.sourceloc_info_added
                     stack_str = ";".join(map(lambda elem: elem.mixed_str(), stack))
-            stack_str_list.append(stack_str)
-        return stack_str_list
+            stack_str_set.add(stack_str)
+        return stack_str_set
 
     def get_num_stacks(self):
         return len(self.stacks)
@@ -341,6 +341,9 @@ class PTrace:
         while i > len(self.trace):
             self.trace.append(CycleTrace())
         self.trace.append(cycle_trace)
+
+    def string_repr(self, mode: FlameMapMode) -> list[set[str]]:
+        return list(map(lambda cycletrace: cycletrace.get_stack_str_set(mode), self.trace))
 
     def __getitem__(self, index):
         assert index <= len(self.trace)

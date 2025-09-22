@@ -8,44 +8,76 @@ from profiler.classes.tracedata import (
     ControlRegUpdateType,
     FlameMapMode,
 )
+from dataclasses import dataclass
+from collections import defaultdict
 
 SCALED_FLAME_MULTIPLIER = (
     1000  # [flame graph] multiplier so scaled flame graph will not round up.
 )
 
+@dataclass
+class FlameTrace:
+    flat_flame_map: defaultdict[str, int]
+    scaled_flame_map: defaultdict[str, int]
 
-def write_flame_map(flame_map: dict[str, int], flame_out_file: str):
+    def __init__(self, string_trace: list[set[str]]):
+        self.flat_flame_map = defaultdict(int)
+        self.scaled_flame_map = defaultdict(int)
+        for stack_string_set in string_trace:
+            # bookkeeping for scaled
+            num_stacks = len(stack_string_set)
+            cycle_slice = round(1 / num_stacks, 3)
+            # the last slice is adjusted s.t. all of the slices together add up to 1.
+            last_cycle_slice = 1 - (cycle_slice * (num_stacks - 1))
+            acc = 0
+            for stack_id in stack_string_set:
+                self.flat_flame_map[stack_id] += 1
+                # scaled flame
+                slice_to_add = cycle_slice if acc < num_stacks - 1 else last_cycle_slice
+                self.scaled_flame_map[stack_id] += slice_to_add * SCALED_FLAME_MULTIPLIER
+                acc += 1
+        
+    def write_flame_maps(
+            self,
+        flames_out_dir: str,
+        flame_out_file: str,
+        scaled_flame_out_filename: str = None,
+    ):
+        """
+        Utility function for writing flat and scaled flame maps to file.
+        flame_out_file is the full path; scaled_flame_out_filename is just the name of the file.
+        FIXME: we should be consistent with the paths.
+        """
+        if not os.path.exists(flames_out_dir):
+            os.mkdir(flames_out_dir)
+
+        # write flat flame map
+        self.write_flame_map(self.flat_flame_map, flame_out_file)
+
+        # write scaled flame map
+        if scaled_flame_out_filename is None:
+            scaled_flame_out_filename = "scaled-flame.folded"
+        scaled_flame_out_file = os.path.join(flames_out_dir, scaled_flame_out_filename)
+        self.write_flame_map(self.scaled_flame_map, scaled_flame_out_file)
+
+    def write_flame_map(self, flame_map: dict[str, int], flame_out_file: str):
+        """
+        Utility function for outputting a flame graph to file.
+        """
+        with open(flame_out_file, "w") as flame_out:
+            for stack in flame_map:
+                flame_out.write(f"{stack} {flame_map[stack]}\n")    
+
+def create_and_write_calyx_flame_maps(trace: PTrace, out_dir: str, flame_out: str, mode: FlameMapMode = FlameMapMode.CALYX) -> tuple[dict[str, int], dict[str, int]]:
     """
-    Utility function for outputting a flame graph to file.
+    Function to create flame maps for Calyx-style traces.
     """
-    with open(flame_out_file, "w") as flame_out:
-        for stack in flame_map:
-            flame_out.write(f"{stack} {flame_map[stack]}\n")
+    # create string version
+    string_trace: list[set[str]] = trace.string_repr(mode)
+    flametrace: FlameTrace = FlameTrace(string_trace)
+    flametrace.write_flame_maps(out_dir, flame_out)
+    
 
-
-def write_flame_maps(
-    flat_flame_map,
-    scaled_flame_map,
-    flames_out_dir,
-    flame_out_file: str,
-    scaled_flame_out_filename: str = None,
-):
-    """
-    Utility function for writing flat and scaled flame maps to file.
-    flame_out_file is the full path; scaled_flame_out_filename is just the name of the file.
-    FIXME: we should be consistent with the paths.
-    """
-    if not os.path.exists(flames_out_dir):
-        os.mkdir(flames_out_dir)
-
-    # write flat flame map
-    write_flame_map(flat_flame_map, flame_out_file)
-
-    # write scaled flame map
-    if scaled_flame_out_filename is None:
-        scaled_flame_out_filename = "scaled-flame.folded"
-    scaled_flame_out_file = os.path.join(flames_out_dir, scaled_flame_out_filename)
-    write_flame_map(scaled_flame_map, scaled_flame_out_file)
 
 def create_flame_maps(
     trace: PTrace, mode: FlameMapMode = FlameMapMode.CALYX
@@ -84,7 +116,7 @@ def create_flame_maps(
 
 
 def create_simple_flame_graph(
-    tracedata: TraceData, control_reg_updates: dict[int, ControlRegUpdateType], out_dir
+    tracedata: TraceData, control_reg_updates: dict[int, ControlRegUpdateType]
 ):
     """
     Create and output a very simple overview flame graph that attributes cycles to categories
@@ -112,9 +144,9 @@ def create_simple_flame_graph(
         flame_base_map[cycle_type].add(i)
 
     # modify names to contain their cycles (for easier viewing)
-    flame_map = {}
-    for key in flame_base_map:
-        cycles = len(flame_base_map[key])
-        flame_map[f"{key.name} ({cycles})"] = cycles
-    write_flame_map(flame_map, os.path.join(out_dir, "overview.folded"))
+    # flame_map = {}
+    # for key in flame_base_map:
+    #     cycles = len(flame_base_map[key])
+    #     flame_map[f"{key.name} ({cycles})"] = cycles
+    # write_flame_map(flame_map, os.path.join(out_dir, "overview.folded"))
     tracedata.cycletype_to_cycles = flame_base_map
