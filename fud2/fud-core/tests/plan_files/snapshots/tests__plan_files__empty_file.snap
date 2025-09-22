@@ -1,0 +1,7 @@
+---
+source: fud2/fud-core/tests/plan_files/mod.rs
+expression: ast
+---
+AssignmentList {
+    assigns: [],
+}
