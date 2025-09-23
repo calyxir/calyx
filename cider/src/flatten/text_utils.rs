@@ -1,4 +1,7 @@
-use std::fmt::{Display, Write};
+use std::{
+    fmt::{Display, Write},
+    path::Path,
+};
 
 use owo_colors::{OwoColorize, Stream::Stdout, Style};
 
@@ -124,4 +127,15 @@ pub(crate) fn force_color(force_color: ColorConfig) {
         ColorConfig::Off => owo_colors::set_override(false),
         ColorConfig::Auto => owo_colors::unset_override(),
     }
+}
+
+pub fn format_file_line(
+    line_num: usize,
+    line_content: String,
+    file_path: &Path,
+) -> String {
+    format!(
+        "({}: {line_num}) {line_content}",
+        file_path.to_string_lossy()
+    )
 }

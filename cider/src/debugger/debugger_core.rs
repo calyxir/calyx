@@ -23,7 +23,7 @@ use crate::{
             context::Context,
             environment::{Path, PathError, PolicyChoice, Simulator},
         },
-        text_utils::{Color, print_debugger_welcome},
+        text_utils::{Color, format_file_line, print_debugger_welcome},
     },
     serialization::PrintCode,
 };
@@ -430,49 +430,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     .debugging_context
                     .print_watchpoints(self.interpreter.env()),
 
-                Command::PrintPC(print_mode) => match print_mode {
-                    PrintCommand::Normal => {
-                        if let Some(source_info) = &self
-                            .program_context
-                            .as_ref()
-                            .secondary
-                            .source_info_table
-                        {
-                            let mut printed_position = false;
-                            for position in
-                                self.interpreter.env().iter_positions()
-                            {
-                                if let Some(location) =
-                                    source_info.get_position(position)
-                                {
-                                    println!(
-                                        "{}:{}",
-                                        source_info
-                                            .lookup_file_path(location.file)
-                                            .display(),
-                                        location.line
-                                    );
-                                    printed_position = true;
-                                }
-                            }
-
-                            if !printed_position {
-                                println!(
-                                    "Source info unavailable, falling back to Calyx"
-                                );
-                                println!("{}", self.interpreter.print_pc());
-                            }
-                        } else {
-                            println!("{}", self.interpreter.print_pc());
-                        }
-                    }
-                    PrintCommand::PrintCalyx => {
-                        println!("{}", self.interpreter.print_pc().trim_end());
-                    }
-                    PrintCommand::PrintNodes => {
-                        self.interpreter.print_pc_string();
-                    }
-                },
+                Command::PrintPC(print_mode) => self.do_print_pc(print_mode),
                 Command::Explain => {
                     print!("{}", Command::get_explain_string())
                 }
@@ -544,6 +502,56 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                         "This command is unavailable after program termination"
                     )
                 }
+            }
+        }
+    }
+
+    fn do_print_pc(&self, print_mode: PrintCommand) {
+        match print_mode {
+            PrintCommand::Normal => {
+                if let Some(source_info) =
+                    &self.program_context.as_ref().secondary.source_info_table
+                {
+                    let mut printed_position = false;
+                    for position in self.interpreter.env().iter_positions() {
+                        let line =
+                            match source_info.get_position_string(position) {
+                                Ok(l) => l,
+                                Err(e) => {
+                                    eprintln!("Error: {e}");
+                                    continue;
+                                }
+                            };
+
+                        let pos = source_info.get_position(position).unwrap();
+                        let file_path = source_info.lookup_file_path(pos.file);
+
+                        println!(
+                            "{}",
+                            format_file_line(
+                                pos.line.as_usize(),
+                                line,
+                                file_path
+                            )
+                        );
+                        printed_position = true;
+                    }
+
+                    if !printed_position {
+                        println!(
+                            "Source info unavailable, falling back to Calyx"
+                        );
+                        println!("{}", self.interpreter.print_pc());
+                    }
+                } else {
+                    println!("{}", self.interpreter.print_pc());
+                }
+            }
+            PrintCommand::PrintCalyx => {
+                println!("{}", self.interpreter.print_pc().trim_end());
+            }
+            PrintCommand::PrintNodes => {
+                self.interpreter.print_pc_string();
             }
         }
     }

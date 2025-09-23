@@ -1,12 +1,12 @@
 
 ---STDERR---
 ==== [1mCider[0m: The [4mC[0malyx [4mI[0mnterpreter and [4mDe[0mbugge[4mr[0m ====
-test.futil:14
-my_super_cool_file.txt:15
-my_super_cool_file.txt:45
-test.futil:14
-test.futil:6578
-test.futil:14
-test.futil:6578
+(../debugger/file1: 1) this file exists to help test source line printing in cider
+(../debugger/file2: 3) Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+Error: file ../debugger/file2 does not have a line 17
+(../debugger/file1: 1) this file exists to help test source line printing in cider
+(../debugger/file1: 5) why are you looking down here
+(../debugger/file1: 1) this file exists to help test source line printing in cider
+(../debugger/file1: 5) why are you looking down here
 Main component has finished executing. Debugger is now in inspection mode.
 Exiting.
