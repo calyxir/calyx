@@ -135,6 +135,9 @@ pub fn build_primitive(
                 SingleWidthType::Undef => {
                     Box::new(StdUndef::new(base_port, *width))
                 }
+                SingleWidthType::UnsynAssert => {
+                    Box::new(UnsynAssert::new(base_port, cell_idx))
+                }
             }
         }
         CellPrototype::FixedPoint {
