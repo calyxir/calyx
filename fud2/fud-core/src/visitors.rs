@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops, str::FromStr};
+use std::{collections::HashMap, ops};
 
 use camino::Utf8PathBuf;
 use cranelift_entity::PrimaryMap;
@@ -20,17 +20,19 @@ pub fn ast_from_steps(
             .1
             .iter()
             .map(|v| match v {
-                IO::StdIO(utf8_path_buf) => utf8_path_buf.to_string(),
-                IO::File(utf8_path_buf) => utf8_path_buf.to_string(),
+                IO::StdIO(utf8_path_buf) => utf8_path_buf,
+                IO::File(utf8_path_buf) => utf8_path_buf,
             })
+            .cloned()
             .collect();
         let args = step
             .2
             .iter()
             .map(|v| match v {
-                IO::StdIO(utf8_path_buf) => utf8_path_buf.to_string(),
-                IO::File(utf8_path_buf) => utf8_path_buf.to_string(),
+                IO::StdIO(utf8_path_buf) => utf8_path_buf,
+                IO::File(utf8_path_buf) => utf8_path_buf,
             })
+            .cloned()
             .collect();
 
         let fun = Function {
@@ -74,17 +76,8 @@ impl Visitor for ASTToStepList {
     type Result = ops::ControlFlow<()>;
 
     fn visit_assignment(&mut self, a: &Assignment) -> Self::Result {
-        let vars = a
-            .vars
-            .iter()
-            .map(|s| IO::File(Utf8PathBuf::from_str(s).unwrap()))
-            .collect();
-        let args = a
-            .value
-            .args
-            .iter()
-            .map(|s| IO::File(Utf8PathBuf::from_str(s).unwrap()))
-            .collect();
+        let vars = a.vars.iter().map(|s| IO::File(s.clone())).collect();
+        let args = a.value.args.iter().map(|s| IO::File(s.clone())).collect();
         let op_ref = self.name_to_op_ref[&a.value.name];
 
         self.step_list.push((op_ref, vars, args));
@@ -113,8 +106,12 @@ impl Visitor for ASTStringifier {
     type Result = ops::ControlFlow<()>;
 
     fn visit_assignment(&mut self, a: &Assignment) -> Self::Result {
-        let vars = a.vars.join(", ");
-        let args = a.value.args.join(", ");
+        let var_vec: Vec<String> =
+            a.vars.iter().map(Utf8PathBuf::to_string).collect();
+        let vars = var_vec.join(", ");
+        let arg_vec: Vec<String> =
+            a.value.args.iter().map(Utf8PathBuf::to_string).collect();
+        let args = arg_vec.join(", ");
         let assign_string = format!("{} = {}({});", vars, a.value.name, args);
         self.assigns.push(assign_string);
         Self::Result::output()

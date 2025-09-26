@@ -7,6 +7,7 @@ use super::{
     span::Span,
 };
 
+/// TODO: use std::error::Error
 pub trait Error {
     /// Returns the error message corresponding to the error.
     fn msg(&self) -> String;
@@ -84,17 +85,17 @@ impl Error for UnexpectedToken<'_> {
 #[derive(Clone, Debug)]
 pub(super) struct UnexpectedChar {
     pub found_char: Option<char>,
-    pub expected_char: char,
+    pub expected_char: Vec<char>,
 }
 
 impl<'a> UnexpectedChar {
     pub fn from_parts(
         found_char: Option<char>,
-        expected_char: char,
+        expected_char: &[char],
     ) -> ParseError<'a> {
         Wrap::new(UnexpectedChar {
             found_char,
-            expected_char,
+            expected_char: expected_char.to_vec(),
         })
     }
 }

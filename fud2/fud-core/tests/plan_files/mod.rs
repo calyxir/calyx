@@ -3,7 +3,7 @@ use fud_core::visitors::ASTStringifier;
 
 #[test]
 fn basic_parse() {
-    let src = "x = input(a, b); z, y = f(x);";
+    let src = r#""x" = "input"("a", "b"); "z", "y" = "f"("x");"#;
     let sess = ParseSession::with_str_buf(src);
     let ast = sess.parse();
     match ast {
@@ -14,7 +14,7 @@ fn basic_parse() {
 
 #[test]
 fn no_args() {
-    let src = "x = input();";
+    let src = r#""x" = "input"();"#;
     let sess = ParseSession::with_str_buf(src);
     let ast = sess.parse();
     match ast {
@@ -25,7 +25,7 @@ fn no_args() {
 
 #[test]
 fn single_assignment() {
-    let src = "x = input(y);";
+    let src = r#""x" = "input"("y");"#;
     let sess = ParseSession::with_str_buf(src);
     let ast = sess.parse();
     match ast {
@@ -36,7 +36,7 @@ fn single_assignment() {
 
 #[test]
 fn unicode_ids() {
-    let src = "Æ = Ë(Ð);";
+    let src = r#""Æ" = "Ë"("Ð");"#;
     let sess = ParseSession::with_str_buf(src);
     let ast = sess.parse();
     match ast {
@@ -47,7 +47,7 @@ fn unicode_ids() {
 
 #[test]
 fn underscores() {
-    let src = "__ = _hello__(_Ð);";
+    let src = r#""__" = "_hello__"("_Ð");"#;
     let sess = ParseSession::with_str_buf(src);
     let ast = sess.parse();
     match ast {
@@ -58,7 +58,7 @@ fn underscores() {
 
 #[test]
 fn many_io_lists() {
-    let src = "a, b, c, d, e, f = input(g, h, i, j, k); l, m, n, o = go(p, q, r, s, t); u, v = stop(w, x, y, z);";
+    let src = r#"a, b, c, d, e, f = "input"(g, h, i, j, k); l, m, n, o = go(p, q, r, s, t); u, v = stop(w, x, y, z);"#;
     let sess = ParseSession::with_str_buf(src);
     let ast = sess.parse();
     match ast {
@@ -262,6 +262,17 @@ fn no_args_serialization() {
             let s = visistor.string_from_ast(&ast);
             insta::assert_snapshot!(s)
         }
+        Err(e) => insta::assert_snapshot!(e.msg()),
+    }
+}
+
+#[test]
+fn trailing_quotes() {
+    let src = r#"x, "y = input(a);"#;
+    let sess = ParseSession::with_str_buf(src);
+    let ast = sess.parse();
+    match ast {
+        Ok(ast) => insta::assert_debug_snapshot!(ast),
         Err(e) => insta::assert_snapshot!(e.msg()),
     }
 }

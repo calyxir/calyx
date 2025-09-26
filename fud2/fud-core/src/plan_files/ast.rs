@@ -1,5 +1,7 @@
 //! The AST types used to represent plan files and ways to traverse them
 
+use camino::Utf8PathBuf;
+
 use super::span::Span;
 use std::ops::ControlFlow;
 
@@ -78,12 +80,13 @@ pub trait Visitable<V: Visitor> {
     fn visit(&self, visitor: &mut V) -> V::Result;
 }
 
-pub(crate) type Id = String;
+pub(crate) type FunId = String;
+pub(crate) type VarId = Utf8PathBuf;
 
 #[derive(Clone, Debug)]
 pub struct Function {
-    pub name: Id,
-    pub args: Vec<Id>,
+    pub name: FunId,
+    pub args: Vec<VarId>,
 }
 
 impl<V: Visitor> Visitable<V> for Function {
@@ -95,7 +98,7 @@ impl<V: Visitor> Visitable<V> for Function {
 
 #[derive(Clone, Debug)]
 pub struct Assignment {
-    pub vars: Vec<Id>,
+    pub vars: Vec<VarId>,
     pub value: Function,
 }
 

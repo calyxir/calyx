@@ -1,5 +1,7 @@
 //! The recursive decent parser for parsing plan files.
 
+use camino::Utf8PathBuf;
+
 use super::{ast::*, error::*, session::ParseSession, span::Span};
 
 #[derive(Debug)]
@@ -8,7 +10,9 @@ pub(super) struct Lexer<'a> {
     cursor: usize,
 }
 
-static VALID_NON_ALPHANUMERIC_CHARACTERS: [char; 6] =
+const ESCAPE_CODES: [char; 2] = ['"', '\\'];
+
+const VALID_NON_ALPHANUMERIC_CHARACTERS: [char; 6] =
     ['-', '_', '/', '\\', '.', ':'];
 
 impl<'a> Lexer<'a> {
@@ -32,60 +36,32 @@ impl<'a> Lexer<'a> {
         true
     }
 
-    pub fn next_token(&mut self) -> Result<Token<'a>, ParseError<'a>> {
+    pub fn lex_char(&mut self) -> Result<char, ParseError<'a>> {
         let buf = self.sess.buf();
         if self.cursor >= buf.len() {
-            return Err(UnexpectedChar::from_parts(None, 'a'));
+            return Err(Wrap::new(NoMoreToLexError {}));
         }
-
-        // This language is whitespace agnostic because semantic whitespace is weirdly hard to
-        // implement while also allowing unicode.
-        while buf[self.cursor].is_whitespace() {
-            self.cursor += 1;
-            if self.cursor >= buf.len() {
-                return Err(UnexpectedChar::from_parts(None, 'a'));
+        // We are dealing with an escape character.
+        if buf[self.cursor] == '\\' {
+            if self.cursor + 1 >= buf.len() {
+                return Err(Wrap::new(NoMoreToLexError {}));
             }
-        }
-
-        // Lex characters which have some special meaning.
-        let span = Span {
-            sess: self.sess,
-            lo: self.cursor,
-            hi: self.cursor,
-        };
-        let maybe_tok = match buf[self.cursor] {
-            '=' => Some(Token {
-                kind: TokenKind::Assign,
-                span,
-            }),
-            '(' => Some(Token {
-                kind: TokenKind::OpenParen,
-                span,
-            }),
-            ')' => Some(Token {
-                kind: TokenKind::CloseParen,
-                span,
-            }),
-            ';' => Some(Token {
-                kind: TokenKind::Semicolon,
-                span,
-            }),
-            ',' => Some(Token {
-                kind: TokenKind::Comma,
-                span,
-            }),
-            _ => None,
-        };
-
-        if let Some(tok) = maybe_tok {
+            let c = buf[self.cursor + 1];
+            if ESCAPE_CODES.contains(&c) {
+                self.cursor += 2;
+                Ok(c)
+            } else {
+                Err(UnexpectedChar::from_parts(Some(c), &ESCAPE_CODES))
+            }
+        } else {
+            let c = buf[self.cursor];
             self.cursor += 1;
-            return Ok(tok);
+            Ok(c)
         }
+    }
 
-        // Lex identifiers.
-        //
-        // Identifiers are defined as some alphabetic character or "_" followed by a string of
-        // alphanumeric or "_" characters.
+    pub fn lex_shorthand_id(&mut self) -> Result<Token<'a>, ParseError<'a>> {
+        let buf = self.sess.buf();
         let first_char = buf[self.cursor];
         if !first_char.is_alphabetic()
             && !VALID_NON_ALPHANUMERIC_CHARACTERS.contains(&first_char)
@@ -128,6 +104,94 @@ impl<'a> Lexer<'a> {
             kind: TokenKind::Id(id_string),
             span,
         })
+    }
+
+    pub fn next_token(&mut self) -> Result<Token<'a>, ParseError<'a>> {
+        let buf = self.sess.buf();
+        if self.cursor >= buf.len() {
+            return Err(UnexpectedChar::from_parts(None, &['a']));
+        }
+
+        // This language is whitespace agnostic because semantic whitespace is weirdly hard to
+        // implement while also allowing unicode.
+        while buf[self.cursor].is_whitespace() {
+            self.cursor += 1;
+            if self.cursor >= buf.len() {
+                return Err(UnexpectedChar::from_parts(None, &['a']));
+            }
+        }
+
+        // Lex characters which have some special meaning.
+        let span = Span {
+            sess: self.sess,
+            lo: self.cursor,
+            hi: self.cursor,
+        };
+        let maybe_tok = match buf[self.cursor] {
+            '=' => Some(Token {
+                kind: TokenKind::Assign,
+                span,
+            }),
+            '(' => Some(Token {
+                kind: TokenKind::OpenParen,
+                span,
+            }),
+            ')' => Some(Token {
+                kind: TokenKind::CloseParen,
+                span,
+            }),
+            ';' => Some(Token {
+                kind: TokenKind::Semicolon,
+                span,
+            }),
+            ',' => Some(Token {
+                kind: TokenKind::Comma,
+                span,
+            }),
+            _ => None,
+        };
+
+        if let Some(tok) = maybe_tok {
+            self.cursor += 1;
+            return Ok(tok);
+        }
+
+        // Lex identifiers.
+        //
+        // Identifiers are defined as a '"' followed by some characters with '"'s and '\' special
+        // and escaped using '\' and a closing '"'.
+        //
+        // Identifiers must be extremely lax because they correspond to file paths which can
+        // contain very many strange characters.
+        //
+        // For a shorthand, users can drop the quotes but cannot have whitespace or some stranger
+        // characters in their identifiers.
+        let first_char = buf[self.cursor];
+        if first_char != '"' {
+            self.lex_shorthand_id()
+        } else {
+            let lo = self.cursor;
+            let mut id_string = vec![];
+            self.cursor += 1;
+            while self.cursor < buf.len() && buf[self.cursor] != '"' {
+                id_string.push(self.lex_char()?);
+            }
+            if self.cursor >= buf.len() {
+                return Err(Wrap::new(NoMoreToLexError {}));
+            }
+
+            let hi = self.cursor;
+            self.cursor += 1;
+            let span = Span {
+                sess: self.sess,
+                lo,
+                hi,
+            };
+            Ok(Token {
+                kind: TokenKind::Id(id_string.iter().collect()),
+                span,
+            })
+        }
     }
 }
 
@@ -172,7 +236,26 @@ impl<'a> Parser<'a> {
         Ok(AssignmentList { assigns })
     }
 
-    fn parse_id(&mut self) -> Result<Id, ParseError<'a>> {
+    fn parse_var_id(&mut self) -> Result<VarId, ParseError<'a>> {
+        if self.cursor >= self.buf.len() {
+            return Err(Wrap::new(NoMoreToLexError {}));
+        }
+
+        let cursor = self.cursor;
+        self.cursor += 1;
+        match &self.buf[cursor] {
+            Token {
+                kind: TokenKind::Id(id),
+                ..
+            } => Ok(Utf8PathBuf::from(id)),
+            t => Err(Wrap::new(UnexpectedToken {
+                found_token: t.clone(),
+                expected_token_kind: TokenKind::Id("<id>".to_string()),
+            })),
+        }
+    }
+
+    fn parse_fun_id(&mut self) -> Result<FunId, ParseError<'a>> {
         if self.cursor >= self.buf.len() {
             return Err(Wrap::new(NoMoreToLexError {}));
         }
@@ -217,24 +300,24 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_id_list(&mut self) -> Result<Vec<Id>, ParseError<'a>> {
+    fn parse_id_list(&mut self) -> Result<Vec<VarId>, ParseError<'a>> {
         if !matches!(self.buf[self.cursor].kind, TokenKind::Id(_)) {
             return Ok(vec![]);
         }
 
         let mut res = vec![];
-        let var = self.parse_id()?;
+        let var = self.parse_var_id()?;
         res.push(var);
         while matches!(self.buf[self.cursor].kind, TokenKind::Comma) {
             self.parse_simple_token_kind(TokenKind::Comma)?;
-            let var = self.parse_id()?;
+            let var = self.parse_var_id()?;
             res.push(var);
         }
         Ok(res)
     }
 
     fn parse_function(&mut self) -> Result<Function, ParseError<'a>> {
-        let name = self.parse_id()?;
+        let name = self.parse_fun_id()?;
         self.parse_simple_token_kind(TokenKind::OpenParen)?;
         let args = self.parse_id_list()?;
         self.parse_simple_token_kind(TokenKind::CloseParen)?;
