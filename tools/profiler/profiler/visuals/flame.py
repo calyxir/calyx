@@ -8,6 +8,7 @@ from profiler.classes.tracedata import (
     ControlRegUpdateType,
     FlameMapMode,
 )
+from profiler.classes.adl import AdlMap
 from dataclasses import dataclass
 from collections import defaultdict
 
@@ -41,12 +42,11 @@ class FlameTrace:
             self,
         flames_out_dir: str,
         flame_out_file: str,
-        scaled_flame_out_filename: str = None,
+        scaled_flame_out_file: str = None,
     ):
         """
         Utility function for writing flat and scaled flame maps to file.
-        flame_out_file is the full path; scaled_flame_out_filename is just the name of the file.
-        FIXME: we should be consistent with the paths.
+        flame_out_file and scaled_flame_out_filename are full paths.
         """
         if not os.path.exists(flames_out_dir):
             os.mkdir(flames_out_dir)
@@ -55,9 +55,8 @@ class FlameTrace:
         self.write_flame_map(self.flat_flame_map, flame_out_file)
 
         # write scaled flame map
-        if scaled_flame_out_filename is None:
-            scaled_flame_out_filename = "scaled-flame.folded"
-        scaled_flame_out_file = os.path.join(flames_out_dir, scaled_flame_out_filename)
+        if scaled_flame_out_file is None:
+            scaled_flame_out_file = os.path.join(flames_out_dir, "scaled-flame.folded")
         self.write_flame_map(self.scaled_flame_map, scaled_flame_out_file)
 
     def write_flame_map(self, flame_map: dict[str, int], flame_out_file: str):
@@ -66,7 +65,7 @@ class FlameTrace:
         """
         with open(flame_out_file, "w") as flame_out:
             for stack in flame_map:
-                flame_out.write(f"{stack} {flame_map[stack]}\n")    
+                flame_out.write(f"{stack} {flame_map[stack]}\n")
 
 def create_and_write_calyx_flame_maps(trace: PTrace, out_dir: str, flame_out: str, mode: FlameMapMode = FlameMapMode.CALYX) -> tuple[dict[str, int], dict[str, int]]:
     """
@@ -76,7 +75,26 @@ def create_and_write_calyx_flame_maps(trace: PTrace, out_dir: str, flame_out: st
     string_trace: list[set[str]] = trace.string_repr(mode)
     flametrace: FlameTrace = FlameTrace(string_trace)
     flametrace.write_flame_maps(out_dir, flame_out)
-    
+
+def create_and_write_dahlia_flame_maps(tracedata: TraceData, adl_mapping_file: str, out_dir: str):
+    calyx_trace: PTrace = tracedata.trace_with_control_groups
+    adl_map = AdlMap(adl_mapping_file)
+    dahlia_string_trace: list[set[str]] = []
+    # create string version with Dahlia constructs
+    for i in calyx_trace:
+        i_string_set = set()
+        # find leaf groups (there could be some in parallel)
+        leaf_groups: set = calyx_trace[i].find_leaf_groups()
+        group_map = adl_map.group_map.get("main")
+        for group in leaf_groups:
+            entry:str = group_map[group].adl_str()
+            i_string_set.add(entry)
+        dahlia_string_trace.append(i_string_set)
+
+    flametrace: FlameTrace = FlameTrace(dahlia_string_trace)
+    adl_flat_flame_file = os.path.join(out_dir, "adl-flat-flame.folded")
+    adl_scaled_flame_file = os.path.join(out_dir, "adl-scaled-flame.folded")
+    flametrace.write_flame_maps(out_dir, adl_flat_flame_file, scaled_flame_out_file=adl_scaled_flame_file)
 
 
 def create_flame_maps(
@@ -118,7 +136,7 @@ def create_flame_maps(
 def create_simple_flame_graph(
     tracedata: TraceData, control_reg_updates: dict[int, ControlRegUpdateType]
 ):
-    """
+    """ 
     Create and output a very simple overview flame graph that attributes cycles to categories
     describing how "useful" a cycle is.
     """

@@ -39,13 +39,14 @@ def create_and_write_adl_map(tracedata: TraceData, adl_mapping_file: str, out_di
         case Adl.DAHLIA:
             # We will create a Dahlia-specific trace
             dahlia_trace = create_dahlia_trace(tracedata, adl_map)
-            adl_flat_map, adl_scaled_map = flame.create_flame_maps(
-                dahlia_trace, FlameMapMode.ADL
-            )
-            flame.write_flame_map(adl_flat_map, adl_flat_flame_file)
-            flame.write_flame_map(adl_scaled_map, adl_scaled_flame_file)
+            flame.create_and_write_dahlia_flame_maps(tracedata, adl_mapping_file, out_dir)
+            # adl_flat_map, adl_scaled_map = flame.create_flame_maps(
+            #     dahlia_trace, FlameMapMode.ADL
+            # )
+            # flame.write_flame_map(adl_flat_map, adl_flat_flame_file)
+            # flame.write_flame_map(adl_scaled_map, adl_scaled_flame_file)
 
-            print("writing Dahlia timeline")
+            # print("writing Dahlia timeline")
             timeline.compute_adl_protobuf_timeline(dahlia_trace, out_dir)
 
         case Adl.PY:
