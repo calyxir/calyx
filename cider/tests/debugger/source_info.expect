@@ -1,6 +1,6 @@
 
 ---STDERR---
-==== [1mCider[0m: The [4mC[0malyx [4mI[0mnterpreter and [4mDe[0mbugge[4mr[0m ====
+==== Cider: The Calyx Interpreter and Debugger ====
 (../debugger/file1: 1) this file exists to help test source line printing in cider
 (../debugger/file2: 3) Lorem ipsum dolor sit amet, consectetur adipiscing elit.
 Error: file ../debugger/file2 does not have a line 17
