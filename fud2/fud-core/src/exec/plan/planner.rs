@@ -13,6 +13,7 @@ pub enum PlannerType {
     Enumerative,
     Legacy,
     Predetermined,
+    Json,
 }
 
 /// A reified function for finding a sequence of operations taking a start set of states to an end

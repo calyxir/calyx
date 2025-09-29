@@ -3,7 +3,11 @@ use super::{
     plan::PlannerType,
 };
 use crate::{
-    plan_files::session::ParseSession, run, script, utils,
+    plan_files::{
+        error::{ParseError, Wrap},
+        session::ParseSession,
+    },
+    run, script, utils,
     visitors::ASTToStepList,
 };
 use camino::{Utf8Path, Utf8PathBuf};
@@ -181,7 +185,8 @@ impl Driver {
     /// to the output state. If no such path exists in the operation graph, we return None.
     pub fn plan(&self, req: &Request) -> Option<Plan> {
         // Special case if the planner is the one which reads from stdin.
-        if let PlannerType::Predetermined = req.planner.ty() {
+        let planner_ty = req.planner.ty();
+        if let PlannerType::Predetermined | PlannerType::Json = planner_ty {
             let mut stdin = io::stdin().lock();
             let mut input = String::new();
             let res = stdin.read_to_string(&mut input);
@@ -191,7 +196,12 @@ impl Driver {
             }
 
             let p = ParseSession::with_str_buf(&input);
-            let ast = p.parse();
+            let ast = if matches!(planner_ty, PlannerType::Predetermined) {
+                p.parse()
+            } else {
+                serde_json::from_str(&input)
+                    .map_err(|e| Wrap::new(e) as ParseError)
+            };
             match ast {
                 Err(e) => {
                     eprintln!("error: {}", e.msg());

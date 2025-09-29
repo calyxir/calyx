@@ -64,6 +64,7 @@ enum Planner {
     Egg,
     Enumerate,
     Predetermined,
+    Json,
 }
 
 impl FromStr for Planner {
@@ -76,6 +77,7 @@ impl FromStr for Planner {
             "egg" => Ok(Planner::Egg),
             "enumerate" => Ok(Planner::Enumerate),
             "predetermined" => Ok(Planner::Predetermined),
+            "json" => Ok(Planner::Json),
             _ => Err("unknown planner".to_string()),
         }
     }
@@ -89,6 +91,7 @@ impl Display for Planner {
             Planner::Egg => write!(f, "egg"),
             Planner::Enumerate => write!(f, "enumerate"),
             Planner::Predetermined => write!(f, "predetermined"),
+            Planner::Json => write!(f, "json"),
         }
     }
 }
@@ -315,6 +318,7 @@ fn get_request<T: CliExt>(
             Planner::Egg => Box::new(plan::EggPlanner {}),
             Planner::Enumerate => Box::new(plan::EnumeratePlanner {}),
             Planner::Predetermined => Box::new(plan::PredeterminedPlanner {}),
+            Planner::Json => Box::new(plan::JsonPlanner {}),
         },
         timing_csv: args.timing_csv.clone(),
     })

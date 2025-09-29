@@ -13,6 +13,12 @@ pub trait Error {
     fn msg(&self) -> String;
 }
 
+impl Error for serde_json::Error {
+    fn msg(&self) -> String {
+        self.to_string()
+    }
+}
+
 impl Error for io::Error {
     fn msg(&self) -> String {
         self.to_string()
