@@ -8,7 +8,7 @@ from profiler.classes.tracedata import (
     ControlRegUpdateType,
     FlameMapMode,
 )
-from profiler.classes.adl import AdlMap
+from profiler.classes.adl import AdlMap, SourceLoc
 from dataclasses import dataclass
 from collections import defaultdict
 
@@ -87,7 +87,8 @@ def create_and_write_dahlia_flame_maps(tracedata: TraceData, adl_mapping_file: s
         leaf_groups: set = calyx_trace[i].find_leaf_groups()
         group_map = adl_map.group_map.get("main")
         for group in leaf_groups:
-            entry:str = group_map[group].adl_str()
+            group_sourceloc: SourceLoc = group_map[group]
+            entry = group_sourceloc.adl_str()
             i_string_set.add(entry)
         dahlia_string_trace.append(i_string_set)
 

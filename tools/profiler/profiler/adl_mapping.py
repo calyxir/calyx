@@ -1,7 +1,7 @@
 import os
 
 from profiler.visuals import flame, timeline
-from profiler.classes.adl import AdlMap, Adl
+from profiler.classes.adl import AdlMap, Adl, SourceLoc
 from profiler.classes.tracedata import FlameMapMode, TraceData, PTrace, CycleTrace
 from .classes.stack_element import StackElement, StackElementType
 
@@ -16,7 +16,8 @@ def create_dahlia_trace(tracedata: TraceData, adl_map: AdlMap):
         group_map = adl_map.group_map.get("main")
         dahlia_stacks: list[list[StackElement]] = []
         for group in leaf_groups:
-            entry = group_map[group].adl_str()
+            group_sourceloc: SourceLoc = group_map[group]
+            entry = f"L{group_sourceloc.linenum:04}: {group_sourceloc.varname}"
             dahlia_group = StackElement(entry, StackElementType.ADL_LINE)
             dahlia_stacks.append([dahlia_group])
         dahlia_trace.add_cycle(i, CycleTrace(dahlia_stacks))

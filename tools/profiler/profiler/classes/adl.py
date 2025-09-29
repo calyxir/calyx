@@ -33,7 +33,8 @@ class SourceLoc:
             self.varname = None
 
     def adl_str(self):
-        return f"{self.varname} {{{self.filename}: {self.linenum}}}"
+        return f"{{{self.filename}: {self.linenum}}} {self.varname}"
+        # return f"L{self.linenum}: {self.varname}"
 
     def loc_str(self):
         return f"{{{self.filename}: {self.linenum}}}"
