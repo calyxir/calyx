@@ -363,6 +363,13 @@ impl<'a> Run<'a> {
         println!("{s}");
     }
 
+    /// Emit the sequence of ops used to create a plan as json text
+    pub fn show_ops_json(&self) {
+        let ast = ast_from_steps(&self.plan.steps, &self.driver.ops);
+        let s = serde_json::to_string_pretty(&ast).unwrap();
+        println!("{s}");
+    }
+
     /// Print the `build.ninja` file to stdout.
     pub fn emit_to_stdout(&self) -> EmitResult {
         self.emit(std::io::stdout())

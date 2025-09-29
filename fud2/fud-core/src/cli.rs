@@ -19,6 +19,7 @@ enum Mode {
     Run,
     Cmds,
     OpSeq,
+    JsonPlan,
 }
 
 impl FromStr for Mode {
@@ -33,6 +34,7 @@ impl FromStr for Mode {
             "dot" => Ok(Mode::ShowDot),
             "cmds" => Ok(Mode::Cmds),
             "op-seq" => Ok(Mode::OpSeq),
+            "json-plan" => Ok(Mode::JsonPlan),
             _ => Err("unknown mode".to_string()),
         }
     }
@@ -48,6 +50,7 @@ impl Display for Mode {
             Mode::ShowDot => write!(f, "dot"),
             Mode::Cmds => write!(f, "cmds"),
             Mode::OpSeq => write!(f, "op-seq"),
+            Mode::JsonPlan => write!(f, "json-plan"),
         }
     }
 }
@@ -531,6 +534,7 @@ fn cli_ext<T: CliExt>(
             csv_path,
         )?,
         Mode::OpSeq => run.show_ops(),
+        Mode::JsonPlan => run.show_ops_json(),
     }
 
     Ok(())

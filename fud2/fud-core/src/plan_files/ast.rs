@@ -3,6 +3,7 @@
 use camino::Utf8PathBuf;
 
 use super::span::Span;
+use serde::{Deserialize, Serialize};
 use std::ops::ControlFlow;
 
 #[derive(Clone, Debug)]
@@ -83,7 +84,7 @@ pub trait Visitable<V: Visitor> {
 pub(crate) type FunId = String;
 pub(crate) type VarId = Utf8PathBuf;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Function {
     pub name: FunId,
     pub args: Vec<VarId>,
@@ -96,7 +97,7 @@ impl<V: Visitor> Visitable<V> for Function {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Assignment {
     pub vars: Vec<VarId>,
     pub value: Function,
@@ -109,7 +110,7 @@ impl<V: Visitor> Visitable<V> for Assignment {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AssignmentList {
     pub assigns: Vec<Assignment>,
 }
