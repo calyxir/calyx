@@ -112,25 +112,10 @@ def create_visuals(
     stats.write_par_stats(tracedata, out_dir)
     print(f"End writing stats: {datetime.now()}")
 
-    # # create flame graphs without control
-    # nc_flat_flame_map, nc_scaled_flame_map = flame.create_flame_maps(tracedata.trace)
-    # nc_flat_flame_file = os.path.join(out_dir, "nc-flat-flame.folded")
-    # flame.write_flame_maps(
-    #     nc_flat_flame_map,
-    #     nc_scaled_flame_map,
-    #     out_dir,
-    #     nc_flat_flame_file,
-    #     "nc-scaled-flame.folded",
-    # )
-
-    # flat_flame_map, scaled_flame_map = flame.create_flame_maps(
-    #     tracedata.trace_with_control_groups
-    # )
-    # flame.write_flame_maps(flat_flame_map, scaled_flame_map, out_dir, flame_out)
     flame.create_and_write_calyx_flame_maps(tracedata.trace_with_control_groups, out_dir, flame_out)
     print(f"End writing flame graphs: {datetime.now()}")
 
-    timeline.compute_protobuf_timeline(
+    timeline.compute_calyx_protobuf_timeline(
         tracedata, cell_metadata, enable_thread_metadata, out_dir
     )
     print(f"End writing timeline view: {datetime.now()}")

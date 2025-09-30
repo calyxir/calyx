@@ -346,7 +346,7 @@ class PTrace:
         return list(map(lambda cycletrace: cycletrace.get_stack_str_set(mode), self.trace))
 
     def __getitem__(self, index):
-        assert index <= len(self.trace)
+        assert index < len(self.trace)
         return self.trace[index]
 
     def __contains__(self, key):
@@ -473,6 +473,8 @@ class TraceData:
                         active_control_groups_missed = missed_groups
                     else:
                         active_control_groups_missed.intersection_update(missed_groups)
+                # add cycletrace to control groups trace
+                self.trace_with_control_groups.add_cycle(i, new_cycletrace)
                 # Edge case: add any control groups that weren't covered to the CycleTrace
                 self._create_stacks_for_missed_control_groups(
                     active_control_groups_missed,
@@ -482,9 +484,6 @@ class TraceData:
                     cell_metadata,
                     control_metadata,
                 )
-
-                # add cycletrace to control groups trace
-                self.trace_with_control_groups.add_cycle(i, new_cycletrace)
 
             else:
                 self.trace_with_control_groups.add_cycle(i, copy.copy(self.trace[i]))
@@ -544,6 +543,8 @@ class TraceData:
             )
             new_stack.append(leaf_element)
             # add new_stack to the current cycle's CycleTrace
+            print(f"i: {i} len: {len(self.trace_with_control_groups)} len of original: {len(self.trace)}")
+
             self.trace_with_control_groups[i].add_stack(new_stack)
 
     def _compute_ctrl_group_to_parents(
