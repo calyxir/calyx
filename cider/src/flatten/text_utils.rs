@@ -1,4 +1,7 @@
-use std::fmt::{Display, Write};
+use std::{
+    fmt::{Display, Write},
+    path::Path,
+};
 
 use owo_colors::{OwoColorize, Stream::Stdout, Style};
 
@@ -34,6 +37,8 @@ pub fn indent<S: AsRef<str>>(target: S, indent_count: usize) -> String {
 
 pub const ASSIGN_STYLE: Style = Style::new().yellow();
 
+/// A trait to standardize the coloring throughout Cider while still respecting the
+/// color setting. It is automatically implemented for most relevant types.
 pub trait Color: OwoColorize + Display {
     fn stylize_assignment(&self) -> impl Display {
         self.if_supports_color(Stdout, |text| text.style(ASSIGN_STYLE))
@@ -103,6 +108,16 @@ pub trait Color: OwoColorize + Display {
         let style = Style::new().yellow();
         Box::new(self.if_supports_color(Stdout, move |text| text.style(style)))
     }
+
+    fn stylize_underline(&self) -> impl Display {
+        let style = Style::new().underline();
+        Box::new(self.if_supports_color(Stdout, move |text| text.style(style)))
+    }
+
+    fn stylize_bold(&self) -> impl Display {
+        let style = Style::new().bold();
+        Box::new(self.if_supports_color(Stdout, move |text| text.style(style)))
+    }
 }
 
 impl<T: OwoColorize + Display> Color for T {}
@@ -110,11 +125,11 @@ impl<T: OwoColorize + Display> Color for T {}
 pub fn print_debugger_welcome() {
     println!(
         "==== {}: The {}alyx {}nterpreter and {}bugge{} ====",
-        "Cider".bold(),
-        "C".underline(),
-        "I".underline(),
-        "De".underline(),
-        "r".underline()
+        "Cider".stylize_bold(),
+        "C".stylize_underline(),
+        "I".stylize_underline(),
+        "De".stylize_underline(),
+        "r".stylize_underline()
     );
 }
 
@@ -124,4 +139,15 @@ pub(crate) fn force_color(force_color: ColorConfig) {
         ColorConfig::Off => owo_colors::set_override(false),
         ColorConfig::Auto => owo_colors::unset_override(),
     }
+}
+
+pub fn format_file_line(
+    line_num: usize,
+    line_content: String,
+    file_path: &Path,
+) -> String {
+    format!(
+        "({}: {line_num}) {line_content}",
+        file_path.to_string_lossy()
+    )
 }
