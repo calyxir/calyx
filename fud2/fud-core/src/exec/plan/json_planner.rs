@@ -26,6 +26,6 @@ impl FindPlan for JsonPlanner {
     }
 
     fn ty(&self) -> PlannerType {
-        PlannerType::Json
+        PlannerType::FromJson
     }
 }

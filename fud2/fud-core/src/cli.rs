@@ -63,8 +63,8 @@ enum Planner {
     #[cfg(feature = "egg_planner")]
     Egg,
     Enumerate,
-    Predetermined,
-    Json,
+    FromFlang,
+    FromJson,
 }
 
 impl FromStr for Planner {
@@ -76,8 +76,8 @@ impl FromStr for Planner {
             #[cfg(feature = "egg_planner")]
             "egg" => Ok(Planner::Egg),
             "enumerate" => Ok(Planner::Enumerate),
-            "predetermined" => Ok(Planner::Predetermined),
-            "json" => Ok(Planner::Json),
+            "predetermined" => Ok(Planner::FromFlang),
+            "json" => Ok(Planner::FromJson),
             _ => Err("unknown planner".to_string()),
         }
     }
@@ -90,8 +90,8 @@ impl Display for Planner {
             #[cfg(feature = "egg_planner")]
             Planner::Egg => write!(f, "egg"),
             Planner::Enumerate => write!(f, "enumerate"),
-            Planner::Predetermined => write!(f, "predetermined"),
-            Planner::Json => write!(f, "json"),
+            Planner::FromFlang => write!(f, "predetermined"),
+            Planner::FromJson => write!(f, "json"),
         }
     }
 }
@@ -317,8 +317,8 @@ fn get_request<T: CliExt>(
             #[cfg(feature = "egg_planner")]
             Planner::Egg => Box::new(plan::EggPlanner {}),
             Planner::Enumerate => Box::new(plan::EnumeratePlanner {}),
-            Planner::Predetermined => Box::new(plan::PredeterminedPlanner {}),
-            Planner::Json => Box::new(plan::JsonPlanner {}),
+            Planner::FromFlang => Box::new(plan::FlangPlanner {}),
+            Planner::FromJson => Box::new(plan::JsonPlanner {}),
         },
         timing_csv: args.timing_csv.clone(),
     })

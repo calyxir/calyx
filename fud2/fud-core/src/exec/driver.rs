@@ -186,7 +186,7 @@ impl Driver {
     pub fn plan(&self, req: &Request) -> Option<Plan> {
         // Special case if the planner is the one which reads from stdin.
         let planner_ty = req.planner.ty();
-        if let PlannerType::Predetermined | PlannerType::Json = planner_ty {
+        if let PlannerType::FromFlang | PlannerType::FromJson = planner_ty {
             let mut stdin = io::stdin().lock();
             let mut input = String::new();
             let res = stdin.read_to_string(&mut input);
@@ -196,7 +196,7 @@ impl Driver {
             }
 
             let p = ParseSession::with_str_buf(&input);
-            let ast = if matches!(planner_ty, PlannerType::Predetermined) {
+            let ast = if matches!(planner_ty, PlannerType::FromFlang) {
                 p.parse()
             } else {
                 serde_json::from_str(&input)

@@ -5,9 +5,9 @@
 use super::{FindPlan, PlannerType};
 
 #[derive(Debug)]
-pub struct PredeterminedPlanner {}
+pub struct FlangPlanner {}
 
-impl FindPlan for PredeterminedPlanner {
+impl FindPlan for FlangPlanner {
     fn find_plan(
         &self,
         _start: &[crate::exec::StateRef],
@@ -26,6 +26,6 @@ impl FindPlan for PredeterminedPlanner {
     }
 
     fn ty(&self) -> PlannerType {
-        PlannerType::Predetermined
+        PlannerType::FromFlang
     }
 }

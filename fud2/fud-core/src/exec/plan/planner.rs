@@ -12,8 +12,8 @@ pub enum PlannerType {
     Egg,
     Enumerative,
     Legacy,
-    Predetermined,
-    Json,
+    FromFlang,
+    FromJson,
 }
 
 /// A reified function for finding a sequence of operations taking a start set of states to an end
