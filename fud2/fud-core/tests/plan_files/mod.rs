@@ -1,4 +1,4 @@
-use fud_core::{plan_files::session::ParseSession, visitors::ast_to_string};
+use fud_core::{flang::session::ParseSession, visitors::ast_to_string};
 
 macro_rules! test_parse {
     ($e:expr) => {

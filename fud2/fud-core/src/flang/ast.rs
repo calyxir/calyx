@@ -80,12 +80,10 @@ impl<T> VisitorResult for ControlFlow<T> {
 
 macro_rules! try_visit {
     ($e:expr) => {
-        match $crate::plan_files::ast::VisitorResult::branch($e) {
+        match $crate::flang::ast::VisitorResult::branch($e) {
             core::ops::ControlFlow::Continue(()) => (),
             core::ops::ControlFlow::Break(r) => {
-                return $crate::plan_files::ast::VisitorResult::from_residual(
-                    r,
-                );
+                return $crate::flang::ast::VisitorResult::from_residual(r);
             }
         }
     };
