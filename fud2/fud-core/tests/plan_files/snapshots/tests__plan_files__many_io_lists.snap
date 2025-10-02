@@ -13,7 +13,7 @@ AssignmentList {
                 "e",
                 "f",
             ],
-            value: Function {
+            value: Op {
                 name: "input",
                 args: [
                     "g",
@@ -31,7 +31,7 @@ AssignmentList {
                 "n",
                 "o",
             ],
-            value: Function {
+            value: Op {
                 name: "go",
                 args: [
                     "p",
@@ -47,7 +47,7 @@ AssignmentList {
                 "u",
                 "v",
             ],
-            value: Function {
+            value: Op {
                 name: "stop",
                 args: [
                     "w",

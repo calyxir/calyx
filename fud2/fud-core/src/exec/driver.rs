@@ -3,10 +3,7 @@ use super::{
     plan::PlannerType,
 };
 use crate::{
-    plan_files::{
-        error::{ParseError, Wrap},
-        session::ParseSession,
-    },
+    plan_files::{error::Wrap, session::ParseSession},
     run, script, utils,
     visitors::ASTToStepList,
 };
@@ -200,11 +197,11 @@ impl Driver {
                 p.parse()
             } else {
                 serde_json::from_str(&input)
-                    .map_err(|e| Wrap::new(e) as ParseError)
+                    .map_err(|e| Wrap::new(e) as Wrap<dyn Error>)
             };
             match ast {
                 Err(e) => {
-                    eprintln!("error: {}", e.msg());
+                    eprintln!("error: {e}");
                     return None;
                 }
                 Ok(ast) => {

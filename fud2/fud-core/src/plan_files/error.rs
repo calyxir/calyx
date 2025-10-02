@@ -1,5 +1,5 @@
-use std::fmt::Debug;
-use std::io;
+use std::error::Error;
+use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
 
 use super::{
@@ -7,120 +7,117 @@ use super::{
     span::Span,
 };
 
-/// TODO: use std::error::Error
-pub trait Error {
-    /// Returns the error message corresponding to the error.
-    fn msg(&self) -> String;
-}
-
-impl Error for serde_json::Error {
-    fn msg(&self) -> String {
-        self.to_string()
-    }
-}
-
-impl Error for io::Error {
-    fn msg(&self) -> String {
-        self.to_string()
-    }
-}
-
-impl Debug for dyn Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.msg())
-    }
-}
-
 pub type Wrap<T> = Rc<T>;
-pub type LexError = Wrap<dyn Error>;
-pub type ParseError<'a> = Wrap<dyn Error + 'a>;
 
 #[derive(Clone, Debug)]
 pub struct FileReadError {
     msg: String,
 }
 
-impl<'a> FileReadError {
-    pub fn from_msg(msg: &str) -> ParseError<'a> {
+impl Display for FileReadError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.msg)
+    }
+}
+
+impl Error for FileReadError {}
+
+impl FileReadError {
+    pub fn from_msg(msg: &str) -> Wrap<dyn Error> {
         Wrap::new(FileReadError {
             msg: msg.to_string(),
         })
     }
 }
 
-impl Error for FileReadError {
-    fn msg(&self) -> String {
-        self.msg.clone()
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct NoMoreToLexError {}
-impl Error for NoMoreToLexError {
-    fn msg(&self) -> String {
-        "no more to lex".to_string()
+impl Display for NoMoreToLexError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "no more to lex")
     }
 }
 
+impl Error for NoMoreToLexError {}
+
 #[derive(Clone, Debug)]
-pub struct InvalidStartToId<'a> {
+pub struct InvalidStartToIdError<'a> {
     pub context: Span<'a>,
     pub char: char,
 }
 
-impl Error for InvalidStartToId<'_> {
-    fn msg(&self) -> String {
-        format!("found {}, invalid start to identifier", self.char)
+impl Display for InvalidStartToIdError<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "id cannot start with {}", self.char)
     }
 }
 
+impl<'a> Error for InvalidStartToIdError<'a> {}
+
 #[derive(Clone, Debug)]
-pub struct UnexpectedToken<'a> {
+pub struct UnexpectedTokenError<'a> {
     pub found_token: Token<'a>,
     pub expected_token_kind: TokenKind,
 }
-impl Error for UnexpectedToken<'_> {
-    fn msg(&self) -> String {
-        format!(
-            "expected {:?} but found {:?}",
+
+impl Display for UnexpectedTokenError<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "expected {} but found {}",
             self.expected_token_kind, self.found_token.kind
         )
     }
 }
 
+impl Error for UnexpectedTokenError<'_> {}
+
 #[derive(Clone, Debug)]
-pub(super) struct UnexpectedChar {
+pub(super) struct UnexpectedCharError {
     pub found_char: Option<char>,
     pub expected_char: Vec<char>,
 }
 
-impl<'a> UnexpectedChar {
+impl UnexpectedCharError {
     pub fn from_parts(
         found_char: Option<char>,
         expected_char: &[char],
-    ) -> ParseError<'a> {
-        Wrap::new(UnexpectedChar {
+    ) -> Wrap<dyn Error> {
+        Wrap::new(UnexpectedCharError {
             found_char,
             expected_char: expected_char.to_vec(),
         })
     }
 }
 
-impl Error for UnexpectedChar {
-    fn msg(&self) -> String {
-        format!(
-            "expected {:?} but found {:?}",
-            self.expected_char, self.found_char,
-        )
+impl Display for UnexpectedCharError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let joined_chars = self
+            .expected_char
+            .iter()
+            .map(|c| c.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let found = if let Some(c) = self.found_char {
+            c.to_string()
+        } else {
+            "nothing".to_string()
+        };
+        write!(f, "expected one of [{joined_chars}] but found {found}")
     }
 }
+
+impl Error for UnexpectedCharError {}
 
 #[derive(Clone, Debug)]
 pub struct EmptyVarListInAssignment<'a> {
     pub _span: Span<'a>,
 }
-impl Error for EmptyVarListInAssignment<'_> {
-    fn msg(&self) -> String {
-        "no variables found to assign to".to_string()
+
+impl Display for EmptyVarListInAssignment<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "no variables found to assign to")
     }
 }
+
+impl Error for EmptyVarListInAssignment<'_> {}

@@ -4,7 +4,7 @@ use camino::Utf8PathBuf;
 
 use super::span::Span;
 use serde::{Deserialize, Serialize};
-use std::ops::ControlFlow;
+use std::{fmt::Display, ops::ControlFlow};
 
 /// The type of a lexer token.
 #[derive(Clone, Debug)]
@@ -18,6 +18,19 @@ pub enum TokenKind {
     Semicolon,
     Comma,
     /* TODO: add EOF kind for use in error handling */
+}
+
+impl Display for TokenKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TokenKind::Id(id) => write!(f, "{id}"),
+            TokenKind::Assign => write!(f, "="),
+            TokenKind::OpenParen => write!(f, "("),
+            TokenKind::CloseParen => write!(f, ")"),
+            TokenKind::Semicolon => write!(f, ";"),
+            TokenKind::Comma => write!(f, ","),
+        }
+    }
 }
 
 /// A lexer token.
@@ -119,7 +132,7 @@ impl<V: Visitor> Visitable<V> for Op {
 }
 
 /// A list of variables being assigned to the result of an op. For example,
-/// ```
+/// ```text
 /// x, y = op1(in1, in2);
 /// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]

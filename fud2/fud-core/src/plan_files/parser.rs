@@ -1,6 +1,7 @@
 //! The recursive decent parser for parsing plan files.
 
 use camino::Utf8PathBuf;
+use std::error::Error;
 
 use super::{ast::*, error::*, session::ParseSession, span::Span};
 
@@ -36,7 +37,7 @@ impl<'a> Lexer<'a> {
         true
     }
 
-    pub fn lex_char(&mut self) -> Result<char, ParseError<'a>> {
+    pub fn lex_char(&mut self) -> Result<char, Wrap<dyn Error>> {
         let buf = self.sess.buf();
         if self.cursor >= buf.len() {
             return Err(Wrap::new(NoMoreToLexError {}));
@@ -51,7 +52,7 @@ impl<'a> Lexer<'a> {
                 self.cursor += 2;
                 Ok(c)
             } else {
-                Err(UnexpectedChar::from_parts(Some(c), &ESCAPE_CODES))
+                Err(UnexpectedCharError::from_parts(Some(c), &ESCAPE_CODES))
             }
         } else {
             let c = buf[self.cursor];
@@ -60,13 +61,15 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn lex_shorthand_id(&mut self) -> Result<Token<'a>, ParseError<'a>> {
+    pub fn lex_shorthand_id(
+        &mut self,
+    ) -> Result<Token<'a>, Wrap<dyn Error + 'a>> {
         let buf = self.sess.buf();
         let first_char = buf[self.cursor];
         if !first_char.is_alphabetic()
             && !VALID_NON_ALPHANUMERIC_CHARACTERS.contains(&first_char)
         {
-            let error = InvalidStartToId {
+            let error = InvalidStartToIdError {
                 context: Span {
                     hi: self.cursor,
                     lo: self.cursor,
@@ -106,10 +109,10 @@ impl<'a> Lexer<'a> {
         })
     }
 
-    pub fn next_token(&mut self) -> Result<Token<'a>, ParseError<'a>> {
+    pub fn next_token(&mut self) -> Result<Token<'a>, Wrap<dyn Error + 'a>> {
         let buf = self.sess.buf();
         if self.cursor >= buf.len() {
-            return Err(UnexpectedChar::from_parts(None, &['a']));
+            return Err(UnexpectedCharError::from_parts(None, &['a']));
         }
 
         // This language is whitespace agnostic because semantic whitespace is weirdly hard to
@@ -117,7 +120,7 @@ impl<'a> Lexer<'a> {
         while buf[self.cursor].is_whitespace() {
             self.cursor += 1;
             if self.cursor >= buf.len() {
-                return Err(UnexpectedChar::from_parts(None, &['a']));
+                return Err(UnexpectedCharError::from_parts(None, &['a']));
             }
         }
 
@@ -201,7 +204,7 @@ pub struct Parser<'a> {
     buf: Vec<Token<'a>>,
     sess: &'a ParseSession,
     cursor: usize,
-    cache: Option<Result<AssignmentList, ParseError<'a>>>,
+    cache: Option<Result<AssignmentList, Wrap<dyn Error + 'a>>>,
 }
 
 /// TODO: make this a state machine for better parse errors.
@@ -215,7 +218,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse(&mut self) -> Result<AssignmentList, ParseError<'a>> {
+    pub fn parse(&mut self) -> Result<AssignmentList, Wrap<dyn Error + 'a>> {
         if self.cache.is_none() {
             self.cache = Some(self.parse_assignment_list());
         }
@@ -227,7 +230,7 @@ impl<'a> Parser<'a> {
 
     fn parse_assignment_list(
         &mut self,
-    ) -> Result<AssignmentList, ParseError<'a>> {
+    ) -> Result<AssignmentList, Wrap<dyn Error + 'a>> {
         let mut assigns = vec![];
         while self.cursor < self.buf.len() {
             let assign = self.parse_assignment()?;
@@ -236,7 +239,7 @@ impl<'a> Parser<'a> {
         Ok(AssignmentList { assigns })
     }
 
-    fn parse_var_id(&mut self) -> Result<VarId, ParseError<'a>> {
+    fn parse_var_id(&mut self) -> Result<VarId, Wrap<dyn Error + 'a>> {
         if self.cursor >= self.buf.len() {
             return Err(Wrap::new(NoMoreToLexError {}));
         }
@@ -248,14 +251,14 @@ impl<'a> Parser<'a> {
                 kind: TokenKind::Id(id),
                 ..
             } => Ok(Utf8PathBuf::from(id)),
-            t => Err(Wrap::new(UnexpectedToken {
+            t => Err(Wrap::new(UnexpectedTokenError {
                 found_token: t.clone(),
                 expected_token_kind: TokenKind::Id("<id>".to_string()),
             })),
         }
     }
 
-    fn parse_fun_id(&mut self) -> Result<FunId, ParseError<'a>> {
+    fn parse_fun_id(&mut self) -> Result<FunId, Wrap<dyn Error + 'a>> {
         if self.cursor >= self.buf.len() {
             return Err(Wrap::new(NoMoreToLexError {}));
         }
@@ -267,7 +270,7 @@ impl<'a> Parser<'a> {
                 kind: TokenKind::Id(id),
                 ..
             } => Ok(id.clone()),
-            t => Err(Wrap::new(UnexpectedToken {
+            t => Err(Wrap::new(UnexpectedTokenError {
                 found_token: t.clone(),
                 expected_token_kind: TokenKind::Id("<id>".to_string()),
             })),
@@ -277,7 +280,7 @@ impl<'a> Parser<'a> {
     fn parse_simple_token_kind(
         &mut self,
         tok: TokenKind,
-    ) -> Result<(), ParseError<'a>> {
+    ) -> Result<(), Wrap<dyn Error + 'a>> {
         if self.cursor >= self.buf.len() {
             return Err(Wrap::new(NoMoreToLexError {}));
         }
@@ -293,14 +296,14 @@ impl<'a> Parser<'a> {
         {
             Ok(())
         } else {
-            Err(Wrap::new(UnexpectedToken {
+            Err(Wrap::new(UnexpectedTokenError {
                 found_token: cur_tok,
                 expected_token_kind: tok,
             }))
         }
     }
 
-    fn parse_id_list(&mut self) -> Result<Vec<VarId>, ParseError<'a>> {
+    fn parse_id_list(&mut self) -> Result<Vec<VarId>, Wrap<dyn Error + 'a>> {
         if !matches!(self.buf[self.cursor].kind, TokenKind::Id(_)) {
             return Ok(vec![]);
         }
@@ -316,7 +319,7 @@ impl<'a> Parser<'a> {
         Ok(res)
     }
 
-    fn parse_function(&mut self) -> Result<Op, ParseError<'a>> {
+    fn parse_function(&mut self) -> Result<Op, Wrap<dyn Error + 'a>> {
         let name = self.parse_fun_id()?;
         self.parse_simple_token_kind(TokenKind::OpenParen)?;
         let args = self.parse_id_list()?;
@@ -324,7 +327,7 @@ impl<'a> Parser<'a> {
         Ok(Op { name, args })
     }
 
-    fn parse_assignment(&mut self) -> Result<Assignment, ParseError<'a>> {
+    fn parse_assignment(&mut self) -> Result<Assignment, Wrap<dyn Error + 'a>> {
         let vars = self.parse_id_list()?;
         if vars.is_empty() {
             let span = Span {

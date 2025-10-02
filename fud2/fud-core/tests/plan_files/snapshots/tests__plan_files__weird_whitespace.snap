@@ -10,7 +10,7 @@ AssignmentList {
                 "b",
                 "c",
             ],
-            value: Function {
+            value: Op {
                 name: "wah",
                 args: [
                     "c",
@@ -23,7 +23,7 @@ AssignmentList {
                 "e",
                 "f",
             ],
-            value: Function {
+            value: Op {
                 name: "g",
                 args: [
                     "h",

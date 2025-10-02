@@ -8,7 +8,7 @@ AssignmentList {
             vars: [
                 "Æ",
             ],
-            value: Function {
+            value: Op {
                 name: "Ë",
                 args: [
                     "Ð",

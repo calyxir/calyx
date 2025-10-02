@@ -8,7 +8,7 @@ AssignmentList {
             vars: [
                 "_",
             ],
-            value: Function {
+            value: Op {
                 name: "input",
                 args: [],
             },

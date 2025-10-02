@@ -1,10 +1,10 @@
-use std::{fs, io};
+use std::{error::Error, fs, io};
 
 use camino::{Utf8Path, Utf8PathBuf};
 
 use super::{
     ast::AssignmentList,
-    error::ParseError,
+    error::Wrap,
     parser::{Lexer, Parser},
 };
 
@@ -45,7 +45,7 @@ impl ParseSession {
         &self.file_path
     }
 
-    pub fn parse(&self) -> Result<AssignmentList, ParseError> {
+    pub fn parse(&self) -> Result<AssignmentList, Wrap<dyn Error + '_>> {
         let mut toks = vec![];
         let mut lexer = Lexer::from_parts(self, 0);
         while lexer.has_next_token() {

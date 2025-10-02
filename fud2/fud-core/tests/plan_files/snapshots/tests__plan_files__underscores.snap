@@ -8,7 +8,7 @@ AssignmentList {
             vars: [
                 "__",
             ],
-            value: Function {
+            value: Op {
                 name: "_hello__",
                 args: [
                     "_Ð",
