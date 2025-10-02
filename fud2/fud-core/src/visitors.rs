@@ -47,6 +47,7 @@ pub fn ast_from_steps(
     ast
 }
 
+/// A struct to convert a flang AST into the steps of a `Plan`.
 pub struct ASTToStepList {
     step_list: Vec<(OpRef, Vec<IO>, Vec<IO>)>,
     name_to_op_ref: HashMap<String, OpRef>,
