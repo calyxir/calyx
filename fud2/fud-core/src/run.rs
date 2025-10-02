@@ -1,6 +1,6 @@
+use crate::ast_converter::{ast_to_string, steps_to_ast};
 use crate::uninterrupt::Uninterrupt;
 use crate::utils::relative_path;
-use crate::visitors::{ast_from_steps, ast_to_string};
 use crate::{config, log_parser};
 use crate::{
     exec::{Driver, OpRef, Plan, SetupRef, StateRef},
@@ -357,14 +357,14 @@ impl<'a> Run<'a> {
 
     /// Emit the sequence of ops used to create a plan in flang
     pub fn show_ops_flang(&self) {
-        let ast = ast_from_steps(&self.plan.steps, &self.driver.ops);
+        let ast = steps_to_ast(&self.plan.steps, &self.driver.ops);
         let s = ast_to_string(&ast);
         println!("{s}");
     }
 
     /// Emit the sequence of ops used to create a plan as json text
     pub fn show_ops_json(&self) {
-        let ast = ast_from_steps(&self.plan.steps, &self.driver.ops);
+        let ast = steps_to_ast(&self.plan.steps, &self.driver.ops);
         let s = serde_json::to_string_pretty(&ast).unwrap();
         println!("{s}");
     }

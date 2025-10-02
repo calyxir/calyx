@@ -3,9 +3,9 @@ use super::{
     plan::PlannerType,
 };
 use crate::{
+    ast_converter::ast_to_steps,
     flang::{error::Wrap, session::ParseSession},
     run, script, utils,
-    visitors::ast_to_step_list,
 };
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::PrimaryMap;
@@ -205,7 +205,7 @@ impl Driver {
                     return None;
                 }
                 Ok(ast) => {
-                    let steps = ast_to_step_list(&ast, &self.ops);
+                    let steps = ast_to_steps(&ast, &self.ops);
                     let results = self.gen_names(
                         &req.end_states,
                         req,

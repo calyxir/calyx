@@ -6,8 +6,8 @@ use fud_core::{
 };
 use rand::SeedableRng as _;
 
+mod flang;
 mod graph_gen;
-mod plan_files;
 
 #[cfg(feature = "egg_planner")]
 use fud_core::exec::plan::EggPlanner;

@@ -1,0 +1,5 @@
+---
+source: fud2/fud-core/tests/flang/mod.rs
+expression: s
+---
+x = input();

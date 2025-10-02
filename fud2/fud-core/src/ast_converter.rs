@@ -10,7 +10,7 @@ use crate::{
     },
 };
 
-pub fn ast_from_steps(
+pub fn steps_to_ast(
     plan: &Vec<(OpRef, Vec<IO>, Vec<IO>)>,
     ops: &PrimaryMap<OpRef, Operation>,
 ) -> AssignmentList {
@@ -88,7 +88,7 @@ impl Visitor for ASTToStepList {
 
 /// Given a flang AST and a set of ops, returns the steps of a `Plan` which the flang AST
 /// represents.
-pub fn ast_to_step_list(
+pub fn ast_to_steps(
     ast: &AssignmentList,
     ops: &PrimaryMap<OpRef, Operation>,
 ) -> Vec<(OpRef, Vec<IO>, Vec<IO>)> {

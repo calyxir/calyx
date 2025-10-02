@@ -1,3 +1,4 @@
+pub mod ast_converter;
 pub mod cli;
 mod cli_ext;
 pub mod config;
@@ -8,6 +9,5 @@ pub mod run;
 pub mod script;
 mod uninterrupt;
 pub mod utils;
-pub mod visitors;
 
 pub use exec::{Driver, DriverBuilder};
