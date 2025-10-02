@@ -1,0 +1,406 @@
+//! The recursive decent parser for parsing plan files written in flang (fud2 lang).
+//!
+//! # Flang
+//! ## Motivation
+//! Plan files currently have two forms which are interchangeable: JSON and flang. Generally the
+//! JSON notation should be preferred due to its easier interop with other tools and parsing.
+//! The custom language is written as it is easier to read and reason about. It's nice to have the
+//! fantasy syntax the JSON represents be real.
+//!
+//! ## Syntax
+//! Flang syntax is defined as a list of semicolon statements. Each statement is composed of the
+//! assignment of a list of variables by a function which itself takes in a list of variables. For
+//! example, the following is a simple flang program:
+//!
+//! ```text
+//! a, "1 file path \" \\ cool.txt (2)" = op-one("input 1", in2);c=op-two(a);
+//! d, e = op-3("1 file path \" \\ cool.txt (2)");
+//! f = op-3("d");
+//! ```
+//! A lot about the above is similar to other imperative languages. Some particular things to note:
+//!     - flang is whitespace insensitive
+//!     - flang has two ways to describe variables, as literals such as in `a` and as quoted
+//!         strings such as in "1 file path cool.txt (2)". This lax attitude towards variables lets
+//!         things like file paths exist as variables.
+//!     - flang has very few operators, lacking even `-` as an operator, which instead can be used
+//!         in identifiers.
+//!
+//! A more formal specification of the syntax follows:
+//!
+//! <statements> ::=
+//!     | <statement>;
+//!     | <statement>; <statements>
+//!
+//! <statement> ::=
+//!     | <vars> = <id>(<vars>)
+//!
+//! <vars> ::=
+//!     | <id>
+//!     | <id>, <vars>
+//!
+//! <id> ::=
+//!     | <shorthand-id>
+//!     | <quoted-id>
+//!
+//! <shorthand-id> ::=
+//!     | <nice-char>
+//!     | <nice-char><shorthand-id>
+//!
+//! <nice-char> ::=
+//!     | <alphanumeric>
+//!     | - | _ | / | \ | . | :
+//!
+//! <quoted-id> ::=
+//!     | "<string>"
+//!
+//! <string> ::=
+//!     | <utf8-without-\-or-">
+//!     | \"
+//!     | \\
+//!     | <utf8-without-\-or"><string>
+//!     | \"<string>
+//!     | \\<string>
+//!
+
+use camino::Utf8PathBuf;
+use std::error::Error;
+
+use super::{ast::*, error::*, session::ParseSession, span::Span};
+
+#[derive(Debug)]
+pub(super) struct Lexer<'a> {
+    sess: &'a ParseSession,
+    cursor: usize,
+}
+
+const ESCAPE_CODES: [char; 2] = ['"', '\\'];
+
+const VALID_NON_ALPHANUMERIC_CHARACTERS: [char; 6] =
+    ['-', '_', '/', '\\', '.', ':'];
+
+impl<'a> Lexer<'a> {
+    pub fn from_session(sess: &'a ParseSession) -> Self {
+        Lexer { sess, cursor: 0 }
+    }
+
+    pub fn has_next_token(&mut self) -> bool {
+        let buf = self.sess.buf();
+        if self.cursor >= buf.len() {
+            return false;
+        }
+
+        while buf[self.cursor].is_whitespace() {
+            self.cursor += 1;
+            if self.cursor >= buf.len() {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    pub fn lex_quoted_id_char(&mut self) -> Result<char, Wrap<dyn Error>> {
+        let buf = self.sess.buf();
+        if self.cursor >= buf.len() {
+            return Err(Wrap::new(NoMoreToLexError {}));
+        }
+        // We are dealing with an escape character.
+        if buf[self.cursor] == '\\' {
+            if self.cursor + 1 >= buf.len() {
+                return Err(Wrap::new(NoMoreToLexError {}));
+            }
+            let c = buf[self.cursor + 1];
+            if ESCAPE_CODES.contains(&c) {
+                self.cursor += 2;
+                Ok(c)
+            } else {
+                Err(UnexpectedCharError::from_parts(Some(c), &ESCAPE_CODES))
+            }
+        } else {
+            let c = buf[self.cursor];
+            self.cursor += 1;
+            Ok(c)
+        }
+    }
+
+    pub fn lex_shorthand_id(
+        &mut self,
+    ) -> Result<Token<'a>, Wrap<dyn Error + 'a>> {
+        let buf = self.sess.buf();
+        let first_char = buf[self.cursor];
+        if !first_char.is_alphanumeric()
+            && !VALID_NON_ALPHANUMERIC_CHARACTERS.contains(&first_char)
+        {
+            let error = InvalidStartToIdError {
+                context: Span {
+                    hi: self.cursor,
+                    lo: self.cursor,
+                    sess: self.sess,
+                },
+                char: first_char,
+            };
+            // Just try to keep going by advancing until whitespace as some semblance of a recovery
+            // procedure.
+            while self.cursor < buf.len() && !buf[self.cursor].is_whitespace() {
+                self.cursor += 1;
+            }
+            return Err(Wrap::new(error));
+        }
+
+        let id_string: String = buf
+            .split_at(self.cursor)
+            .1
+            .iter()
+            .take_while(|&&c| {
+                c.is_alphanumeric()
+                    || VALID_NON_ALPHANUMERIC_CHARACTERS.contains(&c)
+            })
+            .collect();
+        let lo = self.cursor;
+        let len_in_chars = id_string.chars().count();
+        let hi = lo + len_in_chars - 1;
+        self.cursor += len_in_chars;
+        let span = Span {
+            sess: self.sess,
+            lo,
+            hi,
+        };
+        Ok(Token {
+            kind: TokenKind::Id(id_string),
+            span,
+        })
+    }
+
+    pub fn next_token(&mut self) -> Result<Token<'a>, Wrap<dyn Error + 'a>> {
+        let buf = self.sess.buf();
+        if self.cursor >= buf.len() {
+            return Err(UnexpectedCharError::from_parts(None, &['a']));
+        }
+
+        // This language is whitespace agnostic because semantic whitespace is weirdly hard to
+        // implement while also allowing unicode.
+        while buf[self.cursor].is_whitespace() {
+            self.cursor += 1;
+            if self.cursor >= buf.len() {
+                return Err(UnexpectedCharError::from_parts(None, &['a']));
+            }
+        }
+
+        // Lex characters which have some special meaning.
+        let span = Span {
+            sess: self.sess,
+            lo: self.cursor,
+            hi: self.cursor,
+        };
+        let maybe_tok = match buf[self.cursor] {
+            '=' => Some(Token {
+                kind: TokenKind::Assign,
+                span,
+            }),
+            '(' => Some(Token {
+                kind: TokenKind::OpenParen,
+                span,
+            }),
+            ')' => Some(Token {
+                kind: TokenKind::CloseParen,
+                span,
+            }),
+            ';' => Some(Token {
+                kind: TokenKind::Semicolon,
+                span,
+            }),
+            ',' => Some(Token {
+                kind: TokenKind::Comma,
+                span,
+            }),
+            _ => None,
+        };
+
+        if let Some(tok) = maybe_tok {
+            self.cursor += 1;
+            return Ok(tok);
+        }
+
+        // Lex identifiers.
+        let first_char = buf[self.cursor];
+        if first_char != '"' {
+            self.lex_shorthand_id()
+        } else {
+            let lo = self.cursor;
+            let mut id_string = vec![];
+            self.cursor += 1;
+            while self.cursor < buf.len() && buf[self.cursor] != '"' {
+                id_string.push(self.lex_quoted_id_char()?);
+            }
+            if self.cursor >= buf.len() {
+                return Err(Wrap::new(NoMoreToLexError {}));
+            }
+
+            let hi = self.cursor;
+            self.cursor += 1;
+            let span = Span {
+                sess: self.sess,
+                lo,
+                hi,
+            };
+            Ok(Token {
+                kind: TokenKind::Id(id_string.iter().collect()),
+                span,
+            })
+        }
+    }
+}
+
+type TokenStream<'a> = Vec<Token<'a>>;
+
+pub struct Parser<'a> {
+    buf: Vec<Token<'a>>,
+    sess: &'a ParseSession,
+    cursor: usize,
+    cache: Option<Result<AssignmentList, Wrap<dyn Error + 'a>>>,
+}
+
+/// TODO: make this a state machine for better parse errors.
+impl<'a> Parser<'a> {
+    pub fn from_parts(buf: TokenStream<'a>, sess: &'a ParseSession) -> Self {
+        Parser {
+            buf,
+            sess,
+            cursor: 0,
+            cache: None,
+        }
+    }
+
+    pub fn parse(&mut self) -> Result<AssignmentList, Wrap<dyn Error + 'a>> {
+        if self.cache.is_none() {
+            self.cache = Some(self.parse_assignment_list());
+        }
+        match self.cache.clone().unwrap() {
+            Err(e) => Err(e),
+            Ok(ast) => Ok(ast),
+        }
+    }
+
+    fn parse_assignment_list(
+        &mut self,
+    ) -> Result<AssignmentList, Wrap<dyn Error + 'a>> {
+        let mut assigns = vec![];
+        while self.cursor < self.buf.len() {
+            let assign = self.parse_assignment()?;
+            assigns.push(assign);
+        }
+        Ok(AssignmentList { assigns })
+    }
+
+    fn parse_var_id(&mut self) -> Result<VarId, Wrap<dyn Error + 'a>> {
+        if self.cursor >= self.buf.len() {
+            return Err(Wrap::new(NoMoreToLexError {}));
+        }
+
+        let cursor = self.cursor;
+        self.cursor += 1;
+        match &self.buf[cursor] {
+            Token {
+                kind: TokenKind::Id(id),
+                ..
+            } => Ok(Utf8PathBuf::from(id)),
+            t => Err(Wrap::new(UnexpectedTokenError {
+                found_token: t.clone(),
+                expected_token_kind: TokenKind::Id("<id>".to_string()),
+            })),
+        }
+    }
+
+    fn parse_fun_id(&mut self) -> Result<FunId, Wrap<dyn Error + 'a>> {
+        if self.cursor >= self.buf.len() {
+            return Err(Wrap::new(NoMoreToLexError {}));
+        }
+
+        let cursor = self.cursor;
+        self.cursor += 1;
+        match &self.buf[cursor] {
+            Token {
+                kind: TokenKind::Id(id),
+                ..
+            } => Ok(id.clone()),
+            t => Err(Wrap::new(UnexpectedTokenError {
+                found_token: t.clone(),
+                expected_token_kind: TokenKind::Id("<id>".to_string()),
+            })),
+        }
+    }
+
+    /// Many tokens are literals. Consuming each of these is identical between these literals. This
+    /// function factors out that logic.
+    ///
+    /// Given a `TokenKind` to try and match, increments the parser's cursor and returns `Ok(())`
+    /// on a successful match, and an error on a failure to match.
+    ///
+    /// # Panics
+    /// Panics if `tok` does not represent a literal.
+    fn consume_literal_token(
+        &mut self,
+        tok: TokenKind,
+    ) -> Result<(), Wrap<dyn Error + 'a>> {
+        if self.cursor >= self.buf.len() {
+            return Err(Wrap::new(NoMoreToLexError {}));
+        }
+
+        let cur_tok = self.buf[self.cursor].clone();
+        self.cursor += 1;
+
+        if matches!(tok, TokenKind::Id(_)) {
+            panic!("Invalid input tok, must not be TokenKind::Id(_)");
+        }
+
+        if std::mem::discriminant(&tok) == std::mem::discriminant(&cur_tok.kind)
+        {
+            Ok(())
+        } else {
+            Err(Wrap::new(UnexpectedTokenError {
+                found_token: cur_tok,
+                expected_token_kind: tok,
+            }))
+        }
+    }
+
+    fn parse_id_list(&mut self) -> Result<Vec<VarId>, Wrap<dyn Error + 'a>> {
+        if !matches!(self.buf[self.cursor].kind, TokenKind::Id(_)) {
+            return Ok(vec![]);
+        }
+
+        let mut res = vec![];
+        let var = self.parse_var_id()?;
+        res.push(var);
+        while matches!(self.buf[self.cursor].kind, TokenKind::Comma) {
+            self.consume_literal_token(TokenKind::Comma)?;
+            let var = self.parse_var_id()?;
+            res.push(var);
+        }
+        Ok(res)
+    }
+
+    fn parse_function(&mut self) -> Result<Op, Wrap<dyn Error + 'a>> {
+        let name = self.parse_fun_id()?;
+        self.consume_literal_token(TokenKind::OpenParen)?;
+        let args = self.parse_id_list()?;
+        self.consume_literal_token(TokenKind::CloseParen)?;
+        Ok(Op { name, args })
+    }
+
+    fn parse_assignment(&mut self) -> Result<Assignment, Wrap<dyn Error + 'a>> {
+        let vars = self.parse_id_list()?;
+        if vars.is_empty() {
+            let span = Span {
+                hi: self.cursor,
+                lo: self.cursor,
+                sess: self.sess,
+            };
+            return Err(Wrap::new(EmptyVarListInAssignment { _span: span }));
+        }
+        self.consume_literal_token(TokenKind::Assign)?;
+        let value = self.parse_function()?;
+        self.consume_literal_token(TokenKind::Semicolon)?;
+        Ok(Assignment { vars, value })
+    }
+}
