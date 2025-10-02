@@ -54,7 +54,10 @@
 //!     | "<string>"
 //!
 //! <string> ::=
-//!     | <utf8-without-"-or-\>
+//!     | <utf8-without-\-or-">
+//!     | \"
+//!     | \\
+//!     | <utf8-without-\-or"><string>
 //!     | \"<string>
 //!     | \\<string>
 //!
@@ -219,15 +222,6 @@ impl<'a> Lexer<'a> {
         }
 
         // Lex identifiers.
-        //
-        // Identifiers are defined as a '"' followed by some characters with '"'s and '\' special
-        // and escaped using '\' and a closing '"'.
-        //
-        // Identifiers must be extremely lax because they correspond to file paths which can
-        // contain very many strange characters.
-        //
-        // For a shorthand, users can drop the quotes but cannot have whitespace or some stranger
-        // characters in their identifiers.
         let first_char = buf[self.cursor];
         if first_char != '"' {
             self.lex_shorthand_id()
