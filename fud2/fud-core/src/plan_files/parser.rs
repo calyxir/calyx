@@ -1,4 +1,63 @@
-//! The recursive decent parser for parsing plan files.
+//! The recursive decent parser for parsing plan files written in flang (fud2 lang).
+//!
+//! # Flang
+//! ## Motivation
+//! Plan files currently have two forms which are interchangeable: JSON and flang. Generally the
+//! JSON notation should be preferred due to its easier interop with other tools and parsing.
+//! The custom language is written as it is easier to read and reason about. It's nice to have the
+//! fantasy syntax the JSON represents be real.
+//!
+//! ## Syntax
+//! Flang syntax is defined as a list of semicolon statements. Each statement is composed of the
+//! assignment of a list of variables by a function which itself takes in a list of variables. For
+//! example, the following is a simple flang program:
+//!
+//! ```text
+//! a, "1 file path \" \\ cool.txt (2)" = op-one("input 1", in2);c=op-two(a);
+//! d, e = op-3("1 file path \" \\ cool.txt (2)");
+//! f = op-3("d");
+//! ```
+//! A lot about the above is similar to other imperative languages. Some particular things to note:
+//!     - flang is whitespace insensitive
+//!     - flang has two ways to describe variables, as literals such as in `a` and as quoted
+//!         strings such as in "1 file path cool.txt (2)". This lax attitude towards variables lets
+//!         things like file paths exist as variables.
+//!     - flang has very few operators, lacking even `-` as an operator, which instead can be used
+//!         in identifiers.
+//!
+//! A more formal specification of the syntax follows:
+//!
+//! <statements> ::=
+//!     | <statement>;
+//!     | <statement>; <statements>
+//!
+//! <statement> ::=
+//!     | <vars> = <id>(<vars>)
+//!
+//! <vars> ::=
+//!     | <id>
+//!     | <id>, <vars>
+//!
+//! <id> ::=
+//!     | <shorthand-id>
+//!     | <quoted-id>
+//!
+//! <shorthand-id> ::=
+//!     | <nice-char>
+//!     | <nice-char><shorthand-id>
+//!
+//! <nice-char> ::=
+//!     | <alphanumeric>
+//!     | - | _ | / | \ | . | :
+//!
+//! <quoted-id> ::=
+//!     | "<string>"
+//!
+//! <string> ::=
+//!     | <utf8-without-"-or-\>
+//!     | \"<string>
+//!     | \\<string>
+//!
 
 use camino::Utf8PathBuf;
 use std::error::Error;
@@ -37,7 +96,7 @@ impl<'a> Lexer<'a> {
         true
     }
 
-    pub fn lex_char(&mut self) -> Result<char, Wrap<dyn Error>> {
+    pub fn lex_quoted_id_char(&mut self) -> Result<char, Wrap<dyn Error>> {
         let buf = self.sess.buf();
         if self.cursor >= buf.len() {
             return Err(Wrap::new(NoMoreToLexError {}));
@@ -66,7 +125,7 @@ impl<'a> Lexer<'a> {
     ) -> Result<Token<'a>, Wrap<dyn Error + 'a>> {
         let buf = self.sess.buf();
         let first_char = buf[self.cursor];
-        if !first_char.is_alphabetic()
+        if !first_char.is_alphanumeric()
             && !VALID_NON_ALPHANUMERIC_CHARACTERS.contains(&first_char)
         {
             let error = InvalidStartToIdError {
@@ -177,7 +236,7 @@ impl<'a> Lexer<'a> {
             let mut id_string = vec![];
             self.cursor += 1;
             while self.cursor < buf.len() && buf[self.cursor] != '"' {
-                id_string.push(self.lex_char()?);
+                id_string.push(self.lex_quoted_id_char()?);
             }
             if self.cursor >= buf.len() {
                 return Err(Wrap::new(NoMoreToLexError {}));
