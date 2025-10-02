@@ -47,7 +47,7 @@ impl ParseSession {
 
     pub fn parse(&self) -> Result<AssignmentList, Wrap<dyn Error + '_>> {
         let mut toks = vec![];
-        let mut lexer = Lexer::from_parts(self, 0);
+        let mut lexer = Lexer::from_session(self);
         while lexer.has_next_token() {
             let tok = lexer.next_token()?;
             toks.push(tok);

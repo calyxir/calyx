@@ -17,8 +17,8 @@ const VALID_NON_ALPHANUMERIC_CHARACTERS: [char; 6] =
     ['-', '_', '/', '\\', '.', ':'];
 
 impl<'a> Lexer<'a> {
-    pub fn from_parts(sess: &'a ParseSession, cursor: usize) -> Self {
-        Lexer { sess, cursor }
+    pub fn from_session(sess: &'a ParseSession) -> Self {
+        Lexer { sess, cursor: 0 }
     }
 
     pub fn has_next_token(&mut self) -> bool {
