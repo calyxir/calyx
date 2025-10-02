@@ -316,12 +316,12 @@ impl<'a> Parser<'a> {
         Ok(res)
     }
 
-    fn parse_function(&mut self) -> Result<Function, ParseError<'a>> {
+    fn parse_function(&mut self) -> Result<Op, ParseError<'a>> {
         let name = self.parse_fun_id()?;
         self.parse_simple_token_kind(TokenKind::OpenParen)?;
         let args = self.parse_id_list()?;
         self.parse_simple_token_kind(TokenKind::CloseParen)?;
-        Ok(Function { name, args })
+        Ok(Op { name, args })
     }
 
     fn parse_assignment(&mut self) -> Result<Assignment, ParseError<'a>> {

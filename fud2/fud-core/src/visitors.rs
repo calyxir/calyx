@@ -6,7 +6,7 @@ use cranelift_entity::PrimaryMap;
 use crate::{
     exec::{IO, OpRef, Operation},
     plan_files::ast::{
-        Assignment, AssignmentList, Function, Visitable, Visitor, VisitorResult,
+        Assignment, AssignmentList, Op, Visitable, Visitor, VisitorResult,
     },
 };
 
@@ -35,7 +35,7 @@ pub fn ast_from_steps(
             .cloned()
             .collect();
 
-        let fun = Function {
+        let fun = Op {
             name: ops[step.0].name.clone(),
             args,
         };

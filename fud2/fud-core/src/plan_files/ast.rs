@@ -6,9 +6,12 @@ use super::span::Span;
 use serde::{Deserialize, Serialize};
 use std::ops::ControlFlow;
 
+/// The type of a lexer token.
 #[derive(Clone, Debug)]
 pub enum TokenKind {
+    /// An identifier for a function or variable.
     Id(String),
+    /// The assignment operator: `=`.
     Assign,
     OpenParen,
     CloseParen,
@@ -17,19 +20,35 @@ pub enum TokenKind {
     /* TODO: add EOF kind for use in error handling */
 }
 
+/// A lexer token.
 #[derive(Clone, Debug)]
 pub struct Token<'a> {
     pub kind: TokenKind,
     pub span: Span<'a>,
 }
 
+/// The type returned by a visitor function.
 pub trait VisitorResult {
+    /// Visitors may find and return data throughout their run using `from_residual`. This is the
+    /// type of that data. It is common this is set to `()`.
     type Residual;
+
+    /// Returns a result build from nothing.
     fn output() -> Self;
+
+    /// Returns a result built from a `Residual`.
     fn from_residual(r: Self::Residual) -> Self;
+
+    /// Returns signal for how the visitor should continue traversing the AST.
+    ///
+    /// `ControlFlow::Continue(())` signals the visitor should continue, traversing the node's
+    /// children. `ControlFlow::Break(r)` signals the visitor not traverse a node's children and
+    /// instead to immediately return a `VisitorResult` built from `Residual` `r`.
     fn branch(self) -> ControlFlow<Self::Residual>;
 }
 
+/// It's very common to use a `ControlFlow` as a `VisitorResult` so the implementation is provided
+/// here.
 impl<T> VisitorResult for ControlFlow<T> {
     type Residual = T;
 
@@ -59,12 +78,13 @@ macro_rules! try_visit {
     };
 }
 
+/// Implemented by visitors of a flang AST.
 pub trait Visitor {
-    /// This is generally set to `std::ops::ControlFlow`. It is not done so here because that isn't
-    /// yet a stable language feature in rust.
+    /// This is generally set to `std::ops::ControlFlow`. It is not done so here as a default
+    /// because that is not yet a stable language feature in rust.
     type Result: VisitorResult;
 
-    fn visit_function(&mut self, _f: &Function) -> Self::Result {
+    fn visit_op(&mut self, _f: &Op) -> Self::Result {
         Self::Result::output()
     }
 
@@ -84,23 +104,28 @@ pub trait Visitable<V: Visitor> {
 pub(crate) type FunId = String;
 pub(crate) type VarId = Utf8PathBuf;
 
+/// A call to an op. For example, `calyx-to-verilog(infile)`
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Function {
+pub struct Op {
     pub name: FunId,
     pub args: Vec<VarId>,
 }
 
-impl<V: Visitor> Visitable<V> for Function {
+impl<V: Visitor> Visitable<V> for Op {
     fn visit(&self, visitor: &mut V) -> V::Result {
-        try_visit!(visitor.visit_function(self));
+        try_visit!(visitor.visit_op(self));
         V::Result::output()
     }
 }
 
+/// A list of variables being assigned to the result of an op. For example,
+/// ```
+/// x, y = op1(in1, in2);
+/// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Assignment {
     pub vars: Vec<VarId>,
-    pub value: Function,
+    pub value: Op,
 }
 
 impl<V: Visitor> Visitable<V> for Assignment {
@@ -110,6 +135,7 @@ impl<V: Visitor> Visitable<V> for Assignment {
     }
 }
 
+/// A list of assignments making up a program.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AssignmentList {
     pub assigns: Vec<Assignment>,
