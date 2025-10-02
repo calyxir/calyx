@@ -336,7 +336,15 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_simple_token_kind(
+    /// Many tokens are literals. Consuming each of these is identical between these literals. This
+    /// function factors out that logic.
+    ///
+    /// Given a `TokenKind` to try and match, increments the parser's cursor and returns `Ok(())`
+    /// on a successful match, and an error on a failure to match.
+    ///
+    /// # Panics
+    /// Panics if `tok` does not represent a literal.
+    fn consume_literal_token(
         &mut self,
         tok: TokenKind,
     ) -> Result<(), Wrap<dyn Error + 'a>> {
@@ -371,7 +379,7 @@ impl<'a> Parser<'a> {
         let var = self.parse_var_id()?;
         res.push(var);
         while matches!(self.buf[self.cursor].kind, TokenKind::Comma) {
-            self.parse_simple_token_kind(TokenKind::Comma)?;
+            self.consume_literal_token(TokenKind::Comma)?;
             let var = self.parse_var_id()?;
             res.push(var);
         }
@@ -380,9 +388,9 @@ impl<'a> Parser<'a> {
 
     fn parse_function(&mut self) -> Result<Op, Wrap<dyn Error + 'a>> {
         let name = self.parse_fun_id()?;
-        self.parse_simple_token_kind(TokenKind::OpenParen)?;
+        self.consume_literal_token(TokenKind::OpenParen)?;
         let args = self.parse_id_list()?;
-        self.parse_simple_token_kind(TokenKind::CloseParen)?;
+        self.consume_literal_token(TokenKind::CloseParen)?;
         Ok(Op { name, args })
     }
 
@@ -396,9 +404,9 @@ impl<'a> Parser<'a> {
             };
             return Err(Wrap::new(EmptyVarListInAssignment { _span: span }));
         }
-        self.parse_simple_token_kind(TokenKind::Assign)?;
+        self.consume_literal_token(TokenKind::Assign)?;
         let value = self.parse_function()?;
-        self.parse_simple_token_kind(TokenKind::Semicolon)?;
+        self.consume_literal_token(TokenKind::Semicolon)?;
         Ok(Assignment { vars, value })
     }
 }

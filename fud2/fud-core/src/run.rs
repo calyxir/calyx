@@ -355,8 +355,8 @@ impl<'a> Run<'a> {
         println!("}}");
     }
 
-    /// Emit the sequence of ops used to create a plan
-    pub fn show_ops(&self) {
+    /// Emit the sequence of ops used to create a plan in flang
+    pub fn show_ops_flang(&self) {
         let ast = ast_from_steps(&self.plan.steps, &self.driver.ops);
         let mut vis = ASTStringifier::new();
         let s = vis.string_from_ast(&ast);

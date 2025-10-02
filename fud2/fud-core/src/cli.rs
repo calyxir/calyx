@@ -18,7 +18,7 @@ enum Mode {
     Generate,
     Run,
     Cmds,
-    OpSeq,
+    FlangPlan,
     JsonPlan,
 }
 
@@ -33,7 +33,7 @@ impl FromStr for Mode {
             "run" => Ok(Mode::Run),
             "dot" => Ok(Mode::ShowDot),
             "cmds" => Ok(Mode::Cmds),
-            "op-seq" => Ok(Mode::OpSeq),
+            "flang-plan" => Ok(Mode::FlangPlan),
             "json-plan" => Ok(Mode::JsonPlan),
             _ => Err("unknown mode".to_string()),
         }
@@ -49,7 +49,7 @@ impl Display for Mode {
             Mode::Run => write!(f, "run"),
             Mode::ShowDot => write!(f, "dot"),
             Mode::Cmds => write!(f, "cmds"),
-            Mode::OpSeq => write!(f, "op-seq"),
+            Mode::FlangPlan => write!(f, "flang-plan"),
             Mode::JsonPlan => write!(f, "json-plan"),
         }
     }
@@ -76,7 +76,7 @@ impl FromStr for Planner {
             #[cfg(feature = "egg_planner")]
             "egg" => Ok(Planner::Egg),
             "enumerate" => Ok(Planner::Enumerate),
-            "predetermined" => Ok(Planner::FromFlang),
+            "flang" => Ok(Planner::FromFlang),
             "json" => Ok(Planner::FromJson),
             _ => Err("unknown planner".to_string()),
         }
@@ -90,7 +90,7 @@ impl Display for Planner {
             #[cfg(feature = "egg_planner")]
             Planner::Egg => write!(f, "egg"),
             Planner::Enumerate => write!(f, "enumerate"),
-            Planner::FromFlang => write!(f, "predetermined"),
+            Planner::FromFlang => write!(f, "flang"),
             Planner::FromJson => write!(f, "json"),
         }
     }
@@ -178,7 +178,7 @@ pub struct FudArgs<T: CliExt> {
     #[argh(option)]
     to: Vec<String>,
 
-    /// execution mode (run, plan, emit, gen, dot)
+    /// execution mode (run, plan, emit, gen, dot, flang-plan, json-plan)
     #[argh(option, short = 'm', default = "Mode::Run")]
     mode: Mode,
 
@@ -537,7 +537,7 @@ fn cli_ext<T: CliExt>(
             args.force_rebuild,
             csv_path,
         )?,
-        Mode::OpSeq => run.show_ops(),
+        Mode::FlangPlan => run.show_ops_flang(),
         Mode::JsonPlan => run.show_ops_json(),
     }
 
