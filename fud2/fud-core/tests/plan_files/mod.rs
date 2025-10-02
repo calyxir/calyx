@@ -1,5 +1,4 @@
-use fud_core::plan_files::session::ParseSession;
-use fud_core::visitors::ASTStringifier;
+use fud_core::{plan_files::session::ParseSession, visitors::ast_to_string};
 
 macro_rules! test_parse {
     ($e:expr) => {
@@ -124,8 +123,7 @@ fn simple_serialization() {
     let ast = sess.parse();
     match ast {
         Ok(ast) => {
-            let mut visistor = ASTStringifier::new();
-            let s = visistor.string_from_ast(&ast);
+            let s = ast_to_string(&ast);
             insta::assert_snapshot!(s)
         }
         Err(e) => insta::assert_snapshot!(e),
@@ -139,8 +137,7 @@ fn empty_serialization() {
     let ast = sess.parse();
     match ast {
         Ok(ast) => {
-            let mut visistor = ASTStringifier::new();
-            let s = visistor.string_from_ast(&ast);
+            let s = ast_to_string(&ast);
             insta::assert_snapshot!(s)
         }
         Err(e) => insta::assert_snapshot!(e),
@@ -154,8 +151,7 @@ fn no_args_serialization() {
     let ast = sess.parse();
     match ast {
         Ok(ast) => {
-            let mut visistor = ASTStringifier::new();
-            let s = visistor.string_from_ast(&ast);
+            let s = ast_to_string(&ast);
             insta::assert_snapshot!(s)
         }
         Err(e) => insta::assert_snapshot!(e),

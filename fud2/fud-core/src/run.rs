@@ -1,6 +1,6 @@
 use crate::uninterrupt::Uninterrupt;
 use crate::utils::relative_path;
-use crate::visitors::{ASTStringifier, ast_from_steps};
+use crate::visitors::{ast_from_steps, ast_to_string};
 use crate::{config, log_parser};
 use crate::{
     exec::{Driver, OpRef, Plan, SetupRef, StateRef},
@@ -358,8 +358,7 @@ impl<'a> Run<'a> {
     /// Emit the sequence of ops used to create a plan in flang
     pub fn show_ops_flang(&self) {
         let ast = ast_from_steps(&self.plan.steps, &self.driver.ops);
-        let mut vis = ASTStringifier::new();
-        let s = vis.string_from_ast(&ast);
+        let s = ast_to_string(&ast);
         println!("{s}");
     }
 

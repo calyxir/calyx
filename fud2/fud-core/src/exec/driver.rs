@@ -5,7 +5,7 @@ use super::{
 use crate::{
     plan_files::{error::Wrap, session::ParseSession},
     run, script, utils,
-    visitors::ASTToStepList,
+    visitors::ast_to_step_list,
 };
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::PrimaryMap;
@@ -205,8 +205,7 @@ impl Driver {
                     return None;
                 }
                 Ok(ast) => {
-                    let mut vis = ASTToStepList::from_ops(&self.ops);
-                    let steps = vis.step_list_from_ast(&ast);
+                    let steps = ast_to_step_list(&ast, &self.ops);
                     let results = self.gen_names(
                         &req.end_states,
                         req,

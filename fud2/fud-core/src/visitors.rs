@@ -48,13 +48,13 @@ pub fn ast_from_steps(
 }
 
 /// A struct to convert a flang AST into the steps of a `Plan`.
-pub struct ASTToStepList {
+struct ASTToStepList {
     step_list: Vec<(OpRef, Vec<IO>, Vec<IO>)>,
     name_to_op_ref: HashMap<String, OpRef>,
 }
 
 impl ASTToStepList {
-    pub fn from_ops(ops: &PrimaryMap<OpRef, Operation>) -> Self {
+    fn from_ops(ops: &PrimaryMap<OpRef, Operation>) -> Self {
         let name_to_op_ref =
             ops.iter().map(|(k, v)| (v.name.clone(), k)).collect();
         ASTToStepList {
@@ -63,7 +63,7 @@ impl ASTToStepList {
         }
     }
 
-    pub fn step_list_from_ast(
+    fn step_list_from_ast(
         &mut self,
         ast: &AssignmentList,
     ) -> Vec<(OpRef, Vec<IO>, Vec<IO>)> {
@@ -86,24 +86,33 @@ impl Visitor for ASTToStepList {
     }
 }
 
+/// Given a flang AST and a set of ops, returns the steps of a `Plan` which the flang AST
+/// represents.
+pub fn ast_to_step_list(
+    ast: &AssignmentList,
+    ops: &PrimaryMap<OpRef, Operation>,
+) -> Vec<(OpRef, Vec<IO>, Vec<IO>)> {
+    ASTToStepList::from_ops(ops).step_list_from_ast(ast)
+}
+
 #[derive(Default)]
-pub struct ASTStringifier {
+struct ASTToString {
     assigns: Vec<String>,
 }
 
-impl ASTStringifier {
-    pub fn new() -> Self {
-        ASTStringifier { assigns: vec![] }
+impl ASTToString {
+    fn new() -> Self {
+        ASTToString { assigns: vec![] }
     }
 
-    pub fn string_from_ast(&mut self, ast: &AssignmentList) -> String {
+    fn string_from_ast(&mut self, ast: &AssignmentList) -> String {
         self.assigns = vec![];
         let _ = ast.visit(self);
         self.assigns.join("\n")
     }
 }
 
-impl Visitor for ASTStringifier {
+impl Visitor for ASTToString {
     type Result = ops::ControlFlow<()>;
 
     fn visit_assignment(&mut self, a: &Assignment) -> Self::Result {
@@ -117,4 +126,10 @@ impl Visitor for ASTStringifier {
         self.assigns.push(assign_string);
         Self::Result::output()
     }
+}
+
+/// Returns a pretty printed string from a flang AST. The returned string will be valid flang
+/// syntax.
+pub fn ast_to_string(ast: &AssignmentList) -> String {
+    ASTToString::new().string_from_ast(ast)
 }
