@@ -1,5 +1,0 @@
----
-source: fud2/fud-core/tests/plan_files/mod.rs
-expression: e.to_string()
----
-expected = but found input
