@@ -162,3 +162,8 @@ fn no_args_serialization() {
 fn trailing_quotes() {
     test_parse!(r#"x, "y = input(a);"#);
 }
+
+#[test]
+fn spaces_in_id() {
+    test_parse!(r#""x lkjsdf - \\\" \"" = "cool ids"();"#);
+}
