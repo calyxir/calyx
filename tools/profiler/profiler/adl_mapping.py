@@ -8,6 +8,7 @@ from .classes.stack_element import StackElement, StackElementType
 def create_dahlia_trace(tracedata: TraceData, adl_map: AdlMap):
     calyx_trace: PTrace = tracedata.trace_with_control_groups
     dahlia_trace: PTrace = PTrace()
+    groups_no_mapping: set[str] = set()
     for i in calyx_trace:
         # find leaf groups (there could be some in parallel)
         i_trace: CycleTrace = calyx_trace[i]
@@ -16,11 +17,16 @@ def create_dahlia_trace(tracedata: TraceData, adl_map: AdlMap):
         group_map = adl_map.group_map.get("main")
         dahlia_stacks: list[list[StackElement]] = []
         for group in leaf_groups:
-            group_sourceloc: SourceLoc = group_map[group]
-            entry = f"L{group_sourceloc.linenum:04}: {group_sourceloc.varname}"
+            if group not in group_map:
+                groups_no_mapping.add(group)
+                entry = f"CALYX: '{group}'"
+            else:
+                group_sourceloc: SourceLoc = group_map[group]
+                entry = f"L{group_sourceloc.linenum:04}: {group_sourceloc.varname}"
             dahlia_group = StackElement(entry, StackElementType.ADL_LINE)
             dahlia_stacks.append([dahlia_group])
         dahlia_trace.add_cycle(i, CycleTrace(dahlia_stacks))
+    print(f"\tGroups without ADL mapping: {groups_no_mapping}")
     return dahlia_trace
 
 

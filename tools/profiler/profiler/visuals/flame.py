@@ -24,10 +24,15 @@ class FlameTrace:
     def __init__(self, string_trace: list[set[str]]):
         self.flat_flame_map = defaultdict(int)
         self.scaled_flame_map = defaultdict(int)
+        acc = 0
         for stack_string_set in string_trace:
             # bookkeeping for scaled
+            acc += 1
             num_stacks = len(stack_string_set)
-            cycle_slice = round(1 / num_stacks, 3)
+            if num_stacks == 0:
+                cycle_slice = 1
+            else:
+                cycle_slice = round(1 / num_stacks, 3)
             # the last slice is adjusted s.t. all of the slices together add up to 1.
             last_cycle_slice = 1 - (cycle_slice * (num_stacks - 1))
             acc = 0
@@ -87,8 +92,11 @@ def create_and_write_dahlia_flame_maps(tracedata: TraceData, adl_mapping_file: s
         leaf_groups: set = calyx_trace[i].find_leaf_groups()
         group_map = adl_map.group_map.get("main")
         for group in leaf_groups:
-            group_sourceloc: SourceLoc = group_map[group]
-            entry = group_sourceloc.adl_str()
+            if group not in group_map:
+                entry = f"CALYX: '{group}'"
+            else:
+                group_sourceloc: SourceLoc = group_map[group]
+                entry = group_sourceloc.adl_str()
             i_string_set.add(entry)
         dahlia_string_trace.append(i_string_set)
 

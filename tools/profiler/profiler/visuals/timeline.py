@@ -1,14 +1,10 @@
-from dataclasses import dataclass
 import os
-import uuid
 
 
-from perfetto.trace_builder.proto_builder import TraceProtoBuilder
 from perfetto.protos.perfetto.trace.perfetto_trace_pb2 import (
     TrackEvent,
 )
 
-from profiler.classes.errors import ProfilerException
 from profiler.classes.tracedata import CycleTrace, TraceData, StackElementType, PTrace
 from profiler.classes.cell_metadata import CellMetadata
 from profiler.classes.visuals.timeline import CalyxProtoTimeline, DahliaProtoTimeline
