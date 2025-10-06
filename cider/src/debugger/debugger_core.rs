@@ -7,7 +7,7 @@ use super::{
 use crate::{
     configuration::RuntimeConfig,
     debugger::{
-        commands::{BreakTarget, PrintCommand},
+        commands::{BreakTarget, PointAction, PrintCommand},
         debugging_context::context::format_control_node,
         source::SourceMap,
         unwrap_error_message,
@@ -207,7 +207,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             .map(ParsedBreakPointID::Target)
             .collect_vec();
 
-        self.manipulate_breakpoint(Command::Delete(parsed_bp_ids));
+        self.manipulate_breakpoint(PointAction::Delete, parsed_bp_ids);
     }
 
     pub fn cont(&mut self) -> Result<StoppedReason, BoxedCiderError> {
@@ -373,9 +373,13 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 Command::Break(targets) => self.create_breakpoints(targets),
 
                 // breakpoints
-                comm @ (Command::Delete(_)
-                | Command::Enable(_)
-                | Command::Disable(_)) => self.manipulate_breakpoint(comm),
+                Command::BreakAction(action, points) => {
+                    self.manipulate_breakpoint(action, points)
+                }
+
+                Command::WatchAction(action, points) => {
+                    self.manipulate_watchpoint(action, points)
+                }
 
                 Command::Exit => {
                     println!("Exiting.");
@@ -385,33 +389,6 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 Command::InfoBreak => self
                     .debugging_context
                     .print_breakpoints(self.program_context.as_ref()),
-
-                Command::DeleteWatch(targets) => {
-                    for target in targets {
-                        let target = target
-                            .parse_to_watch_ids(self.program_context.as_ref());
-                        unwrap_error_message!(target);
-                        self.debugging_context.remove_watchpoint(target)
-                    }
-                }
-
-                Command::EnableWatch(targets) => {
-                    for target in targets {
-                        let target = target
-                            .parse_to_watch_ids(self.program_context.as_ref());
-                        unwrap_error_message!(target);
-                        self.debugging_context.enable_watchpoint(target)
-                    }
-                }
-
-                Command::DisableWatch(targets) => {
-                    for target in targets {
-                        let target = target
-                            .parse_to_watch_ids(self.program_context.as_ref());
-                        unwrap_error_message!(target);
-                        self.debugging_context.disable_watchpoint(target)
-                    }
-                }
 
                 Command::Watch(
                     group,
@@ -467,9 +444,6 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
             match comm {
                 Command::Empty => {}
-                Command::Display => {
-                    println!("COMMAND NOT YET IMPLEMENTED");
-                }
                 Command::Print(print_lists, code, print_mode) => {
                     for target in print_lists {
                         if let Err(e) = self.do_print(&target, code, print_mode)
@@ -788,33 +762,54 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         Ok(())
     }
 
-    fn manipulate_breakpoint(&mut self, command: Command) {
-        match &command {
-            Command::Disable(targets)
-            | Command::Enable(targets)
-            | Command::Delete(targets) => {
-                for t in targets {
-                    let parsed_targets =
-                        t.parse_to_break_ids(self.program_context.as_ref());
-                    unwrap_error_message!(parsed_targets);
+    fn manipulate_watchpoint(
+        &mut self,
+        action: PointAction,
+        points: Vec<ParsedBreakPointID>,
+    ) {
+        for target in points {
+            let target =
+                target.parse_to_watch_ids(self.program_context.as_ref());
+            unwrap_error_message!(target);
 
-                    for target in parsed_targets {
-                        match &command {
-                            Command::Disable(_) => self
-                                .debugging_context
-                                .disable_breakpoint(target),
-                            Command::Enable(_) => {
-                                self.debugging_context.enable_breakpoint(target)
-                            }
-                            Command::Delete(_) => {
-                                self.debugging_context.remove_breakpoint(target)
-                            }
-                            _ => unreachable!(),
-                        }
+            match &action {
+                PointAction::Disable => {
+                    self.debugging_context.disable_watchpoint(target)
+                }
+                PointAction::Enable => {
+                    self.debugging_context.enable_watchpoint(target)
+                }
+                PointAction::Delete => {
+                    self.debugging_context.remove_watchpoint(target)
+                }
+            }
+        }
+    }
+
+    /// Perform an action on a set breakpoint
+    fn manipulate_breakpoint(
+        &mut self,
+        action: PointAction,
+        points: Vec<ParsedBreakPointID>,
+    ) {
+        for target in points {
+            let parsed_targets =
+                target.parse_to_break_ids(self.program_context.as_ref());
+            unwrap_error_message!(parsed_targets);
+
+            for target in parsed_targets {
+                match &action {
+                    PointAction::Disable => {
+                        self.debugging_context.disable_breakpoint(target)
+                    }
+                    PointAction::Enable => {
+                        self.debugging_context.enable_breakpoint(target)
+                    }
+                    PointAction::Delete => {
+                        self.debugging_context.remove_breakpoint(target)
                     }
                 }
             }
-            _ => unreachable!("improper use of manipulate_breakpoint"),
         }
     }
 }
