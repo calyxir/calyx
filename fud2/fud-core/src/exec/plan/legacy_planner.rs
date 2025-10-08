@@ -2,7 +2,7 @@ use crate::exec::State;
 
 use super::{
     super::{OpRef, Operation, StateRef},
-    FindPlan,
+    FindPlan, PlannerType,
     planner::Step,
 };
 use cranelift_entity::{PrimaryMap, SecondaryMap};
@@ -122,5 +122,9 @@ impl FindPlan for LegacyPlanner {
     ) -> Option<Vec<Step>> {
         assert!(start.len() == 1 && end.len() == 1);
         Self::find_plan(start[0], end[0], through, ops)
+    }
+
+    fn ty(&self) -> PlannerType {
+        PlannerType::Legacy
     }
 }
