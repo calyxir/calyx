@@ -1502,20 +1502,30 @@ impl CalyxParser {
 
     fn position_entry(
         input: Node,
-    ) -> ParseResult<(PositionId, MetadataFileId, LineNum)> {
+    ) -> ParseResult<(PositionId, MetadataFileId, LineNum, Option<LineNum>)>
+    {
         Ok(match_nodes!(input.into_children();
+        [bitwidth(pos_num), bitwidth(file_num), bitwidth(line_no), bitwidth(end_line)] => {
+                let pos_num = pos_num.try_into().expect("position ids must fit in a u32");
+                let file_num = file_num.try_into().expect("file ids must fit in a u32");
+                let line_no = line_no.try_into().expect("line numbers must fit in a u32");
+                let end_line = end_line.try_into().expect("line numbers must fit in a u32");
+                (PositionId::new(pos_num), MetadataFileId::new(file_num), LineNum::new(line_no), Some(LineNum::new(end_line)))},
+
             [bitwidth(pos_num), bitwidth(file_num), bitwidth(line_no)] => {
                 let pos_num = pos_num.try_into().expect("position ids must fit in a u32");
                 let file_num = file_num.try_into().expect("file ids must fit in a u32");
                 let line_no = line_no.try_into().expect("line numbers must fit in a u32");
-                (PositionId::new(pos_num), MetadataFileId::new(file_num), LineNum::new(line_no))}
+                (PositionId::new(pos_num), MetadataFileId::new(file_num), LineNum::new(line_no), None)}
         ))
     }
 
     fn position_table(
         input: Node,
     ) -> ParseResult<
-        impl IntoIterator<Item = (PositionId, MetadataFileId, LineNum)>,
+        impl IntoIterator<
+            Item = (PositionId, MetadataFileId, LineNum, Option<LineNum>),
+        >,
     > {
         Ok(match_nodes!(input.into_children();
                 [position_header(_), position_entry(e)..] => e))

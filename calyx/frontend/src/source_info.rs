@@ -183,20 +183,26 @@ impl SourceInfoTable {
         pos: PositionId,
         file: FileId,
         line: LineNum,
+        endline: Option<LineNum>,
     ) {
         self.position_map
-            .insert(pos, SourceLocation::new(file, line));
+            .insert(pos, SourceLocation::new(file, line, endline));
     }
 
     /// Adds a position to the position map and generates a new position id
     /// for it. If you want to add a position with a specific id, use
     /// [`SourceInfoTable::add_position`]
-    pub fn push_position(&mut self, file: FileId, line: LineNum) -> PositionId {
+    pub fn push_position(
+        &mut self,
+        file: FileId,
+        line: LineNum,
+        endline: Option<LineNum>,
+    ) -> PositionId {
         // find the largest position id in the map
         let max = self.iter_positions().max().unwrap_or(0.into());
         let new = PositionId(max.0 + 1);
 
-        self.add_position(new, file, line);
+        self.add_position(new, file, line, endline);
         new
     }
 
@@ -211,7 +217,7 @@ impl SourceInfoTable {
     pub fn new<F, P>(files: F, positions: P) -> SourceInfoResult<Self>
     where
         F: IntoIterator<Item = (FileId, PathBuf)>,
-        P: IntoIterator<Item = (PositionId, FileId, LineNum)>,
+        P: IntoIterator<Item = (PositionId, FileId, LineNum, Option<LineNum>)>,
     {
         let files = files.into_iter();
         let positions = positions.into_iter();
@@ -236,8 +242,8 @@ impl SourceInfoTable {
             }
         }
 
-        for (pos, file, line) in positions {
-            let source = SourceLocation::new(file, line);
+        for (pos, file, line, end_line) in positions {
+            let source = SourceLocation::new(file, line, end_line);
             if let Some(first_pos) = position_map.insert(pos, source) {
                 let inserted_position = &position_map[&pos];
                 if inserted_position != &first_pos {
@@ -270,10 +276,21 @@ impl SourceInfoTable {
 
         // write the position table
         writeln!(f, "POSITIONS")?;
-        for (position, SourceLocation { line, file }) in
-            self.position_map.iter().sorted_by_key(|(k, _)| **k)
+        for (
+            position,
+            SourceLocation {
+                line,
+                file,
+                end_line,
+            },
+        ) in self.position_map.iter().sorted_by_key(|(k, _)| **k)
         {
-            writeln!(f, "  {position}: {file} {line}")?;
+            let endlinestr = if let Some(line) = end_line {
+                format!(" {line}")
+            } else {
+                String::new()
+            };
+            writeln!(f, "  {position}: {file} {line}{endlinestr}")?;
         }
 
         writeln!(f, "}}#")
@@ -284,11 +301,16 @@ impl SourceInfoTable {
 pub struct SourceLocation {
     pub file: FileId,
     pub line: LineNum,
+    pub end_line: Option<LineNum>,
 }
 
 impl SourceLocation {
-    pub fn new(file: FileId, line: LineNum) -> Self {
-        Self { line, file }
+    pub fn new(file: FileId, line: LineNum, end_line: Option<LineNum>) -> Self {
+        Self {
+            line,
+            file,
+            end_line,
+        }
     }
 }
 #[derive(Error)]
@@ -363,7 +385,7 @@ mod tests {
                 0: test2.calyx
                 2: test3.calyx
             POSITIONS
-                0: 0 5
+                0: 0 5 6
                 1: 0 1
                 2: 0 2
         }#"#;
@@ -413,9 +435,14 @@ mod tests {
         metadata.add_file(1.into(), "test2.calyx".into());
         metadata.add_file(2.into(), "test3.calyx".into());
 
-        metadata.add_position(0.into(), 0.into(), LineNum::new(1));
-        metadata.add_position(1.into(), 1.into(), LineNum::new(2));
-        metadata.add_position(150.into(), 2.into(), LineNum::new(148));
+        metadata.add_position(0.into(), 0.into(), LineNum::new(1), None);
+        metadata.add_position(
+            1.into(),
+            1.into(),
+            LineNum::new(2),
+            Some(LineNum::new(4)),
+        );
+        metadata.add_position(150.into(), 2.into(), LineNum::new(148), None);
 
         let mut serialized_str = vec![];
         metadata.serialize(&mut serialized_str).unwrap();

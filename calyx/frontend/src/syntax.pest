@@ -436,7 +436,7 @@ file_table = {
 
 position_header = {^"POSITIONS"}
 
-position_entry = {bitwidth ~ ":" ~ bitwidth ~ bitwidth }
+position_entry = {bitwidth ~ ":" ~ bitwidth ~ bitwidth ~ (bitwidth)?}
 
 position_table = {
     position_header ~ position_entry+
