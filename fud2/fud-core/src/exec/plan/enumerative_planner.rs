@@ -2,7 +2,7 @@ use crate::exec::State;
 
 use super::{
     super::{OpRef, Operation, StateRef},
-    FindPlan, Step,
+    FindPlan, PlannerType, Step,
 };
 use cranelift_entity::PrimaryMap;
 
@@ -176,5 +176,9 @@ impl FindPlan for EnumeratePlanner {
         _states: &PrimaryMap<StateRef, State>,
     ) -> Option<Vec<Step>> {
         Self::find_plan(start, end, through, ops)
+    }
+
+    fn ty(&self) -> PlannerType {
+        PlannerType::Enumerative
     }
 }

@@ -1,9 +1,18 @@
-use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
-use crate::{run, script, utils};
+use super::{
+    OpRef, Operation, Request, Setup, SetupRef, State, StateRef,
+    plan::PlannerType,
+};
+use crate::{ast_converter::ast_to_steps, run, script, utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::PrimaryMap;
 use rand::distributions::{Alphanumeric, DistString};
-use std::{collections::HashMap, error::Error, ffi::OsStr, fmt::Display};
+use std::{
+    collections::HashMap,
+    error::Error,
+    ffi::OsStr,
+    fmt::Display,
+    io::{self, Read},
+};
 
 type FileData = HashMap<&'static str, &'static [u8]>;
 
@@ -168,6 +177,47 @@ impl Driver {
     /// This works by searching for a path through the available operations from the input state
     /// to the output state. If no such path exists in the operation graph, we return None.
     pub fn plan(&self, req: &Request) -> Option<Plan> {
+        // Special case if the planner is the one which reads from stdin.
+        let planner_ty = req.planner.ty();
+        if let PlannerType::FromJson = planner_ty {
+            let mut stdin = io::stdin().lock();
+            let mut input = String::new();
+            let res = stdin.read_to_string(&mut input);
+            if let Err(e) = res {
+                eprintln!("error: {e}");
+                return None;
+            }
+
+            let ast = serde_json::from_str(&input);
+            match ast {
+                Err(e) => {
+                    eprintln!("error: {e}");
+                    return None;
+                }
+                Ok(ast) => {
+                    let steps = ast_to_steps(&ast, &self.ops);
+                    let results = self.gen_names(
+                        &req.end_states,
+                        req,
+                        false,
+                        &req.end_states,
+                    );
+                    let inputs = self.gen_names(
+                        &req.start_states,
+                        req,
+                        true,
+                        &req.start_states,
+                    );
+                    return Some(Plan {
+                        steps,
+                        inputs,
+                        results,
+                        workdir: req.workdir.clone(),
+                    });
+                }
+            }
+        }
+
         // Find a plan through the states.
         let path = req.planner.find_plan(
             &req.start_states,
