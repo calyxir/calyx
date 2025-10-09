@@ -95,6 +95,8 @@ pub enum SingleWidthType {
     UnsynSDiv,
     /// Unsynthesizeable signed mod (`std_unsyn_smod`)
     UnsynSMod,
+    /// Unsynthesizable assertion (`assert`)
+    UnsynAssert,
     /// Represents the `undef` primitive. Not to be confused with undefined
     /// port values during simulation.
     Undef,
@@ -807,7 +809,7 @@ impl CellPrototype {
                     })
                 }
                 n @ ("std_unsyn_mult" | "std_unsyn_div" | "std_unsyn_smult"
-                | "std_unsyn_sdiv" | "std_unsyn_mod"
+                | "std_unsyn_sdiv" | "std_unsyn_mod" | "std_assert"
                 | "std_unsyn_smod") => {
                     get_params![params; width: "WIDTH"];
                     Self::SingleWidth {
@@ -817,6 +819,7 @@ impl CellPrototype {
                             "std_unsyn_smult" => SingleWidthType::UnsynSMult,
                             "std_unsyn_sdiv" => SingleWidthType::UnsynSDiv,
                             "std_unsyn_mod" => SingleWidthType::UnsynMod,
+                            "std_assert" => SingleWidthType::UnsynAssert,
                             _ => SingleWidthType::UnsynSMod,
                         },
                         width: width.try_into().unwrap(),
