@@ -1,6 +1,6 @@
 
 ---STDERR---
-==== [1mCider[0m: The [4mC[0malyx [4mI[0mnterpreter and [4mDe[0mbugge[4mr[0m ====
+==== Cider: The Calyx Interpreter and Debugger ====
 Warning: the control main: main. is already running. This breakpoint will not trigger until the next time the control runs.
     Current breakpoints:
     (0) main.   enabled

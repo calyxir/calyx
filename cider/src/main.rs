@@ -103,9 +103,15 @@ pub struct Opts {
     disable_thread_memoization: bool,
 
     /// entangle memories with the given name. This option should only be used
-    /// if you know what you are doing and as a result is hidden from the help output.
+    /// if you know what you are doing and as a result is hidden from the help
+    /// output.
     #[argh(option, hidden_help, long = "entangle")]
     entangle: Vec<String>,
+
+    /// entangle memories by reading names from a file. This option should only be used
+    /// if you know what you are doing and as a result is hidden from the help output.
+    #[argh(option, hidden_help, long = "entangle-file")]
+    entangle_file: Vec<PathBuf>,
 
     #[argh(subcommand)]
     mode: Option<Command>,
@@ -151,7 +157,7 @@ fn main() -> CiderResult<()> {
 
     let command = opts.mode.unwrap_or(Command::Interpret(CommandInterpret {}));
 
-    if !opts.entangle.is_empty() {
+    if !opts.entangle.is_empty() || !opts.entangle_file.is_empty() {
         let logger = cider::logging::initialize_logger(
             runtime_config.get_logging_config(),
         );
@@ -165,7 +171,8 @@ fn main() -> CiderResult<()> {
         &opts.file,
         &opts.lib_path,
         opts.skip_verification,
-        &opts.entangle,
+        opts.entangle,
+        &opts.entangle_file,
     )?;
 
     match &command {

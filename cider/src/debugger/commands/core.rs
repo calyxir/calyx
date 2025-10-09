@@ -137,6 +137,9 @@ impl From<BreakTarget> for ParsedBreakPointID {
 
 impl ParsedBreakPointID {
     /// Attempts to parse the breakpoint from user input into a concrete [BreakpointID].
+    /// Note that this function returns a `Vec` since a breakpoint given by group name
+    /// actually refers to all the enables of that group and hence multiple concrete
+    /// breakpoints
     pub fn parse_to_break_ids(
         &self,
         context: &Context,
@@ -452,6 +455,13 @@ impl ParsePath {
     }
 }
 
+/// The possible actions one could take on an extant break/watch point.
+pub enum PointAction {
+    Enable,
+    Disable,
+    Delete,
+}
+
 // Different types of printing commands
 pub enum PrintCommand {
     Normal,
@@ -482,18 +492,10 @@ pub enum Command {
     InfoBreak,
     /// List all watchpoints.
     InfoWatch,
-    /// Disable the given breakpoints.
-    Disable(Vec<ParsedBreakPointID>),
-    /// Enable the given breakpoints.
-    Enable(Vec<ParsedBreakPointID>),
-    /// Delete the given breakpoints.
-    Delete(Vec<ParsedBreakPointID>),
-    /// Enable the given watchpoints.
-    EnableWatch(Vec<ParsedBreakPointID>),
-    /// Disable the given watchpoints.
-    DisableWatch(Vec<ParsedBreakPointID>),
-    /// Delete the given watchpoints.
-    DeleteWatch(Vec<ParsedBreakPointID>),
+    /// Manipulate a given breakpoint
+    BreakAction(PointAction, Vec<ParsedBreakPointID>),
+    /// Manipulate a given watchpoint
+    WatchAction(PointAction, Vec<ParsedBreakPointID>),
     /// Advance the execution until the given group is no longer running.
     StepOver(BreakTarget, Option<NonZeroU32>),
     /// Create a watchpoint

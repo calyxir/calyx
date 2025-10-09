@@ -1,5 +1,6 @@
 use super::index_trait::{IndexRange, IndexRangeIterator, IndexRef};
 use std::{
+    cmp::Ordering,
     marker::PhantomData,
     ops::{self, Index},
 };
@@ -383,8 +384,20 @@ impl<K: IndexRef + Ord, D> SemiContiguousSecondaryMap<K, D> {
 
     pub fn get(&self, key: K) -> Option<&D> {
         // this could probably be replaced with a binary search
-        let (range, base) =
-            self.ranges.iter().find(|(r, _)| r.contains(key))?;
+
+        let idx = self
+            .ranges
+            .binary_search_by(|(range, _)| {
+                if range.end() <= key {
+                    Ordering::Less
+                } else if range.start() > key {
+                    Ordering::Greater
+                } else {
+                    Ordering::Equal
+                }
+            })
+            .ok()?;
+        let (range, base) = &self.ranges[idx];
         let target = base + (key.index() - range.start().index());
         Some(&self.data[target])
     }

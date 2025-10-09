@@ -19,12 +19,13 @@ use crate::flatten::{
     text_utils::Color,
 };
 
+use ahash::{HashMapExt, HashSetExt};
 use baa::BitVecValue;
 use cider_idx::{
     impl_index_nonzero,
     maps::{IndexedMap, SecondarySparseMap},
 };
-use itertools::Itertools;
+use fxhash::{FxHashMap, FxHashSet};
 use thiserror::Error;
 
 use super::Environment;
@@ -485,16 +486,16 @@ pub fn new_clock_pair(
 #[derive(Debug, Clone)]
 pub struct VectorClock<I, C = u32>
 where
-    I: Hash + Eq + Clone,
+    I: Hash + Eq + Clone + Ord,
     C: Ord + Clone + Counter,
 {
     // TODO: maybe use `ahash` instead
-    map: HashMap<I, C>,
+    map: FxHashMap<I, C>,
 }
 
 impl<I, C> std::ops::Index<&I> for VectorClock<I, C>
 where
-    I: Hash + Eq + Clone,
+    I: Hash + Eq + Clone + Ord,
     C: Ord + Clone + Counter,
 {
     type Output = C;
@@ -506,7 +507,7 @@ where
 
 impl<I, C> std::ops::Index<I> for VectorClock<I, C>
 where
-    I: Hash + Eq + Clone,
+    I: Hash + Eq + Clone + Ord,
     C: Ord + Clone + Counter,
 {
     type Output = C;
@@ -518,14 +519,14 @@ where
 
 impl<I, C> Eq for VectorClock<I, C>
 where
-    I: Hash + Eq + Clone,
+    I: Hash + Eq + Clone + Ord,
     C: Ord + Clone + Counter,
 {
 }
 
 impl<I, C> PartialEq for VectorClock<I, C>
 where
-    I: Hash + Eq + Clone,
+    I: Hash + Eq + Clone + Ord,
     C: Ord + Clone + Counter,
 {
     fn eq(&self, other: &Self) -> bool {
@@ -539,7 +540,7 @@ where
 
 impl<I, C> FromIterator<(I, C)> for VectorClock<I, C>
 where
-    I: Hash + Eq + Clone,
+    I: Hash + Eq + Clone + Ord,
     C: Ord + Clone + Counter,
 {
     fn from_iter<T: IntoIterator<Item = (I, C)>>(iter: T) -> Self {
@@ -551,12 +552,12 @@ where
 
 impl<I, C> VectorClock<I, C>
 where
-    I: Hash + Eq + Clone,
+    I: Hash + Eq + Clone + Ord,
     C: Ord + Clone + Counter,
 {
     pub fn new() -> Self {
         Self {
-            map: HashMap::new(),
+            map: FxHashMap::new(),
         }
     }
 
@@ -624,7 +625,7 @@ where
 
 impl<I, C> Default for VectorClock<I, C>
 where
-    I: Hash + Eq + Clone,
+    I: Hash + Eq + Clone + Ord,
     C: Ord + Clone + Counter,
 {
     fn default() -> Self {
@@ -634,23 +635,27 @@ where
 
 impl<I, C> PartialOrd for VectorClock<I, C>
 where
-    I: Hash + Eq + Clone,
+    I: Hash + Eq + Clone + Ord,
     C: Ord + Clone + Counter,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         // there's probably a better way to do this but it'll suffice for now
         // not sure if it's better to do extra redundant comparisons or incur
         // the cost of the `unique` call. Something to investigate in the future
-        let iter = self.map.keys().chain(other.map.keys()).unique().map(|id| {
-            match (self.get(id), other.get(id)) {
-                (None, Some(count_other)) => C::default().cmp(count_other),
-                (Some(count_self), None) => count_self.cmp(&C::default()),
-                (Some(count_self), Some(count_other)) => {
-                    count_self.cmp(count_other)
-                }
-                (None, None) => unreachable!(),
-            }
-        });
+
+        let mut set = FxHashSet::with_capacity(self.map.len());
+        set.extend(self.map.keys());
+        set.extend(other.map.keys());
+        let iter =
+            set.into_iter()
+                .map(|id| match (self.get(id), other.get(id)) {
+                    (None, Some(count_other)) => C::default().cmp(count_other),
+                    (Some(count_self), None) => count_self.cmp(&C::default()),
+                    (Some(count_self), Some(count_other)) => {
+                        count_self.cmp(count_other)
+                    }
+                    (None, None) => unreachable!(),
+                });
 
         let mut current_answer = None;
         for cmp in iter {
@@ -709,7 +714,7 @@ impl ValueWithClock {
 
 /// A struct containing the read and write clocks for a value. This is small
 /// enough to be copied around easily
-#[derive(Debug, Clone, PartialEq, Eq, Copy, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Copy, Hash, PartialOrd, Ord)]
 pub struct ClockPair {
     pub read_clock: ClockIdx,
     pub write_clock: ClockIdx,
@@ -934,6 +939,79 @@ impl ClockError {
             cell,
             entry_number,
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum TransitiveSet<const N: usize> {
+    Small {
+        data: [Option<ClockPair>; N],
+        available_spots: usize,
+    },
+    Hash(FxHashSet<ClockPair>),
+}
+
+impl<const N: usize> Extend<ClockPair> for TransitiveSet<N> {
+    fn extend<T: IntoIterator<Item = ClockPair>>(&mut self, iter: T) {
+        for i in iter {
+            self.insert(i)
+        }
+    }
+}
+
+impl<const N: usize> TransitiveSet<N> {
+    pub fn new() -> Self {
+        Self::Small {
+            data: [None; N],
+            available_spots: N,
+        }
+    }
+
+    pub fn insert(&mut self, item: ClockPair) {
+        match self {
+            TransitiveSet::Small {
+                data,
+                available_spots,
+            } => {
+                let contains = data.contains(&Some(item));
+                if contains {
+                    // nothing needs doing
+                } else if *available_spots != 0 {
+                    let index = N - *available_spots;
+                    *available_spots -= 1;
+                    data[index] = Some(item)
+                } else {
+                    // need to spill over into a hashset
+                    let mut set = FxHashSet::with_capacity(N + 1);
+                    set.extend(data.iter().map(|x| x.as_ref().unwrap()));
+                    set.insert(item);
+                    *self = Self::Hash(set);
+                }
+            }
+            TransitiveSet::Hash(hash_set) => {
+                hash_set.insert(item);
+            }
+        };
+    }
+    pub fn iter(&self) -> Box<dyn Iterator<Item = &ClockPair> + '_> {
+        match self {
+            TransitiveSet::Small { data, .. } => {
+                Box::new(data.iter().filter_map(|x| x.as_ref()))
+            }
+            TransitiveSet::Hash(hash_set) => Box::new(hash_set.iter()),
+        }
+    }
+    pub fn contains(&self, item: ClockPair) -> bool {
+        match self {
+            TransitiveSet::Small { data, .. } => data.contains(&Some(item)),
+            TransitiveSet::Hash(hash_set) => hash_set.contains(&item),
+        }
+    }
+}
+
+impl<const N: usize> Default for TransitiveSet<N> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

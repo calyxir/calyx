@@ -1,5 +1,8 @@
 use itertools::Itertools;
-use std::{collections::HashMap, fmt::Display, num::NonZero, path::PathBuf};
+use std::{
+    collections::HashMap, fmt::Display, fs::File, io::Read, num::NonZero,
+    path::PathBuf,
+};
 use thiserror::Error;
 
 type Word = u32;
@@ -278,6 +281,44 @@ impl SourceInfoTable {
 
         writeln!(f, "}}#")
     }
+
+    /// Attempt to lookup the line that a given position points to. Returns an error in
+    /// cases when the position does not exist, the file is unavailable, or the file
+    /// does not contain the indicated line.
+    pub fn get_position_string(
+        &self,
+        pos: PositionId,
+    ) -> Result<String, SourceLookupError> {
+        let Some(src_loc) = self.get_position(pos) else {
+            return Err(SourceLookupError::MissingPosition(pos));
+        };
+        // this will panic if the file doesn't exist but that would imply the table has
+        // incorrect information in it
+        let file_path = self.lookup_file_path(src_loc.file);
+
+        let Ok(mut file) = File::open(file_path) else {
+            return Err(SourceLookupError::MissingFile(file_path));
+        };
+
+        let mut file_contents = String::new();
+
+        match file.read_to_string(&mut file_contents) {
+            Ok(_) => {}
+            Err(_) => {
+                return Err(SourceLookupError::MissingFile(file_path));
+            }
+        }
+
+        let Some(line) = file_contents.lines().nth(src_loc.line.as_usize() - 1)
+        else {
+            return Err(SourceLookupError::MissingLine {
+                file: file_path,
+                line: src_loc.line.as_usize(),
+            });
+        };
+
+        Ok(String::from(line))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -310,6 +351,18 @@ pub enum SourceInfoTableError {
         path1: PathBuf,
         path2: PathBuf,
     },
+}
+
+/// Any error that can emerge while attempting to pull the actual line of text that a
+/// source line points to
+#[derive(Error, Debug)]
+pub enum SourceLookupError<'a> {
+    #[error("unable to open file {0}")]
+    MissingFile(&'a PathBuf),
+    #[error("file {file} does not have a line {line}")]
+    MissingLine { file: &'a PathBuf, line: usize },
+    #[error("position id {0} does not exist")]
+    MissingPosition(PositionId),
 }
 
 impl std::fmt::Debug for SourceInfoTableError {

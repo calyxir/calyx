@@ -40,12 +40,12 @@ component main() -> () {
 
 sourceinfo #{
     FILES
-        0: test.futil
-        1: my_super_cool_file.txt
+        0: ../debugger/file1
+        1: ../debugger/file2
 
     POSITIONS
-        0: 0 14
-        1: 1 15
-        2: 0 6578
-        3: 1 45
+        0: 0 1
+        1: 1 3
+        2: 0 5
+        3: 1 17
 }#
