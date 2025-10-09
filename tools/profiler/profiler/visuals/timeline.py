@@ -9,6 +9,7 @@ from profiler.classes.tracedata import CycleTrace, TraceData, StackElementType, 
 from profiler.classes.cell_metadata import CellMetadata
 from profiler.classes.visuals.timeline import CalyxProtoTimeline, DahliaProtoTimeline
 
+
 def compute_calyx_protobuf_timeline(
     tracedata: TraceData,
     cell_metadata: CellMetadata,
@@ -116,7 +117,9 @@ def compute_adl_protobuf_timeline(dahlia_trace: PTrace, out_dir: str):
         for done_statement in currently_active_statements.difference(
             statements_active_this_cycle
         ):
-            dahlia_proto.register_statement_event(done_statement, i, TrackEvent.TYPE_SLICE_END)
+            dahlia_proto.register_statement_event(
+                done_statement, i, TrackEvent.TYPE_SLICE_END
+            )
 
         # statements that started
         for started_statement in statements_active_this_cycle.difference(

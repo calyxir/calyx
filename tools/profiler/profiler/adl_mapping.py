@@ -5,6 +5,7 @@ from profiler.classes.adl import AdlMap, Adl, SourceLoc
 from profiler.classes.tracedata import FlameMapMode, TraceData, PTrace, CycleTrace
 from .classes.stack_element import StackElement, StackElementType
 
+
 def create_dahlia_trace(tracedata: TraceData, adl_map: AdlMap):
     calyx_trace: PTrace = tracedata.trace_with_control_groups
     dahlia_trace: PTrace = PTrace()
@@ -46,7 +47,9 @@ def create_and_write_adl_map(tracedata: TraceData, adl_mapping_file: str, out_di
         case Adl.DAHLIA:
             # We will create a Dahlia-specific trace
             dahlia_trace = create_dahlia_trace(tracedata, adl_map)
-            flame.create_and_write_dahlia_flame_maps(tracedata, adl_mapping_file, out_dir)
+            flame.create_and_write_dahlia_flame_maps(
+                tracedata, adl_mapping_file, out_dir
+            )
             # adl_flat_map, adl_scaled_map = flame.create_flame_maps(
             #     dahlia_trace, FlameMapMode.ADL
             # )
@@ -57,7 +60,7 @@ def create_and_write_adl_map(tracedata: TraceData, adl_mapping_file: str, out_di
             timeline.compute_adl_protobuf_timeline(dahlia_trace, out_dir)
 
         case Adl.PY:
-            # for Calyx-py we can suffice with just using Calyx PTraces 
+            # for Calyx-py we can suffice with just using Calyx PTraces
             adl_added_trace = tracedata.add_sourceloc_info(adl_map)
 
             adl_flat_map, adl_scaled_map = flame.create_flame_maps(

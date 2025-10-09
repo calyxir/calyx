@@ -11,6 +11,7 @@ from profiler.classes.errors import ProfilerException
 from profiler.classes.tracedata import TraceData
 from profiler.classes.cell_metadata import CellMetadata
 
+
 @dataclass
 class ProtoTimelineCollection:
     builder: TraceProtoBuilder
@@ -152,7 +153,7 @@ class ProtoTimelineWrapper:
 @dataclass
 class CalyxProtoTimeline:
     """
-    A class creating a Perfetto timeline in the program structure of 
+    A class creating a Perfetto timeline in the program structure of
     Calyx programs (cells, control registers, groups).
     """
 
@@ -281,22 +282,30 @@ class CalyxProtoTimeline:
     def emit(self, out_path: str):
         self.proto.emit(out_path)
 
+
 class DahliaProtoTimeline:
     """
-    A class creating a Perfetto timeline in the program structure of 
+    A class creating a Perfetto timeline in the program structure of
     Dahlia programs (statements).
     """
+
     proto: ProtoTimelineWrapper
     main_function_name = "main"
-    
+
     def __init__(self):
         self.proto = ProtoTimelineWrapper()
         self.proto.add_collection(self.main_function_name)
 
-    def register_statement_event(self, statement: str, timestamp: int, event_type: TrackEvent.Type):
-        if not self.proto.is_track_registered_in_collection(self.main_function_name, statement):
+    def register_statement_event(
+        self, statement: str, timestamp: int, event_type: TrackEvent.Type
+    ):
+        if not self.proto.is_track_registered_in_collection(
+            self.main_function_name, statement
+        ):
             self.proto.register_track_in_collection(self.main_function_name, statement)
-        self.proto.register_event_in_collection(self.main_function_name, statement, statement, timestamp, event_type)
+        self.proto.register_event_in_collection(
+            self.main_function_name, statement, statement, timestamp, event_type
+        )
 
     def emit(self, out_path: str):
         self.proto.emit(out_path)

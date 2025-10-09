@@ -9,6 +9,7 @@ class Adl(Enum):
     DAHLIA = 1
     PY = 2
 
+
 @dataclass
 class SourceLoc:
     """
