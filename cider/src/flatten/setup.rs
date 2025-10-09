@@ -13,7 +13,8 @@ fn do_setup(
     lib_path: &Path,
     skip_verification: bool,
     gen_metadata: bool,
-    entangled_mems: &[String],
+    entangled_mems: Vec<String>,
+    entangled_files: &[std::path::PathBuf],
 ) -> CiderResult<(Context, CiderResult<NewSourceMap>)> {
     // Construct IR
     let ws = frontend::Workspace::construct(file, &[lib_path.to_path_buf()])?;
@@ -48,8 +49,8 @@ fn do_setup(
     };
 
     let mut ctx = crate::flatten::flat_ir::translate(&ctx);
-    if !entangled_mems.is_empty() {
-        ctx.entangle_memories(entangled_mems)?;
+    if !entangled_mems.is_empty() || !entangled_files.is_empty() {
+        ctx.entangle_memories(entangled_mems, entangled_files)?;
     }
 
     // general setup
@@ -63,10 +64,17 @@ pub fn setup_simulation(
     file: &Option<PathBuf>,
     lib_path: &Path,
     skip_verification: bool,
-    entangled_mems: &[String],
+    entangled_mems: Vec<String>,
+    entangled_files: &[std::path::PathBuf],
 ) -> CiderResult<Context> {
-    let (ctx, _) =
-        do_setup(file, lib_path, skip_verification, false, entangled_mems)?;
+    let (ctx, _) = do_setup(
+        file,
+        lib_path,
+        skip_verification,
+        false,
+        entangled_mems,
+        entangled_files,
+    )?;
     Ok(ctx)
 }
 
@@ -81,6 +89,6 @@ pub fn setup_simulation_with_metadata(
     skip_verification: bool,
 ) -> CiderResult<(Context, NewSourceMap)> {
     let (ctx, mapping) =
-        do_setup(file, lib_path, skip_verification, true, &[])?;
+        do_setup(file, lib_path, skip_verification, true, vec![], &[])?;
     Ok((ctx, mapping?))
 }

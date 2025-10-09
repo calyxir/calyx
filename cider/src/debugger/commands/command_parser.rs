@@ -13,7 +13,10 @@ use pest_consume::{Error, Parser, match_nodes};
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, ()>;
 
-use crate::{errors::CiderResult, serialization::PrintCode};
+use crate::{
+    debugger::commands::PointAction, errors::CiderResult,
+    serialization::PrintCode,
+};
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes
 const _GRAMMAR: &str = include_str!("commands.pest");
@@ -204,37 +207,37 @@ impl CommandParser {
 
     fn delete(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-                [brk_id(br)..] => Command::Delete(br.collect())
-        ))
-    }
-
-    fn delete_watch(input: Node) -> ParseResult<Command> {
-        Ok(match_nodes!(input.into_children();
-                [brk_id(br)..] => Command::DeleteWatch(br.collect())
+                [brk_id(br)..] => Command::BreakAction(PointAction::Delete, br.collect())
         ))
     }
 
     fn enable(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-                [brk_id(br)..] => Command::Enable(br.collect())
+                [brk_id(br)..] => Command::BreakAction(PointAction::Enable, br.collect())
         ))
     }
 
     fn disable(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-                [brk_id(br)..] => Command::Disable(br.collect())
+                [brk_id(br)..] => Command::BreakAction(PointAction::Disable, br.collect())
+        ))
+    }
+
+    fn delete_watch(input: Node) -> ParseResult<Command> {
+        Ok(match_nodes!(input.into_children();
+                [brk_id(br)..] => Command::WatchAction(PointAction::Delete, br.collect())
         ))
     }
 
     fn enable_watch(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-                [brk_id(br)..] => Command::EnableWatch(br.collect())
+                [brk_id(br)..] => Command::WatchAction(PointAction::Enable, br.collect())
         ))
     }
 
     fn disable_watch(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-                [brk_id(br)..] => Command::DisableWatch(br.collect())
+                [brk_id(br)..] => Command::WatchAction(PointAction::Disable, br.collect())
         ))
     }
 

@@ -7,7 +7,7 @@ use super::{
 use crate::{
     configuration::RuntimeConfig,
     debugger::{
-        commands::{BreakTarget, PrintCommand},
+        commands::{BreakTarget, PointAction, PrintCommand},
         debugging_context::context::format_control_node,
         source::SourceMap,
         unwrap_error_message,
@@ -23,7 +23,7 @@ use crate::{
             context::Context,
             environment::{Path, PathError, PolicyChoice, Simulator},
         },
-        text_utils::{Color, print_debugger_welcome},
+        text_utils::{Color, format_file_line, print_debugger_welcome},
     },
     serialization::PrintCode,
 };
@@ -207,7 +207,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             .map(ParsedBreakPointID::Target)
             .collect_vec();
 
-        self.manipulate_breakpoint(Command::Delete(parsed_bp_ids));
+        self.manipulate_breakpoint(PointAction::Delete, parsed_bp_ids);
     }
 
     pub fn cont(&mut self) -> Result<StoppedReason, BoxedCiderError> {
@@ -373,9 +373,13 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 Command::Break(targets) => self.create_breakpoints(targets),
 
                 // breakpoints
-                comm @ (Command::Delete(_)
-                | Command::Enable(_)
-                | Command::Disable(_)) => self.manipulate_breakpoint(comm),
+                Command::BreakAction(action, points) => {
+                    self.manipulate_breakpoint(action, points)
+                }
+
+                Command::WatchAction(action, points) => {
+                    self.manipulate_watchpoint(action, points)
+                }
 
                 Command::Exit => {
                     println!("Exiting.");
@@ -385,33 +389,6 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 Command::InfoBreak => self
                     .debugging_context
                     .print_breakpoints(self.program_context.as_ref()),
-
-                Command::DeleteWatch(targets) => {
-                    for target in targets {
-                        let target = target
-                            .parse_to_watch_ids(self.program_context.as_ref());
-                        unwrap_error_message!(target);
-                        self.debugging_context.remove_watchpoint(target)
-                    }
-                }
-
-                Command::EnableWatch(targets) => {
-                    for target in targets {
-                        let target = target
-                            .parse_to_watch_ids(self.program_context.as_ref());
-                        unwrap_error_message!(target);
-                        self.debugging_context.enable_watchpoint(target)
-                    }
-                }
-
-                Command::DisableWatch(targets) => {
-                    for target in targets {
-                        let target = target
-                            .parse_to_watch_ids(self.program_context.as_ref());
-                        unwrap_error_message!(target);
-                        self.debugging_context.disable_watchpoint(target)
-                    }
-                }
 
                 Command::Watch(
                     group,
@@ -430,49 +407,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     .debugging_context
                     .print_watchpoints(self.interpreter.env()),
 
-                Command::PrintPC(print_mode) => match print_mode {
-                    PrintCommand::Normal => {
-                        if let Some(source_info) = &self
-                            .program_context
-                            .as_ref()
-                            .secondary
-                            .source_info_table
-                        {
-                            let mut printed_position = false;
-                            for position in
-                                self.interpreter.env().iter_positions()
-                            {
-                                if let Some(location) =
-                                    source_info.get_position(position)
-                                {
-                                    println!(
-                                        "{}:{}",
-                                        source_info
-                                            .lookup_file_path(location.file)
-                                            .display(),
-                                        location.line
-                                    );
-                                    printed_position = true;
-                                }
-                            }
-
-                            if !printed_position {
-                                println!(
-                                    "Source info unavailable, falling back to Calyx"
-                                );
-                                println!("{}", self.interpreter.print_pc());
-                            }
-                        } else {
-                            println!("{}", self.interpreter.print_pc());
-                        }
-                    }
-                    PrintCommand::PrintCalyx => {
-                        println!("{}", self.interpreter.print_pc().trim_end());
-                    }
-                    PrintCommand::PrintNodes => {
-                        self.interpreter.print_pc_string();
-                    }
-                },
+                Command::PrintPC(print_mode) => self.do_print_pc(print_mode),
                 Command::Explain => {
                     print!("{}", Command::get_explain_string())
                 }
@@ -509,9 +444,6 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
             match comm {
                 Command::Empty => {}
-                Command::Display => {
-                    println!("COMMAND NOT YET IMPLEMENTED");
-                }
                 Command::Print(print_lists, code, print_mode) => {
                     for target in print_lists {
                         if let Err(e) = self.do_print(&target, code, print_mode)
@@ -544,6 +476,56 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                         "This command is unavailable after program termination"
                     )
                 }
+            }
+        }
+    }
+
+    fn do_print_pc(&self, print_mode: PrintCommand) {
+        match print_mode {
+            PrintCommand::Normal => {
+                if let Some(source_info) =
+                    &self.program_context.as_ref().secondary.source_info_table
+                {
+                    let mut printed_position = false;
+                    for position in self.interpreter.env().iter_positions() {
+                        let line =
+                            match source_info.get_position_string(position) {
+                                Ok(l) => l,
+                                Err(e) => {
+                                    eprintln!("Error: {e}");
+                                    continue;
+                                }
+                            };
+
+                        let pos = source_info.get_position(position).unwrap();
+                        let file_path = source_info.lookup_file_path(pos.file);
+
+                        println!(
+                            "{}",
+                            format_file_line(
+                                pos.line.as_usize(),
+                                line,
+                                file_path
+                            )
+                        );
+                        printed_position = true;
+                    }
+
+                    if !printed_position {
+                        println!(
+                            "Source info unavailable, falling back to Calyx"
+                        );
+                        println!("{}", self.interpreter.print_pc());
+                    }
+                } else {
+                    println!("{}", self.interpreter.print_pc());
+                }
+            }
+            PrintCommand::PrintCalyx => {
+                println!("{}", self.interpreter.print_pc().trim_end());
+            }
+            PrintCommand::PrintNodes => {
+                self.interpreter.print_pc_string();
             }
         }
     }
@@ -780,33 +762,54 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         Ok(())
     }
 
-    fn manipulate_breakpoint(&mut self, command: Command) {
-        match &command {
-            Command::Disable(targets)
-            | Command::Enable(targets)
-            | Command::Delete(targets) => {
-                for t in targets {
-                    let parsed_targets =
-                        t.parse_to_break_ids(self.program_context.as_ref());
-                    unwrap_error_message!(parsed_targets);
+    fn manipulate_watchpoint(
+        &mut self,
+        action: PointAction,
+        points: Vec<ParsedBreakPointID>,
+    ) {
+        for target in points {
+            let target =
+                target.parse_to_watch_ids(self.program_context.as_ref());
+            unwrap_error_message!(target);
 
-                    for target in parsed_targets {
-                        match &command {
-                            Command::Disable(_) => self
-                                .debugging_context
-                                .disable_breakpoint(target),
-                            Command::Enable(_) => {
-                                self.debugging_context.enable_breakpoint(target)
-                            }
-                            Command::Delete(_) => {
-                                self.debugging_context.remove_breakpoint(target)
-                            }
-                            _ => unreachable!(),
-                        }
+            match &action {
+                PointAction::Disable => {
+                    self.debugging_context.disable_watchpoint(target)
+                }
+                PointAction::Enable => {
+                    self.debugging_context.enable_watchpoint(target)
+                }
+                PointAction::Delete => {
+                    self.debugging_context.remove_watchpoint(target)
+                }
+            }
+        }
+    }
+
+    /// Perform an action on a set breakpoint
+    fn manipulate_breakpoint(
+        &mut self,
+        action: PointAction,
+        points: Vec<ParsedBreakPointID>,
+    ) {
+        for target in points {
+            let parsed_targets =
+                target.parse_to_break_ids(self.program_context.as_ref());
+            unwrap_error_message!(parsed_targets);
+
+            for target in parsed_targets {
+                match &action {
+                    PointAction::Disable => {
+                        self.debugging_context.disable_breakpoint(target)
+                    }
+                    PointAction::Enable => {
+                        self.debugging_context.enable_breakpoint(target)
+                    }
+                    PointAction::Delete => {
+                        self.debugging_context.remove_breakpoint(target)
                     }
                 }
             }
-            _ => unreachable!("improper use of manipulate_breakpoint"),
         }
     }
 }
