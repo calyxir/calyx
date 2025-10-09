@@ -114,6 +114,54 @@ fn edsl_to_flamegraph(e, input, output) {
     e.build_cmd([output], "create-visuals", [flamegraph_folded], []);
 }
 
+fn adl_compiled_to_flamegraph(e, input, output) {
+
+    let metadata_calyx = "metadata-calyx.futil";
+    e.build_cmd([metadata_calyx], "calyx-pass", [input], []);
+    e.arg("pass", "metadata-table-generation");
+
+    // create metatdata mapping file
+    e.build_cmd(["$ctrl-pos-json", "$adl-metadata-json"], "parse-metadata-with-adl", [metadata_calyx], []);
+
+    // instrument calyx and produce verilog
+    let instrumented_verilog = "instrumented.sv";
+    e.build_cmd(["$cell-json"], "component-cells", [input], []);
+    e.build_cmd([instrumented_verilog], "calyx", [input], []);
+    e.arg("backend", "verilog");
+    // NOTE: disabling group2seq because it may cause cycle count differences btwn profiled vs non-profiled versions.
+    e.arg("args", "-d group2seq -p metadata-table-generation -p validate -p compile-invoke -p uniquefy-enables -p profiler-instrumentation -p dead-group-removal $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json -x uniquefy-enables:path-descriptor-json=path-descriptors.json");
+
+    let instrumented_sim = "instrumented.exe";
+    // verilog --> sim; adapted from verilator::verilator_build()
+    let verilator_out_dir = "verilator-out";
+    let sim_bin = `${verilator_out_dir}/Vtoplevel`;
+    e.build_cmd(
+      [sim_bin],
+      "verilator-compile-standalone-tb",
+      [instrumented_verilog],
+      ["tb.sv"],
+    );
+    e.arg("out-dir", verilator_out_dir);
+    e.build("cp", sim_bin, instrumented_sim);
+
+    let instrumented_vcd = "instrumented.vcd";
+    // sim --> vcd; adapted from rtl_sim
+    e.build_cmd(
+        ["sim.log", instrumented_vcd],
+        "sim-run",
+        [instrumented_sim, "$datadir"],
+        [],
+    );
+    e.arg("bin", instrumented_sim);
+    e.arg("args", `+NOTRACE=0 +OUT=${instrumented_vcd}`);
+
+    // vcd --> flamegraph
+    let elems_profiled_json = "elems-profiled.json";
+    let flamegraph_folded = "flamegraph.folded";
+    e.build_cmd([flamegraph_folded], "parse-vcd-from-adl", [instrumented_vcd], ["$cell-json", "$adl-metadata-json"]);
+    e.build_cmd([output], "create-visuals", [flamegraph_folded], []);
+}
+
 fn calyx_to_flamegraph(e, input, output) {
     // First pass: obtain control metadata information by running metadata-table-generation
     // on the original program and then running the metadata tool on it.
@@ -184,4 +232,11 @@ op("calyx-py-profiler",
     cp::calyx_py,
     flamegraph,
     |e, input, output| edsl_to_flamegraph(e, input, output)
+);
+
+op("adl-compiled-profiler",
+   [c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
+   c::calyx_state,
+    flamegraph,
+    |e, input, output| adl_compiled_to_flamegraph(e, input, output)
 )
