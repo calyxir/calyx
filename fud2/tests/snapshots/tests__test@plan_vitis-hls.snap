@@ -1,0 +1,26 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: vitis-hls"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+vitis-hls-top = kernel
+build hls.tcl: get-rsrc
+rule vitis-hls
+  command = vitis_hls -f hls.tcl -tclargs top $vitis-hls-top > /dev/null
+rule vitis-hls-impl
+  command = vitis_hls -f hls.tcl -tclargs top $vitis-hls-top impl > /dev/null
+rule extract-hls-json
+  command = synthrep summary -m hls --top $vitis-hls-top > $out
+rule extract-hls-impl-json
+  command = synthrep summary -m hls-impl --top $vitis-hls-top > $out
+rule copy
+  command = cp $in $out
+
+build kernel.cpp: copy /input.ext
+build IGNOREME: vitis-hls | kernel.cpp hls.tcl
+build /output.ext: extract-hls-json IGNOREME
+
+default /output.ext
