@@ -16,6 +16,7 @@ SCALED_FLAME_MULTIPLIER = (
     1000  # [flame graph] multiplier so scaled flame graph will not round up.
 )
 
+
 @dataclass
 class FlameTrace:
     flat_flame_map: defaultdict[str, int]
@@ -40,11 +41,13 @@ class FlameTrace:
                 self.flat_flame_map[stack_id] += 1
                 # scaled flame
                 slice_to_add = cycle_slice if acc < num_stacks - 1 else last_cycle_slice
-                self.scaled_flame_map[stack_id] += slice_to_add * SCALED_FLAME_MULTIPLIER
+                self.scaled_flame_map[stack_id] += (
+                    slice_to_add * SCALED_FLAME_MULTIPLIER
+                )
                 acc += 1
-        
+
     def write_flame_maps(
-            self,
+        self,
         flames_out_dir: str,
         flame_out_file: str,
         scaled_flame_out_file: str = None,
@@ -72,7 +75,10 @@ class FlameTrace:
             for stack in flame_map:
                 flame_out.write(f"{stack} {flame_map[stack]}\n")
 
-def create_and_write_calyx_flame_maps(trace: PTrace, out_dir: str, flame_out: str, mode: FlameMapMode = FlameMapMode.CALYX) -> tuple[dict[str, int], dict[str, int]]:
+
+def create_and_write_calyx_flame_maps(
+    trace: PTrace, out_dir: str, flame_out: str, mode: FlameMapMode = FlameMapMode.CALYX
+) -> tuple[dict[str, int], dict[str, int]]:
     """
     Function to create flame maps for Calyx-style traces.
     """
@@ -81,7 +87,10 @@ def create_and_write_calyx_flame_maps(trace: PTrace, out_dir: str, flame_out: st
     flametrace: FlameTrace = FlameTrace(string_trace)
     flametrace.write_flame_maps(out_dir, flame_out)
 
-def create_and_write_dahlia_flame_maps(tracedata: TraceData, adl_mapping_file: str, out_dir: str):
+
+def create_and_write_dahlia_flame_maps(
+    tracedata: TraceData, adl_mapping_file: str, out_dir: str
+):
     calyx_trace: PTrace = tracedata.trace_with_control_groups
     adl_map = AdlMap(adl_mapping_file)
     dahlia_string_trace: list[set[str]] = []
@@ -103,7 +112,9 @@ def create_and_write_dahlia_flame_maps(tracedata: TraceData, adl_mapping_file: s
     flametrace: FlameTrace = FlameTrace(dahlia_string_trace)
     adl_flat_flame_file = os.path.join(out_dir, "adl-flat-flame.folded")
     adl_scaled_flame_file = os.path.join(out_dir, "adl-scaled-flame.folded")
-    flametrace.write_flame_maps(out_dir, adl_flat_flame_file, scaled_flame_out_file=adl_scaled_flame_file)
+    flametrace.write_flame_maps(
+        out_dir, adl_flat_flame_file, scaled_flame_out_file=adl_scaled_flame_file
+    )
 
 
 def create_flame_maps(
@@ -145,7 +156,7 @@ def create_flame_maps(
 def create_simple_flame_graph(
     tracedata: TraceData, control_reg_updates: dict[int, ControlRegUpdateType]
 ):
-    """ 
+    """
     Create and output a very simple overview flame graph that attributes cycles to categories
     describing how "useful" a cycle is.
     """

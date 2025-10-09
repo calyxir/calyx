@@ -11,8 +11,15 @@ from profiler.classes.errors import ProfilerException
 from profiler.classes.tracedata import TraceData
 from profiler.classes.cell_metadata import CellMetadata
 
+
 @dataclass
 class ProtoTimelineCollection:
+    """
+    Generalized class for creating . A "Collection" is a track (ex. a cell in Calyx) from which there will be child classes.
+    A collection can have "intermediate tracks", which are children of the "Collection" but could have children of their own.
+    Abstracts the process of obtaining uuids for specific tracks.
+    """
+
     builder: TraceProtoBuilder
     collection_uuid: int
     # sid for the entire colelction
@@ -50,6 +57,7 @@ class ProtoTimelineCollection:
 
         return track_uuid
 
+    # Helper to add an event to a track
     def _add_slice_event(self, ts, event_type, event_track_uuid, name):
         packet = self.builder.add_packet()
         packet.timestamp = ts
@@ -77,21 +85,26 @@ class ProtoTimelineCollection:
     def register_event(
         self,
         event_name: str,
-        track_id: str,
+        track_name: str,
         timestamp: int,
         event_type: TrackEvent.Type,
     ):
-        if track_id in self.track_name_to_uuid:  # [track_id]
-            track_uuid = self.track_name_to_uuid[track_id]
+        if track_name in self.track_name_to_uuid:  # [track_id]
+            track_uuid = self.track_name_to_uuid[track_name]
             self._add_slice_event(timestamp, event_type, track_uuid, event_name)
         else:
             raise ProfilerException(
-                f'Track "{track_id}" should be registered before its first event!'
+                f'Track "{track_name}" should be registered before its first event!'
             )
 
 
 @dataclass
 class ProtoTimelineWrapper:
+    """
+    A class representing an *entire* timeline view for a program.
+    Outside code should use methods in this class instead of directly calling methods on ProtoTimelineCollection.
+    """
+
     builder: TraceProtoBuilder
     name_to_collection: dict[str, ProtoTimelineCollection]
     sid_acc: int
@@ -152,7 +165,7 @@ class ProtoTimelineWrapper:
 @dataclass
 class CalyxProtoTimeline:
     """
-    A class creating a Perfetto timeline in the program structure of 
+    A class creating a Perfetto timeline in the program structure of
     Calyx programs (cells, control registers, groups).
     """
 
@@ -281,22 +294,30 @@ class CalyxProtoTimeline:
     def emit(self, out_path: str):
         self.proto.emit(out_path)
 
+
 class DahliaProtoTimeline:
     """
-    A class creating a Perfetto timeline in the program structure of 
+    A class creating a Perfetto timeline in the program structure of
     Dahlia programs (statements).
     """
+
     proto: ProtoTimelineWrapper
     main_function_name = "main"
-    
+
     def __init__(self):
         self.proto = ProtoTimelineWrapper()
         self.proto.add_collection(self.main_function_name)
 
-    def register_statement_event(self, statement: str, timestamp: int, event_type: TrackEvent.Type):
-        if not self.proto.is_track_registered_in_collection(self.main_function_name, statement):
+    def register_statement_event(
+        self, statement: str, timestamp: int, event_type: TrackEvent.Type
+    ):
+        if not self.proto.is_track_registered_in_collection(
+            self.main_function_name, statement
+        ):
             self.proto.register_track_in_collection(self.main_function_name, statement)
-        self.proto.register_event_in_collection(self.main_function_name, statement, statement, timestamp, event_type)
+        self.proto.register_event_in_collection(
+            self.main_function_name, statement, statement, timestamp, event_type
+        )
 
     def emit(self, out_path: str):
         self.proto.emit(out_path)

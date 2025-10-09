@@ -9,6 +9,7 @@ class Adl(Enum):
     DAHLIA = 1
     PY = 2
 
+
 @dataclass
 class SourceLoc:
     """
@@ -34,7 +35,6 @@ class SourceLoc:
 
     def adl_str(self):
         return f"{{{self.filename}: {self.linenum}}} {self.varname}"
-        # return f"L{self.linenum}: {self.varname}"
 
     def loc_str(self):
         return f"{{{self.filename}: {self.linenum}}}"

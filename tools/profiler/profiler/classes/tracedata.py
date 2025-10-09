@@ -78,7 +78,7 @@ class CycleTrace:
 
     def get_stack_str_set(self, mode: FlameMapMode) -> set[str]:
         """
-        Retrieve a list of stack string representations based on what mode (Default, ADL, mixed) we're going off of.
+        Retrieve a set of stack string representations based on what mode (Default, ADL, mixed) we're going off of.
         """
         stack_str_set = set()
         for stack in self.stacks:
@@ -105,7 +105,7 @@ class CycleTrace:
         # Maybe we use `stack_elem.internal_name` instead? I'm not 100% sure.
         for stack in self.stacks:
             curr_component: str | None = None
-    
+
             for stack_elem in stack:
                 match stack_elem.element_type:
                     case StackElementType.CELL:
@@ -146,6 +146,10 @@ class CycleTrace:
         self.sourceloc_info_added = True
 
     def find_leaf_groups(self) -> set[str]:
+        """
+        Returns the set of names of groups in this CycleTrace that don't have any group descendants.
+        (Used to find Dahlia statements that are active this cycle.)
+        """
         leaf_groups = set()
         for stack in self.stacks:
             leaf_group_name: str | None = None
@@ -343,7 +347,9 @@ class PTrace:
         self.trace.append(cycle_trace)
 
     def string_repr(self, mode: FlameMapMode) -> list[set[str]]:
-        return list(map(lambda cycletrace: cycletrace.get_stack_str_set(mode), self.trace))
+        return list(
+            map(lambda cycletrace: cycletrace.get_stack_str_set(mode), self.trace)
+        )
 
     def __getitem__(self, index):
         assert index < len(self.trace)
@@ -543,7 +549,9 @@ class TraceData:
             )
             new_stack.append(leaf_element)
             # add new_stack to the current cycle's CycleTrace
-            print(f"i: {i} len: {len(self.trace_with_control_groups)} len of original: {len(self.trace)}")
+            print(
+                f"i: {i} len: {len(self.trace_with_control_groups)} len of original: {len(self.trace)}"
+            )
 
             self.trace_with_control_groups[i].add_stack(new_stack)
 

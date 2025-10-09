@@ -9,7 +9,7 @@ class StackElementType(Enum):
     PRIMITIVE = 2
     CELL = 3
     CONTROL_GROUP = 4  # TDCC-generated groups that manage control
-    ADL_LINE = 5 # a line within an ADL program
+    ADL_LINE = 5  # a line within an ADL program
 
 
 @dataclass
