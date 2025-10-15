@@ -5,6 +5,7 @@ from perfetto.protos.perfetto.trace.perfetto_trace_pb2 import (
     TrackEvent,
 )
 
+from profiler.classes.adl import AdlMap
 from profiler.classes.tracedata import CycleTrace, TraceData, StackElementType, PTrace
 from profiler.classes.cell_metadata import CellMetadata
 from profiler.classes.visuals.timeline import CalyxProtoTimeline, DahliaProtoTimeline
@@ -101,8 +102,8 @@ def compute_calyx_protobuf_timeline(
     calyx_proto.emit(out_path)
 
 
-def compute_adl_protobuf_timeline(dahlia_trace: PTrace, out_dir: str):
-    dahlia_proto: DahliaProtoTimeline = DahliaProtoTimeline()
+def compute_adl_protobuf_timeline(adl_map: AdlMap, dahlia_trace: PTrace, dahlia_parent_map: str | None, out_dir: str):
+    dahlia_proto: DahliaProtoTimeline = DahliaProtoTimeline(adl_map, dahlia_parent_map)
 
     currently_active_statements: set[str] = set()
 

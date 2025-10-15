@@ -24,14 +24,14 @@ def create_dahlia_trace(tracedata: TraceData, adl_map: AdlMap):
             else:
                 group_sourceloc: SourceLoc = group_map[group]
                 entry = f"L{group_sourceloc.linenum:04}: {group_sourceloc.varname}"
-            dahlia_group = StackElement(entry, StackElementType.ADL_LINE)
+            dahlia_group = StackElement(entry, StackElementType.ADL_LINE, sourceloc=group_sourceloc)
             dahlia_stacks.append([dahlia_group])
         dahlia_trace.add_cycle(i, CycleTrace(dahlia_stacks))
     print(f"\tGroups without ADL mapping: {groups_no_mapping}")
     return dahlia_trace
 
 
-def create_and_write_adl_map(tracedata: TraceData, adl_mapping_file: str, out_dir: str):
+def create_and_write_adl_map(tracedata: TraceData, adl_mapping_file: str, out_dir: str, dahlia_parent_map: str | None = None):
     """
     Creates ADL and Mixed (ADL + Calyx; where applicable) versions of flame graph maps.
     """
@@ -57,7 +57,7 @@ def create_and_write_adl_map(tracedata: TraceData, adl_mapping_file: str, out_di
             # flame.write_flame_map(adl_scaled_map, adl_scaled_flame_file)
 
             # print("writing Dahlia timeline")
-            timeline.compute_adl_protobuf_timeline(dahlia_trace, out_dir)
+            timeline.compute_adl_protobuf_timeline(adl_map, dahlia_trace, dahlia_parent_map, out_dir)
 
         case Adl.PY:
             # for Calyx-py we can suffice with just using Calyx PTraces

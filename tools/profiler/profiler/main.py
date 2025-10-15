@@ -174,6 +174,9 @@ def parse_args():
         "--adl-mapping-file", dest="adl_mapping_file", help="adl mapping file"
     )
     parser.add_argument(
+        "--dahlia-parent-map", dest="dahlia_parent_map", help="Parent map for Dahlia programs so we can identify if/for parents.\nNOTE: Only used for Dahlia programs."
+    )
+    parser.add_argument(
         "--print-trace-threshold",
         dest="print_trace_threshold",
         type=int,
@@ -239,7 +242,7 @@ def main():
 
     if args.adl_mapping_file is not None:  # emit ADL flame graphs.
         adl_mapping.create_and_write_adl_map(
-            tracedata, args.adl_mapping_file, args.out_dir
+            tracedata, args.adl_mapping_file, args.out_dir,         args.dahlia_parent_map,
         )
 
     print(f"End time: {datetime.now()}")

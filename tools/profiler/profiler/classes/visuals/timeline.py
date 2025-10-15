@@ -1,5 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import uuid
+import json
 
 
 from perfetto.trace_builder.proto_builder import TraceProtoBuilder
@@ -7,6 +8,7 @@ from perfetto.protos.perfetto.trace.perfetto_trace_pb2 import (
     TrackEvent,
 )
 
+from profiler.classes.adl import AdlMap
 from profiler.classes.errors import ProfilerException
 from profiler.classes.tracedata import TraceData
 from profiler.classes.cell_metadata import CellMetadata
@@ -302,11 +304,36 @@ class DahliaProtoTimeline:
     """
 
     proto: ProtoTimelineWrapper
+    # dahlia line # --> dahlia line # of immediate parent
+    parent_map: dict[int, list[int]] = field(default_factory=dict)
     main_function_name = "main"
 
-    def __init__(self):
+    def __init__(self, adl_map: AdlMap, dahlia_parent_map: str | None):
         self.proto = ProtoTimelineWrapper()
         self.proto.add_collection(self.main_function_name)
+        if dahlia_parent_map is not None:
+            self._process_dahlia_parent_map(dahlia_parent_map)
+        else:
+            print("dahlia_parent_map was not given; somewhat inconvenient timeline view will be generated")
+
+    def _process_dahlia_parent_map(self, adl_map: AdlMap, dahlia_parent_map: str):
+        """
+        Assumes that dahlia_parent_map points to an actual string.
+        """
+        json_parent_map = json.load(open(dahlia_parent_map))
+        # create tracks for all entries
+        for linum_str in sorted(json_parent_map, key=(lambda x: len(json_parent_map[x]))):
+            linum = int(linum_str)
+            line_contents = adl_map.adl_linum_map[linum]
+            # determine the immediate parent
+            if len(json_parent_map[linum_str]) == 0:
+                parent = None
+            else:
+                parent = json_parent_map[linum_str][0]
+            self.proto.register_track_in_collection(self.main_function_name, line_contents, intermediate_parent_name=parent)
+
+
+        
 
     def register_statement_event(
         self, statement: str, timestamp: int, event_type: TrackEvent.Type
