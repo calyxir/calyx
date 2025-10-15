@@ -3,6 +3,11 @@ source: fud2/tests/tests.rs
 ---
 [
     (
+        "adl-compiled-profiler",
+        "calyx",
+        "flamegraph",
+    ),
+    (
         "area-report-to-flamegraph",
         "area-report",
         "flamegraph",
