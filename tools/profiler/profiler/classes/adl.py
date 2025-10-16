@@ -61,6 +61,7 @@ class AdlMap:
         self.component_map = {}
         self.cell_map = {}
         self.group_map = {}
+        self.adl_linum_map = {}
         with open(adl_mapping_file, "r") as json_file:
             json_data = json.load(json_file)
             if json_data["adl"] == "Dahlia":

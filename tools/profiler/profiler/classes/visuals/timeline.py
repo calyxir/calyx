@@ -27,7 +27,7 @@ class ProtoTimelineCollection:
     # sid for the entire colelction
     sid_val: int
     # drop down for control groups
-    intermediate_tracks: dict[str, int]
+    # intermediate_tracks: dict[str, int]
     track_name_to_uuid: dict[str, int]
 
     def __init__(
@@ -40,13 +40,14 @@ class ProtoTimelineCollection:
         self.builder = builder
         self.sid_val = sid
         self.collection_uuid = self._define_track(collection_name)
+        self.track_name_to_uuid = {collection_name: self.collection_uuid}
         # create intermediate tracks (ex. "Control Groups"), which have their own dropdown
-        self.intermediate_tracks = {}
+        # self.intermediate_tracks = {}
         for track_name in intermediate_track_names:
-            self.intermediate_tracks[track_name] = self._define_track(
+            self.track_name_to_uuid[track_name] = self._define_track(
                 track_name, parent_track_uuid=self.collection_uuid
             )
-        self.track_name_to_uuid = {collection_name: self.collection_uuid}
+
 
     # Helper to define a new track with a unique UUID
     def _define_track(self, track_name, parent_track_uuid=None):
@@ -72,9 +73,10 @@ class ProtoTimelineCollection:
     def create_new_track(self, track_id, intermediate_parent_name=None):
         if intermediate_parent_name is not None:
             # check intermediate_tracks and see whether there's a match
-            if intermediate_parent_name not in self.intermediate_tracks:
+            # if intermediate_parent_name not in self.intermediate_tracks:
+            if intermediate_parent_name not in self.track_name_to_uuid:
                 raise ProfilerException("Invalid intermediate parent name!")
-            parent_uuid = self.intermediate_tracks[intermediate_parent_name]
+            parent_uuid = self.track_name_to_uuid[intermediate_parent_name]
         else:
             parent_uuid = self.collection_uuid
         track_uuid = self._define_track(track_id, parent_track_uuid=parent_uuid)
@@ -312,13 +314,13 @@ class DahliaProtoTimeline:
         self.proto = ProtoTimelineWrapper()
         self.proto.add_collection(self.main_function_name)
         if dahlia_parent_map is not None:
-            self._process_dahlia_parent_map(dahlia_parent_map)
+            self._process_dahlia_parent_map(adl_map, dahlia_parent_map)
         else:
             print("dahlia_parent_map was not given; somewhat inconvenient timeline view will be generated")
 
     def _process_dahlia_parent_map(self, adl_map: AdlMap, dahlia_parent_map: str):
         """
-        Assumes that dahlia_parent_map points to an actual string.
+        Assumes that dahlia_parent_map points to an actual string path.
         """
         json_parent_map = json.load(open(dahlia_parent_map))
         # create tracks for all entries
@@ -329,11 +331,8 @@ class DahliaProtoTimeline:
             if len(json_parent_map[linum_str]) == 0:
                 parent = None
             else:
-                parent = json_parent_map[linum_str][0]
+                parent = adl_map.adl_linum_map[json_parent_map[linum_str][0]]
             self.proto.register_track_in_collection(self.main_function_name, line_contents, intermediate_parent_name=parent)
-
-
-        
 
     def register_statement_event(
         self, statement: str, timestamp: int, event_type: TrackEvent.Type

@@ -52,6 +52,7 @@ fn profiler_non_synth_setup(e) {
     // script to process vcd and produce folded representation of flame graph
     e.rule("parse-vcd", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json $path-descriptors-json profiler-out $out --print-trace-threshold 100 --ctrl-pos-file $ctrl-pos-json");
     e.rule("parse-vcd-from-adl", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json $path-descriptors-json profiler-out $out --ctrl-pos-file $ctrl-pos-json --adl-mapping-file $adl-metadata-json --print-trace-threshold 100");
+    e.rule("parse-vcd-from-dahlia", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json $path-descriptors-json profiler-out $out --ctrl-pos-file $ctrl-pos-json --dahlia-parent-map $parent-map --adl-mapping-file $adl-metadata-json --print-trace-threshold 100");
 }
 
 fn profiler_synth_setup(e) {
@@ -163,7 +164,7 @@ fn dahlia_to_profiled(e, input, output) {
     // vcd --> flamegraph
     let elems_profiled_json = "elems-profiled.json";
     let flamegraph_folded = "flamegraph.folded";
-    e.build_cmd([flamegraph_folded], "parse-vcd-from-adl", [instrumented_vcd], ["$cell-json", "$adl-metadata-json"]);
+    e.build_cmd([flamegraph_folded], "parse-vcd-from-dahlia", [instrumented_vcd], ["$cell-json", "$adl-metadata-json"]);
     e.build_cmd([output], "create-visuals", [flamegraph_folded], []);
 }
 
