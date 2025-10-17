@@ -55,7 +55,7 @@ use crate::exec::State;
 
 use super::{
     super::{OpRef, Operation, StateRef},
-    FindPlan, Step,
+    FindPlan, PlannerType, Step,
 };
 use cranelift_entity::PrimaryMap;
 use egg::{
@@ -300,5 +300,9 @@ impl FindPlan for EggPlanner {
                     .collect::<Vec<_>>()
             })
             .filter(|steps| !steps.is_empty())
+    }
+
+    fn ty(&self) -> PlannerType {
+        PlannerType::Egg
     }
 }

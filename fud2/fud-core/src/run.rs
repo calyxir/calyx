@@ -1,3 +1,4 @@
+use crate::ast_converter::{ast_to_string, steps_to_ast};
 use crate::uninterrupt::Uninterrupt;
 use crate::utils::relative_path;
 use crate::{config, log_parser};
@@ -352,6 +353,20 @@ impl<'a> Run<'a> {
         }
 
         println!("}}");
+    }
+
+    /// Emit the sequence of ops used to create a plan in flang
+    pub fn show_ops_flang(&self) {
+        let ast = steps_to_ast(&self.plan.steps, &self.driver.ops);
+        let s = ast_to_string(&ast);
+        println!("{s}");
+    }
+
+    /// Emit the sequence of ops used to create a plan as json text
+    pub fn show_ops_json(&self) {
+        let ast = steps_to_ast(&self.plan.steps, &self.driver.ops);
+        let s = serde_json::to_string_pretty(&ast).unwrap();
+        println!("{s}");
     }
 
     /// Print the `build.ninja` file to stdout.

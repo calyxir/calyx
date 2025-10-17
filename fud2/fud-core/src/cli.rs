@@ -18,6 +18,8 @@ enum Mode {
     Generate,
     Run,
     Cmds,
+    FlangPlan,
+    JsonPlan,
 }
 
 impl FromStr for Mode {
@@ -31,6 +33,8 @@ impl FromStr for Mode {
             "run" => Ok(Mode::Run),
             "dot" => Ok(Mode::ShowDot),
             "cmds" => Ok(Mode::Cmds),
+            "flang-plan" => Ok(Mode::FlangPlan),
+            "json-plan" => Ok(Mode::JsonPlan),
             _ => Err("unknown mode".to_string()),
         }
     }
@@ -45,6 +49,8 @@ impl Display for Mode {
             Mode::Run => write!(f, "run"),
             Mode::ShowDot => write!(f, "dot"),
             Mode::Cmds => write!(f, "cmds"),
+            Mode::FlangPlan => write!(f, "flang-plan"),
+            Mode::JsonPlan => write!(f, "json-plan"),
         }
     }
 }
@@ -57,6 +63,8 @@ enum Planner {
     #[cfg(feature = "egg_planner")]
     Egg,
     Enumerate,
+    FromFlang,
+    FromJson,
 }
 
 impl FromStr for Planner {
@@ -68,6 +76,8 @@ impl FromStr for Planner {
             #[cfg(feature = "egg_planner")]
             "egg" => Ok(Planner::Egg),
             "enumerate" => Ok(Planner::Enumerate),
+            "flang" => Ok(Planner::FromFlang),
+            "json" => Ok(Planner::FromJson),
             _ => Err("unknown planner".to_string()),
         }
     }
@@ -80,6 +90,8 @@ impl Display for Planner {
             #[cfg(feature = "egg_planner")]
             Planner::Egg => write!(f, "egg"),
             Planner::Enumerate => write!(f, "enumerate"),
+            Planner::FromFlang => write!(f, "flang"),
+            Planner::FromJson => write!(f, "json"),
         }
     }
 }
@@ -166,7 +178,7 @@ pub struct FudArgs<T: CliExt> {
     #[argh(option)]
     to: Vec<String>,
 
-    /// execution mode (run, plan, emit, gen, dot)
+    /// execution mode (run, plan, emit, gen, dot, flang-plan, json-plan)
     #[argh(option, short = 'm', default = "Mode::Run")]
     mode: Mode,
 
@@ -305,6 +317,8 @@ fn get_request<T: CliExt>(
             #[cfg(feature = "egg_planner")]
             Planner::Egg => Box::new(plan::EggPlanner {}),
             Planner::Enumerate => Box::new(plan::EnumeratePlanner {}),
+            Planner::FromFlang => Box::new(plan::FlangPlanner {}),
+            Planner::FromJson => Box::new(plan::JsonPlanner {}),
         },
         timing_csv: args.timing_csv.clone(),
     })
@@ -523,6 +537,8 @@ fn cli_ext<T: CliExt>(
             args.force_rebuild,
             csv_path,
         )?,
+        Mode::FlangPlan => run.show_ops_flang(),
+        Mode::JsonPlan => run.show_ops_json(),
     }
 
     Ok(())

@@ -1,0 +1,61 @@
+---
+source: fud2/fud-core/tests/flang/mod.rs
+expression: ast
+---
+AssignmentList {
+    assigns: [
+        Assignment {
+            vars: [
+                "a",
+                "b",
+                "c",
+                "d",
+                "e",
+                "f",
+            ],
+            value: Op {
+                name: "input",
+                args: [
+                    "g",
+                    "h",
+                    "i",
+                    "j",
+                    "k",
+                ],
+            },
+        },
+        Assignment {
+            vars: [
+                "l",
+                "m",
+                "n",
+                "o",
+            ],
+            value: Op {
+                name: "go",
+                args: [
+                    "p",
+                    "q",
+                    "r",
+                    "s",
+                    "t",
+                ],
+            },
+        },
+        Assignment {
+            vars: [
+                "u",
+                "v",
+            ],
+            value: Op {
+                name: "stop",
+                args: [
+                    "w",
+                    "x",
+                    "y",
+                    "z",
+                ],
+            },
+        },
+    ],
+}
