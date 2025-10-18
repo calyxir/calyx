@@ -1,0 +1,182 @@
+//! A SAT solver based planner. This encodes states as variables. If and only if a state is ever
+//! created, that state's corresponding variable must be true.
+//!
+//! The encoding by looking at all of the ops which can create a given state. Call the inputs to
+//! one of those ops a dependency for the state. Looking at every ops, every state will have many
+//! dependencies, and if a state is chosen, at least one of those dependencies must be fulfilled.
+//! This can be modeled by the state implying all of its dependencies.
+
+use std::collections::HashMap;
+
+use cranelift_entity::{PrimaryMap, SecondaryMap};
+use rustsat::{
+    instances::SatInstance,
+    solvers::{Solve, SolverResult},
+    types::{Assignment, Lit, TernaryVal},
+};
+
+use super::{
+    super::{OpRef, Operation, State, StateRef},
+    FindPlan,
+    planner::Step,
+};
+
+struct DepClauses<'a> {
+    state_of_lit: HashMap<Lit, StateRef>,
+    lit_of_state: HashMap<StateRef, Lit>,
+    op_of_lit: HashMap<Lit, OpRef>,
+    lit_of_op: HashMap<OpRef, Lit>,
+
+    ops: &'a PrimaryMap<OpRef, Operation>,
+
+    made_from: HashMap<Lit, Vec<Lit>>,
+    instance: SatInstance,
+}
+
+impl<'a> DepClauses<'a> {
+    pub fn from_ops(ops: &'a PrimaryMap<OpRef, Operation>) -> Self {
+        DepClauses {
+            state_of_lit: HashMap::new(),
+            lit_of_state: HashMap::new(),
+            op_of_lit: HashMap::new(),
+            lit_of_op: HashMap::new(),
+            ops,
+            made_from: HashMap::new(),
+            instance: SatInstance::new(),
+        }
+    }
+
+    pub fn state_lit(&mut self, s: StateRef) -> Lit {
+        if !self.lit_of_state.contains_key(&s) {
+            let lit = self.instance.new_lit();
+            self.lit_of_state.insert(s, lit);
+            self.state_of_lit.insert(lit, s);
+            lit
+        } else {
+            self.lit_of_state[&s]
+        }
+    }
+
+    pub fn op_lit(&mut self, o: OpRef) -> Lit {
+        if !self.lit_of_op.contains_key(&o) {
+            let lit = self.instance.new_lit();
+            self.lit_of_op.insert(o, lit);
+            self.op_of_lit.insert(lit, o);
+            lit
+        } else {
+            self.lit_of_op[&o]
+        }
+    }
+
+    pub fn add_dep(&mut self, state_id: StateRef, dep_ref: OpRef) {
+        let ls = self.state_lit(state_id);
+        let dep = &self.ops[dep_ref];
+        let ld: Vec<Lit> =
+            dep.input.iter().map(|&d| self.state_lit(d)).collect();
+        let op_lit = self.op_lit(dep_ref);
+        self.instance.add_cube_impl_cube(&[ls, op_lit], &ld);
+        self.made_from.entry(ls).or_default().push(op_lit);
+        println!("expression: {:#?}", self.instance);
+    }
+
+    pub fn instance(
+        &mut self,
+        inputs: &[StateRef],
+        outputs: &[StateRef],
+    ) -> SatInstance {
+        let mut out_instance = self.instance.clone();
+        // We must take outputs.
+        for &output in outputs {
+            let lo = self.state_lit(output);
+            out_instance.add_unit(lo);
+        }
+        // We need to mark primitive inputs, ones with no deps as things which can never be taken.
+        for (&lit, state_id) in &self.state_of_lit {
+            if !inputs.contains(state_id) {
+                let ops_making_lit = self.made_from.entry(lit).or_default();
+                if !ops_making_lit.is_empty() {
+                    out_instance.add_lit_impl_clause(lit, &ops_making_lit[..]);
+                } else {
+                    let neg = Lit::negative(lit.vidx32());
+                    out_instance.add_unit(neg);
+                }
+            }
+        }
+        out_instance
+    }
+}
+
+pub struct SatPlanner<'a> {
+    /// A map from a state to a list of dependencies.
+    deps: SecondaryMap<StateRef, Vec<OpRef>>,
+    ops: &'a PrimaryMap<OpRef, Operation>,
+}
+
+impl SatPlanner<'_> {
+    fn init_planner(&mut self, ops: &PrimaryMap<OpRef, Operation>) {
+        self.deps =
+            ops.iter().fold(SecondaryMap::new(), |acc, (op_ref, op)| {
+                op.output.iter().fold(acc, |mut acc, &output_state| {
+                    acc[output_state].push(op_ref);
+                    acc
+                })
+            });
+    }
+
+    fn solve(
+        &self,
+        ops: &PrimaryMap<OpRef, Operation>,
+        inputs: &[StateRef],
+        outputs: &[StateRef],
+    ) -> Option<Assignment> {
+        let mut dep_clauses = DepClauses::from_ops(ops);
+        for (s, deps) in self.deps.iter() {
+            for dep in deps {
+                dep_clauses.add_dep(s, *dep);
+            }
+        }
+
+        let instance = dep_clauses.instance(inputs, outputs);
+        let mut solver = rustsat_minisat::core::Minisat::default();
+        solver.add_cnf(instance.into_cnf().0).unwrap();
+        match solver.solve().unwrap() {
+            SolverResult::Sat => Some(solver.full_solution().unwrap()),
+            SolverResult::Unsat => None,
+            SolverResult::Interrupted => None,
+        }
+    }
+
+    fn assignment_to_plan(
+        &self,
+        a: Assignment,
+        dep_clauses: &mut DepClauses,
+    ) -> Vec<Step> {
+        self.ops
+            .iter()
+            .filter_map(|(op_ref, op)| {
+                let op_taken = matches!(
+                    a[dep_clauses.op_lit(op_ref).var()],
+                    TernaryVal::True
+                );
+                if op_taken {
+                    todo!()
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+}
+
+impl FindPlan for SatPlanner {
+    fn find_plan(
+        &self,
+        start: &[StateRef],
+        end: &[StateRef],
+        through: &[OpRef],
+        ops: &PrimaryMap<OpRef, Operation>,
+        states: &PrimaryMap<StateRef, State>,
+    ) -> Option<Vec<Step>> {
+        todo!()
+    }
+}
