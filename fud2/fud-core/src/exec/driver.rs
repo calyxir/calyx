@@ -174,48 +174,56 @@ impl Driver {
 
     /// Concoct a plan to carry out the requested build.
     ///
+    /// This has to be special cased if the planner is a `PlannerType::FromJson` due to
+    /// `FindPlan`'s api not letting planners choose filenames for states.
+    pub fn plan_json(&self, req: &Request) -> Option<Plan> {
+        let mut stdin = io::stdin().lock();
+        let mut input = String::new();
+        let res = stdin.read_to_string(&mut input);
+        if let Err(e) = res {
+            eprintln!("error: {e}");
+            return None;
+        }
+
+        let ast = serde_json::from_str(&input);
+        match ast {
+            Err(e) => {
+                eprintln!("error: {e}");
+                None
+            }
+            Ok(ast) => {
+                let steps = ast_to_steps(&ast, &self.ops);
+                let results = self.gen_names(
+                    &req.end_states,
+                    req,
+                    false,
+                    &req.end_states,
+                );
+                let inputs = self.gen_names(
+                    &req.start_states,
+                    req,
+                    true,
+                    &req.start_states,
+                );
+                Some(Plan {
+                    steps,
+                    inputs,
+                    results,
+                    workdir: req.workdir.clone(),
+                })
+            }
+        }
+    }
+
+    /// Concoct a plan to carry out the requested build.
+    ///
     /// This works by searching for a path through the available operations from the input state
     /// to the output state. If no such path exists in the operation graph, we return None.
     pub fn plan(&self, req: &Request) -> Option<Plan> {
         // Special case if the planner is the one which reads from stdin.
         let planner_ty = req.planner.ty();
         if let PlannerType::FromJson = planner_ty {
-            let mut stdin = io::stdin().lock();
-            let mut input = String::new();
-            let res = stdin.read_to_string(&mut input);
-            if let Err(e) = res {
-                eprintln!("error: {e}");
-                return None;
-            }
-
-            let ast = serde_json::from_str(&input);
-            match ast {
-                Err(e) => {
-                    eprintln!("error: {e}");
-                    return None;
-                }
-                Ok(ast) => {
-                    let steps = ast_to_steps(&ast, &self.ops);
-                    let results = self.gen_names(
-                        &req.end_states,
-                        req,
-                        false,
-                        &req.end_states,
-                    );
-                    let inputs = self.gen_names(
-                        &req.start_states,
-                        req,
-                        true,
-                        &req.start_states,
-                    );
-                    return Some(Plan {
-                        steps,
-                        inputs,
-                        results,
-                        workdir: req.workdir.clone(),
-                    });
-                }
-            }
+            return self.plan_json(req);
         }
 
         // Find a plan through the states.
