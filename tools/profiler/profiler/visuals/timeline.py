@@ -139,6 +139,7 @@ def compute_adl_protobuf_timeline(
     currently_active_statements: set[str] = set()
 
     for i in dahlia_trace:
+        # print(f"=============================CYCLE!!!! {i}")
         statements_active_this_cycle: set[str] = set()
         i_trace: CycleTrace = dahlia_trace[i]
         for stacks in i_trace.stacks:
@@ -165,7 +166,7 @@ def compute_adl_protobuf_timeline(
 
     for active_at_end_statement in currently_active_statements:
         dahlia_proto.register_statement_event(
-            active_at_end_statement, i + 1, TrackEvent.TYPE_SLICE_END
+            active_at_end_statement, i + 1, TrackEvent.TYPE_SLICE_END, True
         )
 
     # scan through Calyx trace to see what primitives were active.
