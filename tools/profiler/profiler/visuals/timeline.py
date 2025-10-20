@@ -102,7 +102,9 @@ def compute_calyx_protobuf_timeline(
     calyx_proto.emit(out_path)
 
 
-def compute_adl_protobuf_timeline(adl_map: AdlMap, dahlia_trace: PTrace, dahlia_parent_map: str | None, out_dir: str):
+def compute_adl_protobuf_timeline(
+    adl_map: AdlMap, dahlia_trace: PTrace, dahlia_parent_map: str | None, out_dir: str
+):
     dahlia_proto: DahliaProtoTimeline = DahliaProtoTimeline(adl_map, dahlia_parent_map)
 
     currently_active_statements: set[str] = set()

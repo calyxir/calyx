@@ -82,8 +82,8 @@ class AdlMap:
                 # probably worth removing code clone at some point
                 self.group_map[component_name] = {}
                 for group_dict in component_dict["groups"]:
-                    self.group_map[component_name][group_dict["name"]] = self._read_entry(
-                        group_dict
+                    self.group_map[component_name][group_dict["name"]] = (
+                        self._read_entry(group_dict)
                     )
 
     def _read_entry(self, entry_dict):
@@ -96,5 +96,7 @@ class AdlMap:
         if sourceloc.linenum is not None:
             # FIXME: HARDCODED TO LINE UP WITH THE DAHLIA TRACE THIS IS NOT OK
             # Note to self: test Calyx-py as well.
-            self.adl_linum_map[sourceloc.linenum] = f"L{sourceloc.linenum:04}: {sourceloc.varname}"
+            self.adl_linum_map[sourceloc.linenum] = (
+                f"L{sourceloc.linenum:04}: {sourceloc.varname}"
+            )
         return sourceloc

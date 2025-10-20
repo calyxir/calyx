@@ -48,7 +48,6 @@ class ProtoTimelineCollection:
                 track_name, parent_track_uuid=self.collection_uuid
             )
 
-
     # Helper to define a new track with a unique UUID
     def _define_track(self, track_name, parent_track_uuid=None):
         track_uuid = uuid.uuid4().int & ((1 << 63) - 1)
@@ -316,7 +315,9 @@ class DahliaProtoTimeline:
         if dahlia_parent_map is not None:
             self._process_dahlia_parent_map(adl_map, dahlia_parent_map)
         else:
-            print("dahlia_parent_map was not given; somewhat inconvenient timeline view will be generated")
+            print(
+                "dahlia_parent_map was not given; somewhat inconvenient timeline view will be generated"
+            )
 
     def _process_dahlia_parent_map(self, adl_map: AdlMap, dahlia_parent_map: str):
         """
@@ -324,7 +325,9 @@ class DahliaProtoTimeline:
         """
         json_parent_map = json.load(open(dahlia_parent_map))
         # create tracks for all entries
-        for linum_str in sorted(json_parent_map, key=(lambda x: len(json_parent_map[x]))):
+        for linum_str in sorted(
+            json_parent_map, key=(lambda x: len(json_parent_map[x]))
+        ):
             linum = int(linum_str)
             line_contents = adl_map.adl_linum_map[linum]
             # determine the immediate parent
@@ -332,7 +335,9 @@ class DahliaProtoTimeline:
                 parent = None
             else:
                 parent = adl_map.adl_linum_map[json_parent_map[linum_str][0]]
-            self.proto.register_track_in_collection(self.main_function_name, line_contents, intermediate_parent_name=parent)
+            self.proto.register_track_in_collection(
+                self.main_function_name, line_contents, intermediate_parent_name=parent
+            )
 
     def register_statement_event(
         self, statement: str, timestamp: int, event_type: TrackEvent.Type
