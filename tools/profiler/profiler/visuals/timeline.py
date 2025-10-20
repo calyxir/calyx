@@ -24,11 +24,13 @@ def compute_calyx_protobuf_timeline(
     currently_active_cells: set[str] = set()
     currently_active_ctrl_groups: set[str] = set()
     currently_active_groups: set[str] = set()
+    currently_active_primitives: set[str] = set()
 
     for i in tracedata.trace_with_control_groups:
         this_cycle_active_ctrl_groups: set[str] = set()
         this_cycle_active_cells: set[str] = set()
         this_cycle_active_groups: set[str] = set()
+        this_cycle_active_primitives: set[str] = set()
         for stack in tracedata.trace_with_control_groups[i].stacks:
             stack_acc = cell_metadata.main_component
             for stack_elem in stack:
@@ -42,6 +44,10 @@ def compute_calyx_protobuf_timeline(
                     case StackElementType.GROUP:
                         this_cycle_active_groups.add(
                             f"{stack_acc}.{stack_elem.internal_name}"
+                        )
+                    case StackElementType.PRIMITIVE:
+                        this_cycle_active_primitives.add(
+                            f"{stack_acc}.{stack_elem.name}"
                         )
 
         # cells
@@ -76,10 +82,26 @@ def compute_calyx_protobuf_timeline(
         for new_group in this_cycle_active_groups.difference(currently_active_groups):
             calyx_proto.register_enable_event(new_group, i, TrackEvent.TYPE_SLICE_BEGIN)
 
+        # primitives
+
+        for done_primitive in currently_active_primitives.difference(
+            this_cycle_active_primitives
+        ):
+            calyx_proto._register_primitive_event(
+                done_primitive, i, TrackEvent.TYPE_SLICE_END
+            )
+        for new_primitive in this_cycle_active_primitives.difference(
+            currently_active_primitives
+        ):
+            calyx_proto._register_primitive_event(
+                new_primitive, i, TrackEvent.TYPE_SLICE_BEGIN
+            )
+
         # update
         currently_active_cells = this_cycle_active_cells
         currently_active_ctrl_groups = this_cycle_active_ctrl_groups
         currently_active_groups = this_cycle_active_groups
+        currently_active_primitives = this_cycle_active_primitives
 
     # elements that are active until the very end
 

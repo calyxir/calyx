@@ -174,6 +174,7 @@ class CalyxProtoTimeline:
 
     proto: ProtoTimelineWrapper
     cell_to_enables_to_track: dict[str, dict[str, str]]
+    primitives_track_name = "Primitives"
     control_groups_track_name = "Control Groups"
     control_updates_track_name = "Control Register Updates"
     misc_groups_track_name = "Non-id-ed groups"
@@ -181,7 +182,9 @@ class CalyxProtoTimeline:
     def __init__(
         self, enable_thread_data, cell_metadata: CellMetadata, tracedata: TraceData
     ):
-        self.proto = ProtoTimelineWrapper({self.control_groups_track_name})
+        self.proto = ProtoTimelineWrapper(
+            {self.primitives_track_name, self.control_groups_track_name}
+        )
         # set up data structures to track cells and groups
         self.cell_to_enables_to_track = {}
         cell_to_tracks: dict[str, set[str]] = {}
@@ -292,6 +295,27 @@ class CalyxProtoTimeline:
 
         self.proto.register_event_in_collection(
             cell, ctrl_group, track_id, timestamp, event_type
+        )
+
+    def _register_primitive_event(
+        self,
+        fully_qualified_primitive: str,
+        timestamp: int,
+        event_type: TrackEvent.Type,
+    ):
+        name_split = fully_qualified_primitive.split(".")
+        cell = ".".join(name_split[:-1])
+        primitive = name_split[-1]
+        # FIXME: track id could contain the type of primitive cell used?
+        track_id = primitive
+
+        if not self.proto.is_track_registered_in_collection(cell, primitive):
+            self.proto.register_track_in_collection(
+                cell, track_id, intermediate_parent_name=self.primitives_track_name
+            )
+
+        self.proto.register_event_in_collection(
+            cell, primitive, track_id, timestamp, event_type
         )
 
     def emit(self, out_path: str):
