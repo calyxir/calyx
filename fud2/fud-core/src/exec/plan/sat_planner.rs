@@ -83,6 +83,7 @@ impl<'a> DepClauses<'a> {
         &mut self,
         inputs: &[StateRef],
         outputs: &[StateRef],
+        through: &[OpRef],
     ) -> SatInstance {
         let mut out_instance = self.instance.clone();
         // We must take outputs.
@@ -102,41 +103,49 @@ impl<'a> DepClauses<'a> {
                 }
             }
         }
+        // We need to make sure all the ops in through are taken.
+        for &op in through {
+            out_instance.add_unit(self.op_lit(op));
+        }
         out_instance
     }
 }
 
-pub struct SatPlanner<'a> {
+struct Planner<'a> {
     /// A map from a state to a list of dependencies.
-    deps: SecondaryMap<StateRef, Vec<OpRef>>,
     ops: &'a PrimaryMap<OpRef, Operation>,
+    dep_clauses: DepClauses<'a>,
 }
 
-impl SatPlanner<'_> {
-    fn init_planner(&mut self, ops: &PrimaryMap<OpRef, Operation>) {
-        self.deps =
-            ops.iter().fold(SecondaryMap::new(), |acc, (op_ref, op)| {
+impl<'a> Planner<'a> {
+    pub fn from_ops(ops: &'a PrimaryMap<OpRef, Operation>) -> Self {
+        let deps = ops.iter().fold(
+            SecondaryMap::new(),
+            |acc: SecondaryMap<StateRef, Vec<_>>, (op_ref, op)| {
                 op.output.iter().fold(acc, |mut acc, &output_state| {
                     acc[output_state].push(op_ref);
                     acc
                 })
-            });
-    }
+            },
+        );
 
-    fn solve(
-        &self,
-        ops: &PrimaryMap<OpRef, Operation>,
-        inputs: &[StateRef],
-        outputs: &[StateRef],
-    ) -> Option<Assignment> {
         let mut dep_clauses = DepClauses::from_ops(ops);
-        for (s, deps) in self.deps.iter() {
+        for (s, deps) in deps.iter() {
             for dep in deps {
                 dep_clauses.add_dep(s, *dep);
             }
         }
 
-        let instance = dep_clauses.instance(inputs, outputs);
+        Self { ops, dep_clauses }
+    }
+
+    fn solve(
+        &mut self,
+        inputs: &[StateRef],
+        outputs: &[StateRef],
+        through: &[OpRef],
+    ) -> Option<Assignment> {
+        let instance = self.dep_clauses.instance(inputs, outputs, through);
         let mut solver = rustsat_minisat::core::Minisat::default();
         solver.add_cnf(instance.into_cnf().0).unwrap();
         match solver.solve().unwrap() {
@@ -146,20 +155,23 @@ impl SatPlanner<'_> {
         }
     }
 
-    fn assignment_to_plan(
-        &self,
-        a: Assignment,
-        dep_clauses: &mut DepClauses,
-    ) -> Vec<Step> {
+    fn assignment_to_plan(mut self, a: Assignment) -> Vec<Step> {
         self.ops
             .iter()
             .filter_map(|(op_ref, op)| {
                 let op_taken = matches!(
-                    a[dep_clauses.op_lit(op_ref).var()],
+                    a[self.dep_clauses.op_lit(op_ref).var()],
                     TernaryVal::True
                 );
                 if op_taken {
-                    todo!()
+                    let mut used_states = op.output.clone();
+                    used_states.retain(|s| {
+                        matches!(
+                            a[self.dep_clauses.state_lit(*s).var()],
+                            TernaryVal::True
+                        )
+                    });
+                    Some((op_ref, used_states))
                 } else {
                     None
                 }
@@ -168,6 +180,9 @@ impl SatPlanner<'_> {
     }
 }
 
+#[derive(Debug)]
+pub struct SatPlanner {}
+
 impl FindPlan for SatPlanner {
     fn find_plan(
         &self,
@@ -175,8 +190,11 @@ impl FindPlan for SatPlanner {
         end: &[StateRef],
         through: &[OpRef],
         ops: &PrimaryMap<OpRef, Operation>,
-        states: &PrimaryMap<StateRef, State>,
+        _states: &PrimaryMap<StateRef, State>,
     ) -> Option<Vec<Step>> {
-        todo!()
+        let mut planner = Planner::from_ops(ops);
+        planner
+            .solve(start, end, through)
+            .map(|a| planner.assignment_to_plan(a))
     }
 }
