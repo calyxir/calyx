@@ -92,7 +92,7 @@ impl<'a> DepClauses<'a> {
         }
         // We need to mark primitive inputs, ones with no deps as things which can never be taken.
         for (&lit, state_id) in &self.state_of_lit {
-            if !inputs.contains(state_id) {
+            if !inputs.contains(state_id) || outputs.contains(state_id) {
                 let ops_making_lit = self.made_from.entry(lit).or_default();
                 if !ops_making_lit.is_empty() {
                     out_instance.add_lit_impl_clause(lit, &ops_making_lit[..]);

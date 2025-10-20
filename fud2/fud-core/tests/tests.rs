@@ -362,6 +362,24 @@ fn op_compressing_two_states_not_initial_and_final() {
 }
 
 #[test]
+fn state_which_is_both_input_and_output_but_still_constructable() {
+    for path_finder in all_fast_planners() {
+        println!("testing planner: {path_finder:?}");
+        let mut bld = DriverBuilder::new("fud2");
+        let s0 = bld.state("s0", &[]);
+        let build_fn: fud_core::run::EmitBuildFn = |_, _, _| Ok(());
+        let t0 = bld.add_op("t0", &[], &[s0], &[s0], build_fn);
+        let driver = bld.build();
+        assert_eq!(
+            Some(BTreeSet::from_iter(vec![(t0, vec![s0]),])),
+            path_finder
+                .find_plan(&[s0], &[s0], &[], &driver.ops, &driver.states)
+                .map(BTreeSet::from_iter)
+        );
+    }
+}
+
+#[test]
 fn correctness_fuzzing() {
     const LAYERS: u64 = 5;
     const STATES_PER_LAYER: u64 = 100;
