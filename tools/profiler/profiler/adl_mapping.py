@@ -1,6 +1,7 @@
 import os
 
 from profiler.visuals import flame, timeline
+from profiler.classes.primitive_metadata import PrimitiveMetadata
 from profiler.classes.adl import AdlMap, Adl, SourceLoc
 from profiler.classes.tracedata import FlameMapMode, TraceData, PTrace, CycleTrace
 from .classes.stack_element import StackElement, StackElementType
@@ -35,6 +36,7 @@ def create_dahlia_trace(tracedata: TraceData, adl_map: AdlMap):
 
 def create_and_write_adl_map(
     tracedata: TraceData,
+    primitive_metadata: PrimitiveMetadata,
     adl_mapping_file: str,
     out_dir: str,
     dahlia_parent_map: str | None = None,
@@ -57,9 +59,9 @@ def create_and_write_adl_map(
             flame.create_and_write_dahlia_flame_maps(
                 tracedata, adl_mapping_file, out_dir
             )
-            
+
             timeline.compute_adl_protobuf_timeline(
-                adl_map, dahlia_trace, dahlia_parent_map, out_dir, tracedata.trace
+                adl_map, dahlia_trace, dahlia_parent_map, out_dir, tracedata.trace, primitive_metadata
             )
 
         case Adl.PY:

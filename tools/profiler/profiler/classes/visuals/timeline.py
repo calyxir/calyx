@@ -9,6 +9,7 @@ from perfetto.protos.perfetto.trace.perfetto_trace_pb2 import (
 )
 
 from profiler.classes.adl import AdlMap
+from profiler.classes.primitive_metadata import PrimitiveMetadata
 from profiler.classes.errors import ProfilerException
 from profiler.classes.tracedata import TraceData
 from profiler.classes.cell_metadata import CellMetadata
@@ -174,14 +175,19 @@ class CalyxProtoTimeline:
 
     proto: ProtoTimelineWrapper
     cell_to_enables_to_track: dict[str, dict[str, str]]
+    cell_metadata: CellMetadata
+    primitives_metadata: PrimitiveMetadata
     primitives_track_name = "Primitives"
     control_groups_track_name = "Control Groups"
     control_updates_track_name = "Control Register Updates"
     misc_groups_track_name = "Non-id-ed groups"
 
     def __init__(
-        self, enable_thread_data, cell_metadata: CellMetadata, tracedata: TraceData
+        self, enable_thread_data, cell_metadata: CellMetadata, tracedata: TraceData, primitives_metadata: PrimitiveMetadata
     ):
+        self.cell_metadata = cell_metadata
+        self.primitives_metadata = primitives_metadata
+
         self.proto = ProtoTimelineWrapper(
             {self.primitives_track_name, self.control_groups_track_name}
         )
@@ -305,17 +311,24 @@ class CalyxProtoTimeline:
     ):
         name_split = fully_qualified_primitive.split(".")
         cell = ".".join(name_split[:-1])
-        primitive = name_split[-1]
+        primitive_name = name_split[-1]
         # FIXME: track id could contain the type of primitive cell used?
-        track_id = primitive
+        track_id = primitive_name
 
-        if not self.proto.is_track_registered_in_collection(cell, primitive):
+        # Parent track: primitive type
+        component = self.cell_metadata.get_component_of_cell(cell)
+        primitive_type = self.primitives_metadata.p_map[component][primitive_name]
+        # parent intermediate track is the primitive type
+        if not self.proto.is_track_registered_in_collection(cell, primitive_type):
+            self.proto.register_track_in_collection(cell, primitive_type, intermediate_parent_name=self.primitives_track_name)
+
+        if not self.proto.is_track_registered_in_collection(cell, primitive_name):
             self.proto.register_track_in_collection(
-                cell, track_id, intermediate_parent_name=self.primitives_track_name
+                cell, track_id, intermediate_parent_name=primitive_type
             )
 
         self.proto.register_event_in_collection(
-            cell, primitive, track_id, timestamp, event_type
+            cell, primitive_name, track_id, timestamp, event_type
         )
 
     def emit(self, out_path: str):
@@ -330,13 +343,15 @@ class DahliaProtoTimeline:
     """
 
     proto: ProtoTimelineWrapper
+    primitive_name_to_type: dict[str, str] = field(default_factory=dict)
     # dahlia line # --> dahlia line # of immediate parent
     parent_map: dict[int, list[int]] = field(default_factory=dict)
     main_function_name = "main"
     primitive_collection_name = "Calyx Primitives"
 
-    def __init__(self, adl_map: AdlMap, dahlia_parent_map: str | None):
+    def __init__(self, adl_map: AdlMap, dahlia_parent_map: str | None, primitive_metadata: PrimitiveMetadata):
         self.proto = ProtoTimelineWrapper()
+        self.primitive_name_to_type = {}
         self.proto.add_collection(self.main_function_name)
         self.proto.add_collection(self.primitive_collection_name)
         if dahlia_parent_map is not None:
@@ -345,6 +360,10 @@ class DahliaProtoTimeline:
             print(
                 "dahlia_parent_map was not given; somewhat inconvenient timeline view will be generated"
             )
+
+        # FIXME: hella defunct way of creating a lookup for primitives
+        for _, p_map in primitive_metadata.p_map.items():
+            self.primitive_name_to_type.update(p_map)
 
     def _process_dahlia_parent_map(self, adl_map: AdlMap, dahlia_parent_map: str):
         """
@@ -380,14 +399,23 @@ class DahliaProtoTimeline:
     def register_calyx_primitive_event(
         self, primitive: str, timestamp: int, event_type: TrackEvent.Type
     ):
+        # currently assumes that there are no duplicate cell names, which is quite dangerous. Need to fix
+        primitive_type = self.primitive_name_to_type[primitive]
+        if not self.proto.is_track_registered_in_collection(self.primitive_collection_name, primitive_type):
+            self.proto.register_track_in_collection(
+                self.primitive_collection_name, primitive_type
+            )
+
+        track_id = f"{primitive} [{primitive_type}]"
+
         if not self.proto.is_track_registered_in_collection(
-            self.primitive_collection_name, primitive
+            self.primitive_collection_name, track_id
         ):
             self.proto.register_track_in_collection(
-                self.primitive_collection_name, primitive
+                self.primitive_collection_name, track_id, intermediate_parent_name=primitive_type
             )
         self.proto.register_event_in_collection(
-            self.primitive_collection_name, primitive, primitive, timestamp, event_type
+            self.primitive_collection_name, primitive, track_id, timestamp, event_type
         )
 
     def emit(self, out_path: str):
