@@ -62,12 +62,11 @@ impl ASTToStepList {
     }
 
     fn step_list_from_ast(
-        &mut self,
+        mut self,
         ast: &AssignmentList,
     ) -> Vec<(OpRef, Vec<IO>, Vec<IO>)> {
-        self.step_list = vec![];
-        let _ = ast.visit(self);
-        self.step_list.clone()
+        let _ = ast.visit(&mut self);
+        self.step_list
     }
 }
 
