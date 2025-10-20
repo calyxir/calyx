@@ -51,7 +51,7 @@ use super::{
     planner::Step,
 };
 
-/// Used to build up the big boolean expression checked by the planner.
+/// Builder for the big boolean expression checked by the planner.
 struct DepClauses<'a> {
     /// A map from boolean variables to the state they represent.
     state_of_lit: HashMap<Lit, StateRef>,
@@ -163,7 +163,6 @@ impl<'a> DepClauses<'a> {
 }
 
 struct Planner<'a> {
-    /// A map from a state to a list of dependencies.
     ops: &'a PrimaryMap<OpRef, Operation>,
     dep_clauses: DepClauses<'a>,
 }
