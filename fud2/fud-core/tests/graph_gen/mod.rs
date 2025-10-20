@@ -63,7 +63,7 @@ impl PlannerTest {
     /// this function will return `PlannerTestResult::NoPlanFound`.
     pub fn eval(
         &self,
-        planner: &dyn fud_core::exec::plan::FindPlan,
+        planner: &Box<dyn fud_core::exec::plan::FindPlan>,
     ) -> PlannerTestResult {
         let plan = planner.find_plan(
             &self.inputs,

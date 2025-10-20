@@ -17,7 +17,7 @@ use rustsat::{
 
 use super::{
     super::{OpRef, Operation, State, StateRef},
-    FindPlan,
+    FindPlan, PlannerType,
     planner::Step,
 };
 
@@ -76,7 +76,6 @@ impl<'a> DepClauses<'a> {
         let op_lit = self.op_lit(dep_ref);
         self.instance.add_cube_impl_cube(&[ls, op_lit], &ld);
         self.made_from.entry(ls).or_default().push(op_lit);
-        println!("expression: {:#?}", self.instance);
     }
 
     pub fn instance(
@@ -196,5 +195,14 @@ impl FindPlan for SatPlanner {
         planner
             .solve(start, end, through)
             .map(|a| planner.assignment_to_plan(a))
+            // The SAT encoding does not allow input states to be used as is unless there is no op
+            // which can make them. Therefore, if the plan is empty, the only way to create a valid
+            // plan is to not apply any ops. This is interpreted as no plan existing so the planner
+            // should return `None`.
+            .take_if(|plan| !plan.is_empty())
+    }
+
+    fn ty(&self) -> PlannerType {
+        PlannerType::Sat
     }
 }

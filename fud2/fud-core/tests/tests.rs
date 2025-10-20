@@ -11,16 +11,32 @@ mod graph_gen;
 #[cfg(feature = "egg_planner")]
 use fud_core::exec::plan::EggPlanner;
 
-#[cfg(feature = "egg_planner")]
-const MULTI_PLANNERS: [&dyn FindPlan; 2] =
-    [&EnumeratePlanner {}, &EggPlanner {}];
+#[cfg(feature = "sat_planner")]
+use fud_core::exec::plan::SatPlanner;
 
-#[cfg(not(feature = "egg_planner"))]
-const MULTI_PLANNERS: [&dyn FindPlan; 1] = [&EnumeratePlanner {}];
+fn all_planners() -> impl Iterator<Item = Box<dyn FindPlan>> {
+    #[allow(unused_mut)]
+    let mut out: Vec<Box<dyn FindPlan>> = vec![Box::new(EnumeratePlanner {})];
+    #[cfg(feature = "egg_planner")]
+    out.push(Box::new(EggPlanner {}));
+    #[cfg(feature = "sat_planner")]
+    out.push(Box::new(SatPlanner {}));
+
+    out.into_iter()
+}
+
+fn all_fast_planners() -> impl Iterator<Item = Box<dyn FindPlan>> {
+    #[allow(unused_mut)]
+    let mut out: Vec<Box<dyn FindPlan>> = vec![Box::new(EnumeratePlanner {})];
+    #[cfg(feature = "sat_planner")]
+    out.push(Box::new(SatPlanner {}));
+
+    out.into_iter()
+}
 
 #[test]
 fn find_plan_simple_graph_test() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         let mut bld = DriverBuilder::new("fud2");
         let s1 = bld.state("s1", &[]);
@@ -52,7 +68,7 @@ fn find_plan_simple_graph_test() {
 
 #[test]
 fn find_plan_multi_op_graph() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         let mut bld = DriverBuilder::new("fud2");
         let s1 = bld.state("s1", &[]);
@@ -76,7 +92,7 @@ fn find_plan_multi_op_graph() {
 
 #[test]
 fn find_plan_multi_path_graph() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         let mut bld = DriverBuilder::new("fud2");
         let s1 = bld.state("s1", &[]);
@@ -138,7 +154,7 @@ fn find_plan_multi_path_graph() {
 
 #[test]
 fn find_plan_only_state_graph() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         let mut bld = DriverBuilder::new("fud2");
         let s1 = bld.state("s1", &[]);
@@ -158,7 +174,7 @@ fn find_plan_only_state_graph() {
 
 #[test]
 fn find_plan_self_loop() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         let mut bld = DriverBuilder::new("fud2");
         let s1 = bld.state("s1", &[]);
@@ -179,7 +195,7 @@ fn find_plan_self_loop() {
 
 #[test]
 fn find_plan_cycle_graph() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         let mut bld = DriverBuilder::new("fud2");
         let s1 = bld.state("s1", &[]);
@@ -212,7 +228,7 @@ fn find_plan_cycle_graph() {
 
 #[test]
 fn find_plan_nontrivial_cycle() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         let mut bld = DriverBuilder::new("fud2");
         let s1 = bld.state("s1", &[]);
@@ -237,7 +253,7 @@ fn find_plan_nontrivial_cycle() {
 
 #[test]
 fn op_creating_two_states() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         let mut bld = DriverBuilder::new("fud2");
         let s0 = bld.state("s0", &[]);
@@ -261,7 +277,7 @@ fn op_creating_two_states() {
 
 #[test]
 fn op_compressing_two_states() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         let mut bld = DriverBuilder::new("fud2");
         let s0 = bld.state("s0", &[]);
@@ -285,7 +301,7 @@ fn op_compressing_two_states() {
 
 #[test]
 fn op_creating_two_states_not_initial_and_final() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         let mut bld = DriverBuilder::new("fud2");
         let s0 = bld.state("s0", &[]);
@@ -316,7 +332,7 @@ fn op_creating_two_states_not_initial_and_final() {
 
 #[test]
 fn op_compressing_two_states_not_initial_and_final() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         let mut bld = DriverBuilder::new("fud2");
         let s0 = bld.state("s0", &[]);
@@ -355,7 +371,7 @@ fn correctness_fuzzing() {
     const RANDOM_SEED: u64 = 0xDEADBEEF;
     const NUM_TESTS: u64 = 50;
 
-    for planner in MULTI_PLANNERS {
+    for planner in all_fast_planners() {
         let rng = rand_chacha::ChaChaRng::seed_from_u64(RANDOM_SEED);
         let seeds = (0..NUM_TESTS).map(|_| rng.get_stream());
         for seed in seeds {
@@ -367,7 +383,7 @@ fn correctness_fuzzing() {
                 MAX_REQUIRED_OPS,
                 seed,
             );
-            match test.eval(planner) {
+            match test.eval(&planner) {
                 graph_gen::PlannerTestResult::FoundValidPlan
                 | graph_gen::PlannerTestResult::NoPlanFound => (),
                 graph_gen::PlannerTestResult::FoundInvalidPlan => panic!(

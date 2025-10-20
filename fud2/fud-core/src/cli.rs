@@ -61,6 +61,8 @@ enum Planner {
     Egg,
     Enumerate,
     FromJson,
+    #[cfg(feature = "sat_planner")]
+    Sat,
 }
 
 impl FromStr for Planner {
@@ -73,6 +75,8 @@ impl FromStr for Planner {
             "egg" => Ok(Planner::Egg),
             "enumerate" => Ok(Planner::Enumerate),
             "json" => Ok(Planner::FromJson),
+            #[cfg(feature = "sat_planner")]
+            "sat" => Ok(Planner::Sat),
             _ => Err("unknown planner".to_string()),
         }
     }
@@ -86,6 +90,8 @@ impl Display for Planner {
             Planner::Egg => write!(f, "egg"),
             Planner::Enumerate => write!(f, "enumerate"),
             Planner::FromJson => write!(f, "json"),
+            #[cfg(feature = "sat_planner")]
+            Planner::Sat => write!(f, "sat"),
         }
     }
 }
@@ -312,6 +318,8 @@ fn get_request<T: CliExt>(
             Planner::Egg => Box::new(plan::EggPlanner {}),
             Planner::Enumerate => Box::new(plan::EnumeratePlanner {}),
             Planner::FromJson => Box::new(plan::JsonPlanner {}),
+            #[cfg(feature = "sat_planner")]
+            Planner::Sat => Box::new(plan::SatPlanner {}),
         },
         timing_csv: args.timing_csv.clone(),
     })
