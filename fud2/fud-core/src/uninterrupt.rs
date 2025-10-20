@@ -8,10 +8,12 @@
 /// Use the lifetime of the `Uninterrupt` object to define a scope where this
 /// behavior is applied, like this:
 ///
-///     let foo = {
-///         let _unint = Uninterrupt::suppress();
-///         do_stuff();
-///     };
+/// ```ignore
+/// let foo = {
+///     let _unint = Uninterrupt::suppress();
+///     do_stuff();
+/// };
+/// ```
 ///
 /// Then SIGINT will be suppressed during the call to `do_stuff()`.
 pub struct Uninterrupt {}
