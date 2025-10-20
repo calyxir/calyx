@@ -383,7 +383,7 @@ fn correctness_fuzzing() {
                 MAX_REQUIRED_OPS,
                 seed,
             );
-            match test.eval(&planner) {
+            match test.eval(planner.as_ref()) {
                 graph_gen::PlannerTestResult::FoundValidPlan
                 | graph_gen::PlannerTestResult::NoPlanFound => (),
                 graph_gen::PlannerTestResult::FoundInvalidPlan => panic!(
