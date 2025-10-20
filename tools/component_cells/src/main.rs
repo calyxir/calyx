@@ -59,6 +59,7 @@ struct ComponentInfo {
     pub component: Id,
     pub is_main_component: bool,
     pub cell_info: Vec<ComponentCellInfo>,
+    pub primitive_info: Vec<PrimitiveCellInfo>,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Serialize)]
@@ -67,6 +68,14 @@ struct ComponentCellInfo {
     pub cell_name: Id,
     #[serde(serialize_with = "id_serialize_passthrough")]
     pub component_name: Id,
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
+struct PrimitiveCellInfo {
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    pub cell_name: Id,
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    pub primitive_type: Id,
 }
 
 /// Accumulates a set of components to the cells that they contain
@@ -83,21 +92,43 @@ fn gen_component_info(
         component: comp.name,
         is_main_component: is_main_comp,
         cell_info: Vec::new(),
+        primitive_info: Vec::new(),
     };
     for cell in comp.cells.iter() {
         let cell_ref = cell.borrow();
-        if let ir::CellType::Component { name } = cell_ref.prototype {
-            curr_comp_info.cell_info.push(ComponentCellInfo {
-                cell_name: cell_ref.name(),
-                component_name: name,
-            });
-            let component = ctx
-                .components
-                .iter()
-                .find(|comp| comp.name == name)
-                .unwrap();
-            gen_component_info(ctx, component, false, component_info);
+        match &cell_ref.prototype {
+            calyx_ir::CellType::Primitive { name, .. } => {
+                curr_comp_info.primitive_info.push(PrimitiveCellInfo {
+                    cell_name: cell_ref.name(),
+                    primitive_type: name.clone(),
+                })
+            }
+            calyx_ir::CellType::Component { name } => {
+                curr_comp_info.cell_info.push(ComponentCellInfo {
+                    cell_name: cell_ref.name(),
+                    component_name: name.clone(),
+                });
+                let component = ctx
+                    .components
+                    .iter()
+                    .find(|comp| comp.name == name)
+                    .unwrap();
+                gen_component_info(ctx, component, false, component_info);
+            }
+            _ => {}
         }
+        // if let ir::CellType::Component { name } = cell_ref.prototype {
+        //     curr_comp_info.cell_info.push(ComponentCellInfo {
+        //         cell_name: cell_ref.name(),
+        //         component_name: name,
+        //     });
+        //     let component = ctx
+        //         .components
+        //         .iter()
+        //         .find(|comp| comp.name == name)
+        //         .unwrap();
+        //     gen_component_info(ctx, component, false, component_info);
+        // }
     }
     component_info.insert(curr_comp_info);
 }

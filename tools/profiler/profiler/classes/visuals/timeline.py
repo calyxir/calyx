@@ -326,16 +326,19 @@ class DahliaProtoTimeline:
     """
     A class creating a Perfetto timeline in the program structure of
     Dahlia programs (statements).
+    Contains an extra collection for showing Calyx primitive activity.
     """
 
     proto: ProtoTimelineWrapper
     # dahlia line # --> dahlia line # of immediate parent
     parent_map: dict[int, list[int]] = field(default_factory=dict)
     main_function_name = "main"
+    primitive_collection_name = "Calyx Primitives"
 
     def __init__(self, adl_map: AdlMap, dahlia_parent_map: str | None):
         self.proto = ProtoTimelineWrapper()
         self.proto.add_collection(self.main_function_name)
+        self.proto.add_collection(self.primitive_collection_name)
         if dahlia_parent_map is not None:
             self._process_dahlia_parent_map(adl_map, dahlia_parent_map)
         else:
@@ -372,6 +375,19 @@ class DahliaProtoTimeline:
             self.proto.register_track_in_collection(self.main_function_name, statement)
         self.proto.register_event_in_collection(
             self.main_function_name, statement, statement, timestamp, event_type
+        )
+
+    def register_calyx_primitive_event(
+        self, primitive: str, timestamp: int, event_type: TrackEvent.Type
+    ):
+        if not self.proto.is_track_registered_in_collection(
+            self.primitive_collection_name, primitive
+        ):
+            self.proto.register_track_in_collection(
+                self.primitive_collection_name, primitive
+            )
+        self.proto.register_event_in_collection(
+            self.primitive_collection_name, primitive, primitive, timestamp, event_type
         )
 
     def emit(self, out_path: str):

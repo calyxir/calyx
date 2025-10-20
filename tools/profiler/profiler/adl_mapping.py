@@ -57,15 +57,9 @@ def create_and_write_adl_map(
             flame.create_and_write_dahlia_flame_maps(
                 tracedata, adl_mapping_file, out_dir
             )
-            # adl_flat_map, adl_scaled_map = flame.create_flame_maps(
-            #     dahlia_trace, FlameMapMode.ADL
-            # )
-            # flame.write_flame_map(adl_flat_map, adl_flat_flame_file)
-            # flame.write_flame_map(adl_scaled_map, adl_scaled_flame_file)
-
-            # print("writing Dahlia timeline")
+            
             timeline.compute_adl_protobuf_timeline(
-                adl_map, dahlia_trace, dahlia_parent_map, out_dir
+                adl_map, dahlia_trace, dahlia_parent_map, out_dir, tracedata.trace
             )
 
         case Adl.PY:

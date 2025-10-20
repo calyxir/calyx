@@ -125,7 +125,7 @@ def compute_calyx_protobuf_timeline(
 
 
 def compute_adl_protobuf_timeline(
-    adl_map: AdlMap, dahlia_trace: PTrace, dahlia_parent_map: str | None, out_dir: str
+    adl_map: AdlMap, dahlia_trace: PTrace, dahlia_parent_map: str | None, out_dir: str, calyx_trace: PTrace
 ):
     dahlia_proto: DahliaProtoTimeline = DahliaProtoTimeline(adl_map, dahlia_parent_map)
 
@@ -160,6 +160,28 @@ def compute_adl_protobuf_timeline(
         dahlia_proto.register_statement_event(
             active_at_end_statement, i + 1, TrackEvent.TYPE_SLICE_END
         )
+
+    # scan through Calyx trace to see what primitives were active.
+    # there is probably a more efficient way to do this
+    # FIXME: just going to state the primitive name for now. Probably want fully qualified
+    current_active_primitives: set[str] = set()
+    for i in calyx_trace:
+        primitives_active_this_cycle: set[str] = set()
+        for stack in calyx_trace[i].stacks:
+            for stack_elem in stack:
+                match stack_elem.element_type:
+                    case StackElementType.PRIMITIVE:
+                        primitives_active_this_cycle.add(stack_elem.name)
+
+        for done_primitive in current_active_primitives.difference(primitives_active_this_cycle):
+            dahlia_proto.register_calyx_primitive_event(done_primitive, i, TrackEvent.TYPE_SLICE_END)
+        for new_primitive in primitives_active_this_cycle.difference(current_active_primitives):
+            dahlia_proto.register_calyx_primitive_event(new_primitive, i, TrackEvent.TYPE_SLICE_BEGIN)
+
+        current_active_primitives = primitives_active_this_cycle
+    
+    for active_at_end_primitive in current_active_primitives:
+        dahlia_proto.register_calyx_primitive_event(active_at_end_primitive, i + 1, TrackEvent.TYPE_SLICE_END)
 
     out_path = os.path.join(out_dir, "dahlia_timeline_trace.pftrace")
     dahlia_proto.emit(out_path)
