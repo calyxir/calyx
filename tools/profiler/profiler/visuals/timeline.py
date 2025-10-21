@@ -139,7 +139,8 @@ def compute_adl_protobuf_timeline(
     currently_active_statements: set[str] = set()
 
     for i in dahlia_trace:
-        # print(f"=============================CYCLE!!!! {i}")
+        if i < 50:
+            print(f"=============================CYCLE!!!! {i}")
         statements_active_this_cycle: set[str] = set()
         i_trace: CycleTrace = dahlia_trace[i]
         for stacks in i_trace.stacks:
