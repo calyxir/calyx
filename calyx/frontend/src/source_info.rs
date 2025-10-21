@@ -577,7 +577,10 @@ mod tests {
 
     use crate::{
         parser::CalyxParser,
-        source_info::{FileId, LineNum, PositionId, SourceInfoTableError},
+        source_info::{
+            FileId, LineNum, MemoryLocationId, PositionId,
+            SourceInfoTableError, VariableAssignmentId,
+        },
     };
 
     use super::SourceInfoTable;
@@ -620,6 +623,233 @@ mod tests {
         let pos = metadata.lookup_position(1.into());
         assert_eq!(pos.file, 0.into());
         assert_eq!(pos.line, LineNum::new(1));
+    }
+
+    #[test]
+    fn test_undefined_mem_loc() {
+        let input_str = r#"sourceinfo #{
+    FILES
+        0: test.calyx
+    POSITIONS
+        0: 0 5
+        1: 0 1
+        2: 0 2
+    MEMORY_LOCATIONS
+        0: main.reg1
+        2: main.mem1 [1,4]
+    VARIABLE_ASSIGNMENTS
+        0: {
+            x: 0
+            y: 1
+            z: 2
+        }
+        1: {
+            q: 0
+        }
+    POSITION_STATE_MAP
+        0: 0
+        2: 1
+}#"#;
+        let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
+        assert!(metadata.is_err());
+        let err = metadata.unwrap_err();
+        assert!(matches!(
+            &err,
+            SourceInfoTableError::UnknownMemoryId {
+                id: MemoryLocationId(1)
+            }
+        ));
+    }
+
+    #[test]
+    fn test_undefined_variable() {
+        let input_str = r#"sourceinfo #{
+    FILES
+        0: test.calyx
+    POSITIONS
+        0: 0 5
+        1: 0 1
+        2: 0 2
+    MEMORY_LOCATIONS
+        0: main.reg1
+        1: main.reg2
+        2: main.mem1 [1,4]
+    VARIABLE_ASSIGNMENTS
+        0: {
+            x: 0
+            y: 1
+            z: 2
+        }
+        1: {
+            q: 0
+        }
+    POSITION_STATE_MAP
+        0: 0
+        2: 2
+}#"#;
+        let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
+        assert!(metadata.is_err());
+        let err = metadata.unwrap_err();
+
+        assert!(matches!(
+            &err,
+            SourceInfoTableError::UnknownVariableMapping {
+                id: VariableAssignmentId(2)
+            }
+        ));
+    }
+
+    #[test]
+    fn test_duplicate_variable_maps() {
+        let input_str = r#"sourceinfo #{
+    FILES
+        0: test.calyx
+    POSITIONS
+        0: 0 5
+        1: 0 1
+        2: 0 2
+    MEMORY_LOCATIONS
+        0: main.reg1
+        1: main.reg2
+        2: main.mem1 [1,4]
+    VARIABLE_ASSIGNMENTS
+        0: {
+            x: 0
+            y: 1
+            z: 2
+        }
+        1: {
+            q: 0
+        }
+        1: {
+            a: 0
+        }
+    POSITION_STATE_MAP
+        0: 0
+        2: 1
+}#"#;
+        let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
+        assert!(metadata.is_err());
+        let err = metadata.unwrap_err();
+        assert!(matches!(
+            &err,
+            SourceInfoTableError::DuplicateVariableMappings {
+                id: VariableAssignmentId(1)
+            }
+        ));
+    }
+
+    #[test]
+    fn test_duplicate_variable_assignment() {
+        let input_str = r#"sourceinfo #{
+    FILES
+        0: test.calyx
+    POSITIONS
+        0: 0 5
+        1: 0 1
+        2: 0 2
+    MEMORY_LOCATIONS
+        0: main.reg1
+        1: main.reg2
+        2: main.mem1 [1,4]
+    VARIABLE_ASSIGNMENTS
+        0: {
+            x: 0
+            y: 1
+            z: 2
+        }
+        1: {
+            q: 0
+            q: 1
+        }
+    POSITION_STATE_MAP
+        0: 0
+        2: 1
+}#"#;
+        let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
+        assert!(metadata.is_err());
+        let err = metadata.unwrap_err();
+        assert!(matches!(
+            &err,
+            SourceInfoTableError::DuplicateVariableAssignments {
+                id: VariableAssignmentId(1),
+                var
+            } if var == "q"
+        ));
+    }
+
+    #[test]
+    fn test_duplicate_mem_def() {
+        let input_str = r#"sourceinfo #{
+    FILES
+        0: test.calyx
+    POSITIONS
+        0: 0 5
+        1: 0 1
+        2: 0 2
+    MEMORY_LOCATIONS
+        0: main.reg1
+        1: main.reg2
+        1: main.mem1 [1,4]
+    VARIABLE_ASSIGNMENTS
+        0: {
+            x: 0
+            y: 1
+            z: 2
+        }
+        1: {
+            q: 0
+        }
+    POSITION_STATE_MAP
+        0: 0
+        2: 1
+}#"#;
+        let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
+        assert!(metadata.is_err());
+        let err = metadata.unwrap_err();
+        assert!(matches!(
+            &err,
+            SourceInfoTableError::DuplicateMemoryIdentifiers {
+                id: MemoryLocationId(1)
+            }
+        ));
+    }
+
+    #[test]
+    fn test_duplicate_pos_state() {
+        let input_str = r#"sourceinfo #{
+    FILES
+        0: test.calyx
+    POSITIONS
+        0: 0 5
+        1: 0 1
+        2: 0 2
+    MEMORY_LOCATIONS
+        0: main.reg1
+        1: main.reg2
+        2: main.mem1 [1,4]
+    VARIABLE_ASSIGNMENTS
+        0: {
+            x: 0
+            y: 1
+            z: 2
+        }
+        1: {
+            q: 0
+        }
+    POSITION_STATE_MAP
+        0: 0
+        0: 1
+}#"#;
+        let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
+        assert!(metadata.is_err());
+        let err = metadata.unwrap_err();
+        assert!(matches!(
+            &err,
+            SourceInfoTableError::DuplicatePosStateMappings {
+                id: PositionId(0)
+            }
+        ));
     }
 
     #[test]
