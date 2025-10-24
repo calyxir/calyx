@@ -1,7 +1,9 @@
 //! This module contains the data structures used by the debugger for source mapping
 use std::{collections::HashMap, fs, path::PathBuf};
 
-use crate::errors::CiderResult;
+use calyx_ir::source_info::SourceInfoTable;
+
+use crate::{errors::CiderResult, flatten::structures::context::Context};
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone)]
 pub struct NamedTag(u64, String);
@@ -26,14 +28,67 @@ pub struct GroupContents {
     pub start_line: u64,
     pub end_line: u64,
 }
+/// first item is group name and second is component name
+type GroupName = (String, String);
 
 /// impl struct with path and number
 #[derive(Debug, Clone)]
 /// NewSourceMap contains the group name as the key and the line it lies on with
 ///  as respect to its corresponding .futil file
-pub struct NewSourceMap(HashMap<(String, String), GroupContents>);
+pub struct NewSourceMap(HashMap<GroupName, GroupContents>);
 
 impl NewSourceMap {
+    pub fn generate_from_source_info(
+        table: &SourceInfoTable,
+        ctx: &Context,
+    ) -> CiderResult<NewSourceMap> {
+        let mut map: HashMap<GroupName, GroupContents> = HashMap::new();
+        // iterate over groups
+        ctx.primary.groups.iter().for_each(|(g_idx, group)| {
+            // i'm assuming that multiple position tags would just reference the same place, so we just take the first
+            let pos_data = table.lookup_position(
+                *group
+                    .pos
+                    .as_ref()
+                    .expect("group pos array is not")
+                    .first()
+                    .expect("group pos has no positions"),
+            ); // unwrapping is fine the pos should be there afaik
+            let path = table
+                .lookup_file_path(pos_data.file)
+                .as_os_str()
+                .to_str()
+                .unwrap()
+                .to_string(); // check this is valid
+            // get group name
+            let grp_name = ctx.lookup_name(group.name());
+            // get parent name
+            let parent = ctx
+                .secondary
+                .comp_aux_info
+                .iter()
+                .find(|(_comp_idx, comp_info)| {
+                    comp_info.definitions.groups().contains(g_idx)
+                })
+                .expect("group has no compoennt???");
+            let parent_name = ctx.lookup_name(parent.1.name);
+            let start_line = pos_data.line.into_inner().get() as u64;
+
+            // i'm just assuming it has the end line, i need to make sure that's a valid assumption
+            map.insert(
+                (grp_name.clone(), parent_name.clone()),
+                GroupContents {
+                    path,
+                    start_line, // how do i make this a u64 T-T
+                    end_line: pos_data
+                        .end_line
+                        .map(|l| l.into_inner().get() as u64)
+                        .unwrap_or(start_line),
+                },
+            );
+        });
+        Ok(NewSourceMap(map))
+    }
     /// look up group name, if not present, return None
     pub fn lookup(&self, key: &(String, String)) -> Option<&GroupContents> {
         self.0.get(key)
@@ -47,8 +102,8 @@ impl NewSourceMap {
     }
 }
 
-impl From<HashMap<(String, String), GroupContents>> for NewSourceMap {
-    fn from(i: HashMap<(String, String), GroupContents>) -> Self {
+impl From<HashMap<GroupName, GroupContents>> for NewSourceMap {
+    fn from(i: HashMap<GroupName, GroupContents>) -> Self {
         Self(i)
     }
 }

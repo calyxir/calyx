@@ -179,7 +179,7 @@ fn obtain_pos_info(
     source_info_table: &SourceInfoTable,
     file_lines_map: &HashMap<String, Vec<String>>,
 ) -> CalyxResult<PosInfo> {
-    let SourceLocation { file, line } =
+    let SourceLocation { file, line, .. } =
         source_info_table.lookup_position(PositionId::from(*pos_id));
     let filename = source_info_table
         .lookup_file_path(*file)
@@ -251,7 +251,7 @@ fn resolve(
     for (curr_component, curr_component_pos_ids) in component_pos_ids.iter() {
         let mut curr_component_info =
             if let Some(pos_id) = curr_component_pos_ids.component_pos_id {
-                let SourceLocation { file, line } =
+                let SourceLocation { file, line, .. } =
                     source_info_table.lookup_position(PositionId::from(pos_id));
                 let curr_component_filename = source_info_table
                     .lookup_file_path(*file)

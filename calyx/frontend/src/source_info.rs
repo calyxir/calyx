@@ -63,6 +63,9 @@ impl LineNum {
     pub fn as_usize(&self) -> usize {
         self.0.get() as usize
     }
+    pub fn into_inner(self) -> NonZero<Word> {
+        self.0
+    }
 }
 
 impl Display for LineNum {
