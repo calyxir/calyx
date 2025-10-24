@@ -143,12 +143,12 @@ def _process_dahlia_parent_map(adl_map: AdlMap, dahlia_parent_map: str | None):
     """
     statement_to_block_ancestors: dict[str, list[str]] = {}
     # FIXME: see if we can still get something showing even without the dahlia_parent_map
-    # if dahlia_parent_map is not None:
-    #     self._process_dahlia_parent_map(adl_map, dahlia_parent_map)
-    # else:
-    #     print(
-    #             "dahlia_parent_map was not given; somewhat inconvenient timeline view will be generated"
-    #         )
+    if dahlia_parent_map is None:
+        # return empty dictionary and set.
+        print(
+                "dahlia_parent_map was not given; somewhat inconvenient timeline view will be generated"
+            )
+        return {adl_map.adl_linum_map[linum]: [] for linum in adl_map.adl_linum_map}, set()
 
     json_parent_map: dict[int, list[int]] = _read_json_parent_map(dahlia_parent_map)
 
@@ -219,15 +219,10 @@ def compute_dahlia_protobuf_timeline(
     currently_active_statements: set[str] = set()
     # if a block is not in the dictionary, it means it;s not currently active.
     currently_active_blocks: dict[str, BlockInterval] = {}
-    # blocks should get a "done" event when it's been a full cycle after they get zero active stmts
-    blocks_ended_prev_cycle: set[str] = set()
 
     for i in dahlia_trace:
+        # blocks should get a "done" event when they get zero active statements and no "starts" this cycle.
         blocks_ended_this_cycle: set[str] = set()
-        if i < 50:
-            print(f"=============================CYCLE!!!! {i}")
-            print(currently_active_blocks.keys())
-            print(blocks_ended_prev_cycle)
         statements_active_this_cycle: set[str] = set()
         i_trace: CycleTrace = dahlia_trace[i]
         for stacks in i_trace.stacks:
@@ -246,7 +241,6 @@ def compute_dahlia_protobuf_timeline(
                 block_interval = currently_active_blocks[block]
                 block_interval.stmt_end(i, done_statement)
                 if block_interval.num_active_children() == 0:
-                    print(f"adding to blocks_ended_this_cycle to block {block} through statement {done_statement}")
                     blocks_ended_this_cycle.add(block)
 
         # statements that started
@@ -266,27 +260,16 @@ def compute_dahlia_protobuf_timeline(
                 else:
                     block_interval = currently_active_blocks[block]
                 block_interval.stmt_start_event(started_statement)
-                # NOTE: need to remove any blocks that were already in blocks_ended_prev_cycle since we observed a start stmt in the same cycle that we thought the block was done.
-                if block in blocks_ended_prev_cycle:
-                    blocks_ended_prev_cycle.remove(block)
+                # NOTE: need to remove any blocks that were already in blocks_ended_this_cycle since we observed a start stmt in the same cycle that we thought the block was done.
+                if block in blocks_ended_this_cycle:
+                    blocks_ended_this_cycle.remove(block)
 
-        print(f"blocks ended this cycle: {blocks_ended_this_cycle}")
-
-        # check for blocks that "ended" in the previous cycle.
-        for block in blocks_ended_prev_cycle:
-            print(f"Potentially ending block {block}.")
+        # check for blocks that ended this cycle.
+        for block in blocks_ended_this_cycle:
             block_interval = currently_active_blocks[block]
-            print(f"size: {block_interval.num_active_children()}")
-            # do they have any active children?
-            if block_interval.num_active_children() == 0:
-                print(f"Erasing block {block}")
-                # no stmts in the block that started in cycle i, so block is done
-                # write done event, and remove the entry from currently_active_blocks
-                dahlia_proto.register_statement_event(block, i-1, TrackEvent.TYPE_SLICE_END)
-                del currently_active_blocks[block]
-            # otherwise, a new stmt in the block started this cycle. so the block is still alive and we can ignore it.
+            dahlia_proto.register_statement_event(block, i, TrackEvent.TYPE_SLICE_END)
+            del currently_active_blocks[block]
 
-        blocks_ended_prev_cycle = blocks_ended_this_cycle
         currently_active_statements = statements_active_this_cycle
 
     # we processed the whole trace.
