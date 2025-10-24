@@ -60,7 +60,7 @@ def create_and_write_adl_map(
                 tracedata, adl_mapping_file, out_dir
             )
 
-            timeline.compute_adl_protobuf_timeline(
+            timeline.compute_dahlia_protobuf_timeline(
                 adl_map, dahlia_trace, dahlia_parent_map, out_dir, tracedata.trace, primitive_metadata
             )
 

@@ -1,5 +1,8 @@
 import os
+from functools import reduce
+import json
 
+from typing import Optional
 
 from perfetto.protos.perfetto.trace.perfetto_trace_pb2 import (
     TrackEvent,
@@ -9,7 +12,7 @@ from profiler.classes.adl import AdlMap
 from profiler.classes.cell_metadata import CellMetadata
 from profiler.classes.primitive_metadata import PrimitiveMetadata
 from profiler.classes.tracedata import CycleTrace, TraceData, StackElementType, PTrace
-from profiler.classes.visuals.timeline import CalyxProtoTimeline, DahliaProtoTimeline
+from profiler.classes.visuals.timeline import CalyxProtoTimeline, DahliaProtoTimeline, BlockInterval, block_name
 
 
 def compute_calyx_protobuf_timeline(
@@ -125,8 +128,77 @@ def compute_calyx_protobuf_timeline(
     out_path = os.path.join(out_dir, "timeline_trace.pftrace")
     calyx_proto.emit(out_path)
 
+def _read_json_parent_map(parent_map_file):
+    """
+    Helper function for _process_dahlia_parent_map()
+    JSON is annoying and requires string keys. This function returns a map obtained from parent_map_file, but with int keys instead.
+    """
+    m = json.load(open(parent_map_file))
+    return {int(k) : m[k] for k in m}
 
-def compute_adl_protobuf_timeline(
+
+def _process_dahlia_parent_map(adl_map: AdlMap, dahlia_parent_map: str | None):
+    """
+    Helper function for compute_dahlia_protobuf_timeline()
+    """
+    statement_to_block_ancestors: dict[str, list[str]] = {}
+    # FIXME: see if we can still get something showing even without the dahlia_parent_map
+    # if dahlia_parent_map is not None:
+    #     self._process_dahlia_parent_map(adl_map, dahlia_parent_map)
+    # else:
+    #     print(
+    #             "dahlia_parent_map was not given; somewhat inconvenient timeline view will be generated"
+    #         )
+
+    json_parent_map: dict[int, list[int]] = _read_json_parent_map(dahlia_parent_map)
+
+    # need to have a parent block version of each one
+    all_block_linums: set[int] = reduce((lambda l1, l2: set(l1).union(set(l2))), json_parent_map.values())
+
+    linum_to_block = {linum: block_name(adl_map.adl_linum_map[linum]) for linum in all_block_linums}
+
+    # figure out child-parent mappings.
+    for linum in sorted(json_parent_map, key=(lambda x: len(json_parent_map[x]))):
+        line_contents = adl_map.adl_linum_map[linum]
+
+        # identify the immediate ancestor trackids
+        if linum in all_block_linums and len(json_parent_map[linum]) == 0:
+            # this line is a parent line with no parents of its own,
+            # the parent is the block version of this line.
+            block_track_id = block_name(line_contents)
+            statement_to_block_ancestors[line_contents] = [block_track_id]
+            # block version also gets added?
+            statement_to_block_ancestors[block_track_id] = []
+
+        elif linum in all_block_linums:
+            # this line is a parent line that itself has parents
+            block_track_id = block_name(line_contents)
+            ancestor_list = list(map((lambda p: linum_to_block[p]), json_parent_map[linum]))
+
+            # this line's parent is the block version of this line.
+            statement_to_block_ancestors[line_contents] = [block_track_id] + ancestor_list
+
+            # the block version of this line's ancestors are the block version of the actual ancestors of this line.
+            print(f"ADDING FOR block {block_track_id}")
+            statement_to_block_ancestors[block_track_id] = ancestor_list
+
+        elif len(json_parent_map[linum]) > 0:
+            # this line is a "normal" line with ancestors.
+            # use block version of the actual ancestors.
+            ancestor_list = list(map((lambda p: block_name(adl_map.adl_linum_map[p])), json_parent_map[linum]))
+
+            statement_to_block_ancestors[line_contents] = ancestor_list
+
+        else:
+            # otherwise is a "normal" line with NO parents.
+            statement_to_block_ancestors[line_contents] = []
+
+    print(statement_to_block_ancestors)
+
+    return statement_to_block_ancestors, set(linum_to_block.values())
+
+
+def compute_dahlia_protobuf_timeline(
     adl_map: AdlMap,
     dahlia_trace: PTrace,
     dahlia_parent_map: str | None,
@@ -135,12 +207,27 @@ def compute_adl_protobuf_timeline(
     primitive_metadata: PrimitiveMetadata,
 ):
     dahlia_proto: DahliaProtoTimeline = DahliaProtoTimeline(adl_map, dahlia_parent_map, primitive_metadata)
+    # statement --> [b1, b2, ...] where b1 is the immediate parent
+    stmt_to_block_ancestors: dict[str, list[str]]
+    # names of all blocks
+    blocks: set[str]
+    # figure out child-ancestor relationships
+    stmt_to_block_ancestors, blocks = _process_dahlia_parent_map(adl_map, dahlia_parent_map)
+    # construct blocks with this knowledge
+    dahlia_proto.create_tracks(stmt_to_block_ancestors, blocks)
 
     currently_active_statements: set[str] = set()
+    # if a block is not in the dictionary, it means it;s not currently active.
+    currently_active_blocks: dict[str, BlockInterval] = {}
+    # blocks should get a "done" event when it's been a full cycle after they get zero active stmts
+    blocks_ended_prev_cycle: set[str] = set()
 
     for i in dahlia_trace:
+        blocks_ended_this_cycle: set[str] = set()
         if i < 50:
             print(f"=============================CYCLE!!!! {i}")
+            print(currently_active_blocks.keys())
+            print(blocks_ended_prev_cycle)
         statements_active_this_cycle: set[str] = set()
         i_trace: CycleTrace = dahlia_trace[i]
         for stacks in i_trace.stacks:
@@ -154,6 +241,13 @@ def compute_adl_protobuf_timeline(
             dahlia_proto.register_statement_event(
                 done_statement, i, TrackEvent.TYPE_SLICE_END
             )
+            # for each block of the stmt, signal that the stmt has ended
+            for block in stmt_to_block_ancestors[done_statement]:
+                block_interval = currently_active_blocks[block]
+                block_interval.stmt_end(i, done_statement)
+                if block_interval.num_active_children() == 0:
+                    print(f"adding to blocks_ended_this_cycle to block {block} through statement {done_statement}")
+                    blocks_ended_this_cycle.add(block)
 
         # statements that started
         for started_statement in statements_active_this_cycle.difference(
@@ -162,13 +256,52 @@ def compute_adl_protobuf_timeline(
             dahlia_proto.register_statement_event(
                 started_statement, i, TrackEvent.TYPE_SLICE_BEGIN
             )
+            # for each block of the stmt, signal that the stmt has begun
+            for block in stmt_to_block_ancestors[started_statement]:
+                if block not in currently_active_blocks:
+                    # create new interval and record a start event to the timeline.
+                    block_interval = BlockInterval(i)
+                    currently_active_blocks[block] = block_interval
+                    dahlia_proto.register_statement_event(block, block_interval.start_cycle, TrackEvent.TYPE_SLICE_BEGIN)
+                else:
+                    block_interval = currently_active_blocks[block]
+                block_interval.stmt_start_event(started_statement)
+                # NOTE: need to remove any blocks that were already in blocks_ended_prev_cycle since we observed a start stmt in the same cycle that we thought the block was done.
+                if block in blocks_ended_prev_cycle:
+                    blocks_ended_prev_cycle.remove(block)
 
+        print(f"blocks ended this cycle: {blocks_ended_this_cycle}")
+
+        # check for blocks that "ended" in the previous cycle.
+        for block in blocks_ended_prev_cycle:
+            print(f"Potentially ending block {block}.")
+            block_interval = currently_active_blocks[block]
+            print(f"size: {block_interval.num_active_children()}")
+            # do they have any active children?
+            if block_interval.num_active_children() == 0:
+                print(f"Erasing block {block}")
+                # no stmts in the block that started in cycle i, so block is done
+                # write done event, and remove the entry from currently_active_blocks
+                dahlia_proto.register_statement_event(block, i-1, TrackEvent.TYPE_SLICE_END)
+                del currently_active_blocks[block]
+            # otherwise, a new stmt in the block started this cycle. so the block is still alive and we can ignore it.
+
+        blocks_ended_prev_cycle = blocks_ended_this_cycle
         currently_active_statements = statements_active_this_cycle
 
+    # we processed the whole trace.
+    # Add end events for all active statements.
     for active_at_end_statement in currently_active_statements:
         dahlia_proto.register_statement_event(
-            active_at_end_statement, i + 1, TrackEvent.TYPE_SLICE_END, True
+            active_at_end_statement, i + 1, TrackEvent.TYPE_SLICE_END
         )
+
+    # Add end events for all active blocks.
+    for active_at_end_block in currently_active_blocks:
+        dahlia_proto.register_statement_event(active_at_end_block, i + 1, TrackEvent.TYPE_SLICE_END)
+
+
+    # PASS 2 FOR PRIMITIVES
 
     # scan through Calyx trace to see what primitives were active.
     # there is probably a more efficient way to do this

@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from functools import reduce
 from typing import Optional
 import uuid
 import json
@@ -340,63 +339,35 @@ class CalyxProtoTimeline:
 
 
 @dataclass
-class ParentInterval:
+class BlockInterval:
     # name: str
-    start_cycle: int | None = field(default=None)
+    start_cycle: int
     possible_end: int | None = field(default=None)
     active_children: set[str] = field(default_factory=set)
-    force_quit_encountered: bool = field(default=False)
 
-    def start_event(self, start_cycle: int, child_track_id: str) -> Optional[tuple[int, int]]:
-        # if start_cycle < 50:
-        # print(f"START EVENT {start_cycle}. CURRENT VALUES {self.start_cycle} {self.possible_end} {self.active_children}")
-        if self.start_cycle is None:
-            self.start_cycle = start_cycle
-            ret = None
-        elif self.possible_end is not None and start_cycle > self.possible_end + 1 and len(self.active_children) == 0:
-            prev_start = self.start_cycle
-            prev_end = self.possible_end
-            self.start_cycle = start_cycle
-            self.possible_end = None
-            ret = (prev_start, prev_end)
-        else:
-            # ignore this "start" since it's right next to the previous start.
-            # extend possible_end by turning it to None, since we started a new substatement
-            self.possible_end = None
-            ret = None
+    def __init__(self, cycle: int):
+        self.start_cycle = cycle
+        self.active_children = set()
 
-        self.active_children.add(child_track_id)
-        return ret
+    def stmt_start_event(self, stmt: str):
+        self.active_children.add(stmt)
+
+    def num_active_children(self):
+        return len(self.active_children)
     
-    def end_event(self, end_cycle: int, child_track_id: str, force_quit: bool = False) -> Optional[tuple[int, int]]:
-        """
-        If force_quit is True, then we will return the tuple (end of the program).
-        """
-        # if end_cycle < 50:
-        # print(f"END EVENT {end_cycle}. CURRENT VALUES {self.start_cycle} {self.possible_end} {self.active_children}")
-        self.active_children.remove(child_track_id)
-        if force_quit:
-            return (self.start_cycle, end_cycle)
-        else:
-            # keep extending the possible end
-            self.possible_end = end_cycle
+    def stmt_start(self, stmt_track_id: str):
+        assert(stmt_track_id not in self.active_children)
+        self.active_children.add(stmt_track_id)
 
+    def stmt_end(self, end_cycle: int, stmt_track_id: str):
+        self.possible_end = end_cycle
+        # print(f"INTERVAL END EVENT {stmt_track_id} {self.active_children}")
+        assert(stmt_track_id in self.active_children)
+        self.active_children.remove(stmt_track_id)
 
-    def event(self, cycle: int, event_type: TrackEvent.Type, child_track_id: str, force_quit: bool=False) -> Optional[tuple[int, int]]:
-        if force_quit:
-            print(f"encountered force quit from child {child_track_id}")
-            self.force_quit_encountered = True
-        match event_type:
-            case TrackEvent.TYPE_SLICE_BEGIN:
-                return self.start_event(cycle, child_track_id)
-            case TrackEvent.TYPE_SLICE_END:
-                return self.end_event(cycle, child_track_id, force_quit)
-            
-    def force_quit(self):
-        if self.force_quit_encountered:
-            raise ProfilerException("Force quitting an interval that has already been force quit!")
-        self.force_quit_encountered = True
-        return (self.start_cycle, self.possible_end)
+def block_name(line_contents: str):
+    block_prefix = "B"
+    return f"{block_prefix}{line_contents}"
 
 class DahliaProtoTimeline:
     """
@@ -413,138 +384,32 @@ class DahliaProtoTimeline:
     primitive_collection_name = "Calyx Primitives"
     parent_prefix = "B"
 
-    # track_id --> track id of ancestors (closer parents first)
-    track_to_parent_tracks: dict[str, list[str]]
-    # parent track id --> interval object
-    parent_to_interval: dict[str, ParentInterval]
-
     def __init__(self, adl_map: AdlMap, dahlia_parent_map: str | None, primitive_metadata: PrimitiveMetadata):
         self.proto = ProtoTimelineWrapper()
         self.primitive_name_to_type = {}
         self.proto.add_collection(self.main_function_name)
         self.proto.add_collection(self.primitive_collection_name)
-        if dahlia_parent_map is not None:
-            self._process_dahlia_parent_map(adl_map, dahlia_parent_map)
-        else:
-            print(
-                "dahlia_parent_map was not given; somewhat inconvenient timeline view will be generated"
-            )
 
         # FIXME: hella defunct way of creating a lookup for primitives
         for _, p_map in primitive_metadata.p_map.items():
             self.primitive_name_to_type.update(p_map)
 
-    def _parent_block(self, line_contents):
-        return f"{self.parent_prefix}{line_contents}"
-    
-    def _read_json_parent_map(self, parent_map_file):
-        """
-        JSON is annoying and requires string keys. This function returns a map obtained from parent_map_file, but with int keys instead.
-        """
-        m = json.load(open(parent_map_file))
-        return {int(k) : m[k] for k in m}
+    def create_tracks(self, statements_to_block_ancestors: dict[str, list[str]], blocks: set[str]):
+        # create tracks for each block
+        # list needs to be sorted because Protobuf will error out if we assign a nonexistend parent
+        for block in sorted(blocks, key=(lambda x: len(statements_to_block_ancestors[x]))):
+            block_ancestors = statements_to_block_ancestors[block]
+            parent_track_id = block_ancestors[0] if len(block_ancestors) > 0 else None
+            self.proto.register_track_in_collection(self.main_function_name, block, intermediate_parent_name=parent_track_id)
 
-    def _process_dahlia_parent_map(self, adl_map: AdlMap, dahlia_parent_map: str):
-        """
-        Assumes that dahlia_parent_map points to an actual string path.
-        """
-        self.track_to_parent_tracks = {}
-        self.parent_to_interval = {}
-
-        json_parent_map: dict[int, list[int]] = self._read_json_parent_map(dahlia_parent_map)
-
-        # need to have a parent block version of each one
-        all_parent_lines: set[int] = reduce((lambda l1, l2: set(l1).union(set(l2))), json_parent_map.values())
-        print(f"ALL PARENTS: {all_parent_lines}")
-
-        # figure out child-parent mappings.
-        for linum in sorted(json_parent_map, key=(lambda x: len(json_parent_map[x]))):
-            line_contents = adl_map.adl_linum_map[linum]
-
-            # identify the immediate ancestor trackids
-            if linum in all_parent_lines and len(json_parent_map[linum]) == 0:
-                # this line is a parent line with no parents of its own,
-                # the parent is the block version of this line.
-                parent_track_id = self._parent_block(line_contents)
-                self.track_to_parent_tracks[line_contents] = [parent_track_id]
-
-            elif linum in all_parent_lines:
-                # this line is a parent line that itself has parents
-                block_track_id = self._parent_block(line_contents)
-                ancestor_list = list(map((lambda p: self._parent_block(adl_map.adl_linum_map[p])), json_parent_map[linum]))
-
-                # this line's parent is the block version of this line.
-                self.track_to_parent_tracks[line_contents] = [block_track_id] + ancestor_list
-
-                # the block version of this line's ancestors are the block version of the actual ancestors of this line.
-                self.track_to_parent_tracks[block_track_id] = ancestor_list
-
-            elif len(json_parent_map[linum]) > 0:
-                # this line is a "normal" line with ancestors.
-                # use block version of the actual ancestors.
-                ancestor_list = list(map((lambda p: self._parent_block(adl_map.adl_linum_map[p])), json_parent_map[linum]))
-
-                self.track_to_parent_tracks[line_contents] = ancestor_list
-
-            # otherwise is a "normal" line with NO parents.
-
-        for t in self.track_to_parent_tracks:
-            print(f"{t}: \t {self.track_to_parent_tracks[t]}")
-        track_ids_covered = set()
-
-        # create tracks and parent interval objects for each parent track.
-        for parent_linum in sorted(all_parent_lines, key=(lambda x: len(json_parent_map[x]))):
-            block_track_id = self._parent_block(adl_map.adl_linum_map[parent_linum])
-            # does the block itself have a parent?
-            if block_track_id in self.track_to_parent_tracks:
-                # first entry is the immediate parent.
-                block_parent_track_id = self.track_to_parent_tracks[block_track_id][0]
-            else:
-                block_parent_track_id = None
-            self.proto.register_track_in_collection(self.main_function_name, block_track_id, intermediate_parent_name=block_parent_track_id)
-            self.parent_to_interval[block_track_id] = ParentInterval()
-            track_ids_covered.add(block_track_id)
-
-        # create tracks for all non-parent tracks.
-        for track_id in set(self.track_to_parent_tracks.keys()).difference(track_ids_covered):
-            # first entry is the immediate parent.
-            parent_track_id = self.track_to_parent_tracks[track_id][0]
-            self.proto.register_track_in_collection(self.main_function_name, track_id, intermediate_parent_name=parent_track_id)
-
-
-        # # create special tracks and interval object for all lines that are parent
-        # for parent_line in all_parent_lines:
-        #     line_contents = adl_map.adl_linum_map[parent_line]
-        #     # register parent track
-        #     parent_track_id = self._parent_block(line_contents)
-        #     self.proto.register_track_in_collection(self.main_function_name, parent_track_id, None)
-        #     # create interval object and add
-        #     self.parent_to_interval[parent_track_id] = ParentInterval()
-
-        # # create tracks for all entries
-        # for linum_str in sorted(
-        #     json_parent_map, key=(lambda x: len(json_parent_map[x]))
-        # ):
-        #     linum = int(linum_str)
-        #     line_contents = adl_map.adl_linum_map[linum]
-        #     # determine the immediate parent
-        #     if len(json_parent_map[linum_str]) == 0:
-        #         if linum in all_parent_lines:
-        #             # this line is the overhead; parent is a block version of itself.
-        #             parent_trackid = self._parent_block(line_contents)
-        #             self.track_to_parent_track[line_contents] = parent_trackid
-        #         else:
-        #             parent_trackid = None
-        #     else:
-        #         parent_line_contents = adl_map.adl_linum_map[json_parent_map[linum_str][0]]
-        #         parent_trackid = self._parent_block(parent_line_contents)
-        #         self.track_to_parent_track[line_contents] = parent_trackid
-        #     self.proto.register_track_in_collection(
-        #         self.main_function_name, line_contents, intermediate_parent_name=parent_trackid
-        #     )
+        # create tracks for each statement
+        for stmt in set(statements_to_block_ancestors.keys()).difference(blocks):
+            stmt_ancestors = statements_to_block_ancestors[stmt]
+            parent_track_id = stmt_ancestors[0] if len(stmt_ancestors) > 0 else None
+            self.proto.register_track_in_collection(self.main_function_name, stmt, intermediate_parent_name=parent_track_id)
 
     def register_statement_event(
-        self, statement: str, timestamp: int, event_type: TrackEvent.Type, force_quit: bool=False
+        self, statement: str, timestamp: int, event_type: TrackEvent.Type
     ):
         # print(f"registering statement {statement}. {statement in self.track_to_parent_track}")
         if not self.proto.is_track_registered_in_collection(
@@ -554,24 +419,6 @@ class DahliaProtoTimeline:
         self.proto.register_event_in_collection(
             self.main_function_name, statement, statement, timestamp, event_type
         )
-
-        # if this statement is a child of a parent block, 
-        if statement in self.track_to_parent_tracks:
-            # print(statement)
-            for parent_track_id in self.track_to_parent_tracks[statement]:
-                # if "0025" in parent_track_id:
-                #     print()
-                interval = self.parent_to_interval[parent_track_id]
-                # if timestamp < 50:
-                    # print(f"PARENT {parent_track_id}")
-                res_opt = interval.event(timestamp, event_type, statement, force_quit)
-                if res_opt is not None:
-                    # add previous start and end interval events.
-                    (parent_start, parent_end) = res_opt
-                    # if timestamp < 50:
-                        # print(f"SUCCESS PARENT {parent_track_id} START: {parent_start} PARENT END: {parent_end}")
-                    self.proto.register_event_in_collection(self.main_function_name, parent_track_id, parent_track_id, parent_start, TrackEvent.TYPE_SLICE_BEGIN)
-                    self.proto.register_event_in_collection(self.main_function_name, parent_track_id, parent_track_id, parent_end, TrackEvent.TYPE_SLICE_END)
 
 
     def register_calyx_primitive_event(
@@ -596,20 +443,5 @@ class DahliaProtoTimeline:
             self.primitive_collection_name, primitive, track_id, timestamp, event_type
         )
 
-    def _force_quit_all_parent_intervals(self):
-        for block_id in self.parent_to_interval:
-            print(block_id)
-            interval = self.parent_to_interval[block_id]
-            print(interval)
-            if not interval.force_quit_encountered:
-                (block_start, block_end) = interval.force_quit()
-                print(f"FORCE QUIT BLOCK {block_id}, {block_start} {block_end}")
-                self.proto.register_event_in_collection(self.main_function_name, block_id, block_id, block_start, TrackEvent.TYPE_SLICE_BEGIN)
-                self.proto.register_event_in_collection(self.main_function_name, block_id, block_id, block_end, TrackEvent.TYPE_SLICE_END)
-
-
     def emit(self, out_path: str):
-        print("hello????")
-        # FIXME: maybe not put this here?
-        self._force_quit_all_parent_intervals()
         self.proto.emit(out_path)
