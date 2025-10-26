@@ -15,9 +15,11 @@ AREA_WEIGHTS = {
     "std_reg": 8.0,
 }
 
+
 def load_data(path: Path):
     with open(path) as f:
         return json.load(f)
+
 
 def compute_areas(data):
     areas = []
@@ -28,6 +30,7 @@ def compute_areas(data):
         area = weight * w
         areas.append({"cell_name": name, "cell_type": t, "width": w, "area": area})
     return areas
+
 
 def make_bar_chart(areas, output):
     type_area = defaultdict(float)
@@ -44,6 +47,7 @@ def make_bar_chart(areas, output):
     )
     fig.write_html(output)
 
+
 def make_treemap(areas, output):
     fig = px.treemap(
         areas,
@@ -52,6 +56,7 @@ def make_treemap(areas, output):
         title="estimated area treemap",
     )
     fig.write_html(output)
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -85,6 +90,7 @@ def main():
     elif args.mode == "treemap":
         output = args.output or Path("area_treemap.html")
         make_treemap(areas, output)
+
 
 if __name__ == "__main__":
     main()

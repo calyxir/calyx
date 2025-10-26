@@ -1,5 +1,11 @@
 from pathlib import Path
-from AreaExtract.lib.cdf.cdf import VivadoRsrc, Cell, Design, Metadata, DesignWithMetadata
+from AreaExtract.lib.cdf.cdf import (
+    VivadoRsrc,
+    Cell,
+    Design,
+    Metadata,
+    DesignWithMetadata,
+)
 import re
 
 

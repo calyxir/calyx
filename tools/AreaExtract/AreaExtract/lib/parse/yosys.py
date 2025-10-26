@@ -1,9 +1,16 @@
 import re
 import json
 from dataclasses import dataclass
-from AreaExtract.lib.cdf.cdf import YosysRsrc, Cell, Design, Metadata, DesignWithMetadata
+from AreaExtract.lib.cdf.cdf import (
+    YosysRsrc,
+    Cell,
+    Design,
+    Metadata,
+    DesignWithMetadata,
+)
 
 toplevel: str = "main"
+
 
 @dataclass
 class CellWithParams:

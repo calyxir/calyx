@@ -157,16 +157,8 @@ def main():
     parser = argparse.ArgumentParser(
         description="Utility to process Yosys IL and stat files and dump design map as JSON"
     )
-    parser.add_argument(
-        "il_file",
-        type=pathlib.Path,
-        help="path to the IL file"
-    )
-    parser.add_argument(
-        "stat_file",
-        type=pathlib.Path,
-        help="path to the stat file"
-    )
+    parser.add_argument("il_file", type=pathlib.Path, help="path to the IL file")
+    parser.add_argument("stat_file", type=pathlib.Path, help="path to the stat file")
     parser.add_argument(
         "-o",
         "--output",

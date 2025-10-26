@@ -35,7 +35,7 @@ class Cell:
     """
     Cell with resources.
     """
-    
+
     # Unqualified cell name.
     name: str
     # Cell type.
@@ -44,6 +44,7 @@ class Cell:
     generated: bool
     # Cell resources.
     rsrc: Rsrc
+
 
 @dataclass
 class Metadata:
