@@ -3,6 +3,11 @@ source: fud2/tests/tests.rs
 ---
 [
     (
+        "adl-compiled-profiler",
+        "calyx",
+        "flamegraph",
+    ),
+    (
         "area-report-to-flamegraph",
         "area-report",
         "flamegraph",
@@ -206,6 +211,16 @@ source: fud2/tests/tests.rs
         "verilog-to-xo",
         "verilog",
         "xo",
+    ),
+    (
+        "vitis-hls",
+        "cpp",
+        "hls-report",
+    ),
+    (
+        "vitis-hls-impl",
+        "cpp",
+        "hls-impl-report",
     ),
     (
         "xclbin",

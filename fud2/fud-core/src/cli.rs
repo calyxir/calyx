@@ -18,6 +18,7 @@ enum Mode {
     Generate,
     Run,
     Cmds,
+    JsonPlan,
 }
 
 impl FromStr for Mode {
@@ -31,6 +32,7 @@ impl FromStr for Mode {
             "run" => Ok(Mode::Run),
             "dot" => Ok(Mode::ShowDot),
             "cmds" => Ok(Mode::Cmds),
+            "json-plan" => Ok(Mode::JsonPlan),
             _ => Err("unknown mode".to_string()),
         }
     }
@@ -45,6 +47,7 @@ impl Display for Mode {
             Mode::Run => write!(f, "run"),
             Mode::ShowDot => write!(f, "dot"),
             Mode::Cmds => write!(f, "cmds"),
+            Mode::JsonPlan => write!(f, "json-plan"),
         }
     }
 }
@@ -57,6 +60,7 @@ enum Planner {
     #[cfg(feature = "egg_planner")]
     Egg,
     Enumerate,
+    FromJson,
 }
 
 impl FromStr for Planner {
@@ -68,6 +72,7 @@ impl FromStr for Planner {
             #[cfg(feature = "egg_planner")]
             "egg" => Ok(Planner::Egg),
             "enumerate" => Ok(Planner::Enumerate),
+            "json" => Ok(Planner::FromJson),
             _ => Err("unknown planner".to_string()),
         }
     }
@@ -80,6 +85,7 @@ impl Display for Planner {
             #[cfg(feature = "egg_planner")]
             Planner::Egg => write!(f, "egg"),
             Planner::Enumerate => write!(f, "enumerate"),
+            Planner::FromJson => write!(f, "json"),
         }
     }
 }
@@ -166,7 +172,7 @@ pub struct FudArgs<T: CliExt> {
     #[argh(option)]
     to: Vec<String>,
 
-    /// execution mode (run, plan, emit, gen, dot)
+    /// execution mode (run, plan, emit, gen, dot, json-plan)
     #[argh(option, short = 'm', default = "Mode::Run")]
     mode: Mode,
 
@@ -305,6 +311,7 @@ fn get_request<T: CliExt>(
             #[cfg(feature = "egg_planner")]
             Planner::Egg => Box::new(plan::EggPlanner {}),
             Planner::Enumerate => Box::new(plan::EnumeratePlanner {}),
+            Planner::FromJson => Box::new(plan::JsonPlanner {}),
         },
         timing_csv: args.timing_csv.clone(),
     })
@@ -523,6 +530,7 @@ fn cli_ext<T: CliExt>(
             args.force_rebuild,
             csv_path,
         )?,
+        Mode::JsonPlan => run.show_ops_json(),
     }
 
     Ok(())

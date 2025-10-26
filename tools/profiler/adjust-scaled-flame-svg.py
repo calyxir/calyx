@@ -13,7 +13,10 @@ def main(svg_in, scale_opt):
     oin = open(svg_in, "r")
 
     for line in oin:
-        if line.startswith("<title>"):
+        function_line = '"Function: " +'
+        if function_line in line:
+            print(line.replace(function_line, ""))
+        elif line.startswith("<title>"):
             if "(primitive)" in line:
                 fill = primitive_fill
             elif "[" in line or "<title>main" in line:

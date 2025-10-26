@@ -1,5 +1,4 @@
 import json
-import os
 from pathlib import Path, PurePath
 import re
 import traceback
@@ -97,18 +96,10 @@ def rpt_extract(file: PurePath):
 
 def place_and_route_extract(
     directory: Path,
-    files_root: str,
     utilization_file: PurePath,
     timing_file: PurePath,
     synthesis_file: PurePath,
 ):
-    # Search for the given root directory
-    for root, dirs, _ in os.walk(directory):
-        for d in dirs:
-            if d == files_root:
-                directory = Path(os.path.join(root, d))
-                break
-
     util_file = directory / utilization_file
     synth_file = directory / synthesis_file
     timing_file = directory / timing_file
@@ -161,32 +152,22 @@ def place_and_route_extract(
 
 
 def hls_extract(directory: Path, top: str):
-    # Search for directory named benchmark.prj
-    for root, dirs, _ in os.walk(directory):
-        for d in dirs:
-            if d == "benchmark.prj":
-                directory = Path(os.path.join(root, d))
-                break
-
     directory = directory / "solution1"
 
     try:
         parser = rpt.RPTParser(directory / "syn" / "report" / f"{top}_csynth.rpt")
         summary_table = parser.get_table(re.compile(r"== Utilization Estimates"), 2)
-        instance_table = parser.get_table(re.compile(r"\* Instance:"), 0)
 
         solution_data = json.load((directory / "solution1_data.json").open())
         latency = solution_data["ModuleInfo"]["Metrics"][top]["Latency"]
 
         total_row = find_row(summary_table, "Name", "Total")
-        s_axi_row = find_row(instance_table, "Instance", f"{top}_control_s_axi_U")
 
         return json.dumps(
             {
-                "total_lut": to_int(total_row["LUT"]),
-                "instance_lut": to_int(s_axi_row["LUT"]),
-                "lut": to_int(total_row["LUT"]) - to_int(s_axi_row["LUT"]),
-                "dsp": to_int(total_row["DSP48E"]) - to_int(s_axi_row["DSP48E"]),
+                "lut": to_int(total_row["LUT"]),
+                "ff": to_int(total_row["FF"]),
+                "dsp": to_int(total_row["DSP"]),
                 "avg_latency": to_int(latency["LatencyAvg"]),
                 "best_latency": to_int(latency["LatencyBest"]),
                 "worst_latency": to_int(latency["LatencyWorst"]),

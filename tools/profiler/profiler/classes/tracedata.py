@@ -5,8 +5,9 @@ from enum import Enum
 from .stack_element import StackElement, StackElementType
 from .cell_metadata import CellMetadata
 from .control_metadata import ControlMetadata
-from .adl import AdlMap
+from .adl import AdlMap, Adl
 from .summaries import Summary
+from .errors import ProfilerException
 from collections import defaultdict
 
 
@@ -75,11 +76,11 @@ class CycleTrace:
                 # self.cycle_type = CycleType.GROUP_OR_PRIMITIVE
         self.stacks.append(stack)
 
-    def get_stack_str_list(self, mode: FlameMapMode):
+    def get_stack_str_set(self, mode: FlameMapMode) -> set[str]:
         """
-        Retrieve a list of stack string representations based on what mode (Default, ADL, mixed) we're going off of.
+        Retrieve a set of stack string representations based on what mode (Default, ADL, mixed) we're going off of.
         """
-        stack_str_list = []
+        stack_str_set = set()
         for stack in self.stacks:
             match mode:
                 case FlameMapMode.CALYX:
@@ -90,8 +91,8 @@ class CycleTrace:
                 case FlameMapMode.MIXED:
                     assert self.sourceloc_info_added
                     stack_str = ";".join(map(lambda elem: elem.mixed_str(), stack))
-            stack_str_list.append(stack_str)
-        return stack_str_list
+            stack_str_set.add(stack_str)
+        return stack_str_set
 
     def get_num_stacks(self):
         return len(self.stacks)
@@ -104,6 +105,7 @@ class CycleTrace:
         # Maybe we use `stack_elem.internal_name` instead? I'm not 100% sure.
         for stack in self.stacks:
             curr_component: str | None = None
+
             for stack_elem in stack:
                 match stack_elem.element_type:
                     case StackElementType.CELL:
@@ -142,6 +144,22 @@ class CycleTrace:
                         ]
 
         self.sourceloc_info_added = True
+
+    def find_leaf_groups(self) -> set[str]:
+        """
+        Returns the set of names of groups in this CycleTrace that don't have any group descendants.
+        (Used to find Dahlia statements that are active this cycle.)
+        """
+        leaf_groups = set()
+        for stack in self.stacks:
+            leaf_group_name: str | None = None
+            for stack_elem in stack:
+                match stack_elem.element_type:
+                    case StackElementType.GROUP:
+                        leaf_group_name = stack_elem.name
+            if leaf_group_name is not None:
+                leaf_groups.add(leaf_group_name)
+        return leaf_groups
 
 
 @dataclass
@@ -330,8 +348,13 @@ class PTrace:
             self.trace.append(CycleTrace())
         self.trace.append(cycle_trace)
 
+    def string_repr(self, mode: FlameMapMode) -> list[set[str]]:
+        return list(
+            map(lambda cycletrace: cycletrace.get_stack_str_set(mode), self.trace)
+        )
+
     def __getitem__(self, index):
-        assert index <= len(self.trace)
+        assert index < len(self.trace)
         return self.trace[index]
 
     def __contains__(self, key):
@@ -458,6 +481,8 @@ class TraceData:
                         active_control_groups_missed = missed_groups
                     else:
                         active_control_groups_missed.intersection_update(missed_groups)
+                # add cycletrace to control groups trace
+                self.trace_with_control_groups.add_cycle(i, new_cycletrace)
                 # Edge case: add any control groups that weren't covered to the CycleTrace
                 self._create_stacks_for_missed_control_groups(
                     active_control_groups_missed,
@@ -467,9 +492,6 @@ class TraceData:
                     cell_metadata,
                     control_metadata,
                 )
-
-                # add cycletrace to control groups trace
-                self.trace_with_control_groups.add_cycle(i, new_cycletrace)
 
             else:
                 self.trace_with_control_groups.add_cycle(i, copy.copy(self.trace[i]))
@@ -529,6 +551,10 @@ class TraceData:
             )
             new_stack.append(leaf_element)
             # add new_stack to the current cycle's CycleTrace
+            print(
+                f"i: {i} len: {len(self.trace_with_control_groups)} len of original: {len(self.trace)}"
+            )
+
             self.trace_with_control_groups[i].add_stack(new_stack)
 
     def _compute_ctrl_group_to_parents(
@@ -758,8 +784,12 @@ class TraceData:
         """
         trace: PTrace = self.trace_with_control_groups
         assert len(trace) > 0  # can't add sourceloc info on an empty trace
+        match adl_map.adl:
+            case Adl.PY:
+                for i in trace:
+                    i_trace: CycleTrace = trace[i]
+                    i_trace.add_sourceloc_info(adl_map)
+                return trace
 
-        for i in trace:
-            trace[i].add_sourceloc_info(adl_map)
-
-        return trace
+            case Adl.DAHLIA:
+                raise ProfilerException("Dahlia traces should be generated elsewhere!")

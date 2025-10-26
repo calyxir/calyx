@@ -9,6 +9,7 @@ class StackElementType(Enum):
     PRIMITIVE = 2
     CELL = 3
     CONTROL_GROUP = 4  # TDCC-generated groups that manage control
+    ADL_LINE = 5  # a line within an ADL program
 
 
 @dataclass
@@ -78,6 +79,8 @@ class StackElement:
                     f" ~ {self.ctrl_loc_str}" if self.ctrl_loc_str is not None else ""
                 )
                 return f"{self.name}{ctrl_string} (ctrl)"
+            case StackElementType.ADL_LINE:
+                return self.name
 
     def adl_str(self):
         """
@@ -107,6 +110,8 @@ class StackElement:
                         return f"{og_sourceloc_str} [{component_sourceloc_str}]"
             case StackElementType.CONTROL_GROUP:
                 return f"{self.compiler_generated_msg} (ctrl)"
+            case StackElementType.ADL_LINE:
+                return self.name
 
     def mixed_str(self):
         """
@@ -135,3 +140,5 @@ class StackElement:
                         return f"{og_str} [{component_str}]"
             case StackElementType.CONTROL_GROUP:
                 return f"{self.name} (ctrl) {{{self.compiler_generated_msg}}}"
+            case StackElementType.ADL_LINE:
+                return self.name
