@@ -1,5 +1,4 @@
 import pathlib
-import sys
 import re
 import json
 from dataclasses import dataclass, asdict, is_dataclass
