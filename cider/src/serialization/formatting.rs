@@ -1,93 +1,29 @@
 use fraction::Fraction;
 use itertools::Itertools;
 use serde::Serialize;
-use std::fmt::{Debug, Display};
+use std::fmt::{Debug, Display, Write};
 
-use crate::flatten::{
-    flat_ir::cell_prototype::MemoryDimensions, text_utils::Color,
+use crate::{
+    flatten::{flat_ir::cell_prototype::MemoryDimensions, text_utils::Color},
+    serialization::Dimensions,
 };
 use baa::{BitVecOps, BitVecValue, WidthInt};
 
-/// An enum wrapping over a tuple representing the shape of a multi-dimensional
-/// array
-#[derive(Clone, Debug)]
-pub enum Shape {
-    D1(usize),
-    D2(usize, usize),
-    D3(usize, usize, usize),
-    D4(usize, usize, usize, usize),
-}
-
-impl Shape {
-    fn is_1d(&self) -> bool {
-        matches!(self, Shape::D1(_))
-    }
-
-    /// returns the total number of entries in the memory, i.e. it's size based
-    /// on the dimensions of it.
-    pub fn size(&self) -> usize {
-        match self {
-            Shape::D1(d0) => *d0,
-            Shape::D2(d0, d1) => d0 * d1,
-            Shape::D3(d0, d1, d2) => d0 * d1 * d2,
-            Shape::D4(d0, d1, d2, d3) => d0 * d1 * d2 * d3,
-        }
-    }
-
-    pub fn as_string(&self) -> String {
-        match self {
-            Shape::D1(d0) => format!("({d0})"),
-            Shape::D2(d0, d1) => format!("({d0}, {d1})"),
-            Shape::D3(d0, d1, d2) => format!("({d0}, {d1}, {d2})"),
-            Shape::D4(d0, d1, d2, d3) => {
-                format!("({d0}, {d1}, {d2}, {d3})")
-            }
-        }
-    }
-}
-impl From<usize> for Shape {
-    fn from(u: usize) -> Self {
-        Shape::D1(u)
-    }
-}
-impl From<(usize,)> for Shape {
-    fn from(u: (usize,)) -> Self {
-        Shape::D1(u.0)
-    }
-}
-impl From<(usize, usize)> for Shape {
-    fn from(u: (usize, usize)) -> Self {
-        Shape::D2(u.0, u.1)
-    }
-}
-
-impl From<(usize, usize, usize)> for Shape {
-    fn from(u: (usize, usize, usize)) -> Self {
-        Shape::D3(u.0, u.1, u.2)
-    }
-}
-
-impl From<(usize, usize, usize, usize)> for Shape {
-    fn from(u: (usize, usize, usize, usize)) -> Self {
-        Shape::D4(u.0, u.1, u.2, u.3)
-    }
-}
-
-impl From<&MemoryDimensions> for Shape {
+impl From<&MemoryDimensions> for Dimensions {
     fn from(value: &MemoryDimensions) -> Self {
         match value {
             MemoryDimensions::D1 { d0_size, .. } => {
-                Shape::D1(*d0_size as usize)
+                Dimensions::D1(*d0_size as usize)
             }
             MemoryDimensions::D2 {
                 d0_size, d1_size, ..
-            } => Shape::D2(*d0_size as usize, *d1_size as usize),
+            } => Dimensions::D2(*d0_size as usize, *d1_size as usize),
             MemoryDimensions::D3 {
                 d0_size,
                 d1_size,
                 d2_size,
                 ..
-            } => Shape::D3(
+            } => Dimensions::D3(
                 *d0_size as usize,
                 *d1_size as usize,
                 *d2_size as usize,
@@ -98,7 +34,7 @@ impl From<&MemoryDimensions> for Shape {
                 d2_size,
                 d3_size,
                 ..
-            } => Shape::D4(
+            } => Dimensions::D4(
                 *d0_size as usize,
                 *d1_size as usize,
                 *d2_size as usize,
@@ -210,7 +146,7 @@ impl Display for PrintCode {
 pub enum Serializable {
     Empty,
     Val(Entry),
-    Array(Vec<Entry>, Shape),
+    Array(Vec<Entry>, Dimensions),
 }
 
 impl Serializable {
@@ -241,12 +177,12 @@ impl Serialize for Serializable {
             Serializable::Val(u) => u.serialize(serializer),
             Serializable::Array(arr, shape) => {
                 let arr: Vec<&Entry> = arr.iter().collect();
-                if shape.is_1d() {
+                if shape.is_d1() {
                     return arr.serialize(serializer);
                 }
                 // there's probably a better way to write this
                 match shape {
-                    Shape::D2(_d0, d1) => {
+                    Dimensions::D2(_d0, d1) => {
                         let mem = arr
                             .iter()
                             .chunks(*d1)
@@ -255,7 +191,7 @@ impl Serialize for Serializable {
                             .collect::<Vec<_>>();
                         mem.serialize(serializer)
                     }
-                    Shape::D3(_d0, d1, d2) => {
+                    Dimensions::D3(_d0, d1, d2) => {
                         let mem = arr
                             .iter()
                             .chunks(d1 * d2)
@@ -270,7 +206,7 @@ impl Serialize for Serializable {
                             .collect::<Vec<_>>();
                         mem.serialize(serializer)
                     }
-                    Shape::D4(_d0, d1, d2, d3) => {
+                    Dimensions::D4(_d0, d1, d2, d3) => {
                         let mem = arr
                             .iter()
                             .chunks(d2 * d1 * d3)
@@ -294,7 +230,7 @@ impl Serialize for Serializable {
                             .collect::<Vec<_>>();
                         mem.serialize(serializer)
                     }
-                    Shape::D1(_) => unreachable!(),
+                    Dimensions::D1(_) => unreachable!(),
                 }
             }
         }
@@ -303,7 +239,7 @@ impl Serialize for Serializable {
 
 fn format_array(arr: &[Entry], shape: &Shape) -> String {
     match shape {
-        Shape::D2(_d0, d1) => {
+        Dimensions::D2(_d0, d1) => {
             let mem = arr
                 .iter()
                 .chunks(*d1)
@@ -312,7 +248,7 @@ fn format_array(arr: &[Entry], shape: &Shape) -> String {
                 .collect::<Vec<_>>();
             format!("{mem:?}")
         }
-        Shape::D3(_d0, d1, d2) => {
+        Dimensions::D3(_d0, d1, d2) => {
             let mem = arr
                 .iter()
                 .chunks(d1 * d2)
@@ -348,7 +284,8 @@ fn format_array(arr: &[Entry], shape: &Shape) -> String {
                 .collect::<Vec<_>>();
             format!("{mem:?}")
         }
-        Shape::D1(_) => {
+        Dimensions::D1(_) => {
+            let arr: Vec<_> = arr.collect();
             format!("{arr:?}")
         }
     }

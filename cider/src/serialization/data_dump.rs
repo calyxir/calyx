@@ -18,6 +18,25 @@ impl Dimensions {
             Dimensions::D4(d0, d1, d2, d3) => d0 * d1 * d2 * d3,
         }
     }
+
+    /// Returns `true` if the dimensions is [`D1`].
+    ///
+    /// [`D1`]: Dimensions::D1
+    #[must_use]
+    pub fn is_d1(&self) -> bool {
+        matches!(self, Self::D1(..))
+    }
+
+    pub fn as_string(&self) -> String {
+        match self {
+            Self::D1(d0) => format!("({d0})"),
+            Self::D2(d0, d1) => format!("({d0}, {d1})"),
+            Self::D3(d0, d1, d2) => format!("({d0}, {d1}, {d2})"),
+            Self::D4(d0, d1, d2, d3) => {
+                format!("({d0}, {d1}, {d2}, {d3})")
+            }
+        }
+    }
 }
 
 impl From<usize> for Dimensions {

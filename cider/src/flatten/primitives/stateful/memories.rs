@@ -23,7 +23,7 @@ use crate::{
             thread::{ThreadIdx, ThreadMap},
         },
     },
-    serialization::{Entry, PrintCode, Serializable, Shape},
+    serialization::{Dimensions, Entry, PrintCode, Serializable},
 };
 
 use baa::{BitVecOps, BitVecValue};
@@ -228,13 +228,13 @@ impl RaceDetectionPrimitive for StdReg {
 
 #[derive(Clone)]
 pub struct MemDx<const SEQ: bool> {
-    shape: Shape,
+    shape: Dimensions,
 }
 
 impl<const SEQ: bool> MemDx<SEQ> {
     pub fn new<T>(shape: T) -> Self
     where
-        T: Into<Shape>,
+        T: Into<Dimensions>,
     {
         Self {
             shape: shape.into(),
@@ -273,21 +273,21 @@ impl<const SEQ: bool> MemDx<SEQ> {
         };
 
         Some(match self.shape {
-            Shape::D1(..) => vec![port_map[addr0].as_u64().unwrap()],
-            Shape::D2(..) => {
+            Dimensions::D1(..) => vec![port_map[addr0].as_u64().unwrap()],
+            Dimensions::D2(..) => {
                 let a0 = port_map[addr0].as_u64()? as usize;
                 let a1 = port_map[addr1].as_u64()? as usize;
 
                 vec![a0 as u64, a1 as u64]
             }
-            Shape::D3(..) => {
+            Dimensions::D3(..) => {
                 let a0 = port_map[addr0].as_u64()? as usize;
                 let a1 = port_map[addr1].as_u64()? as usize;
                 let a2 = port_map[addr2].as_u64()? as usize;
 
                 vec![a0 as u64, a1 as u64, a2 as u64]
             }
-            Shape::D4(..) => {
+            Dimensions::D4(..) => {
                 let a0 = port_map[addr0].as_u64()? as usize;
                 let a1 = port_map[addr1].as_u64()? as usize;
                 let a2 = port_map[addr2].as_u64()? as usize;
@@ -351,21 +351,23 @@ impl<const SEQ: bool> MemDx<SEQ> {
         addr3: GlobalPortIdx,
     ) -> Option<usize> {
         match self.shape {
-            Shape::D1(_d0_size) => port_map[addr0].as_u64().map(|v| v as usize),
-            Shape::D2(_d0_size, d1_size) => {
+            Dimensions::D1(_d0_size) => {
+                port_map[addr0].as_u64().map(|v| v as usize)
+            }
+            Dimensions::D2(_d0_size, d1_size) => {
                 let a0 = port_map[addr0].as_u64()? as usize;
                 let a1 = port_map[addr1].as_u64()? as usize;
 
                 Some(a0 * d1_size + a1)
             }
-            Shape::D3(_d0_size, d1_size, d2_size) => {
+            Dimensions::D3(_d0_size, d1_size, d2_size) => {
                 let a0 = port_map[addr0].as_u64()? as usize;
                 let a1 = port_map[addr1].as_u64()? as usize;
                 let a2 = port_map[addr2].as_u64()? as usize;
 
                 Some(a0 * (d1_size * d2_size) + a1 * d2_size + a2)
             }
-            Shape::D4(_d0_size, d1_size, d2_size, d3_size) => {
+            Dimensions::D4(_d0_size, d1_size, d2_size, d3_size) => {
                 let a0 = port_map[addr0].as_u64()? as usize;
                 let a1 = port_map[addr1].as_u64()? as usize;
                 let a2 = port_map[addr2].as_u64()? as usize;
@@ -384,22 +386,22 @@ impl<const SEQ: bool> MemDx<SEQ> {
     pub fn non_address_base(&self) -> usize {
         if SEQ {
             match self.shape {
-                Shape::D1(_) => Self::SEQ_ADDR0 + 1,
-                Shape::D2(_, _) => Self::SEQ_ADDR1 + 1,
-                Shape::D3(_, _, _) => Self::SEQ_ADDR2 + 1,
-                Shape::D4(_, _, _, _) => Self::SEQ_ADDR3 + 1,
+                Dimensions::D1(_) => Self::SEQ_ADDR0 + 1,
+                Dimensions::D2(_, _) => Self::SEQ_ADDR1 + 1,
+                Dimensions::D3(_, _, _) => Self::SEQ_ADDR2 + 1,
+                Dimensions::D4(_, _, _, _) => Self::SEQ_ADDR3 + 1,
             }
         } else {
             match self.shape {
-                Shape::D1(_) => Self::COMB_ADDR0 + 1,
-                Shape::D2(_, _) => Self::COMB_ADDR1 + 1,
-                Shape::D3(_, _, _) => Self::COMB_ADDR2 + 1,
-                Shape::D4(_, _, _, _) => Self::COMB_ADDR3 + 1,
+                Dimensions::D1(_) => Self::COMB_ADDR0 + 1,
+                Dimensions::D2(_, _) => Self::COMB_ADDR1 + 1,
+                Dimensions::D3(_, _, _) => Self::COMB_ADDR2 + 1,
+                Dimensions::D4(_, _, _, _) => Self::COMB_ADDR3 + 1,
             }
         }
     }
 
-    pub fn get_dimensions(&self) -> Shape {
+    pub fn get_dimensions(&self) -> Dimensions {
         self.shape.clone()
     }
 
@@ -427,10 +429,12 @@ impl<const SEQ: bool> MemDx<SEQ> {
         };
 
         match self.shape {
-            Shape::D1(_) => Box::new(std::iter::once(addr0)),
-            Shape::D2(_, _) => Box::new([addr0, addr1].into_iter()),
-            Shape::D3(_, _, _) => Box::new([addr0, addr1, addr2].into_iter()),
-            Shape::D4(_, _, _, _) => {
+            Dimensions::D1(_) => Box::new(std::iter::once(addr0)),
+            Dimensions::D2(_, _) => Box::new([addr0, addr1].into_iter()),
+            Dimensions::D3(_, _, _) => {
+                Box::new([addr0, addr1, addr2].into_iter())
+            }
+            Dimensions::D4(_, _, _, _) => {
                 Box::new([addr0, addr1, addr2, addr3].into_iter())
             }
         }
@@ -772,11 +776,11 @@ pub struct MemConfigInfo {
     global_idx: GlobalCellIdx,
     width: u32,
     allow_invalid: bool,
-    size: Shape,
+    size: Dimensions,
 }
 
 impl MemConfigInfo {
-    pub fn new<T: Into<Shape>>(
+    pub fn new<T: Into<Dimensions>>(
         base: GlobalPortIdx,
         global_idx: GlobalCellIdx,
         width: u32,
