@@ -4,8 +4,8 @@ from profiler.classes.cell_metadata import CellMetadata
 from profiler.classes.control_metadata import ControlMetadata
 from profiler.classes.tracedata import (
     CycleTrace,
-    Utilization,
-    UtilizationCycleTrace,
+    Area,
+    AreaCycleTrace,
     TraceData,
     StackElement,
     StackElementType,
@@ -188,7 +188,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self,
         shared_cells_map: dict[str, dict[str, str]],
         control_metadata: ControlMetadata | None = None,
-        utilization: Utilization | None = None,
+        utilization: Area | None = None,
     ):
         """
         Postprocess data mapping timestamps to events (signal changes)
@@ -548,7 +548,7 @@ def create_utilization_cycle_trace(
     info_this_cycle: dict[str, str | dict[str, str]],
     shared_cell_map: dict[str, dict[str, str]],
     include_primitives: bool,
-    utilization: Utilization,
+    utilization: Area,
 ):
     """
     Creates a UtilizationCycleTrace object for stack elements in this cycle, computing the dependencies between them.
@@ -556,7 +556,7 @@ def create_utilization_cycle_trace(
     cycle_trace = create_cycle_trace(
         cell_info, info_this_cycle, shared_cell_map, include_primitives
     )
-    return UtilizationCycleTrace(utilization, control_metadata, cycle_trace.stacks)
+    return AreaCycleTrace(utilization, control_metadata, cycle_trace.stacks)
 
 
 def add_control_enables(
