@@ -7,7 +7,7 @@ use crate::{
             thread::ThreadMap,
         },
     },
-    serialization::{PrintCode, Serializable},
+    serialization::{LazySerializable, PrintCode},
 };
 
 use baa::BitVecValue;
@@ -177,11 +177,11 @@ pub trait RaceDetectionPrimitive: Primitive {
 
 pub trait SerializeState {
     /// Serialize the internal state of the primitive with the given formatting
-    fn serialize(
+    fn serialize<'a>(
         &self,
         _code: Option<PrintCode>,
-        _state_map: &MemoryMap,
-    ) -> Serializable;
+        _state_map: &'a MemoryMap,
+    ) -> LazySerializable<'a>;
 
     /// Dumps stored data as a raw byte stream
     fn dump_data(&self, _state_map: &MemoryMap) -> Vec<u8>;

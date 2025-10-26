@@ -37,6 +37,63 @@ impl Dimensions {
             }
         }
     }
+
+    /// computes the flat address for a multi-dimensional array of the given
+    /// dimensions. If the caller cannot guarantee the correct number of
+    /// dimensions, use [Self::compute_address] instead.Note that this function
+    /// does not check whether the computed address is in-bounds for the array.
+    ///
+    /// Will panic if too few addresses are provided for the given dimension.
+    /// Will ignore excess addresses.
+    pub fn compute_address_nocheck(&self, addrs: &[usize]) -> usize {
+        match self {
+            Dimensions::D1(_) => addrs[0],
+            Dimensions::D2(_, d1_size) => {
+                let a0 = addrs[0];
+                let a1 = addrs[1];
+                a0 * d1_size + a1
+            }
+            Dimensions::D3(_, d1_size, d2_size) => {
+                let a0 = addrs[0];
+                let a1 = addrs[1];
+                let a2 = addrs[2];
+
+                a0 * (d1_size * d2_size) + a1 * d2_size + a2
+            }
+            Dimensions::D4(_, d1_size, d2_size, d3_size) => {
+                let a0 = addrs[0];
+                let a1 = addrs[1];
+                let a2 = addrs[2];
+                let a3 = addrs[3];
+
+                a0 * (d1_size * d2_size * d3_size)
+                    + a1 * (d2_size * d3_size)
+                    + a2 * d3_size
+                    + a3
+            }
+        }
+    }
+
+    /// Computes the result of the given addresses for the dimensions. Returns
+    /// None if an incorrect number of addresses are provided for the given
+    /// dimension. Note that this function does not check whether the computed
+    /// address is in-bounds for the array.
+    pub fn compute_address(&self, addrs: &[usize]) -> Option<usize> {
+        match self {
+            Dimensions::D1(_) => {
+                (addrs.len() == 1).then(|| self.compute_address_nocheck(addrs))
+            }
+            Dimensions::D2(..) => {
+                (addrs.len() == 2).then(|| self.compute_address_nocheck(addrs))
+            }
+            Dimensions::D3(..) => {
+                (addrs.len() == 3).then(|| self.compute_address_nocheck(addrs))
+            }
+            Dimensions::D4(..) => {
+                (addrs.len() == 4).then(|| self.compute_address_nocheck(addrs))
+            }
+        }
+    }
 }
 
 impl From<usize> for Dimensions {

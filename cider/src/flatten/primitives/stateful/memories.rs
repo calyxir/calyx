@@ -23,7 +23,7 @@ use crate::{
             thread::{ThreadIdx, ThreadMap},
         },
     },
-    serialization::{Dimensions, Entry, PrintCode, Serializable},
+    serialization::{Dimensions, LazySerializable, PrintCode},
 };
 
 use baa::{BitVecOps, BitVecValue};
@@ -163,15 +163,12 @@ impl Primitive for StdReg {
 }
 
 impl SerializeState for StdReg {
-    fn serialize(
+    fn serialize<'a>(
         &self,
         code: Option<PrintCode>,
-        map: &MemoryMap,
-    ) -> Serializable {
-        Serializable::Val(Entry::from_val_code(
-            &map[self.internal_state],
-            &code.unwrap_or_default(),
-        ))
+        map: &'a MemoryMap,
+    ) -> LazySerializable<'a> {
+        LazySerializable::new_val(code, &map[self.internal_state])
     }
     fn dump_data(&self, memory_map: &MemoryMap) -> Vec<u8> {
         memory_map[self.internal_state].to_bytes_le()
@@ -351,34 +348,30 @@ impl<const SEQ: bool> MemDx<SEQ> {
         addr3: GlobalPortIdx,
     ) -> Option<usize> {
         match self.shape {
-            Dimensions::D1(_d0_size) => {
-                port_map[addr0].as_u64().map(|v| v as usize)
+            Dimensions::D1(..) => {
+                let a0 = port_map[addr0].as_u64()? as usize;
+                Some(self.shape.compute_address_nocheck(&[a0]))
             }
-            Dimensions::D2(_d0_size, d1_size) => {
+            Dimensions::D2(..) => {
                 let a0 = port_map[addr0].as_u64()? as usize;
                 let a1 = port_map[addr1].as_u64()? as usize;
 
-                Some(a0 * d1_size + a1)
+                Some(self.shape.compute_address_nocheck(&[a0, a1]))
             }
-            Dimensions::D3(_d0_size, d1_size, d2_size) => {
+            Dimensions::D3(..) => {
                 let a0 = port_map[addr0].as_u64()? as usize;
                 let a1 = port_map[addr1].as_u64()? as usize;
                 let a2 = port_map[addr2].as_u64()? as usize;
 
-                Some(a0 * (d1_size * d2_size) + a1 * d2_size + a2)
+                Some(self.shape.compute_address_nocheck(&[a0, a1, a2]))
             }
-            Dimensions::D4(_d0_size, d1_size, d2_size, d3_size) => {
+            Dimensions::D4(..) => {
                 let a0 = port_map[addr0].as_u64()? as usize;
                 let a1 = port_map[addr1].as_u64()? as usize;
                 let a2 = port_map[addr2].as_u64()? as usize;
                 let a3 = port_map[addr3].as_u64()? as usize;
 
-                Some(
-                    a0 * (d1_size * d2_size * d3_size)
-                        + a1 * (d2_size * d3_size)
-                        + a2 * d3_size
-                        + a3,
-                )
+                Some(self.shape.compute_address_nocheck(&[a0, a1, a2, a3]))
             }
         }
     }
@@ -656,19 +649,14 @@ impl Primitive for CombMem {
 }
 
 impl SerializeState for CombMem {
-    fn serialize(
+    fn serialize<'a>(
         &self,
         code: Option<PrintCode>,
-        state_map: &MemoryMap,
-    ) -> Serializable {
-        let code = code.unwrap_or_default();
-
-        Serializable::Array(
-            state_map
-                .map_region(self.internal_state, |x| {
-                    Entry::from_val_code(x, &code)
-                })
-                .collect(),
+        state_map: &'a MemoryMap,
+    ) -> LazySerializable<'a> {
+        LazySerializable::new_array(
+            code,
+            state_map.get_region_slice(self.internal_state),
             self.addresser.get_dimensions(),
         )
     }
@@ -1038,19 +1026,14 @@ impl Primitive for SeqMem {
 }
 
 impl SerializeState for SeqMem {
-    fn serialize(
+    fn serialize<'a>(
         &self,
         code: Option<PrintCode>,
-        state_map: &MemoryMap,
-    ) -> Serializable {
-        let code = code.unwrap_or_default();
-
-        Serializable::Array(
-            state_map
-                .map_region(self.internal_state, |x| {
-                    Entry::from_val_code(x, &code)
-                })
-                .collect(),
+        state_map: &'a MemoryMap,
+    ) -> LazySerializable<'a> {
+        LazySerializable::new_array(
+            code,
+            state_map.get_region_slice(self.internal_state),
             self.addresser.get_dimensions(),
         )
     }

@@ -58,6 +58,12 @@ pub enum Entry {
     Value(BitVecValue),
 }
 
+impl AsRef<Entry> for Entry {
+    fn as_ref(&self) -> &Entry {
+        self
+    }
+}
+
 impl From<u64> for Entry {
     fn from(u: u64) -> Self {
         Self::U(u)
@@ -142,41 +148,84 @@ impl Display for PrintCode {
     }
 }
 
-#[derive(Clone)]
-pub enum Serializable {
-    Empty,
-    Val(Entry),
-    Array(Vec<Entry>, Dimensions),
+pub struct LazySerializable<'a> {
+    format: PrintCode,
+    data: LazySerializeValue<'a>,
 }
 
-impl Serializable {
-    pub fn has_state(&self) -> bool {
-        !matches!(self, Serializable::Empty)
+impl<'a> LazySerializable<'a> {
+    fn new(format: Option<PrintCode>, data: LazySerializeValue<'a>) -> Self {
+        Self {
+            format: format.unwrap_or(PrintCode::Binary),
+            data,
+        }
+    }
+
+    pub fn new_empty() -> Self {
+        Self::new(None, LazySerializeValue::Empty)
+    }
+
+    pub fn new_val(format: Option<PrintCode>, data: &'a BitVecValue) -> Self {
+        Self::new(format, LazySerializeValue::Val(data))
+    }
+
+    pub fn new_array(
+        format: Option<PrintCode>,
+        data: &'a [BitVecValue],
+        shape: Dimensions,
+    ) -> Self {
+        Self::new(format, LazySerializeValue::Array(data, shape))
     }
 }
 
-impl Display for Serializable {
+pub enum LazySerializeValue<'a> {
+    Empty,
+    Val(&'a BitVecValue),
+    Array(&'a [BitVecValue], crate::serialization::Dimensions),
+}
+
+impl<'a> LazySerializeValue<'a> {
+    pub fn has_state(&self) -> bool {
+        !matches!(self, Self::Empty)
+    }
+}
+
+impl<'a> std::fmt::Display for LazySerializable<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Serializable::Empty => write!(f, ""),
-            Serializable::Val(v) => write!(f, "{v}"),
-            Serializable::Array(arr, shape) => {
-                write!(f, "{}", format_array(arr, shape))
+        match &self.data {
+            LazySerializeValue::Empty => write!(f, ""),
+            LazySerializeValue::Val(v) => {
+                let v = Entry::from_val_code(v, &self.format);
+                write!(f, "{v}")
+            }
+            LazySerializeValue::Array(arr, shape) => {
+                write!(
+                    f,
+                    "{}",
+                    format_array(
+                        arr.iter()
+                            .map(|x| Entry::from_val_code(x, &self.format)),
+                        shape
+                    )
+                )
             }
         }
     }
 }
 
-impl Serialize for Serializable {
+impl<'a> Serialize for LazySerializable<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        match self {
-            Serializable::Empty => serializer.serialize_unit(),
-            Serializable::Val(u) => u.serialize(serializer),
-            Serializable::Array(arr, shape) => {
-                let arr: Vec<&Entry> = arr.iter().collect();
+        match &self.data {
+            LazySerializeValue::Empty => serializer.serialize_unit(),
+            LazySerializeValue::Val(u) => u.serialize(serializer),
+            LazySerializeValue::Array(arr, shape) => {
+                let arr: Vec<Entry> = arr
+                    .iter()
+                    .map(|v| Entry::from_val_code(v, &self.format))
+                    .collect();
                 if shape.is_d1() {
                     return arr.serialize(serializer);
                 }
@@ -237,56 +286,93 @@ impl Serialize for Serializable {
     }
 }
 
-fn format_array(arr: &[Entry], shape: &Shape) -> String {
+fn format_row<D>(
+    out_str: &mut String,
+    arr: impl Iterator<Item = D>,
+    mut f: impl FnMut(&mut String, D),
+) {
+    out_str.push('[');
+    let mut is_first = true;
+    for item in arr {
+        if !is_first {
+            out_str.push_str(", ");
+        } else {
+            is_first = false;
+        }
+        f(out_str, item);
+    }
+    out_str.push(']');
+}
+
+fn format_d1(
+    out_str: &mut String,
+    arr: impl Iterator<Item = impl AsRef<Entry>>,
+) {
+    format_row(out_str, arr, |out, entry| {
+        let entry = entry.as_ref();
+        write!(out, "{entry}").unwrap();
+    });
+}
+
+fn format_d2(
+    out_str: &mut String,
+    arr: impl Iterator<Item = impl AsRef<Entry>>,
+    d1: usize,
+) {
+    format_row(out_str, arr.chunks(d1).into_iter(), |out, chunks| {
+        format_d1(out, chunks.into_iter());
+    });
+}
+
+fn format_d3(
+    out_str: &mut String,
+    arr: impl Iterator<Item = impl AsRef<Entry>>,
+    d1: usize,
+    d2: usize,
+) {
+    format_row(out_str, arr.chunks(d1 * d2).into_iter(), |out, chunks| {
+        format_d2(out, chunks.into_iter(), d2)
+    })
+}
+
+fn format_d4(
+    out_str: &mut String,
+    arr: impl Iterator<Item = impl AsRef<Entry>>,
+    d1: usize,
+    d2: usize,
+    d3: usize,
+) {
+    format_row(
+        out_str,
+        arr.chunks(d1 * d2 * d3).into_iter(),
+        |out, chunks| format_d3(out, chunks.into_iter(), d2, d3),
+    )
+}
+
+fn format_array(
+    arr: impl Iterator<Item = impl AsRef<Entry>>,
+    shape: &Dimensions,
+) -> String {
+    // a somewhat arbitrary guess about how many characters each entry in the
+    // array will need when printed out. Used for pre-allocating the output.
+    let chars_per_entry: usize = 10;
+
+    let mut out_str = String::with_capacity(shape.size() * chars_per_entry);
+
     match shape {
+        Dimensions::D1(_) => {
+            format_d1(&mut out_str, arr);
+        }
         Dimensions::D2(_d0, d1) => {
-            let mem = arr
-                .iter()
-                .chunks(*d1)
-                .into_iter()
-                .map(|x| x.into_iter().collect::<Vec<_>>())
-                .collect::<Vec<_>>();
-            format!("{mem:?}")
+            format_d2(&mut out_str, arr, *d1);
         }
         Dimensions::D3(_d0, d1, d2) => {
-            let mem = arr
-                .iter()
-                .chunks(d1 * d2)
-                .into_iter()
-                .map(|x| {
-                    x.into_iter()
-                        .chunks(*d2)
-                        .into_iter()
-                        .map(|y| y.into_iter().collect::<Vec<_>>())
-                        .collect::<Vec<_>>()
-                })
-                .collect::<Vec<_>>();
-            format!("{mem:?}")
+            format_d3(&mut out_str, arr, *d1, *d2);
         }
-        Shape::D4(_d0, d1, d2, d3) => {
-            let mem = arr
-                .iter()
-                .chunks(d2 * d1 * d3)
-                .into_iter()
-                .map(|x| {
-                    x.into_iter()
-                        .chunks(d2 * d3)
-                        .into_iter()
-                        .map(|y| {
-                            y.into_iter()
-                                .chunks(*d3)
-                                .into_iter()
-                                .map(|z| z.into_iter().collect::<Vec<_>>())
-                                .collect::<Vec<_>>()
-                        })
-                        .collect::<Vec<_>>()
-                })
-                .collect::<Vec<_>>();
-            format!("{mem:?}")
-        }
-        Dimensions::D1(_) => {
-            let arr: Vec<_> = arr.collect();
-            format!("{arr:?}")
+        Dimensions::D4(_d0, d1, d2, d3) => {
+            format_d4(&mut out_str, arr, *d1, *d2, *d3);
         }
     }
+
+    out_str
 }
