@@ -184,7 +184,11 @@ class CalyxProtoTimeline:
     misc_groups_track_name = "Non-id-ed groups"
 
     def __init__(
-        self, enable_thread_data, cell_metadata: CellMetadata, tracedata: TraceData, primitives_metadata: PrimitiveMetadata
+        self,
+        enable_thread_data,
+        cell_metadata: CellMetadata,
+        tracedata: TraceData,
+        primitives_metadata: PrimitiveMetadata,
     ):
         self.cell_metadata = cell_metadata
         self.primitives_metadata = primitives_metadata
@@ -314,13 +318,18 @@ class CalyxProtoTimeline:
         cell = ".".join(name_split[:-1])
         primitive_name = name_split[-1]
 
-
         # Parent track: primitive type
         component = self.cell_metadata.get_component_of_cell(cell)
-        primitive_type = self.primitives_metadata.obtain_entry(component, primitive_name)
+        primitive_type = self.primitives_metadata.obtain_entry(
+            component, primitive_name
+        )
         # parent intermediate track is the primitive type
         if not self.proto.is_track_registered_in_collection(cell, primitive_type):
-            self.proto.register_track_in_collection(cell, primitive_type, intermediate_parent_name=self.primitives_track_name)
+            self.proto.register_track_in_collection(
+                cell,
+                primitive_type,
+                intermediate_parent_name=self.primitives_track_name,
+            )
 
         # FIXME: track id contains both the primitive name and type
         track_id = f"{primitive_name} [{primitive_type}]"
@@ -354,37 +363,36 @@ class BlockInterval:
 
     def num_active_children(self):
         return len(self.active_children)
-    
+
     def stmt_start(self, stmt_track_id: str):
-        assert(stmt_track_id not in self.active_children)
+        assert stmt_track_id not in self.active_children
         self.active_children.add(stmt_track_id)
 
     def stmt_end(self, end_cycle: int, stmt_track_id: str):
         self.possible_end = end_cycle
         # print(f"INTERVAL END EVENT {stmt_track_id} {self.active_children}")
-        assert(stmt_track_id in self.active_children)
+        assert stmt_track_id in self.active_children
         self.active_children.remove(stmt_track_id)
+
 
 def block_name(line_contents: str):
     block_prefix = "B"
     return f"{block_prefix}{line_contents}"
 
+
 class DahliaProtoTimeline:
     """
     A class creating a Perfetto timeline in the program structure of
     Dahlia programs (statements).
-    Contains an extra collection for showing Calyx primitive activity.
+    Contains a collection for `main` (currently assuming that ) and an extra collection for showing Calyx primitive activity.
     """
 
     proto: ProtoTimelineWrapper
     primitive_name_to_type: dict[str, str] = field(default_factory=dict)
-    # # dahlia line # --> dahlia line # of immediate parent
-    # parent_map: dict[int, list[int]] = field(default_factory=dict)
     main_function_name = "main"
     primitive_collection_name = "Calyx Primitives"
-    parent_prefix = "B"
 
-    def __init__(self, adl_map: AdlMap, dahlia_parent_map: str | None, primitive_metadata: PrimitiveMetadata):
+    def __init__(self, primitive_metadata: PrimitiveMetadata):
         self.proto = ProtoTimelineWrapper()
         self.primitive_name_to_type = {}
         self.proto.add_collection(self.main_function_name)
@@ -394,24 +402,34 @@ class DahliaProtoTimeline:
         for _, p_map in primitive_metadata.p_map.items():
             self.primitive_name_to_type.update(p_map)
 
-    def create_tracks(self, statements_to_block_ancestors: dict[str, list[str]], blocks: set[str]):
+    def create_tracks(
+        self, statements_to_block_ancestors: dict[str, list[str]], blocks: set[str]
+    ):
         # create tracks for each block
-        # list needs to be sorted because Protobuf will error out if we assign a nonexistend parent
-        for block in sorted(blocks, key=(lambda x: len(statements_to_block_ancestors[x]))):
+        # list needs to be sorted because Protobuf will error out if we assign a nonexistent parent
+        for block in sorted(
+            blocks, key=(lambda x: len(statements_to_block_ancestors[x]))
+        ):
             block_ancestors = statements_to_block_ancestors[block]
             parent_track_id = block_ancestors[0] if len(block_ancestors) > 0 else None
-            self.proto.register_track_in_collection(self.main_function_name, block, intermediate_parent_name=parent_track_id)
+            self.proto.register_track_in_collection(
+                self.main_function_name, block, intermediate_parent_name=parent_track_id
+            )
 
         # create tracks for each statement
         for stmt in set(statements_to_block_ancestors.keys()).difference(blocks):
             stmt_ancestors = statements_to_block_ancestors[stmt]
             parent_track_id = stmt_ancestors[0] if len(stmt_ancestors) > 0 else None
-            self.proto.register_track_in_collection(self.main_function_name, stmt, intermediate_parent_name=parent_track_id)
+            self.proto.register_track_in_collection(
+                self.main_function_name, stmt, intermediate_parent_name=parent_track_id
+            )
 
     def register_statement_event(
         self, statement: str, timestamp: int, event_type: TrackEvent.Type
     ):
-        # print(f"registering statement {statement}. {statement in self.track_to_parent_track}")
+        """
+        Registers an event on the `main` collection (i.e. a statement or a block.)
+        """
         if not self.proto.is_track_registered_in_collection(
             self.main_function_name, statement
         ):
@@ -420,13 +438,17 @@ class DahliaProtoTimeline:
             self.main_function_name, statement, statement, timestamp, event_type
         )
 
-
     def register_calyx_primitive_event(
         self, primitive: str, timestamp: int, event_type: TrackEvent.Type
     ):
+        """
+        Registers an 
+        """
         # currently assumes that there are no duplicate cell names, which is quite dangerous. Need to fix
         primitive_type = self.primitive_name_to_type[primitive]
-        if not self.proto.is_track_registered_in_collection(self.primitive_collection_name, primitive_type):
+        if not self.proto.is_track_registered_in_collection(
+            self.primitive_collection_name, primitive_type
+        ):
             self.proto.register_track_in_collection(
                 self.primitive_collection_name, primitive_type
             )
@@ -437,11 +459,16 @@ class DahliaProtoTimeline:
             self.primitive_collection_name, track_id
         ):
             self.proto.register_track_in_collection(
-                self.primitive_collection_name, track_id, intermediate_parent_name=primitive_type
+                self.primitive_collection_name,
+                track_id,
+                intermediate_parent_name=primitive_type,
             )
         self.proto.register_event_in_collection(
             self.primitive_collection_name, primitive, track_id, timestamp, event_type
         )
 
     def emit(self, out_path: str):
+        """
+        Writes the contents of self.proto to file out_path.
+        """
         self.proto.emit(out_path)

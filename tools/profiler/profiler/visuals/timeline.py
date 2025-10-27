@@ -12,7 +12,12 @@ from profiler.classes.adl import AdlMap
 from profiler.classes.cell_metadata import CellMetadata
 from profiler.classes.primitive_metadata import PrimitiveMetadata
 from profiler.classes.tracedata import CycleTrace, TraceData, StackElementType, PTrace
-from profiler.classes.visuals.timeline import CalyxProtoTimeline, DahliaProtoTimeline, BlockInterval, block_name
+from profiler.classes.visuals.timeline import (
+    CalyxProtoTimeline,
+    DahliaProtoTimeline,
+    BlockInterval,
+    block_name,
+)
 
 
 def compute_calyx_protobuf_timeline(
@@ -128,34 +133,40 @@ def compute_calyx_protobuf_timeline(
     out_path = os.path.join(out_dir, "timeline_trace.pftrace")
     calyx_proto.emit(out_path)
 
+
 def _read_json_parent_map(parent_map_file):
     """
     Helper function for _process_dahlia_parent_map()
     JSON is annoying and requires string keys. This function returns a map obtained from parent_map_file, but with int keys instead.
     """
     m = json.load(open(parent_map_file))
-    return {int(k) : m[k] for k in m}
+    return {int(k): m[k] for k in m}
 
 
-def _process_dahlia_parent_map(adl_map: AdlMap, dahlia_parent_map: str | None):
+def _process_dahlia_parent_map(adl_map: AdlMap, dahlia_block_map: str | None):
     """
     Helper function for compute_dahlia_protobuf_timeline()
     """
     statement_to_block_ancestors: dict[str, list[str]] = {}
-    # FIXME: see if we can still get something showing even without the dahlia_parent_map
-    if dahlia_parent_map is None:
-        # return empty dictionary and set.
+    if dahlia_block_map is None:
+        # return default dictionary (every line has zero block ancestors) and set.
         print(
-                "dahlia_parent_map was not given; somewhat inconvenient timeline view will be generated"
-            )
-        return {adl_map.adl_linum_map[linum]: [] for linum in adl_map.adl_linum_map}, set()
+            "dahlia_parent_map was not given; somewhat inconvenient timeline view will be generated"
+        )
+        return {
+            adl_map.adl_linum_map[linum]: [] for linum in adl_map.adl_linum_map
+        }, set()
 
-    json_parent_map: dict[int, list[int]] = _read_json_parent_map(dahlia_parent_map)
+    json_parent_map: dict[int, list[int]] = _read_json_parent_map(dahlia_block_map)
 
     # need to have a parent block version of each one
-    all_block_linums: set[int] = reduce((lambda l1, l2: set(l1).union(set(l2))), json_parent_map.values())
+    all_block_linums: set[int] = reduce(
+        (lambda l1, l2: set(l1).union(set(l2))), json_parent_map.values()
+    )
 
-    linum_to_block = {linum: block_name(adl_map.adl_linum_map[linum]) for linum in all_block_linums}
+    linum_to_block = {
+        linum: block_name(adl_map.adl_linum_map[linum]) for linum in all_block_linums
+    }
 
     # figure out child-parent mappings.
     for linum in sorted(json_parent_map, key=(lambda x: len(json_parent_map[x]))):
@@ -173,19 +184,27 @@ def _process_dahlia_parent_map(adl_map: AdlMap, dahlia_parent_map: str | None):
         elif linum in all_block_linums:
             # this line is a parent line that itself has parents
             block_track_id = block_name(line_contents)
-            ancestor_list = list(map((lambda p: linum_to_block[p]), json_parent_map[linum]))
+            ancestor_list = list(
+                map((lambda p: linum_to_block[p]), json_parent_map[linum])
+            )
 
             # this line's parent is the block version of this line.
-            statement_to_block_ancestors[line_contents] = [block_track_id] + ancestor_list
+            statement_to_block_ancestors[line_contents] = [
+                block_track_id
+            ] + ancestor_list
 
             # the block version of this line's ancestors are the block version of the actual ancestors of this line.
-            print(f"ADDING FOR block {block_track_id}")
             statement_to_block_ancestors[block_track_id] = ancestor_list
 
         elif len(json_parent_map[linum]) > 0:
             # this line is a "normal" line with ancestors.
             # use block version of the actual ancestors.
-            ancestor_list = list(map((lambda p: block_name(adl_map.adl_linum_map[p])), json_parent_map[linum]))
+            ancestor_list = list(
+                map(
+                    (lambda p: block_name(adl_map.adl_linum_map[p])),
+                    json_parent_map[linum],
+                )
+            )
 
             statement_to_block_ancestors[line_contents] = ancestor_list
 
@@ -206,13 +225,17 @@ def compute_dahlia_protobuf_timeline(
     calyx_trace: PTrace,
     primitive_metadata: PrimitiveMetadata,
 ):
-    dahlia_proto: DahliaProtoTimeline = DahliaProtoTimeline(adl_map, dahlia_parent_map, primitive_metadata)
+    dahlia_proto: DahliaProtoTimeline = DahliaProtoTimeline(
+        adl_map, dahlia_parent_map, primitive_metadata
+    )
     # statement --> [b1, b2, ...] where b1 is the immediate parent
     stmt_to_block_ancestors: dict[str, list[str]]
     # names of all blocks
     blocks: set[str]
     # figure out child-ancestor relationships
-    stmt_to_block_ancestors, blocks = _process_dahlia_parent_map(adl_map, dahlia_parent_map)
+    stmt_to_block_ancestors, blocks = _process_dahlia_parent_map(
+        adl_map, dahlia_parent_map
+    )
     # construct blocks with this knowledge
     dahlia_proto.create_tracks(stmt_to_block_ancestors, blocks)
 
@@ -256,7 +279,9 @@ def compute_dahlia_protobuf_timeline(
                     # create new interval and record a start event to the timeline.
                     block_interval = BlockInterval(i)
                     currently_active_blocks[block] = block_interval
-                    dahlia_proto.register_statement_event(block, block_interval.start_cycle, TrackEvent.TYPE_SLICE_BEGIN)
+                    dahlia_proto.register_statement_event(
+                        block, block_interval.start_cycle, TrackEvent.TYPE_SLICE_BEGIN
+                    )
                 else:
                     block_interval = currently_active_blocks[block]
                 block_interval.stmt_start_event(started_statement)
@@ -281,8 +306,9 @@ def compute_dahlia_protobuf_timeline(
 
     # Add end events for all active blocks.
     for active_at_end_block in currently_active_blocks:
-        dahlia_proto.register_statement_event(active_at_end_block, i + 1, TrackEvent.TYPE_SLICE_END)
-
+        dahlia_proto.register_statement_event(
+            active_at_end_block, i + 1, TrackEvent.TYPE_SLICE_END
+        )
 
     # PASS 2 FOR PRIMITIVES
 
