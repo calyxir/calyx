@@ -57,8 +57,6 @@ impl Display for Mode {
 /// is more than one correct path to choose.
 enum Planner {
     Legacy,
-    #[cfg(feature = "egg_planner")]
-    Egg,
     Enumerate,
     FromJson,
 }
@@ -69,8 +67,6 @@ impl FromStr for Planner {
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s {
             "legacy" => Ok(Planner::Legacy),
-            #[cfg(feature = "egg_planner")]
-            "egg" => Ok(Planner::Egg),
             "enumerate" => Ok(Planner::Enumerate),
             "json" => Ok(Planner::FromJson),
             _ => Err("unknown planner".to_string()),
@@ -82,8 +78,6 @@ impl Display for Planner {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Planner::Legacy => write!(f, "legacy"),
-            #[cfg(feature = "egg_planner")]
-            Planner::Egg => write!(f, "egg"),
             Planner::Enumerate => write!(f, "enumerate"),
             Planner::FromJson => write!(f, "json"),
         }
@@ -308,8 +302,6 @@ fn get_request<T: CliExt>(
         workdir,
         planner: match args.planner {
             Planner::Legacy => Box::new(plan::LegacyPlanner {}),
-            #[cfg(feature = "egg_planner")]
-            Planner::Egg => Box::new(plan::EggPlanner {}),
             Planner::Enumerate => Box::new(plan::EnumeratePlanner {}),
             Planner::FromJson => Box::new(plan::JsonPlanner {}),
         },
