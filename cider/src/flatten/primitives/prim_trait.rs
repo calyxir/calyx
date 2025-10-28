@@ -179,7 +179,7 @@ pub trait SerializeState {
     /// Serialize the internal state of the primitive with the given formatting
     fn serialize<'a>(
         &self,
-        _code: Option<PrintCode>,
+        _code: PrintCode,
         _state_map: &'a MemoryMap,
     ) -> LazySerializable<'a>;
 

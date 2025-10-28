@@ -126,7 +126,7 @@ pub enum PrintCode {
 
 impl Default for PrintCode {
     fn default() -> Self {
-        Self::Unsigned
+        Self::Binary
     }
 }
 
@@ -154,27 +154,38 @@ pub struct LazySerializable<'a> {
 }
 
 impl<'a> LazySerializable<'a> {
-    fn new(format: Option<PrintCode>, data: LazySerializeValue<'a>) -> Self {
-        Self {
-            format: format.unwrap_or(PrintCode::Binary),
-            data,
-        }
+    fn new(format: PrintCode, data: LazySerializeValue<'a>) -> Self {
+        Self { format, data }
     }
 
     pub fn new_empty() -> Self {
-        Self::new(None, LazySerializeValue::Empty)
+        Self::new(PrintCode::default(), LazySerializeValue::Empty)
     }
 
-    pub fn new_val(format: Option<PrintCode>, data: &'a BitVecValue) -> Self {
+    pub fn new_val(format: PrintCode, data: &'a BitVecValue) -> Self {
         Self::new(format, LazySerializeValue::Val(data))
     }
 
     pub fn new_array(
-        format: Option<PrintCode>,
+        format: PrintCode,
         data: &'a [BitVecValue],
         shape: Dimensions,
     ) -> Self {
         Self::new(format, LazySerializeValue::Array(data, shape))
+    }
+
+    /// attempts to format a single value within a memory at the given address.
+    /// If the address is invalid, it returns None.
+    pub fn format_address(&self, address: &[usize]) -> Option<String> {
+        if let Some((values, dims)) = self.data.as_array() {
+            let addr = dims.compute_address(address);
+            addr.and_then(|x| values.get(x)).map(|v| {
+                let e = Entry::from_val_code(v, &self.format);
+                format!("{e}")
+            })
+        } else {
+            None
+        }
     }
 }
 
@@ -187,6 +198,16 @@ pub enum LazySerializeValue<'a> {
 impl<'a> LazySerializeValue<'a> {
     pub fn has_state(&self) -> bool {
         !matches!(self, Self::Empty)
+    }
+
+    pub fn as_array(
+        &self,
+    ) -> Option<(&'a [BitVecValue], &crate::serialization::Dimensions)> {
+        if let Self::Array(v, d) = &self {
+            Some((*v, d))
+        } else {
+            None
+        }
     }
 }
 
@@ -286,7 +307,7 @@ impl<'a> Serialize for LazySerializable<'a> {
     }
 }
 
-fn format_row<D>(
+pub fn format_row<D>(
     out_str: &mut String,
     arr: impl Iterator<Item = D>,
     mut f: impl FnMut(&mut String, D),

@@ -9,6 +9,8 @@ group = { (identifier ~ "::" ~ identifier | identifier) }
 
 name = { identifier ~ (dot ~ identifier)* }
 
+state_name = { name ~ ("[" ~ num ~ ("," ~ num)* ~ "]")? }
+
 pc_un      = { ^"u" }
 pc_s       = { ^"s" }
 pc_ufx     = { ^"u." ~ num }
@@ -25,7 +27,9 @@ print = {
     (^"print " | ^"p ") ~ (print_code)? ~ name+
 }
 
-print_state = { ^"print-state " ~ (print_code)? ~ name+ }
+print_state = { ^"print-state " ~ (print_code)? ~ state_name+ }
+
+print_var = { (^"print-var " | ^"print-variable") ~ (print_code)? ~ state_name+ }
 
 print_fail = {
     (^"print-state" | ^"print" | ^"p") ~ (print_code | pc_fail)?
@@ -39,24 +43,6 @@ watch_position = { before | after }
 watch = {
     (^"watch " | ^"w ") ~ (watch_position)? ~ group ~ (^"with")? ~ (print_state | print)
 }
-
-// Path parser merge
-
-root = _{ "." }
-
-separator = _{ "-" }
-
-body = { "b" }
-
-branch = { "t" | "f" }
-
-clause = { separator ~ (body | num | branch) }
-
-name_path = { (ASCII_ALPHA | ASCII_DIGIT | "_")+ }
-
-breakpoint_path = { name_path ~ root ~ clause* }
-
-// End merge
 
 step_over = { ^"step-over" ~ (group | breakpoint_path) ~ num? }
 
@@ -98,4 +84,12 @@ command = {
   | cont | help | info_break | info_watch | display | exit | explain | restart)? ~ EOI
 }
 
-path = { SOI ~ breakpoint_path ~ EOI }
+// note descriptor path
+root            = _{ "." }
+separator       = _{ "-" }
+body            =  { "b" }
+branch          =  { "t" | "f" }
+clause          =  { separator ~ (body | num | branch) }
+name_path       =  { (ASCII_ALPHA | ASCII_DIGIT | "_")+ }
+breakpoint_path =  { name_path ~ root ~ clause* }
+path            =  { SOI ~ breakpoint_path ~ EOI }

@@ -14,7 +14,8 @@ type ParseResult<T> = std::result::Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, ()>;
 
 use crate::{
-    debugger::commands::PointAction, errors::CiderResult,
+    debugger::commands::{ParsePrintTarget, PointAction},
+    errors::CiderResult,
     serialization::PrintCode,
 };
 
@@ -168,23 +169,30 @@ impl CommandParser {
         ))
     }
 
-    fn name(input: Node) -> ParseResult<Vec<String>> {
+    fn name(input: Node) -> ParseResult<ParsePrintTarget> {
         Ok(match_nodes!(input.into_children();
-                [identifier(ident)..] => ident.collect()
+            [identifier(ident)..] => ParsePrintTarget::new_name(ident.collect())
+        ))
+    }
+
+    fn state_name(input: Node) -> ParseResult<ParsePrintTarget> {
+        Ok(match_nodes!(input.into_children();
+            [name(n)] => n,
+            [name(n), num(addrs)..] => n.with_address(addrs.map(|x| x as usize).collect()),
         ))
     }
 
     fn print(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-            [print_code(pc), name(ident)..] => Command::Print(ident.collect::<Vec<_>>(), Some(pc), PrintMode::Port),
             [name(ident)..] => Command::Print(ident.collect::<Vec<_>>(), None, PrintMode::Port),
+            [print_code(pc), name(ident)..] => Command::Print(ident.collect::<Vec<_>>(), Some(pc), PrintMode::Port),
         ))
     }
 
     fn print_state(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-            [print_code(pc), name(ident)..] => Command::Print(ident.collect::<Vec<_>>(), Some(pc), PrintMode::State),
-            [name(ident)..] => Command::Print(ident.collect::<Vec<_>>(), None, PrintMode::State),
+            [state_name(ident)..] => Command::Print(ident.collect::<Vec<_>>(), None, PrintMode::State),
+            [print_code(pc), state_name(ident)..] => Command::Print(ident.collect::<Vec<_>>(), Some(pc), PrintMode::State),
         ))
     }
 

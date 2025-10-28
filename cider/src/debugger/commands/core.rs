@@ -17,7 +17,7 @@ use crate::{
         },
         text_utils::Color,
     },
-    serialization::PrintCode,
+    serialization::{PrintCode, format_row},
 };
 
 use cider_idx::impl_index;
@@ -295,27 +295,123 @@ pub enum PrintMode {
     Port,
 }
 
+/// The version of [PrintTarget] initially output by the parser prior to
+/// validation
+#[derive(Debug, Clone)]
+pub struct ParsePrintTarget {
+    path: Vec<String>,
+    address: Option<Vec<usize>>,
+}
+
+impl ParsePrintTarget {
+    pub fn new(target: Vec<String>, address: Option<Vec<usize>>) -> Self {
+        Self {
+            path: target,
+            address,
+        }
+    }
+
+    pub fn new_name(target: Vec<String>) -> Self {
+        Self {
+            path: target,
+            address: None,
+        }
+    }
+    pub fn with_address(mut self, address: Vec<usize>) -> Self {
+        self.address = Some(address);
+        self
+    }
+
+    pub fn path(&self) -> &[String] {
+        &self.path
+    }
+
+    pub fn address(&self) -> Option<&Vec<usize>> {
+        self.address.as_ref()
+    }
+
+    pub fn take_address(&mut self) -> Option<Vec<usize>> {
+        self.address.take()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PrintTarget {
+    path: Path,
+    address: Option<Vec<usize>>,
+}
+
+impl PrintTarget {
+    pub fn new(target: Path, address: Option<Vec<usize>>) -> Self {
+        Self {
+            path: target,
+            address,
+        }
+    }
+    pub fn address(&self) -> Option<&[usize]> {
+        self.address.as_ref().map(|sl| sl.as_slice())
+    }
+
+    pub fn as_string<C: AsRef<Context> + Clone>(
+        &self,
+        env: &Environment<C>,
+    ) -> String {
+        let target = self.path.as_string(env);
+        if let Some(v) = &self.address {
+            let mut addr = String::new();
+            if !v.is_empty() {
+                format_row(&mut addr, v.iter(), |out, val| {
+                    write!(out, "{val}").unwrap();
+                });
+            }
+            format!("{target}{addr}")
+        } else {
+            target
+        }
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
 /// A tuple representing a print command.
 ///
 /// The tuple consists of a list of paths to the targets to print, an optional
 /// print code used to format the information, and the print mode.
 #[derive(Debug, Clone)]
-pub struct PrintTuple(Vec<Path>, Option<PrintCode>, PrintMode);
+pub struct PrintTuple {
+    targets: Vec<PrintTarget>,
+    format: Option<PrintCode>,
+    print_mode: PrintMode,
+}
 
 impl PrintTuple {
+    pub fn new(
+        targets: Vec<PrintTarget>,
+        format: Option<PrintCode>,
+        print_mode: PrintMode,
+    ) -> Self {
+        Self {
+            targets,
+            format,
+            print_mode,
+        }
+    }
+
     /// Returns a reference to the list of targets to print.
-    pub fn target(&self) -> &Vec<Path> {
-        &self.0
+    pub fn target(&self) -> &Vec<PrintTarget> {
+        &self.targets
     }
 
     /// Returns a reference to the print code.
     pub fn print_code(&self) -> &Option<PrintCode> {
-        &self.1
+        &self.format
     }
 
     /// Returns a reference to the print mode.
     pub fn print_mode(&self) -> &PrintMode {
-        &self.2
+        &self.print_mode
     }
 
     /// Return a formatted string representing the print tuple. Used to display
@@ -329,7 +425,7 @@ impl PrintTuple {
         write!(
             string,
             "{}",
-            match self.2 {
+            match &self.print_mode {
                 PrintMode::State => "print-state",
                 PrintMode::Port => "print",
             }
@@ -338,7 +434,7 @@ impl PrintTuple {
         write!(
             string,
             " {}",
-            match &self.1 {
+            match &self.format {
                 Some(s) => format!("{s}"),
                 None => "".to_string(),
             }
@@ -347,7 +443,7 @@ impl PrintTuple {
         write!(
             string,
             " {}",
-            &self.0.iter().map(|x| x.as_string(env)).join(" "),
+            &self.targets.iter().map(|x| x.as_string(env)).join(" "),
         )
         .unwrap();
 
@@ -355,11 +451,6 @@ impl PrintTuple {
     }
 }
 
-impl From<(Vec<Path>, Option<PrintCode>, PrintMode)> for PrintTuple {
-    fn from(val: (Vec<Path>, Option<PrintCode>, PrintMode)) -> Self {
-        PrintTuple(val.0, val.1, val.2)
-    }
-}
 /// ParseNodes enum is used to represent what child to traverse with respect to
 /// the current ControlIdx.
 /// Body defines that we should go into the body of a while or repeat.
@@ -481,7 +572,7 @@ pub enum Command {
     Display,
     /// Print out the value of the given target. Can be configured with
     /// different modes and print formats.
-    Print(Vec<Vec<String>>, Option<PrintCode>, PrintMode),
+    Print(Vec<ParsePrintTarget>, Option<PrintCode>, PrintMode),
     /// Create a breakpoint on the given groups.
     Break(Vec<BreakTarget>),
     /// Display the help message.
@@ -502,7 +593,7 @@ pub enum Command {
     Watch(
         ParsedGroupName,
         WatchPosition,
-        Vec<Vec<String>>,
+        Vec<ParsePrintTarget>,
         Option<PrintCode>,
         PrintMode,
     ),

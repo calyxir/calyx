@@ -11,7 +11,7 @@ use crate::{
     configuration::{LoggingConfig, RuntimeConfig},
     debugger::{
         self,
-        commands::{ParseNodes, ParsePath},
+        commands::{ParseNodes, ParsePath, PrintTarget},
     },
     errors::*,
     flatten::{
@@ -3214,21 +3214,28 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         &self,
         cell_idx: GlobalCellIdx,
         print_code: PrintCode,
-        name: Option<&str>,
+        target: &PrintTarget,
     ) -> Option<String> {
         let cell = self.env.cells[cell_idx].unwrap_primitive();
-        let serializer = cell.serializer()?;
+        let state = cell
+            .serializer()?
+            .serialize(print_code, &self.env.state_map);
+
         let mut output = String::new();
 
-        let state = serializer.serialize(Some(print_code), &self.env.state_map);
-
-        if let Some(name_override) = name {
-            write!(output, "{name_override}: ").unwrap();
+        let data = if let Some(addr) = target.address() {
+            let address = state.format_address(addr);
+            if let Some(address) = address {
+                address
+            } else {
+                todo!("print an error here");
+                return None;
+            }
         } else {
-            write!(output, "{}: ", self.get_full_name(cell_idx)).unwrap();
-        }
+            format!("{state}")
+        };
 
-        writeln!(output, "{state}").unwrap();
+        writeln!(output, "{}: {data}", target.as_string(self.env())).unwrap();
 
         Some(output)
     }

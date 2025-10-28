@@ -165,7 +165,7 @@ impl Primitive for StdReg {
 impl SerializeState for StdReg {
     fn serialize<'a>(
         &self,
-        code: Option<PrintCode>,
+        code: PrintCode,
         map: &'a MemoryMap,
     ) -> LazySerializable<'a> {
         LazySerializable::new_val(code, &map[self.internal_state])
@@ -651,7 +651,7 @@ impl Primitive for CombMem {
 impl SerializeState for CombMem {
     fn serialize<'a>(
         &self,
-        code: Option<PrintCode>,
+        code: PrintCode,
         state_map: &'a MemoryMap,
     ) -> LazySerializable<'a> {
         LazySerializable::new_array(
@@ -1028,7 +1028,7 @@ impl Primitive for SeqMem {
 impl SerializeState for SeqMem {
     fn serialize<'a>(
         &self,
-        code: Option<PrintCode>,
+        code: PrintCode,
         state_map: &'a MemoryMap,
     ) -> LazySerializable<'a> {
         LazySerializable::new_array(

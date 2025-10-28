@@ -7,7 +7,10 @@ use super::{
 use crate::{
     configuration::RuntimeConfig,
     debugger::{
-        commands::{BreakTarget, PointAction, PrintCommand},
+        commands::{
+            BreakTarget, ParsePrintTarget, PointAction, PrintCommand,
+            PrintTarget, PrintTuple,
+        },
         debugging_context::context::format_control_node,
         source::SourceMap,
         unwrap_error_message,
@@ -532,7 +535,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     fn create_watchpoint(
         &mut self,
-        print_target: Vec<Vec<String>>,
+        print_target: Vec<ParsePrintTarget>,
         print_code: Option<PrintCode>,
         print_mode: PrintMode,
         group: super::commands::ParsedGroupName,
@@ -540,10 +543,12 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     ) {
         let mut error_occurred = false;
         let mut paths = Vec::new();
-        for target in print_target.iter() {
-            match self.interpreter.traverse_name_vec(target) {
+        for mut target in print_target {
+            match self.interpreter.traverse_name_vec(target.path()) {
                 Ok(path) => {
-                    paths.push(path);
+                    let new_path =
+                        PrintTarget::new(path, target.take_address());
+                    paths.push(new_path);
                 }
                 Err(e) => {
                     error_occurred = true;
@@ -570,7 +575,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         self.debugging_context.add_watchpoint(
             watch_target,
             watch_pos,
-            (paths, print_code, print_mode),
+            PrintTuple::new(paths, print_code, print_mode),
         );
     }
 
@@ -693,11 +698,17 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     fn do_print(
         &self,
-        target: &[String],
+        target: &ParsePrintTarget,
         code: Option<PrintCode>,
         print_mode: PrintMode,
     ) -> Result<(), PathError> {
-        let traversal_res = self.interpreter.traverse_name_vec(target)?;
+        let traversal_res =
+            self.interpreter.traverse_name_vec(target.path())?;
+
+        // would be nice if this clone could be avoided but I think it doesn't
+        // really matter all that much
+        let traversal_res =
+            PrintTarget::new(traversal_res, target.address().cloned());
 
         self.print_from_path(&traversal_res, &code, print_mode)?;
 
@@ -706,30 +717,28 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     fn print_from_path(
         &self,
-        path: &Path,
+        path: &PrintTarget,
         code: &Option<PrintCode>,
         mode: PrintMode,
     ) -> Result<(), PathError> {
         let code = code.unwrap_or(PrintCode::Binary);
 
-        let name_override = match path {
+        let name_override = match path.path() {
             Path::Cell(_) | Path::Port(_) => None,
             Path::AbstractCell(_) | Path::AbstractPort { .. } => {
                 Some(path.as_string(self.interpreter.env()))
             }
         };
 
-        let resolved = path.resolve_path(self.interpreter.env())?;
+        let resolved = path.path().resolve_path(self.interpreter.env())?;
         match resolved {
             crate::flatten::structures::environment::PathResolution::Cell(
                 cell,
             ) => {
                 if let PrintMode::State = mode {
-                    if let Some(state) = self.interpreter.format_cell_state(
-                        cell,
-                        code,
-                        name_override.as_deref(),
-                    ) {
+                    if let Some(state) =
+                        self.interpreter.format_cell_state(cell, code, path)
+                    {
                         println!("{state}");
                         return Ok(());
                     } else {
