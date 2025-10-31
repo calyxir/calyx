@@ -34,7 +34,7 @@ def file_contains(regex, filename):
     return len(strings) == 0
 
 
-def rpt_extract(file: PurePath):
+def rpt_extract(file: Path):
     if not file.exists():
         log.error(f"RPT file {file} is missing")
         return None
@@ -79,7 +79,7 @@ def rpt_extract(file: PurePath):
         "summary": {
             "lut": to_int(lut),
             "dsp": to_int(dsp),
-            "brams": to_int(brams),
+            "brams": float(brams),
             "registers": to_int(reg),
             "carry8": to_int(carry8),
             "f7_muxes": to_int(f7_muxes),
