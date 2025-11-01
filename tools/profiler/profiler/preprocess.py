@@ -66,13 +66,15 @@ def read_component_cell_names_json(json_file):
     for curr_component_entry in cell_json:
         component_name = curr_component_entry["component"]
         cell_map = {}  # mapping cell names to component names for all cells in the current component
-        primitive_map = {} # primitive cell name --> primitive type
+        primitive_map = {}  # primitive cell name --> primitive type
         if curr_component_entry["is_main_component"]:
             main_component = component_name
         for cell_info in curr_component_entry["cell_info"]:
             cell_map[cell_info["cell_name"]] = cell_info["component_name"]
         for primitive_info in curr_component_entry["primitive_info"]:
-            primitive_map[primitive_info["cell_name"]] = primitive_info["primitive_type"]
+            primitive_map[primitive_info["cell_name"]] = primitive_info[
+                "primitive_type"
+            ]
         cells_to_components[component_name] = cell_map
         # FIXME: avoid direct assignment
         primitive_metadata.p_map[component_name] = primitive_map
