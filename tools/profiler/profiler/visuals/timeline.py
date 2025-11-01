@@ -134,7 +134,9 @@ def compute_calyx_protobuf_timeline(
         )
 
     for active_at_end_primitive in currently_active_primitives:
-        calyx_proto._register_primitive_event(active_at_end_primitive, i + 1, TrackEvent.TYPE_SLICE_END)
+        calyx_proto._register_primitive_event(
+            active_at_end_primitive, i + 1, TrackEvent.TYPE_SLICE_END
+        )
 
     out_path = os.path.join(out_dir, "timeline_trace.pftrace")
     calyx_proto.emit(out_path)

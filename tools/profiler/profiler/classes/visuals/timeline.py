@@ -442,7 +442,7 @@ class DahliaProtoTimeline:
         self, primitive: str, timestamp: int, event_type: TrackEvent.Type
     ):
         """
-        Registers an 
+        Registers an
         """
         # currently assumes that there are no duplicate cell names, which is quite dangerous. Need to fix
         primitive_type = self.primitive_name_to_type[primitive]

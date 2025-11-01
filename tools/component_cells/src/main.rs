@@ -100,13 +100,13 @@ fn gen_component_info(
             calyx_ir::CellType::Primitive { name, .. } => {
                 curr_comp_info.primitive_info.push(PrimitiveCellInfo {
                     cell_name: cell_ref.name(),
-                    primitive_type: name.clone(),
+                    primitive_type: *name,
                 })
             }
             calyx_ir::CellType::Component { name } => {
                 curr_comp_info.cell_info.push(ComponentCellInfo {
                     cell_name: cell_ref.name(),
-                    component_name: name.clone(),
+                    component_name: *name,
                 });
                 let component = ctx
                     .components
