@@ -2,8 +2,6 @@ import os
 from functools import reduce
 import json
 
-from typing import Optional
-
 from perfetto.protos.perfetto.trace.perfetto_trace_pb2 import (
     TrackEvent,
 )

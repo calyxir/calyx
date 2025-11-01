@@ -1,7 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional
 import uuid
-import json
 
 
 from perfetto.trace_builder.proto_builder import TraceProtoBuilder
@@ -9,7 +7,6 @@ from perfetto.protos.perfetto.trace.perfetto_trace_pb2 import (
     TrackEvent,
 )
 
-from profiler.classes.adl import AdlMap
 from profiler.classes.primitive_metadata import PrimitiveMetadata
 from profiler.classes.errors import ProfilerException
 from profiler.classes.tracedata import TraceData
