@@ -334,7 +334,7 @@ class CalyxProtoTimeline:
         # FIXME: track id contains both the primitive name and type
         track_id = f"{primitive_name} [{primitive_type}]"
 
-        if not self.proto.is_track_registered_in_collection(cell, primitive_name):
+        if not self.proto.is_track_registered_in_collection(cell, track_id):
             self.proto.register_track_in_collection(
                 cell, track_id, intermediate_parent_name=primitive_type
             )

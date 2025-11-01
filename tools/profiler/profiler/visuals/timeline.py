@@ -37,6 +37,7 @@ def compute_calyx_protobuf_timeline(
     currently_active_primitives: set[str] = set()
 
     for i in tracedata.trace_with_control_groups:
+        print(i)
         this_cycle_active_ctrl_groups: set[str] = set()
         this_cycle_active_cells: set[str] = set()
         this_cycle_active_groups: set[str] = set()
@@ -97,12 +98,14 @@ def compute_calyx_protobuf_timeline(
         for done_primitive in currently_active_primitives.difference(
             this_cycle_active_primitives
         ):
+            print(f"Ending primitive {done_primitive}")
             calyx_proto._register_primitive_event(
                 done_primitive, i, TrackEvent.TYPE_SLICE_END
             )
         for new_primitive in this_cycle_active_primitives.difference(
             currently_active_primitives
         ):
+            print(f"Starting primitive {new_primitive}")
             calyx_proto._register_primitive_event(
                 new_primitive, i, TrackEvent.TYPE_SLICE_BEGIN
             )
@@ -129,6 +132,9 @@ def compute_calyx_protobuf_timeline(
         calyx_proto.register_enable_event(
             active_at_end_group, i + 1, TrackEvent.TYPE_SLICE_END
         )
+
+    for active_at_end_primitive in currently_active_primitives:
+        calyx_proto._register_primitive_event(active_at_end_primitive, i + 1, TrackEvent.TYPE_SLICE_END)
 
     out_path = os.path.join(out_dir, "timeline_trace.pftrace")
     calyx_proto.emit(out_path)
@@ -211,8 +217,6 @@ def _process_dahlia_parent_map(adl_map: AdlMap, dahlia_block_map: str | None):
         else:
             # otherwise is a "normal" line with NO parents.
             statement_to_block_ancestors[line_contents] = []
-
-    print(statement_to_block_ancestors)
 
     return statement_to_block_ancestors, set(linum_to_block.values())
 
