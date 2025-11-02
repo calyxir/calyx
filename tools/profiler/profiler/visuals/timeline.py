@@ -35,7 +35,6 @@ def compute_calyx_protobuf_timeline(
     currently_active_primitives: set[str] = set()
 
     for i in tracedata.trace_with_control_groups:
-        print(i)
         this_cycle_active_ctrl_groups: set[str] = set()
         this_cycle_active_cells: set[str] = set()
         this_cycle_active_groups: set[str] = set()
@@ -96,14 +95,12 @@ def compute_calyx_protobuf_timeline(
         for done_primitive in currently_active_primitives.difference(
             this_cycle_active_primitives
         ):
-            print(f"Ending primitive {done_primitive}")
             calyx_proto._register_primitive_event(
                 done_primitive, i, TrackEvent.TYPE_SLICE_END
             )
         for new_primitive in this_cycle_active_primitives.difference(
             currently_active_primitives
         ):
-            print(f"Starting primitive {new_primitive}")
             calyx_proto._register_primitive_event(
                 new_primitive, i, TrackEvent.TYPE_SLICE_BEGIN
             )
@@ -229,9 +226,7 @@ def compute_dahlia_protobuf_timeline(
     calyx_trace: PTrace,
     primitive_metadata: PrimitiveMetadata,
 ):
-    dahlia_proto: DahliaProtoTimeline = DahliaProtoTimeline(
-        adl_map, dahlia_parent_map, primitive_metadata
-    )
+    dahlia_proto: DahliaProtoTimeline = DahliaProtoTimeline(primitive_metadata)
     # statement --> [b1, b2, ...] where b1 is the immediate parent
     stmt_to_block_ancestors: dict[str, list[str]]
     # names of all blocks
