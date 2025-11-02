@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import uuid
 
 
@@ -7,6 +7,7 @@ from perfetto.protos.perfetto.trace.perfetto_trace_pb2 import (
     TrackEvent,
 )
 
+from profiler.classes.primitive_metadata import PrimitiveMetadata
 from profiler.classes.errors import ProfilerException
 from profiler.classes.tracedata import TraceData
 from profiler.classes.cell_metadata import CellMetadata
@@ -25,7 +26,7 @@ class ProtoTimelineCollection:
     # sid for the entire colelction
     sid_val: int
     # drop down for control groups
-    intermediate_tracks: dict[str, int]
+    # intermediate_tracks: dict[str, int]
     track_name_to_uuid: dict[str, int]
 
     def __init__(
@@ -38,13 +39,13 @@ class ProtoTimelineCollection:
         self.builder = builder
         self.sid_val = sid
         self.collection_uuid = self._define_track(collection_name)
+        self.track_name_to_uuid = {collection_name: self.collection_uuid}
         # create intermediate tracks (ex. "Control Groups"), which have their own dropdown
-        self.intermediate_tracks = {}
+        # self.intermediate_tracks = {}
         for track_name in intermediate_track_names:
-            self.intermediate_tracks[track_name] = self._define_track(
+            self.track_name_to_uuid[track_name] = self._define_track(
                 track_name, parent_track_uuid=self.collection_uuid
             )
-        self.track_name_to_uuid = {collection_name: self.collection_uuid}
 
     # Helper to define a new track with a unique UUID
     def _define_track(self, track_name, parent_track_uuid=None):
@@ -70,9 +71,10 @@ class ProtoTimelineCollection:
     def create_new_track(self, track_id, intermediate_parent_name=None):
         if intermediate_parent_name is not None:
             # check intermediate_tracks and see whether there's a match
-            if intermediate_parent_name not in self.intermediate_tracks:
+            # if intermediate_parent_name not in self.intermediate_tracks:
+            if intermediate_parent_name not in self.track_name_to_uuid:
                 raise ProfilerException("Invalid intermediate parent name!")
-            parent_uuid = self.intermediate_tracks[intermediate_parent_name]
+            parent_uuid = self.track_name_to_uuid[intermediate_parent_name]
         else:
             parent_uuid = self.collection_uuid
         track_uuid = self._define_track(track_id, parent_track_uuid=parent_uuid)
@@ -171,14 +173,26 @@ class CalyxProtoTimeline:
 
     proto: ProtoTimelineWrapper
     cell_to_enables_to_track: dict[str, dict[str, str]]
+    cell_metadata: CellMetadata
+    primitives_metadata: PrimitiveMetadata
+    primitives_track_name = "Primitives"
     control_groups_track_name = "Control Groups"
     control_updates_track_name = "Control Register Updates"
     misc_groups_track_name = "Non-id-ed groups"
 
     def __init__(
-        self, enable_thread_data, cell_metadata: CellMetadata, tracedata: TraceData
+        self,
+        enable_thread_data,
+        cell_metadata: CellMetadata,
+        tracedata: TraceData,
+        primitives_metadata: PrimitiveMetadata,
     ):
-        self.proto = ProtoTimelineWrapper({self.control_groups_track_name})
+        self.cell_metadata = cell_metadata
+        self.primitives_metadata = primitives_metadata
+
+        self.proto = ProtoTimelineWrapper(
+            {self.primitives_track_name, self.control_groups_track_name}
+        )
         # set up data structures to track cells and groups
         self.cell_to_enables_to_track = {}
         cell_to_tracks: dict[str, set[str]] = {}
@@ -291,26 +305,128 @@ class CalyxProtoTimeline:
             cell, ctrl_group, track_id, timestamp, event_type
         )
 
+    def _register_primitive_event(
+        self,
+        fully_qualified_primitive: str,
+        timestamp: int,
+        event_type: TrackEvent.Type,
+    ):
+        name_split = fully_qualified_primitive.split(".")
+        cell = ".".join(name_split[:-1])
+        primitive_name = name_split[-1]
+
+        # Parent track: primitive type
+        component = self.cell_metadata.get_component_of_cell(cell)
+        primitive_type = self.primitives_metadata.obtain_entry(
+            component, primitive_name
+        )
+        # parent intermediate track is the primitive type
+        if not self.proto.is_track_registered_in_collection(cell, primitive_type):
+            self.proto.register_track_in_collection(
+                cell,
+                primitive_type,
+                intermediate_parent_name=self.primitives_track_name,
+            )
+
+        # FIXME: track id contains both the primitive name and type
+        track_id = f"{primitive_name} [{primitive_type}]"
+
+        if not self.proto.is_track_registered_in_collection(cell, track_id):
+            self.proto.register_track_in_collection(
+                cell, track_id, intermediate_parent_name=primitive_type
+            )
+
+        self.proto.register_event_in_collection(
+            cell, primitive_name, track_id, timestamp, event_type
+        )
+
     def emit(self, out_path: str):
         self.proto.emit(out_path)
+
+
+@dataclass
+class BlockInterval:
+    # name: str
+    start_cycle: int
+    possible_end: int | None = field(default=None)
+    active_children: set[str] = field(default_factory=set)
+
+    def __init__(self, cycle: int):
+        self.start_cycle = cycle
+        self.active_children = set()
+
+    def stmt_start_event(self, stmt: str):
+        self.active_children.add(stmt)
+
+    def num_active_children(self):
+        return len(self.active_children)
+
+    def stmt_start(self, stmt_track_id: str):
+        assert stmt_track_id not in self.active_children
+        self.active_children.add(stmt_track_id)
+
+    def stmt_end(self, end_cycle: int, stmt_track_id: str):
+        self.possible_end = end_cycle
+        # print(f"INTERVAL END EVENT {stmt_track_id} {self.active_children}")
+        assert stmt_track_id in self.active_children
+        self.active_children.remove(stmt_track_id)
+
+
+def block_name(line_contents: str):
+    block_prefix = "B"
+    return f"{block_prefix}{line_contents}"
 
 
 class DahliaProtoTimeline:
     """
     A class creating a Perfetto timeline in the program structure of
     Dahlia programs (statements).
+    Contains a collection for `main` (currently assuming that ) and an extra collection for showing Calyx primitive activity.
     """
 
     proto: ProtoTimelineWrapper
+    primitive_name_to_type: dict[str, str] = field(default_factory=dict)
     main_function_name = "main"
+    primitive_collection_name = "Calyx Primitives"
 
-    def __init__(self):
+    def __init__(self, primitive_metadata: PrimitiveMetadata):
         self.proto = ProtoTimelineWrapper()
+        self.primitive_name_to_type = {}
         self.proto.add_collection(self.main_function_name)
+        self.proto.add_collection(self.primitive_collection_name)
+
+        # FIXME: hella defunct way of creating a lookup for primitives
+        for _, p_map in primitive_metadata.p_map.items():
+            self.primitive_name_to_type.update(p_map)
+
+    def create_tracks(
+        self, statements_to_block_ancestors: dict[str, list[str]], blocks: set[str]
+    ):
+        # create tracks for each block
+        # list needs to be sorted because Protobuf will error out if we assign a nonexistent parent
+        for block in sorted(
+            blocks, key=(lambda x: len(statements_to_block_ancestors[x]))
+        ):
+            block_ancestors = statements_to_block_ancestors[block]
+            parent_track_id = block_ancestors[0] if len(block_ancestors) > 0 else None
+            self.proto.register_track_in_collection(
+                self.main_function_name, block, intermediate_parent_name=parent_track_id
+            )
+
+        # create tracks for each statement
+        for stmt in set(statements_to_block_ancestors.keys()).difference(blocks):
+            stmt_ancestors = statements_to_block_ancestors[stmt]
+            parent_track_id = stmt_ancestors[0] if len(stmt_ancestors) > 0 else None
+            self.proto.register_track_in_collection(
+                self.main_function_name, stmt, intermediate_parent_name=parent_track_id
+            )
 
     def register_statement_event(
         self, statement: str, timestamp: int, event_type: TrackEvent.Type
     ):
+        """
+        Registers an event on the `main` collection (i.e. a statement or a block.)
+        """
         if not self.proto.is_track_registered_in_collection(
             self.main_function_name, statement
         ):
@@ -319,5 +435,37 @@ class DahliaProtoTimeline:
             self.main_function_name, statement, statement, timestamp, event_type
         )
 
+    def register_calyx_primitive_event(
+        self, primitive: str, timestamp: int, event_type: TrackEvent.Type
+    ):
+        """
+        Registers an
+        """
+        # currently assumes that there are no duplicate cell names, which is quite dangerous. Need to fix
+        primitive_type = self.primitive_name_to_type[primitive]
+        if not self.proto.is_track_registered_in_collection(
+            self.primitive_collection_name, primitive_type
+        ):
+            self.proto.register_track_in_collection(
+                self.primitive_collection_name, primitive_type
+            )
+
+        track_id = f"{primitive} [{primitive_type}]"
+
+        if not self.proto.is_track_registered_in_collection(
+            self.primitive_collection_name, track_id
+        ):
+            self.proto.register_track_in_collection(
+                self.primitive_collection_name,
+                track_id,
+                intermediate_parent_name=primitive_type,
+            )
+        self.proto.register_event_in_collection(
+            self.primitive_collection_name, primitive, track_id, timestamp, event_type
+        )
+
     def emit(self, out_path: str):
+        """
+        Writes the contents of self.proto to file out_path.
+        """
         self.proto.emit(out_path)
