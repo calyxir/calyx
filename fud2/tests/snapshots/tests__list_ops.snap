@@ -214,6 +214,16 @@ snapshot_kind: text
         "xo",
     ),
     (
+        "vitis-hls",
+        "cpp",
+        "hls-report",
+    ),
+    (
+        "vitis-hls-impl",
+        "cpp",
+        "hls-impl-report",
+    ),
+    (
         "xclbin",
         "xo",
         "xclbin",
