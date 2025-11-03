@@ -34,4 +34,14 @@ main.g: [[[0, 0], [0, 0]], [[0, 0], [0, 0]]]
 
 main.h: [[[[0, 0], [0, 0]], [[0, 0], [0, 0]]], [[[0, 0], [0, 0]], [[0, 0], [0, 0]]]]
 
+main.a[2]: 5
+
+main.b[0, 2]: 5
+
+main.c[0, 0, 2]: 5
+
+main.d[0, 0, 0, 2]: 5
+
+main.a[500] is not a valid memory address
+main.b[0] is not a valid memory address
 Exiting.

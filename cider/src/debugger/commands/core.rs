@@ -349,7 +349,7 @@ impl PrintTarget {
         }
     }
     pub fn address(&self) -> Option<&[usize]> {
-        self.address.as_ref().map(|sl| sl.as_slice())
+        self.address.as_deref()
     }
 
     pub fn as_string<C: AsRef<Context> + Clone>(

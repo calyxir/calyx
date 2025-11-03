@@ -3225,12 +3225,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
         let data = if let Some(addr) = target.address() {
             let address = state.format_address(addr);
-            if let Some(address) = address {
-                address
-            } else {
-                todo!("print an error here");
-                return None;
-            }
+            address?
         } else {
             format!("{state}")
         };

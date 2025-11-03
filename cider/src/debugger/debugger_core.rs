@@ -741,6 +741,20 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     {
                         println!("{state}");
                         return Ok(());
+                    } else if path.address().is_some_and(|x| !x.is_empty()) {
+                        println!(
+                            "{}",
+                            format_args!(
+                                "{} is not a valid memory address",
+                                path.as_string(self.interpreter.env())
+                            )
+                            .stylize_error()
+                        );
+                        // this should probably return an error, but that means
+                        // changing the error type to an enum covering path
+                        // errors and address errors. Probably worth fixing if
+                        // the memory addressing comes up elsewhere in a similar way
+                        return Ok(());
                     } else {
                         println!("{}","Target cell has no internal state, printing port information instead".stylize_warning());
                     }
