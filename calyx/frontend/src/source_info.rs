@@ -276,6 +276,24 @@ impl SourceInfoTable {
         self.mem_location_map.insert(id, info);
     }
 
+    /// Attempts to look up the variable mapping associated with a given
+    /// position, if such a mapping exists
+    pub fn get_variable_mapping(
+        &self,
+        pos: PositionId,
+    ) -> Option<&HashMap<String, MemoryLocationId>> {
+        self.position_state_map
+            .get(&pos)
+            .and_then(|x| self.variable_assignment_map.get(x))
+    }
+
+    pub fn get_memory_location(
+        &self,
+        loc: &MemoryLocationId,
+    ) -> &MemoryLocation {
+        &self.mem_location_map[loc]
+    }
+
     /// Creates a new empty source info table
     pub fn new_empty() -> Self {
         Self {
@@ -450,6 +468,37 @@ impl SourceInfoTable {
             self.position_map.iter().sorted_by_key(|(k, _)| **k)
         {
             writeln!(f, "  {position}: {file} {line}")?;
+        }
+        // write the position table
+        writeln!(f, "MEMORY_LOCATIONS")?;
+        for (loc, MemoryLocation { cell, address }) in
+            self.mem_location_map.iter().sorted_by_key(|(k, _)| **k)
+        {
+            write!(f, "  {loc}: {cell}")?;
+            if !address.is_empty() {
+                write!(f, "[{}]", address.iter().join(","))?;
+            }
+            writeln!(f)?;
+        }
+
+        writeln!(f, "VARIABLE_ASSIGNMENTS")?;
+        for (id, map) in self
+            .variable_assignment_map
+            .iter()
+            .sorted_by_key(|(k, _)| **k)
+        {
+            writeln!(f, "  {id}: {{")?;
+            for (var, loc) in map.iter().sorted() {
+                writeln!(f, "    {var}: {loc}")?;
+            }
+            writeln!(f, "  }}")?;
+        }
+
+        writeln!(f, "POSITION_STATE_MAP")?;
+        for (pos, var) in
+            self.position_state_map.iter().sorted_by_key(|(k, _)| **k)
+        {
+            writeln!(f, "  {pos}: {var}")?;
         }
 
         writeln!(f, "}}#")

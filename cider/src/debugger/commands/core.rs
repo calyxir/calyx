@@ -573,6 +573,11 @@ pub enum Command {
     /// Print out the value of the given target. Can be configured with
     /// different modes and print formats.
     Print(Vec<ParsePrintTarget>, Option<PrintCode>, PrintMode),
+    /// Print out the value of a source variable. Right now this is treated as a
+    /// distinct command from the standard print. It may ultimately be
+    /// worthwhile to join them, but some effort would be necessary to handle
+    /// the differences in allowed variable names between the two domains.
+    PrintVar(Vec<String>, Option<PrintCode>),
     /// Create a breakpoint on the given groups.
     Break(Vec<BreakTarget>),
     /// Display the help message.

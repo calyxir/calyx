@@ -3187,12 +3187,13 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         &self,
         cell_idx: GlobalCellIdx,
         print_code: PrintCode,
-        name: Option<&str>,
+        name: Option<impl AsRef<str>>,
     ) -> String {
         let mut buf = String::new();
 
         if let Some(name_override) = name {
-            writeln!(buf, "{}:", name_override.stylize_name()).unwrap();
+            writeln!(buf, "{}:", name_override.as_ref().stylize_name())
+                .unwrap();
         } else {
             writeln!(buf, "{}:", self.get_full_name(cell_idx).stylize_name())
                 .unwrap();
@@ -3210,6 +3211,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         buf
     }
 
+    /// return a string containing formatted data for the given target, assuming
+    /// there is internal state to inspect and that the target does not contain
+    /// an invalid address
     pub fn format_cell_state(
         &self,
         cell_idx: GlobalCellIdx,
@@ -3221,18 +3225,11 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             .serializer()?
             .serialize(print_code, &self.env.state_map);
 
-        let mut output = String::new();
-
-        let data = if let Some(addr) = target.address() {
-            let address = state.format_address(addr);
-            address?
+        if let Some(addr) = target.address() {
+            state.format_address(addr)
         } else {
-            format!("{state}")
-        };
-
-        writeln!(output, "{}: {data}", target.as_string(self.env())).unwrap();
-
-        Some(output)
+            Some(format!("{state}"))
+        }
     }
 }
 

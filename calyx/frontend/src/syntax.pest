@@ -304,21 +304,21 @@ transition_rule = {
 
 // transitions that can be either conditional or unconditional
 transition = {
-      state_idx 
-      | "{" 
+      state_idx
+      | "{"
       ~ (transition_rule ~ ",")+
       ~ "}"
 }
 
 state = {
-      state_idx ~ ":" ~ "{" 
+      state_idx ~ ":" ~ "{"
       ~ wire*
       ~ "}" ~ "=>" ~ transition ~ ","
 }
 
 fsm = {
-      "fsm" ~ name_with_attribute ~ "{" 
-      ~ state+ 
+      "fsm" ~ name_with_attribute ~ "{"
+      ~ state+
       ~ "}"
 }
 

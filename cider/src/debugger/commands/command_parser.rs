@@ -182,6 +182,10 @@ impl CommandParser {
         ))
     }
 
+    fn arb_str(input: Node) -> ParseResult<String> {
+        Ok(input.as_str().to_owned())
+    }
+
     fn print(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
             [name(ident)..] => Command::Print(ident.collect::<Vec<_>>(), None, PrintMode::Port),
@@ -193,6 +197,13 @@ impl CommandParser {
         Ok(match_nodes!(input.into_children();
             [state_name(ident)..] => Command::Print(ident.collect::<Vec<_>>(), None, PrintMode::State),
             [print_code(pc), state_name(ident)..] => Command::Print(ident.collect::<Vec<_>>(), Some(pc), PrintMode::State),
+        ))
+    }
+
+    fn print_var(input: Node) -> ParseResult<Command> {
+        Ok(match_nodes!(input.into_children();
+            [arb_str(vars)..] => Command::PrintVar(vars.collect(), None),
+            [print_code(pc), arb_str(vars)..] => Command::PrintVar(vars.collect(), Some(pc)),
         ))
     }
 
@@ -294,6 +305,7 @@ impl CommandParser {
         Ok(match_nodes!(input.into_children();
             [watch(w), EOI(_)] => w,
             [print_state(p), EOI(_)] => p,
+            [print_var(p), EOI(_)] => p,
             [print(p), EOI(_)] => p,
             [print_fail(err), EOI(_)] => ParseResult::Err(err)?,
             [step_over(s), EOI(_)] => s,
