@@ -29,7 +29,7 @@ rule parse-rpt
 rule extract-util-json
   command = synthrep summary -m utilization > $out
 rule extract-hierarchy-json
-  command = synthrep summary -m hierarchy > $out
+  command = aext vivado out/hierarchical_utilization_placed.rpt > $out
 
 flamegraph-script = /test/calyx/non-existent.script
 create-visuals-script = $calyx-base/tools/profiler/create-visuals.sh
