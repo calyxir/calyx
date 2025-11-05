@@ -1,15 +1,16 @@
 import csv
 import os
 
-from profiler.classes import (
+from profiler.classes.cell_metadata import CellMetadata
+from profiler.classes.control_metadata import ControlMetadata
+from profiler.classes.tracedata import (
     TraceData,
-    CellMetadata,
-    ControlMetadata,
     CycleType,
     CycleTrace,
     StackElementType,
-    GroupSummary,
 )
+
+from profiler.classes.summaries import GroupSummary
 
 
 def create_group_summaries(cell_metadata: CellMetadata, tracedata: TraceData):
@@ -143,7 +144,7 @@ def write_cell_stats(
             case CycleType.GROUP_OR_PRIMITIVE | CycleType.OTHER:
                 totals["useful-cycles"] += len(tracedata.cycletype_to_cycles[cycletype])
         totals[f"{cycletype.name} (%)"] = round(
-            (len(tracedata.cycletype_to_cycles[cycletype]) / total_cycles) * 100, 1
+            (len(tracedata.cycletype_to_cycles[cycletype]) / total_cycles) * 100, 2
         )
     totals["times-active"] = "-"
     totals["avg"] = "-"

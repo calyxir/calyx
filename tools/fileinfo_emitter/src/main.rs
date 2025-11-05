@@ -20,10 +20,11 @@ use std::path::{Path, PathBuf};
 // NOTE: Current implementation is hacky because it uses the
 //
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
 enum Adl {
     Calyx,
     Py,
+    Dahlia,
 }
 
 #[derive(FromArgs)]
@@ -58,14 +59,19 @@ where
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Serialize)]
+struct AdlInfo {
+    pub adl: Adl,
+    pub components: Vec<ComponentInfo>,
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
 struct ComponentInfo {
+    // components may not have metadata attached.
     #[serde(serialize_with = "id_serialize_passthrough")]
     pub component: Id,
-    // components may not have metadata attached.
     pub filename: Option<String>,
-    // components may not have metadata attached.
     pub linenum: Option<usize>,
-    // components may not have metadata attached.
+    // association name
     pub varname: Option<String>,
     pub cells: Vec<PosInfo>,
     pub groups: Vec<PosInfo>,
@@ -109,12 +115,15 @@ fn gen_component_info(
     // FIXME: currently assumes that there is a one-to-one mapping between groups and ADL posids
 
     // get pos for component
-    let component_pos = comp
-        .attributes
-        .get_set(SetAttribute::Set(SetAttr::Pos))
-        .map(|pos_set| {
-            *pos_set.iter().find(|x| adl_posids.contains(x)).unwrap()
-        });
+    let component_pos_first =
+        comp.attributes.get_set(SetAttribute::Set(SetAttr::Pos));
+    let component_pos = match component_pos_first {
+        Some(pos_set) => {
+            let a = pos_set.iter().find(|x| adl_posids.contains(x));
+            a.copied()
+        }
+        None => None,
+    };
     let mut component_pos_id = ComponentPosIds {
         component_pos_id: component_pos,
         cells: HashMap::new(),
@@ -135,6 +144,22 @@ fn gen_component_info(
         component_pos_id
             .groups
             .insert(group.borrow().name(), *group_pos);
+    }
+
+    // get pos for combinational groups
+    for comb_group in comp.comb_groups.iter() {
+        let comb_group_ref = comb_group.borrow();
+        let comb_group_set_attr = comb_group_ref
+            .attributes
+            .get_set(SetAttribute::Set(SetAttr::Pos))
+            .unwrap();
+        let comb_group_pos = comb_group_set_attr
+            .iter()
+            .find(|x| adl_posids.contains(x))
+            .unwrap();
+        component_pos_id
+            .groups
+            .insert(comb_group.borrow().name(), *comb_group_pos);
     }
 
     // get pos for cell
@@ -178,6 +203,7 @@ fn obtain_pos_info(
     pos_id: &u32,
     source_info_table: &SourceInfoTable,
     file_lines_map: &HashMap<String, Vec<String>>,
+    adl: &Adl,
 ) -> CalyxResult<PosInfo> {
     let SourceLocation { file, line, .. } =
         source_info_table.lookup_position(PositionId::from(*pos_id));
@@ -195,13 +221,31 @@ fn obtain_pos_info(
             line.as_usize(),
             file_lines_map,
             name,
+            adl,
         ),
     })
 }
 
-/// Attempts to retrieve the ADL-level variable name of the component/group/cell by scanning the source line.
+fn get_dahlia_var_name(
+    filename: &String,
+    linenum: usize,
+    file_lines_map: &HashMap<String, Vec<String>>,
+    calyx_var_name: &Id,
+) -> String {
+    if filename.ends_with("*.futil") {
+        // If the original file is a Calyx file, the var name is the Calyx var name.
+        return calyx_var_name.to_string();
+    }
+    // let unnamed = format!("'{calyx_var_name}'"); // fallback: Calyx-level construct variable name
+    let file_lines: &Vec<String> = file_lines_map.get(filename).unwrap();
+    let og_line_cloned = file_lines[linenum - 1].clone();
+    let line = og_line_cloned.trim();
+    line.to_string()
+}
+
+/// Attempts to retrieve the Calyx-py ADL-level variable name of the component/group/cell by scanning the source line.
 /// If an ADL-level variable name cannot be found, "'<calyx_var_name>'" will be returned as a substitute.
-fn get_adl_var_name(
+fn get_calyx_py_var_name(
     filename: &String,
     linenum: usize,
     file_lines_map: &HashMap<String, Vec<String>>,
@@ -241,29 +285,63 @@ fn get_adl_var_name(
     }
 }
 
+fn get_adl_var_name(
+    filename: &String,
+    linenum: usize,
+    file_lines_map: &HashMap<String, Vec<String>>,
+    calyx_var_name: &Id,
+    adl: &Adl,
+) -> String {
+    match adl {
+        Adl::Py => get_calyx_py_var_name(
+            filename,
+            linenum,
+            file_lines_map,
+            calyx_var_name,
+        ),
+        Adl::Dahlia => get_dahlia_var_name(
+            filename,
+            linenum,
+            file_lines_map,
+            calyx_var_name,
+        ),
+        Adl::Calyx => panic!("Not supposed to be called on Calyx positions"),
+    }
+}
+
 /// Resolves all position Ids with their corresponding file names, line numbers, and ADL-level variable names.
 fn resolve(
     source_info_table: &SourceInfoTable,
     component_pos_ids: &HashMap<Id, ComponentPosIds>,
     component_info: &mut HashSet<ComponentInfo>,
     file_lines_map: &HashMap<String, Vec<String>>,
+    adl: &Adl,
 ) -> CalyxResult<()> {
     for (curr_component, curr_component_pos_ids) in component_pos_ids.iter() {
         let mut curr_component_info =
             if let Some(pos_id) = curr_component_pos_ids.component_pos_id {
                 let SourceLocation { file, line, .. } =
                     source_info_table.lookup_position(PositionId::from(pos_id));
-                let curr_component_filename = source_info_table
-                    .lookup_file_path(*file)
-                    .as_path()
-                    .to_str()
-                    .unwrap()
-                    .to_string();
+                let curr_component_filename = match adl {
+                    Adl::Dahlia => {
+                        file_lines_map.keys().last().unwrap().to_string()
+                    }
+                    Adl::Py => source_info_table
+                        .lookup_file_path(*file)
+                        .as_path()
+                        .to_str()
+                        .unwrap()
+                        .to_string(),
+                    Adl::Calyx => {
+                        panic!("resolve() should only be called on ADLs!")
+                    }
+                };
                 let varname = get_adl_var_name(
                     &curr_component_filename,
                     line.as_usize(),
                     file_lines_map,
                     curr_component,
+                    adl,
                 );
                 ComponentInfo {
                     component: *curr_component,
@@ -289,6 +367,7 @@ fn resolve(
                 cell_pos_id,
                 source_info_table,
                 file_lines_map,
+                adl,
             ) {
                 curr_component_info.cells.push(pos_info);
             };
@@ -299,6 +378,7 @@ fn resolve(
                 group_pos_id,
                 source_info_table,
                 file_lines_map,
+                adl,
             ) {
                 curr_component_info.groups.push(pos_info);
             }
@@ -310,12 +390,17 @@ fn resolve(
 }
 
 /// Write the collected set of component information to a JSON file.
-fn write_json(
+fn write_adl_json(
     component_info: HashSet<ComponentInfo>,
     mut file: OutputFile,
+    adl: Adl,
 ) -> Result<(), io::Error> {
     let created_vec: Vec<ComponentInfo> = component_info.into_iter().collect();
-    serde_json::to_writer_pretty(file.get_write(), &created_vec)?;
+    let adl_info: AdlInfo = AdlInfo {
+        adl,
+        components: created_vec,
+    };
+    serde_json::to_writer_pretty(file.get_write(), &adl_info)?;
     Ok(())
 }
 
@@ -357,6 +442,9 @@ fn create_lang_to_posid_map(
                     }
                     "py" => {
                         fileid_to_lang.insert(*fileid, Adl::Py);
+                    }
+                    "fuse" => {
+                        fileid_to_lang.insert(*fileid, Adl::Dahlia);
                     }
                     _ => println!("Unsupported file extension: {path_ext_str}"),
                 }
@@ -528,13 +616,14 @@ fn adl_wrapper(
     adl_to_posids_to_linenums: &HashMap<Adl, HashMap<u32, u32>>,
     file_lines_map: &HashMap<String, Vec<String>>,
     file: OutputFile,
+    adl: Adl,
 ) -> CalyxResult<()> {
     let main_comp = ctx.entrypoint();
 
     let mut component_pos_ids: HashMap<Id, ComponentPosIds> = HashMap::new();
     let mut component_info: HashSet<ComponentInfo> = HashSet::new();
 
-    match adl_to_posids_to_linenums.get(&Adl::Py) {
+    match adl_to_posids_to_linenums.get(&adl) {
         Some(py_posid_map) => {
             let py_posids: HashSet<u32> =
                 py_posid_map.keys().cloned().collect();
@@ -550,8 +639,9 @@ fn adl_wrapper(
                 &component_pos_ids,
                 &mut component_info,
                 file_lines_map,
+                &adl,
             )?;
-            write_json(component_info.clone(), file)?;
+            write_adl_json(component_info.clone(), file, adl)?;
         }
         None => {
             println!("Python-level metadata not given!");
@@ -586,13 +676,25 @@ fn main() -> CalyxResult<()> {
                 p.control_output,
             )?;
 
-            adl_wrapper(
-                &ctx,
-                source_info_table,
-                &adl_to_posids_to_linenums,
-                &file_lines_map,
-                p.output,
-            )?;
+            if adl_to_posids_to_linenums.contains_key(&Adl::Py) {
+                adl_wrapper(
+                    &ctx,
+                    source_info_table,
+                    &adl_to_posids_to_linenums,
+                    &file_lines_map,
+                    p.output,
+                    Adl::Py,
+                )?;
+            } else if adl_to_posids_to_linenums.contains_key(&Adl::Dahlia) {
+                adl_wrapper(
+                    &ctx,
+                    source_info_table,
+                    &adl_to_posids_to_linenums,
+                    &file_lines_map,
+                    p.output,
+                    Adl::Dahlia,
+                )?;
+            }
 
             Ok(())
         }

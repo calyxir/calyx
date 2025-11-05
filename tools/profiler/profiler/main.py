@@ -10,20 +10,19 @@ import profiler.construct_trace as construct_trace
 import profiler.preprocess as preprocess
 from profiler.visuals import flame, timeline, stats
 
-from profiler.classes import (
-    CellMetadata,
-    ControlMetadata,
-    TraceData,
-    ControlRegUpdateType,
-    Utilization,
-)
+from profiler.classes.cell_metadata import CellMetadata
+from profiler.classes.primitive_metadata import PrimitiveMetadata
+from profiler.classes.control_metadata import ControlMetadata
+from profiler.classes.tracedata import TraceData, ControlRegUpdateType, Utilization
 
 
 def setup_metadata(args):
     """
     Wrapper function to preprocess information to use in VCD reading.
     """
-    cell_metadata: CellMetadata = preprocess.read_component_cell_names_json(
+    cell_metadata: CellMetadata
+    primitive_metadata: PrimitiveMetadata
+    cell_metadata, primitive_metadata = preprocess.read_component_cell_names_json(
         args.cells_json
     )
     shared_cells_map: dict[str, dict[str, str]] = preprocess.read_shared_cells_map(
@@ -37,13 +36,17 @@ def setup_metadata(args):
     else:
         component_to_pos_to_loc_str = None
 
-    control_metadata: ControlMetadata = preprocess.read_tdcc_file(
-        args.fsms_json, component_to_pos_to_loc_str, cell_metadata
+    control_metadata: ControlMetadata = preprocess.setup_control_info(
+        args.fsms_json,
+        args.path_descriptors_json,
+        component_to_pos_to_loc_str,
+        cell_metadata,
     )
     # create tracedata object here so we can use it outside of converter
     tracedata: TraceData = TraceData()
     return (
         cell_metadata,
+        primitive_metadata,
         control_metadata,
         tracedata,
         shared_cells_map,
@@ -86,6 +89,7 @@ def process_vcd(
 
 def create_visuals(
     cell_metadata: CellMetadata,
+    primitive_metadata: PrimitiveMetadata,
     control_metadata: ControlMetadata,
     tracedata: TraceData,
     enable_thread_metadata: dict[str, dict[str, int]],
@@ -102,7 +106,7 @@ def create_visuals(
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
 
-    flame.create_simple_flame_graph(tracedata, control_reg_updates_per_cycle, out_dir)
+    flame.create_simple_flame_graph(tracedata, control_reg_updates_per_cycle)
     stats.write_group_stats(cell_metadata, tracedata, out_dir)
     stats.write_cell_stats(
         cell_metadata,
@@ -113,16 +117,14 @@ def create_visuals(
     stats.write_par_stats(tracedata, out_dir)
     print(f"End writing stats: {datetime.now()}")
 
-    flat_flame_map, scaled_flame_map = flame.create_flame_maps(
-        tracedata.trace_with_control_groups
+    flame.create_and_write_calyx_flame_maps(
+        tracedata.trace_with_control_groups, out_dir, flame_out
     )
-    flame.write_flame_maps(flat_flame_map, scaled_flame_map, out_dir, flame_out)
     print(f"End writing flame graphs: {datetime.now()}")
 
-    timeline.compute_protobuf_timeline(
-        tracedata, cell_metadata, enable_thread_metadata, out_dir
+    timeline.compute_calyx_protobuf_timeline(
+        tracedata, cell_metadata, primitive_metadata, enable_thread_metadata, out_dir
     )
-    timeline.compute_timeline(tracedata, cell_metadata, enable_thread_metadata, out_dir)
     print(f"End writing timeline view: {datetime.now()}")
 
     if utilization_variable:
@@ -150,6 +152,10 @@ def parse_args():
         "enable_par_tracks_json",
         help="Records statically assigned thread ids for control enables",
     )
+    parser.add_argument(
+        "path_descriptors_json",
+        help="Records path descriptors for enables and control nodes",
+    )
     parser.add_argument("out_dir", help="Output directory")
     parser.add_argument("flame_out", help="Output file for flattened flame graph")
     parser.add_argument(
@@ -173,6 +179,11 @@ def parse_args():
         "--adl-mapping-file", dest="adl_mapping_file", help="adl mapping file"
     )
     parser.add_argument(
+        "--dahlia-parent-map",
+        dest="dahlia_parent_map",
+        help="Parent map for Dahlia programs so we can identify if/for parents.\nNOTE: Only used for Dahlia programs.",
+    )
+    parser.add_argument(
         "--print-trace-threshold",
         dest="print_trace_threshold",
         type=int,
@@ -189,6 +200,7 @@ def main():
 
     (
         cell_metadata,
+        primitive_metadata,
         control_metadata,
         tracedata,
         shared_cells_map,
@@ -227,6 +239,7 @@ def main():
 
     create_visuals(
         cell_metadata,
+        primitive_metadata,
         control_metadata,
         tracedata,
         enable_thread_metadata,
@@ -238,7 +251,11 @@ def main():
 
     if args.adl_mapping_file is not None:  # emit ADL flame graphs.
         adl_mapping.create_and_write_adl_map(
-            tracedata, args.adl_mapping_file, args.out_dir
+            tracedata,
+            primitive_metadata,
+            args.adl_mapping_file,
+            args.out_dir,
+            args.dahlia_parent_map,
         )
 
     print(f"End time: {datetime.now()}")

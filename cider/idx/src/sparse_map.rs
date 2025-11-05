@@ -1,7 +1,8 @@
 use std::{hash::Hash, ops::Index};
 
 use super::index_trait::{IndexRange, IndexRef};
-use ahash::{HashMap, HashMapExt};
+use ahash::HashMapExt;
+use fxhash::FxHashMap as HashMap;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

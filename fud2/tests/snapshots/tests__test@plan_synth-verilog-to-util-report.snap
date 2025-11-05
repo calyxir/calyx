@@ -31,6 +31,7 @@ rule extract-util-json
 rule extract-hierarchy-json
   command = synthrep summary -m hierarchy > $out
 
+build main.sv: copy /input.ext
 build device.xdc: copy $device_xdc
 build IGNOREME: vivado | main.sv synth.tcl device.xdc
 build /output.ext: copy-utilization IGNOREME

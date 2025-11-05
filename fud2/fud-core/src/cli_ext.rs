@@ -15,6 +15,9 @@ pub type FromArgFn<T> = fn(&[&str], &[&str]) -> Result<T, argh::EarlyExit>;
 /// the `fud_core` cli.
 ///
 /// ```rust
+/// use fud_core::cli::{RedactArgFn, FromArgFn, CliExt};
+/// use argh::{CommandInfo, FromArgs};
+///
 /// /// some test command
 /// #[derive(FromArgs)]
 /// #[argh(subcommand, name = "test")]
@@ -28,10 +31,10 @@ pub type FromArgFn<T> = fn(&[&str], &[&str]) -> Result<T, argh::EarlyExit>;
 ///     Test(TestCommand)
 /// }
 ///
-/// impl CliExt for Fud2CliExt {
+/// impl CliExt for TestExt {
 ///     fn run(&self, driver: &fud_core::Driver) -> anyhow::Result<()> {
 ///         match &self {
-///             Fud2CliExt::Test(cmd) => {
+///             TestExt::Test(cmd) => {
 ///                 println!("hi there: {}", cmd.arg);
 ///                 Ok(())
 ///             }

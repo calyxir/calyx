@@ -251,3 +251,7 @@ as before.
 ### `@protected`
 
 Marks that the cell should not be removed or shared during optimization.
+
+### `@pos`
+
+Contains the position IDs for [source location(s)](../tools/source-locations.md) of the marked component/cell/group/control statement. Note that `@pos` is a set attribute (uses curly brace syntax) and can contain multiple values.

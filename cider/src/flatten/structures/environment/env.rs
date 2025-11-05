@@ -2369,9 +2369,10 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             info!(self.env.logger, "Started combinational convergence");
         }
 
-        let mut rerun_all_primitives = true;
-
         let mut changed_cells: FxHashSet<GlobalCellIdx> = FxHashSet::new();
+
+        self.run_primitive_comb_path(self.env.cells.range().into_iter())?;
+        let mut rerun_all_primitives = false;
 
         while has_changed {
             has_changed = false;
@@ -2759,6 +2760,8 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         &mut self,
         assigns_bundle: &[ScheduledAssignments],
     ) -> Result<(), BoxedRuntimeError> {
+        let mut set_extension = HashSet::new();
+
         for ScheduledAssignments {
             active_cell,
             assignments,
@@ -2788,8 +2791,6 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         .get(assign.guard)
                     {
                         if self.env.ports[dest].is_def() {
-                            let mut set_extension = HashSet::new();
-
                             for port in read_ports {
                                 let port = self
                                     .get_global_port_idx(port, *active_cell);
@@ -2805,11 +2806,14 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                         .extend(clocks.iter().copied());
                                 }
                             }
-
-                            self.env.ports[dest]
-                                .as_option_mut()
-                                .unwrap()
-                                .add_transitive_clocks(set_extension);
+                            if !set_extension.is_empty() {
+                                self.env.ports[dest]
+                                    .as_option_mut()
+                                    .unwrap()
+                                    .add_transitive_clocks(
+                                        set_extension.drain(),
+                                    );
+                            }
 
                             // this is necessary for ports which were implicitly
                             // assigned zero and is redundant for other ports
@@ -2900,6 +2904,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
         let mut changed = UpdateStatus::Unchanged;
 
+        let mut working_set = vec![];
         for cell in cells_to_run {
             let cell = &mut self.env.cells[cell];
             match cell {
@@ -2911,7 +2916,6 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
                     if self.conf.check_data_race && cell_dyn.is_combinational()
                     {
-                        let mut working_set = vec![];
                         let signature = cell_dyn.get_ports();
 
                         for port in signature.iter_first() {
@@ -2933,8 +2937,12 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         if signature.iter_second().len() == 1 {
                             let port = signature.iter_second().next().unwrap();
                             let val = &mut self.env.ports[port];
-                            if let Some(val) = val.as_option_mut() {
-                                val.add_transitive_clocks(working_set);
+                            if let Some(val) = val.as_option_mut()
+                                && !working_set.is_empty()
+                            {
+                                val.add_transitive_clocks(
+                                    working_set.drain(..),
+                                );
                             }
                         } else {
                             todo!("comb primitive with multiple outputs")
@@ -3005,7 +3013,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     e.add_cell_info(info.attached_cell, info.entry_number)
                 })?
         } else if let Some(transitive_clocks) = val.transitive_clocks() {
-            for clock_pair in transitive_clocks {
+            for clock_pair in transitive_clocks.iter() {
                 clock_pair
                     .check_read_with_ascription(
                         (thread, thread_clock),

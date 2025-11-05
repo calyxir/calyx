@@ -1,8 +1,8 @@
 import vcdvcd
 
-from profiler.classes import (
-    CellMetadata,
-    ControlMetadata,
+from profiler.classes.cell_metadata import CellMetadata
+from profiler.classes.control_metadata import ControlMetadata
+from profiler.classes.tracedata import (
     CycleTrace,
     Utilization,
     UtilizationCycleTrace,
@@ -13,7 +13,7 @@ from profiler.classes import (
 )
 from dataclasses import dataclass
 from collections import defaultdict
-from profiler.errors import ProfilerException
+from profiler.classes.errors import ProfilerException
 
 DELIMITER = "___"
 
@@ -358,7 +358,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         utilization,
                     )
                 )  # True to track primitives
-                self.tracedata.trace[clock_cycles] = cycle_trace
+                self.tracedata.trace.add_cycle(clock_cycles, cycle_trace)
         self.clock_cycles = (
             clock_cycles  # last rising edge does not count as a full cycle (probably)
         )
@@ -746,69 +746,3 @@ def get_new_cell_to_change_type(
         and cell_to_change_type[cell_name] == ControlRegUpdateType.PAR_DONE
     ):
         return ControlRegUpdateType.BOTH
-
-
-def add_par_to_trace(
-    trace,
-    par_trace,
-    cells_to_ordered_pars,
-    cell_to_groups_to_par_parent,
-    main_shortname,
-):
-    """
-    Adds par groups (created by TDCC) to an existing trace.
-    """
-
-    new_trace = {i: [] for i in trace}
-    for i in trace:
-        if i in par_trace:
-            for events_stack in trace[i]:
-                new_events_stack = []
-                for construct in events_stack:
-                    new_events_stack.append(construct)
-                    if construct == main_shortname:  # main
-                        current_cell = main_shortname
-                    elif " [" in construct:  # cell detected
-                        current_cell += "." + construct.split(" [")[0]
-                    elif "(primitive)" not in construct:  # group
-                        # handling the edge case of nested pars concurrent with groups; pop any pars that aren't this group's parent.
-                        if (
-                            current_cell in cell_to_groups_to_par_parent
-                            and construct in cell_to_groups_to_par_parent[current_cell]
-                        ):
-                            group_parents = cell_to_groups_to_par_parent[current_cell][
-                                construct
-                            ]
-                            parent_found = False
-                            while (
-                                len(new_events_stack) > 2
-                                and "(ctrl)" in new_events_stack[-2]
-                            ):  # NOTE: fix in future when there are multiple "ctrl" elements
-                                for parent in group_parents:
-                                    if f"{parent} (ctrl)" == new_events_stack[-2]:
-                                        parent_found = True
-                                        break
-                                if parent_found:
-                                    break
-                                new_events_stack.pop(-2)
-                        continue
-                    else:
-                        continue
-                    # get all of the active pars from this cell
-                    if current_cell in cells_to_ordered_pars:
-                        active_from_cell = par_trace[i].intersection(
-                            cells_to_ordered_pars[current_cell]
-                        )
-                        for par_group_active in sorted(
-                            active_from_cell,
-                            key=(
-                                lambda p: cells_to_ordered_pars[current_cell].index(p)
-                            ),
-                        ):
-                            par_group_name = par_group_active.split(".")[-1] + " (ctrl)"
-                            new_events_stack.append(par_group_name)
-                new_trace[i].append(new_events_stack)
-        else:
-            new_trace[i] = trace[i].copy()
-
-    return new_trace
