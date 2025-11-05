@@ -1,8 +1,11 @@
 use super::structures::{GroupContents, NewSourceMap};
+#[allow(unused)]
 use crate::errors::CiderResult;
 use pest_consume::{Error, Parser, match_nodes};
 use std::collections::HashMap;
+#[allow(dead_code)]
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
+#[allow(dead_code)]
 type Node<'i> = pest_consume::Node<'i, Rule, ()>;
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes
@@ -46,7 +49,7 @@ impl MetadataParser {
         ))
     }
 }
-
+#[cfg(test)]
 pub fn parse_metadata(input_str: &str) -> CiderResult<NewSourceMap> {
     let inputs = MetadataParser::parse(Rule::metadata, input_str)?;
     let input = inputs.single()?;
