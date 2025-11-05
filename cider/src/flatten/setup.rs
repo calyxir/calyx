@@ -38,8 +38,8 @@ fn do_setup(
     }
 
     let mut flat_ctx = crate::flatten::flat_ir::translate(&ctx);
-    if !entangled_mems.is_empty() {
-        flat_ctx.entangle_memories(entangled_mems)?;
+    if !entangled_mems.is_empty() || !entangled_files.is_empty() {
+        flat_ctx.entangle_memories(entangled_mems, entangled_files)?;
     }
 
     let mapping = if gen_metadata {
@@ -54,11 +54,6 @@ fn do_setup(
     } else {
         Err(crate::errors::CiderError::MissingMetaData.into())
     };
-
-    let mut ctx = crate::flatten::flat_ir::translate(&ctx);
-    if !entangled_mems.is_empty() || !entangled_files.is_empty() {
-        ctx.entangle_memories(entangled_mems, entangled_files)?;
-    }
 
     // general setup
     Ok((flat_ctx, mapping))

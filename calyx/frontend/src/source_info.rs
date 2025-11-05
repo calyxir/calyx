@@ -300,7 +300,9 @@ impl SourceInfoTable {
     /// files and positions. If an empty map is needed use [SourceInfoTable::new_empty]
     pub fn new_minimal(
         files: impl IntoIterator<Item = (FileId, PathBuf)>,
-        positions: impl IntoIterator<Item = (PositionId, FileId, LineNum)>,
+        positions: impl IntoIterator<
+            Item = (PositionId, FileId, LineNum, Option<LineNum>),
+        >,
     ) -> SourceInfoResult<Self> {
         // the compiler needs some concrete types here even though the input is
         // all empty
@@ -317,7 +319,9 @@ impl SourceInfoTable {
     // this is awful
     pub fn new(
         files: impl IntoIterator<Item = (FileId, PathBuf)>,
-        positions: impl IntoIterator<Item = (PositionId, FileId, LineNum)>,
+        positions: impl IntoIterator<
+            Item = (PositionId, FileId, LineNum, Option<LineNum>),
+        >,
         locations: impl IntoIterator<Item = (MemoryLocationId, MemoryLocation)>,
         variable_assigns: impl IntoIterator<
             Item = (
