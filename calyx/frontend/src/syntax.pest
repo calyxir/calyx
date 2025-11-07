@@ -304,21 +304,21 @@ transition_rule = {
 
 // transitions that can be either conditional or unconditional
 transition = {
-      state_idx 
-      | "{" 
+      state_idx
+      | "{"
       ~ (transition_rule ~ ",")+
       ~ "}"
 }
 
 state = {
-      state_idx ~ ":" ~ "{" 
+      state_idx ~ ":" ~ "{"
       ~ wire*
       ~ "}" ~ "=>" ~ transition ~ ","
 }
 
 fsm = {
-      "fsm" ~ name_with_attribute ~ "{" 
-      ~ state+ 
+      "fsm" ~ name_with_attribute ~ "{"
+      ~ state+
       ~ "}"
 }
 
@@ -436,7 +436,7 @@ file_table = {
 
 position_header = {^"POSITIONS"}
 
-position_entry = {bitwidth ~ ":" ~ bitwidth ~ bitwidth ~ (bitwidth)?}
+position_entry = {bitwidth ~ ":" ~ bitwidth ~ bitwidth ~ (":" ~ bitwidth)?}
 
 position_table = {
     position_header ~ position_entry+

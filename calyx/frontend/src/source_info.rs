@@ -469,7 +469,7 @@ impl SourceInfoTable {
         ) in self.position_map.iter().sorted_by_key(|(k, _)| **k)
         {
             let endlinestr = if let Some(line) = end_line {
-                format!(" {line}")
+                format!(":{line}")
             } else {
                 String::new()
             };
@@ -623,7 +623,7 @@ mod tests {
         2: test3.calyx
     POSITIONS
         0: 0 5
-        1: 0 1
+        1: 0 1:12
         2: 0 2
     MEMORY_LOCATIONS
         0: main.reg1
@@ -889,7 +889,7 @@ mod tests {
                 0: test2.calyx
                 2: test3.calyx
             POSITIONS
-                0: 0 5 6
+                0: 0 5:6
                 1: 0 1
                 2: 0 2
         }#"#;
