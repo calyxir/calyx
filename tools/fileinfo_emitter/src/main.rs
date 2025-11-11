@@ -146,6 +146,22 @@ fn gen_component_info(
             .insert(group.borrow().name(), *group_pos);
     }
 
+    // get pos for combinational groups
+    for comb_group in comp.comb_groups.iter() {
+        let comb_group_ref = comb_group.borrow();
+        let comb_group_set_attr = comb_group_ref
+            .attributes
+            .get_set(SetAttribute::Set(SetAttr::Pos))
+            .unwrap();
+        let comb_group_pos = comb_group_set_attr
+            .iter()
+            .find(|x| adl_posids.contains(x))
+            .unwrap();
+        component_pos_id
+            .groups
+            .insert(comb_group.borrow().name(), *comb_group_pos);
+    }
+
     // get pos for cell
     for cell in comp.cells.iter() {
         let cell_ref = cell.borrow();

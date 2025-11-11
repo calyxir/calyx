@@ -9,7 +9,6 @@ pub type Step = (OpRef, Vec<StateRef>);
 
 /// The type of a planner.
 pub enum PlannerType {
-    Egg,
     Enumerative,
     Legacy,
     FromJson,

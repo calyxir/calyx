@@ -1,11 +1,17 @@
 ---
 source: fud2/tests/tests.rs
-description: "emit plan: profiler"
+description: "emit plan: dahlia-profiler"
 snapshot_kind: text
 ---
 build-tool = fud2
 rule get-rsrc
   command = $build-tool get-rsrc $out
+
+parent-map = parent-map.json
+dahlia-exe = /test/bin/dahlia
+dahlia-args = 
+rule dahlia-to-calyx
+  command = $dahlia-exe -b calyx --lower -l error $dahlia-args $in > $out
 
 calyx-base = /test/calyx
 calyx-exe = $calyx-base/target/debug/calyx
@@ -74,11 +80,13 @@ rule sim-run
   command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out || (cat $out >&2 && false)
 cycle-limit = 500000000
 
-build metadata-calyx.futil: calyx-pass /input.ext
+build calyx.futil: dahlia-to-calyx /input.ext
+  dahlia-args = --parent-map $parent-map
+build metadata-calyx.futil: calyx-pass calyx.futil
   pass = metadata-table-generation
-build $ctrl-pos-json: parse-metadata metadata-calyx.futil
-build $cell-json: component-cells /input.ext
-build instrumented.sv: calyx /input.ext
+build $ctrl-pos-json $adl-metadata-json: parse-metadata-with-adl metadata-calyx.futil
+build $cell-json: component-cells calyx.futil
+build instrumented.sv: calyx calyx.futil
   backend = verilog
   args = -d group2seq -p metadata-table-generation -p validate -p compile-invoke -p uniquefy-enables -p profiler-instrumentation -p dead-group-removal $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json -x uniquefy-enables:path-descriptor-json=path-descriptors.json
 build verilator-out/Vtoplevel: verilator-compile-standalone-tb instrumented.sv | tb.sv
@@ -87,7 +95,7 @@ build instrumented.exe: cp verilator-out/Vtoplevel
 build sim.log instrumented.vcd: sim-run instrumented.exe $datadir
   bin = instrumented.exe
   args = +NOTRACE=0 +OUT=instrumented.vcd
-build flamegraph.folded: parse-vcd instrumented.vcd | $cell-json $ctrl-pos-json
+build flamegraph.folded: parse-vcd-from-dahlia instrumented.vcd | $cell-json $adl-metadata-json
 build /output.ext: create-visuals flamegraph.folded
 
 default /output.ext
