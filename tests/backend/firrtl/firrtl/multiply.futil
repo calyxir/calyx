@@ -1,0 +1,51 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/binary_operators.futil";
+
+component main(@go go: 1) -> (@done done: 1) {
+  cells {
+    @external(1) mem = comb_mem_d1(32, 1, 1);
+    mult_a = std_mult_pipe(32);
+    mult_b = std_mult_pipe(32);
+    result_a = std_reg(32);
+    result_b = std_reg(32);
+  }
+
+  wires {
+    group mult_1 {
+      // First multiply: 10 * 20 = 200
+      mult_a.left = 32'd10;
+      mult_a.right = 32'd20;
+      mult_a.go = 1'b1;
+      result_a.in = mult_a.out;
+      result_a.write_en = mult_a.done;
+      mult_1[done] = result_a.done;
+    }
+
+    group mult_2 {
+    // Second multiply: 200 * 15 = 3000
+      mult_b.left = mult_a.out;
+      mult_b.right = 32'd15;
+      mult_b.go = 1'b1;
+      result_b.in = mult_b.out;
+      result_b.write_en = mult_b.done;
+
+      mult_2[done] = result_b.done;
+    }
+
+    group write {
+      mem.addr0 = 1'b0;
+      mem.write_en = 1'b1;
+      mem.write_data = result_b.out;
+      write[done] = mem.done;
+    }
+  }
+
+  control {
+    seq {
+      mult_1;
+      mult_2;
+      write;
+    }
+  }
+}
