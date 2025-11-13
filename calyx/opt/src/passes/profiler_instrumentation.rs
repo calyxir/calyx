@@ -1,13 +1,44 @@
 use core::panic;
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    ops::Add,
+};
 
-use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
+use crate::traversal::{
+    Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
+};
 use calyx_ir::{self as ir, BoolAttr, Guard, Id, Nothing, NumAttr};
-use calyx_utils::CalyxResult;
+use calyx_utils::{CalyxResult, OutputFile};
+use serde::Serialize;
+
+#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
+struct StatsEntry {
+    group_probe: u32,
+    structural_enable_probe: u32,
+    cell_probe: u32,
+    primitive_probe: u32,
+}
+
+impl Add for StatsEntry {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self {
+            group_probe: self.group_probe + other.group_probe,
+            structural_enable_probe: self.structural_enable_probe
+                + other.structural_enable_probe,
+            cell_probe: self.cell_probe + other.cell_probe,
+            primitive_probe: self.primitive_probe + other.primitive_probe,
+        }
+    }
+}
 
 /// Adds probe wires to each group (includes static groups and comb groups) to detect when a group is active.
 /// Used by the profiler.
-pub struct ProfilerInstrumentation {}
+pub struct ProfilerInstrumentation {
+    probe_stats: BTreeMap<String, StatsEntry>,
+    emit_probe_stats: Option<OutputFile>,
+}
 
 /// Mapping group names to constructs (groups/primitives/cells) that the group enabled,
 /// along with the guard that was involved in the assignment.
@@ -23,23 +54,65 @@ impl Named for ProfilerInstrumentation {
     }
 
     fn opts() -> Vec<crate::traversal::PassOpt> {
-        vec![]
+        vec![PassOpt::new(
+            "emit-probe-stats",
+            "emit json file of shared cells",
+            ParseVal::OutStream(OutputFile::Null),
+            PassOpt::parse_outstream,
+        )]
     }
 }
 
 impl ConstructVisitor for ProfilerInstrumentation {
-    fn from(_ctx: &ir::Context) -> CalyxResult<Self>
+    fn from(ctx: &ir::Context) -> CalyxResult<Self>
     where
         Self: Sized + Named,
     {
-        Ok(ProfilerInstrumentation {})
+        let opts = Self::get_opts(ctx);
+
+        Ok(ProfilerInstrumentation {
+            probe_stats: BTreeMap::new(),
+            emit_probe_stats: opts["emit-probe-stats"].not_null_outstream(),
+        })
     }
 
     fn clear_data(&mut self) {}
 }
 
+fn count_helper<T>(map_opt: Option<CallsFromGroupMap<T>>) -> u32 {
+    match map_opt {
+        Some(map) => map
+            .values()
+            .into_iter()
+            .fold(0, |acc, vec_ref| acc + vec_ref.len() as u32),
+        None => 0,
+    }
+}
+
+fn count<T>(
+    num_groups: u32,
+    structural_enable_map_opt: Option<CallsFromGroupMap<T>>,
+    cell_invoke_map_opt: Option<CallsFromGroupMap<T>>,
+    primitive_map_opt: Option<CallsFromGroupMap<T>>,
+) -> StatsEntry {
+    let num_structural_enables = count_helper(structural_enable_map_opt);
+    let num_cell_invokes = count_helper(cell_invoke_map_opt);
+    let num_primitive_invokes = count_helper(primitive_map_opt);
+
+    return StatsEntry {
+        group_probe: num_groups,
+        structural_enable_probe: num_structural_enables,
+        cell_probe: num_cell_invokes,
+        primitive_probe: num_primitive_invokes,
+    };
+}
+
 /// Creates probe cells and assignments pertaining to standard groups.
-fn group(comp: &mut ir::Component, sigs: &ir::LibrarySignatures) {
+fn group(
+    comp: &mut ir::Component,
+    sigs: &ir::LibrarySignatures,
+    collect_stats: bool,
+) -> Option<StatsEntry> {
     // groups to groups that they enabled
     let mut structural_enable_map: CallsFromGroupMap<Nothing> = HashMap::new();
     // groups to cells (from non-primitive components) that they invoked
@@ -132,9 +205,9 @@ fn group(comp: &mut ir::Component, sigs: &ir::LibrarySignatures) {
         comp,
         sigs,
         &group_names,
-        Some(structural_enable_map),
-        Some(cell_invoke_map),
-        Some(primitive_invoke_map),
+        Some(&structural_enable_map),
+        Some(&cell_invoke_map),
+        Some(&primitive_invoke_map),
     );
 
     // Add created assignments to each group and their corresponding probe cells
@@ -146,10 +219,25 @@ fn group(comp: &mut ir::Component, sigs: &ir::LibrarySignatures) {
             }
         }
     }
+
+    if collect_stats {
+        Some(count(
+            group_names.len() as u32,
+            Some(structural_enable_map),
+            Some(cell_invoke_map),
+            Some(primitive_invoke_map),
+        ))
+    } else {
+        None
+    }
 }
 
 /// Creates probe cells and assignments pertaining to combinational groups.
-fn combinational_group(comp: &mut ir::Component, sigs: &ir::LibrarySignatures) {
+fn combinational_group(
+    comp: &mut ir::Component,
+    sigs: &ir::LibrarySignatures,
+    collect_stats: bool,
+) -> Option<StatsEntry> {
     // NOTE: combinational groups cannot structurally enable other groups
 
     // groups to cells (from non-primitive components) that they invoked
@@ -238,8 +326,8 @@ fn combinational_group(comp: &mut ir::Component, sigs: &ir::LibrarySignatures) {
         sigs,
         &group_names,
         None, // assuming no structural enables within comb groups
-        Some(cell_invoke_map),
-        Some(primitive_invoke_map),
+        Some(&cell_invoke_map),
+        Some(&primitive_invoke_map),
     );
 
     // Comb: Add created assignments to each group
@@ -251,10 +339,25 @@ fn combinational_group(comp: &mut ir::Component, sigs: &ir::LibrarySignatures) {
             }
         }
     }
+
+    if collect_stats {
+        Some(count(
+            group_names.len() as u32,
+            None,
+            Some(cell_invoke_map),
+            Some(primitive_invoke_map),
+        ))
+    } else {
+        None
+    }
 }
 
 /// Creates probe cells and assignments pertaining to static groups.
-fn static_group(comp: &mut ir::Component, sigs: &ir::LibrarySignatures) {
+fn static_group(
+    comp: &mut ir::Component,
+    sigs: &ir::LibrarySignatures,
+    collect_stats: bool,
+) -> Option<StatsEntry> {
     let group_names = comp
         .static_groups
         .iter()
@@ -333,9 +436,9 @@ fn static_group(comp: &mut ir::Component, sigs: &ir::LibrarySignatures) {
         comp,
         sigs,
         &group_names,
-        Some(structural_enable_map),
-        Some(cell_invoke_map),
-        Some(primitive_invoke_map),
+        Some(&structural_enable_map),
+        Some(&cell_invoke_map),
+        Some(&primitive_invoke_map),
     );
 
     // Add created assignments to each group
@@ -348,6 +451,17 @@ fn static_group(comp: &mut ir::Component, sigs: &ir::LibrarySignatures) {
             }
         }
     }
+
+    if collect_stats {
+        Some(count(
+            group_names.len() as u32,
+            Some(structural_enable_map),
+            Some(cell_invoke_map),
+            Some(primitive_invoke_map),
+        ))
+    } else {
+        None
+    }
 }
 
 /// Creates all probe cells and assignments for a certain kind of .
@@ -359,9 +473,9 @@ fn create_assignments<T: Clone>(
     comp: &mut ir::Component,
     sigs: &ir::LibrarySignatures,
     group_names: &[Id],
-    structural_enable_map_opt: Option<CallsFromGroupMap<T>>,
-    cell_invoke_map_opt: Option<CallsFromGroupMap<T>>,
-    primitive_invoke_map_opt: Option<CallsFromGroupMap<T>>,
+    structural_enable_map_opt: Option<&CallsFromGroupMap<T>>,
+    cell_invoke_map_opt: Option<&CallsFromGroupMap<T>>,
+    primitive_invoke_map_opt: Option<&CallsFromGroupMap<T>>,
 ) -> Vec<(
     Id,
     calyx_ir::Assignment<T>,
@@ -483,7 +597,8 @@ fn create_assignments<T: Clone>(
 fn continuous_assignments(
     comp: &mut ir::Component,
     sigs: &ir::LibrarySignatures,
-) {
+    collect_stats: bool,
+) -> Option<StatsEntry> {
     // vector of cells (non-primitives) invoked
     let mut cell_invoke_vec: Vec<(Id, ir::Guard<Nothing>)> = Vec::new();
     // vector of primitives invoked
@@ -561,6 +676,37 @@ fn continuous_assignments(
         comp.continuous_assignments.push(asgn.clone());
         comp.cells.add(cell.to_owned());
     }
+
+    if collect_stats {
+        Some(StatsEntry {
+            group_probe: 0,
+            structural_enable_probe: 0,
+            cell_probe: cell_invoke_vec.len() as u32,
+            primitive_probe: primitive_invoke_vec.len() as u32,
+        })
+    } else {
+        None
+    }
+}
+
+fn populate_stats(
+    component_name: Id,
+    stats_map: &mut BTreeMap<String, StatsEntry>,
+    stats_list: Vec<Option<StatsEntry>>,
+) {
+    let this_comp_stats_list = stats_list.iter().fold(
+        StatsEntry {
+            group_probe: 0,
+            structural_enable_probe: 0,
+            cell_probe: 0,
+            primitive_probe: 0,
+        },
+        |s, g_s_opt| match g_s_opt {
+            Some(g_s) => s + g_s.clone(),
+            None => s,
+        },
+    );
+    stats_map.insert(component_name.to_string(), this_comp_stats_list);
 }
 
 impl Visitor for ProfilerInstrumentation {
@@ -570,10 +716,35 @@ impl Visitor for ProfilerInstrumentation {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        group(comp, sigs);
-        combinational_group(comp, sigs);
-        static_group(comp, sigs);
-        continuous_assignments(comp, sigs);
+        let count = self.emit_probe_stats.is_some();
+        let group_stats_opt = group(comp, sigs, count);
+        let comb_group_stats_opt = combinational_group(comp, sigs, count);
+        let static_group_stats_opt = static_group(comp, sigs, count);
+        let continuous_assignments_opt =
+            continuous_assignments(comp, sigs, count);
+
+        if count {
+            populate_stats(
+                comp.name,
+                &mut self.probe_stats,
+                vec![
+                    group_stats_opt,
+                    comb_group_stats_opt,
+                    static_group_stats_opt,
+                    continuous_assignments_opt,
+                ],
+            )
+        }
         Ok(Action::Continue)
+    }
+
+    fn finish_context(&mut self, _ctx: &mut calyx_ir::Context) -> VisResult {
+        if let Some(json_out_file) = &mut self.emit_probe_stats {
+            let _ = serde_json::to_writer_pretty(
+                json_out_file.get_write(),
+                &self.probe_stats,
+            );
+        }
+        Ok(Action::Stop)
     }
 }
