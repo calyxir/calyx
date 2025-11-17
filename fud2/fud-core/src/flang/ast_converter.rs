@@ -1,5 +1,6 @@
+use camino::Utf8PathBuf;
 use cranelift_entity::PrimaryMap;
-use std::{collections::HashMap, ops};
+use std::ops;
 
 use crate::{
     exec::{IO, OpRef, Operation},
@@ -7,6 +8,8 @@ use crate::{
         Assignment, AssignmentList, Op, Visitable, Visitor, VisitorResult,
     },
 };
+
+use super::{Ir, PathRef};
 
 pub fn steps_to_ast(
     plan: &Vec<(OpRef, Vec<IO>, Vec<IO>)>,
@@ -45,49 +48,46 @@ pub fn steps_to_ast(
     ast
 }
 
-/// A struct to convert a flang AST into the steps of a `Plan`.
-struct ASTToStepList {
-    step_list: Vec<(OpRef, Vec<IO>, Vec<IO>)>,
-    name_to_op_ref: HashMap<String, OpRef>,
+struct ASTToIr<'a> {
+    ir: Ir,
+    ops: &'a PrimaryMap<OpRef, Operation>,
 }
 
-impl ASTToStepList {
-    fn from_ops(ops: &PrimaryMap<OpRef, Operation>) -> Self {
-        let name_to_op_ref =
-            ops.iter().map(|(k, v)| (v.name.clone(), k)).collect();
-        ASTToStepList {
-            step_list: vec![],
-            name_to_op_ref,
+impl ASTToIr<'_> {
+    fn paths_to_refs(&mut self, vars: &Vec<Utf8PathBuf>) -> Vec<PathRef> {
+        let mut out = vec![];
+        for path in vars {
+            let r = self.ir.path_ref(path);
+            out.push(r);
         }
-    }
-
-    fn step_list_from_ast(
-        mut self,
-        ast: &AssignmentList,
-    ) -> Vec<(OpRef, Vec<IO>, Vec<IO>)> {
-        let _ = ast.visit(&mut self);
-        self.step_list
+        out
     }
 }
 
-impl Visitor for ASTToStepList {
-    type Result = ops::ControlFlow<()>;
+impl Visitor for ASTToIr<'_> {
+    type Result = ops::ControlFlow<String>;
 
     fn visit_assignment(&mut self, a: &Assignment) -> Self::Result {
-        let vars = a.vars.iter().map(|s| IO::File(s.clone())).collect();
-        let args = a.value.args.iter().map(|s| IO::File(s.clone())).collect();
-        let op_ref = self.name_to_op_ref[&a.value.name];
-
-        self.step_list.push((op_ref, vars, args));
-        Self::Result::output()
+        let rets = self.paths_to_refs(&a.vars);
+        let args = self.paths_to_refs(&a.value.args);
+        for (r, op) in self.ops {
+            if op.name == a.value.name {
+                self.ir.push_vec(r, args, rets);
+                return Self::Result::output();
+            }
+        }
+        Self::Result::Break(format!("no op {} found", a.value.name))
     }
 }
 
-/// Given a flang AST and a set of ops, returns the steps of a `Plan` which the flang AST
-/// represents.
-pub fn ast_to_steps(
+pub fn ast_to_ir(
     ast: &AssignmentList,
     ops: &PrimaryMap<OpRef, Operation>,
-) -> Vec<(OpRef, Vec<IO>, Vec<IO>)> {
-    ASTToStepList::from_ops(ops).step_list_from_ast(ast)
+) -> Ir {
+    let mut visitor = ASTToIr { ir: Ir::new(), ops };
+    let res = ast.visit(&mut visitor);
+    if let ops::ControlFlow::Break(e) = res {
+        unimplemented!("{e}");
+    }
+    visitor.ir
 }

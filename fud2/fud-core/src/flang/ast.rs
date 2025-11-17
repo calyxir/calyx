@@ -1,4 +1,6 @@
-//! The AST types used to represent plan files and ways to traverse them
+//! The AST types used to represent plan files and ways to traverse them. This is primarily used
+//! serialization and deserialization of the AST. A more efficient and ergonomic representation of
+//! flang is in `Ir` which is manipulated by the internals of the program.
 
 use camino::Utf8PathBuf;
 
@@ -111,7 +113,8 @@ impl<V: Visitor> Visitable<V> for Assignment {
     }
 }
 
-/// A list of assignments making up a program.
+/// A list of assignments making up a program. This creates a straightforward AST used for
+/// serialization and deserialization.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AssignmentList {
     pub assigns: Vec<Assignment>,

@@ -6,4 +6,4 @@ mod planner;
 pub use enumerative_planner::EnumeratePlanner;
 pub use json_planner::JsonPlanner;
 pub use legacy_planner::LegacyPlanner;
-pub use planner::{FindPlan, PlannerType, Step};
+pub use planner::{FindPlan, PlanReq, PlanResp, Step};

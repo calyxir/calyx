@@ -1,18 +1,9 @@
-use super::{
-    OpRef, Operation, Request, Setup, SetupRef, State, StateRef,
-    plan::PlannerType,
-};
-use crate::{flang::ast_to_steps, run, script, utils};
+use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
+use crate::{run, script};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::PrimaryMap;
 use rand::distributions::{Alphanumeric, DistString};
-use std::{
-    collections::HashMap,
-    error::Error,
-    ffi::OsStr,
-    fmt::Display,
-    io::{self, Read},
-};
+use std::{collections::HashMap, error::Error, ffi::OsStr, fmt::Display};
 
 type FileData = HashMap<&'static str, &'static [u8]>;
 
@@ -28,231 +19,44 @@ pub struct Driver {
 }
 
 impl Driver {
-    /// Generate a filename with an extension appropriate for the given State, `state_ref` relative
-    /// to `workdir`.
-    ///
-    /// If `user_visible`, then the path should not be in the working directory because the user
-    /// should see the generated file (or provides the file).
-    ///
-    /// If `used` is false, the state is neither an output to the user, or used as input an op. In
-    /// this case, the filename associated with the state will be prefixed by `_unused_`.
-    fn gen_name(
-        &self,
-        state_ref: StateRef,
-        used: bool,
-        user_visible: bool,
-        workdir: &Utf8PathBuf,
-    ) -> IO {
-        let state = &self.states[state_ref];
-
-        let prefix = if !used { "_unused_" } else { "" };
-        let extension = if !state.extensions.is_empty() {
-            &state.extensions[0]
-        } else {
-            ""
-        };
-
-        // Only make the path relative, i.e. not in the workdir if the file should be user visible.
-        let post_process = if user_visible {
-            utils::relative_path
-        } else {
-            |x: &Utf8Path, _y: &Utf8Path| x.to_path_buf()
-        };
-
-        IO::File(if state.is_pseudo() {
-            post_process(
-                &Utf8PathBuf::from(format!("{}pseudo_{}", prefix, state.name)),
-                workdir,
-            )
-        } else {
-            // TODO avoid collisions in case of reused extensions...
-            post_process(
-                &Utf8PathBuf::from(format!("{}{}", prefix, state.name))
-                    .with_extension(extension),
-                workdir,
-            )
-        })
-    }
-
-    /// Generates a filename for a state tagged with if the file should be read from StdIO and path
-    /// name relative to `workdir`.
-    ///
-    /// The state is searched for in `states`. If it is found, the name at the same index in `files` is
-    /// returned, else `stdio_name` is returned.
-    ///
-    /// If the state is not in states, new name is generated.
-    /// This name will be prefixed by `_unused_` if unused is `true`. This signifies the file is
-    /// neither requested as an output by the user nor used as input to any op.
-    fn gen_name_or_use_given(
-        &self,
-        state_ref: StateRef,
-        states: &[StateRef],
-        files: &[Utf8PathBuf],
-        stdio_name: &str,
-        used: bool,
-        workdir: &Utf8PathBuf,
-    ) -> IO {
-        let state = &self.states[state_ref];
-        let extension = if !state.extensions.is_empty() {
-            &state.extensions[0]
-        } else {
-            ""
-        };
-
-        // If the state is found in `states` the user should see this file. Amoung other things,
-        // this means it should be in their directory and not the working directory.
-        let user_visible = states.contains(&state_ref);
-
-        if let Some(idx) = states.iter().position(|&s| s == state_ref) {
-            if let Some(filename) = files.get(idx) {
-                if user_visible {
-                    IO::File(utils::relative_path(&filename.clone(), workdir))
-                } else {
-                    IO::File(filename.clone())
-                }
-            } else {
-                IO::StdIO(
-                    Utf8PathBuf::from(stdio_name).with_extension(extension),
-                )
-            }
-        } else {
-            self.gen_name(state_ref, used, user_visible, workdir)
-        }
-    }
-
-    /// Generates a vector contianing filenames for files of each state in `states`.
-    ///
-    /// `req` is used to generate filenames as inputs and outputs may want to takes names from
-    /// `req.end_files` or `req.start_files`.
-    ///
-    /// `input` is true if all states in `states` are an input to an op.
-    /// `used` is the states in `states` which are an input to another op or in `req.end_states`.
-    fn gen_names(
-        &self,
-        states: &[StateRef],
-        req: &Request,
-        input: bool,
-        used: &[StateRef],
-    ) -> Vec<IO> {
-        // Inputs cannot be results, so look at starting states, else look at ending states.
-        let req_states = if input {
-            &req.start_states
-        } else {
-            &req.end_states
-        };
-
-        // Inputs cannot be results, so look at starting files, else look at ending files.
-        let req_files = if input {
-            &req.start_files
-        } else {
-            &req.end_files
-        };
-        // The above lists can't be the concatination of the two branches because start and end
-        // states are not necessarily disjoint, but they could still have different files assigned
-        // to each state.
-
-        states
-            .iter()
-            .map(|&state| {
-                let stdio_name = if input {
-                    format!("_from_stdin_{}", self.states[state].name)
-                } else {
-                    format!("_to_stdout_{}", self.states[state].name)
-                };
-
-                self.gen_name_or_use_given(
-                    state,
-                    req_states,
-                    req_files,
-                    &stdio_name,
-                    input || used.contains(&state),
-                    &req.workdir,
-                )
-            })
-            .collect()
-    }
-
-    /// Concoct a plan to carry out the requested build.
-    ///
-    /// This has to be special cased if the planner is a `PlannerType::FromJson` due to
-    /// `FindPlan`'s api not letting planners choose filenames for states.
-    pub fn plan_json(&self, req: &Request) -> Option<Plan> {
-        let mut stdin = io::stdin().lock();
-        let mut input = String::new();
-        let res = stdin.read_to_string(&mut input);
-        if let Err(e) = res {
-            eprintln!("error: {e}");
-            return None;
-        }
-
-        let ast = serde_json::from_str(&input);
-        match ast {
-            Err(e) => {
-                eprintln!("error: {e}");
-                None
-            }
-            Ok(ast) => {
-                let steps = ast_to_steps(&ast, &self.ops);
-                let results = self.gen_names(
-                    &req.end_states,
-                    req,
-                    false,
-                    &req.end_states,
-                );
-                let inputs = self.gen_names(
-                    &req.start_states,
-                    req,
-                    true,
-                    &req.start_states,
-                );
-                Some(Plan {
-                    steps,
-                    inputs,
-                    results,
-                    workdir: req.workdir.clone(),
-                })
-            }
-        }
-    }
-
     /// Concoct a plan to carry out the requested build.
     ///
     /// This works by searching for a path through the available operations from the input state
     /// to the output state. If no such path exists in the operation graph, we return None.
     pub fn plan(&self, req: &Request) -> Option<Plan> {
-        // Special case if the planner is the one which reads from stdin.
-        let planner_ty = req.planner.ty();
-        if let PlannerType::FromJson = planner_ty {
-            return self.plan_json(req);
-        }
-
         // Find a plan through the states.
-        let path = req.planner.find_plan(
-            &req.start_states,
-            &req.end_states,
-            &req.through,
-            &self.ops,
-            &self.states,
-        )?;
-
-        // Generate filenames for each step.
-        let steps = path
+        let path =
+            req.planner
+                .find_plan(&req.into(), &self.ops, &self.states)?;
+        let inputs = path
+            .inputs
             .into_iter()
-            .map(|(op, used)| {
-                let input_filenames =
-                    self.gen_names(&self.ops[op].input, req, true, &used);
-                let output_filenames =
-                    self.gen_names(&self.ops[op].output, req, false, &used);
-                (op, input_filenames, output_filenames)
+            .map(|f| IO::File(path.ir.path(f).clone()))
+            .collect();
+        let results = path
+            .outputs
+            .into_iter()
+            .map(|f| IO::File(path.ir.path(f).clone()))
+            .collect();
+        let steps = path
+            .ir
+            .iter()
+            .map(|assign| {
+                (
+                    assign.op_ref(),
+                    assign
+                        .args()
+                        .iter()
+                        .map(|&r| IO::File(path.ir.path(r).clone()))
+                        .collect(),
+                    assign
+                        .rets()
+                        .iter()
+                        .map(|&r| IO::File(path.ir.path(r).clone()))
+                        .collect(),
+                )
             })
-            .collect::<Vec<_>>();
-
-        // Collect filenames of inputs and outputs
-        let results =
-            self.gen_names(&req.end_states, req, false, &req.end_states);
-        let inputs =
-            self.gen_names(&req.start_states, req, true, &req.start_states);
-
+            .collect();
         Some(Plan {
             steps,
             inputs,
