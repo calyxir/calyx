@@ -39,10 +39,10 @@ impl Driver {
                         .iter()
                         .map(|r| {
                             let p = path.ir.path(*r).clone();
-                            if path.inputs.contains(r)
-                                || path.outputs.contains(r)
-                                    && !path.to_stdout.contains(r)
-                                    && !path.from_stdin.contains(r)
+                            if (path.inputs.contains(r)
+                                || path.outputs.contains(r))
+                                && (!path.to_stdout.contains(r)
+                                    && !path.from_stdin.contains(r))
                             {
                                 utils::relative_path(&p, &req.workdir)
                             } else {
@@ -55,10 +55,10 @@ impl Driver {
                         .iter()
                         .map(|r| {
                             let p = path.ir.path(*r).clone();
-                            if path.inputs.contains(r)
-                                || path.outputs.contains(r)
-                                    && !path.to_stdout.contains(r)
-                                    && !path.from_stdin.contains(r)
+                            if (path.inputs.contains(r)
+                                || path.outputs.contains(r))
+                                && (!path.to_stdout.contains(r)
+                                    && !path.from_stdin.contains(r))
                             {
                                 utils::relative_path(&p, &req.workdir)
                             } else {
