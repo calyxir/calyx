@@ -37,7 +37,7 @@ rule dump-to-interp
   command = $cider-converter --to cider $converter-flags $in > $out
 build data.dump: dump-to-interp $sim_data | $cider-converter
 
-build pseudo_cider: calyx-cider _from_stdin_calyx.futil
-build _to_stdout_cider-debug: run-cider-debug pseudo_cider | data.dump
+build cider1: calyx-cider calyx0.futil
+build cider-debug1: run-cider-debug cider1 | data.dump
 
-default _to_stdout_cider-debug
+default cider-debug1
