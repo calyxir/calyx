@@ -274,7 +274,7 @@ fn find_plan_cycle_graph() {
             config
             ----------
             states: s1, s2;
-            ops: 
+            ops:
                 t1 : s1 => s2;
                 t2 : s2 => s1;
             ----------
@@ -317,7 +317,7 @@ fn find_plan_nontrivial_cycle() {
             config
             ----------
             states: s1, s2, s3;
-            ops: 
+            ops:
                 t1 : s2 => s2;
                 t2 : s1 => s2;
                 t3 : s2 => s3;
