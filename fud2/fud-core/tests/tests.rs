@@ -1,6 +1,7 @@
 use fud_core::exec::plan::{EnumeratePlanner, FindPlan};
+use rand::SeedableRng;
 
-// mod graph_gen;
+mod graph_gen;
 
 const MULTI_PLANNERS: [&dyn FindPlan; 1] = [&EnumeratePlanner {}];
 
@@ -450,41 +451,41 @@ fn op_compressing_two_states_not_initial_and_final() {
     }
 }
 
-// #[test]
-// fn correctness_fuzzing() {
-//     const LAYERS: u64 = 5;
-//     const STATES_PER_LAYER: u64 = 100;
-//     const OPS_PER_LAYER: u64 = 10;
-//     const MAX_IO_SIZE: u64 = 5;
-//     const MAX_REQUIRED_OPS: u64 = 3;
-//     const RANDOM_SEED: u64 = 0xDEADBEEF;
-//     const NUM_TESTS: u64 = 50;
-//
-//     for planner in MULTI_PLANNERS {
-//         let rng = rand_chacha::ChaChaRng::seed_from_u64(RANDOM_SEED);
-//         let seeds = (0..NUM_TESTS).map(|_| rng.get_stream());
-//         for seed in seeds {
-//             let test = graph_gen::simple_random_graphs(
-//                 LAYERS,
-//                 STATES_PER_LAYER,
-//                 OPS_PER_LAYER,
-//                 MAX_IO_SIZE,
-//                 MAX_REQUIRED_OPS,
-//                 seed,
-//             );
-//             match test.eval(planner) {
-//                 graph_gen::PlannerTestResult::FoundValidPlan
-//                 | graph_gen::PlannerTestResult::NoPlanFound => (),
-//                 graph_gen::PlannerTestResult::FoundInvalidPlan => panic!(
-//                     "Invalid plan generated with test parameters:
-//                         layers: {LAYERS}
-//                         states_per_layer: {STATES_PER_LAYER}
-//                         ops_per_layer: {OPS_PER_LAYER}
-//                         max_io_size: {MAX_IO_SIZE}
-//                         max_required_ops: {MAX_REQUIRED_OPS}
-//                         random_seed: {seed}"
-//                 ),
-//             }
-//         }
-//     }
-// }
+#[test]
+fn correctness_fuzzing() {
+    const LAYERS: u64 = 5;
+    const STATES_PER_LAYER: u64 = 100;
+    const OPS_PER_LAYER: u64 = 10;
+    const MAX_IO_SIZE: u64 = 5;
+    const MAX_REQUIRED_OPS: u64 = 3;
+    const RANDOM_SEED: u64 = 0xDEADBEEF;
+    const NUM_TESTS: u64 = 50;
+
+    for planner in MULTI_PLANNERS {
+        let rng = rand_chacha::ChaChaRng::seed_from_u64(RANDOM_SEED);
+        let seeds = (0..NUM_TESTS).map(|_| rng.get_stream());
+        for seed in seeds {
+            let test = graph_gen::simple_random_graphs(
+                LAYERS,
+                STATES_PER_LAYER,
+                OPS_PER_LAYER,
+                MAX_IO_SIZE,
+                MAX_REQUIRED_OPS,
+                seed,
+            );
+            match test.eval(planner) {
+                graph_gen::PlannerTestResult::FoundValidPlan
+                | graph_gen::PlannerTestResult::NoPlanFound => (),
+                graph_gen::PlannerTestResult::FoundInvalidPlan => panic!(
+                    "Invalid plan generated with test parameters:
+                        layers: {LAYERS}
+                        states_per_layer: {STATES_PER_LAYER}
+                        ops_per_layer: {OPS_PER_LAYER}
+                        max_io_size: {MAX_IO_SIZE}
+                        max_required_ops: {MAX_REQUIRED_OPS}
+                        random_seed: {seed}"
+                ),
+            }
+        }
+    }
+}
