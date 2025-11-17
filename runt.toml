@@ -75,9 +75,9 @@ fud2 {} --from calyx --to yxi
 
 [[tests]]
 name = "Firrtl Correctness Tests"
-paths = ["tests/backend/firrtl/firrtl/*.futil"]
+paths = ["tests/firrtl/*.futil"]
 cmd = """
- fud2 {} -q --to dat -s sim.data=tests/backend/firrtl/firrtl/data.json --through firrtl
+ fud2 {} -q --to dat -s sim.data={}.data --through firrtl
 """
 
 ##### Frontend Tests #####
