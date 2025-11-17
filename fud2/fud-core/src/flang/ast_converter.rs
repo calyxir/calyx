@@ -3,7 +3,7 @@ use cranelift_entity::PrimaryMap;
 use std::ops;
 
 use crate::{
-    exec::{IO, OpRef, Operation},
+    exec::{OpRef, Operation},
     flang::ast::{
         Assignment, AssignmentList, Op, Visitable, Visitor, VisitorResult,
     },
@@ -12,29 +12,13 @@ use crate::{
 use super::{Ir, PathRef};
 
 pub fn steps_to_ast(
-    plan: &Vec<(OpRef, Vec<IO>, Vec<IO>)>,
+    plan: &Vec<(OpRef, Vec<Utf8PathBuf>, Vec<Utf8PathBuf>)>,
     ops: &PrimaryMap<OpRef, Operation>,
 ) -> AssignmentList {
     let mut ast = AssignmentList { assigns: vec![] };
     for step in plan {
-        let vars = step
-            .1
-            .iter()
-            .map(|v| match v {
-                IO::StdIO(utf8_path_buf) => utf8_path_buf,
-                IO::File(utf8_path_buf) => utf8_path_buf,
-            })
-            .cloned()
-            .collect();
-        let args = step
-            .2
-            .iter()
-            .map(|v| match v {
-                IO::StdIO(utf8_path_buf) => utf8_path_buf,
-                IO::File(utf8_path_buf) => utf8_path_buf,
-            })
-            .cloned()
-            .collect();
+        let vars = step.1.clone();
+        let args = step.2.clone();
 
         let fun = Op {
             name: ops[step.0].name.clone(),

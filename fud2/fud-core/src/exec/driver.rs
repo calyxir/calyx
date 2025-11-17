@@ -1,5 +1,5 @@
 use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
-use crate::{run, script};
+use crate::{run, script, utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::PrimaryMap;
 use rand::distributions::{Alphanumeric, DistString};
@@ -28,16 +28,6 @@ impl Driver {
         let path =
             req.planner
                 .find_plan(&req.into(), &self.ops, &self.states)?;
-        let inputs = path
-            .inputs
-            .into_iter()
-            .map(|f| IO::File(path.ir.path(f).clone()))
-            .collect();
-        let results = path
-            .outputs
-            .into_iter()
-            .map(|f| IO::File(path.ir.path(f).clone()))
-            .collect();
         let steps = path
             .ir
             .iter()
@@ -47,14 +37,60 @@ impl Driver {
                     assign
                         .args()
                         .iter()
-                        .map(|&r| IO::File(path.ir.path(r).clone()))
+                        .map(|r| {
+                            let p = path.ir.path(*r).clone();
+                            if path.inputs.contains(r)
+                                || path.outputs.contains(r)
+                                    && !path.to_stdout.contains(r)
+                                    && !path.from_stdin.contains(r)
+                            {
+                                utils::relative_path(&p, &req.workdir)
+                            } else {
+                                p
+                            }
+                        })
                         .collect(),
                     assign
                         .rets()
                         .iter()
-                        .map(|&r| IO::File(path.ir.path(r).clone()))
+                        .map(|r| {
+                            let p = path.ir.path(*r).clone();
+                            if path.inputs.contains(r)
+                                || path.outputs.contains(r)
+                                    && !path.to_stdout.contains(r)
+                                    && !path.from_stdin.contains(r)
+                            {
+                                utils::relative_path(&p, &req.workdir)
+                            } else {
+                                p
+                            }
+                        })
                         .collect(),
                 )
+            })
+            .collect();
+        let inputs = path
+            .inputs
+            .into_iter()
+            .map(|f| {
+                let p = path.ir.path(f).clone();
+                if path.from_stdin.contains(&f) {
+                    IO::StdIO(p)
+                } else {
+                    IO::File(utils::relative_path(&p, &req.workdir))
+                }
+            })
+            .collect();
+        let results = path
+            .outputs
+            .into_iter()
+            .map(|f| {
+                let p = path.ir.path(f).clone();
+                if path.to_stdout.contains(&f) {
+                    IO::StdIO(p)
+                } else {
+                    IO::File(utils::relative_path(&p, &req.workdir))
+                }
             })
             .collect();
         Some(Plan {
@@ -386,7 +422,7 @@ impl Display for IO {
 #[derive(Debug)]
 pub struct Plan {
     /// The chain of operations to run and each step's input and output files.
-    pub steps: Vec<(OpRef, Vec<IO>, Vec<IO>)>,
+    pub steps: Vec<(OpRef, Vec<Utf8PathBuf>, Vec<Utf8PathBuf>)>,
 
     /// The inputs used to generate the results.
     /// Earlier elements of inputs should be read before later ones.

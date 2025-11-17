@@ -37,22 +37,14 @@ pub struct PlanReq<'a> {
 #[derive(Debug, PartialEq)]
 pub struct PlanResp {
     pub ir: Ir,
+    /// The input paths for `ir`.
     pub inputs: Vec<PathRef>,
+    /// The output paths for `ir`.
     pub outputs: Vec<PathRef>,
-}
-
-impl PlanResp {
-    pub fn from_ir(
-        mut ir: Ir,
-        start_files: &[Utf8PathBuf],
-        end_files: &[Utf8PathBuf],
-    ) -> Self {
-        PlanResp {
-            inputs: start_files.iter().map(|f| ir.path_ref(f)).collect(),
-            outputs: end_files.iter().map(|f| ir.path_ref(f)).collect(),
-            ir,
-        }
-    }
+    /// The paths in `inputs` which should be read from stdin.
+    pub from_stdin: Vec<PathRef>,
+    /// The paths in `outputs` which should be written to stdout.
+    pub to_stdout: Vec<PathRef>,
 }
 
 impl<'a> From<&'a exec::Request> for PlanReq<'a> {
@@ -69,12 +61,12 @@ impl<'a> From<&'a exec::Request> for PlanReq<'a> {
 
 /// This conversion makes the assumption that there is only one input or output file for a given
 /// state. This is required as otherwise there is no way to know which input file pass to which op.
-pub fn ir_from_op_list(
+pub fn resp_from_op_list(
     op_list: &Vec<(OpRef, Vec<StateRef>)>,
     req: &PlanReq,
     ops: &PrimaryMap<OpRef, Operation>,
     states: &PrimaryMap<StateRef, State>,
-) -> Ir {
+) -> PlanResp {
     let input_files: SecondaryMap<StateRef, Option<&Utf8PathBuf>> = req
         .start_states
         .iter()
@@ -87,33 +79,72 @@ pub fn ir_from_op_list(
         .copied()
         .zip(req.end_files.iter().map(Some))
         .collect();
+
     let mut ir = Ir::new();
+    let mut inputs = vec![];
+    let mut outputs = vec![];
+    let mut from_stdin = vec![];
+    let mut to_stdout = vec![];
     let mut state_idx: SecondaryMap<StateRef, u32> = SecondaryMap::new();
-    for &(op_ref, ref outputs) in op_list {
+    for &(op_ref, ref op_outputs) in op_list {
         let op = &ops[op_ref];
         let mut args = vec![];
         for &s in &op.input {
-            let path: &Utf8PathBuf = if let Some(p) = input_files[s] {
-                p
+            let r = if let Some(p) = input_files[s] {
+                let r = ir.path_ref(p);
+                inputs.push(r);
+                r
             } else {
-                &format!("{}{}", states[s].name, state_idx[s]).into()
+                let empty = "".to_string();
+                let ext = states[s].extensions.first().unwrap_or(&empty);
+                let r = ir.path_ref(
+                    &Utf8PathBuf::from(format!(
+                        "{}{}",
+                        states[s].name, state_idx[s]
+                    ))
+                    .with_extension(ext),
+                );
+                if req.start_states.contains(&s) {
+                    from_stdin.push(r);
+                    inputs.push(r);
+                }
+                r
             };
-            let r = ir.path_ref(path);
             args.push(r);
         }
         let mut rets = vec![];
-        for &s in outputs {
-            let path: &Utf8PathBuf = if let Some(p) = output_files[s] {
-                p
+        for &s in op_outputs {
+            let r = if let Some(p) = output_files[s] {
+                let r = ir.path_ref(p);
+                outputs.push(r);
+                r
             } else {
                 state_idx[s] += 1;
-                &format!("{}{}", states[s].name, state_idx[s]).into()
+                let empty = "".to_string();
+                let ext = states[s].extensions.first().unwrap_or(&empty);
+                let r = ir.path_ref(
+                    &Utf8PathBuf::from(format!(
+                        "{}{}",
+                        states[s].name, state_idx[s]
+                    ))
+                    .with_extension(ext),
+                );
+                if req.end_states.contains(&s) {
+                    to_stdout.push(r);
+                    outputs.push(r);
+                }
+                r
             };
-            let r = ir.path_ref(path);
             rets.push(r);
         }
 
         ir.push(op_ref, &args, &rets);
     }
-    ir
+    PlanResp {
+        inputs,
+        outputs,
+        ir,
+        to_stdout,
+        from_stdin,
+    }
 }

@@ -217,8 +217,8 @@ fn all_ops() {
         let plan = Plan {
             steps: vec![(
                 op,
-                vec![IO::File("/input.ext".into())],
-                vec![IO::File("/output.ext".into())],
+                vec!["/input.ext".into()],
+                vec!["/output.ext".into()],
             )],
             workdir: ".".into(),
             inputs: vec![IO::File("/input.ext".into())],

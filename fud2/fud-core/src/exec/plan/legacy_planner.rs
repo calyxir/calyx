@@ -1,4 +1,4 @@
-use crate::exec::{State, plan::planner::ir_from_op_list};
+use crate::exec::{State, plan::planner::resp_from_op_list};
 
 use super::{
     super::{OpRef, Operation, StateRef},
@@ -125,7 +125,6 @@ impl FindPlan for LegacyPlanner {
             req.through,
             ops,
         )
-        .map(|plan| ir_from_op_list(&plan, req, ops, states))
-        .map(|ir| PlanResp::from_ir(ir, req.start_files, req.end_files))
+        .map(|plan| resp_from_op_list(&plan, req, ops, states))
     }
 }

@@ -36,8 +36,22 @@ impl FindPlan for JsonPlanner {
         match ast {
             Err(e) => unimplemented!("{e}"),
             Ok(ast) => {
-                let ir = ast_to_ir(ast, ops);
-                Some(PlanResp::from_ir(ir, req.start_files, req.end_files))
+                let mut ir = ast_to_ir(ast, ops);
+                Some(PlanResp {
+                    inputs: req
+                        .start_files
+                        .iter()
+                        .map(|f| ir.path_ref(f))
+                        .collect(),
+                    outputs: req
+                        .end_files
+                        .iter()
+                        .map(|f| ir.path_ref(f))
+                        .collect(),
+                    ir,
+                    to_stdout: vec![],
+                    from_stdin: vec![],
+                })
             }
         }
     }
