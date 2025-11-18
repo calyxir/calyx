@@ -2,7 +2,7 @@ use crate::exec::{State, plan::planner::resp_from_op_list};
 
 use super::{
     super::{OpRef, Operation, StateRef},
-    FindPlan,
+    FindPlan, PlanReq,
     planner::{PlanResp, Step},
 };
 use cranelift_entity::{PrimaryMap, SecondaryMap};
@@ -114,7 +114,7 @@ impl LegacyPlanner {
 impl FindPlan for LegacyPlanner {
     fn find_plan(
         &self,
-        req: &super::planner::PlanReq,
+        req: &PlanReq,
         ops: &PrimaryMap<OpRef, Operation>,
         states: &PrimaryMap<StateRef, State>,
     ) -> Option<PlanResp> {

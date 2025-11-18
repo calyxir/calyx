@@ -2,7 +2,7 @@ use crate::exec::State;
 
 use super::{
     super::{OpRef, Operation, StateRef},
-    FindPlan, Step,
+    FindPlan, PlanReq, Step,
     planner::{PlanResp, resp_from_op_list},
 };
 use cranelift_entity::PrimaryMap;
@@ -170,7 +170,7 @@ impl EnumeratePlanner {
 impl FindPlan for EnumeratePlanner {
     fn find_plan(
         &self,
-        req: &super::planner::PlanReq,
+        req: &PlanReq,
         ops: &PrimaryMap<OpRef, Operation>,
         states: &PrimaryMap<StateRef, State>,
     ) -> Option<PlanResp> {

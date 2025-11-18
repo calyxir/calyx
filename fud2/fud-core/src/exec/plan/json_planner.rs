@@ -4,9 +4,14 @@
 
 use std::io::{self, Read as _};
 
-use crate::flang::ast_to_ir;
+use cranelift_entity::PrimaryMap;
 
-use super::{FindPlan, planner::PlanResp};
+use crate::{
+    exec::{OpRef, Operation, State, StateRef},
+    flang::ast_to_ir,
+};
+
+use super::{FindPlan, PlanReq, planner::PlanResp};
 
 #[derive(Debug)]
 pub struct JsonPlanner {}
@@ -14,16 +19,11 @@ pub struct JsonPlanner {}
 impl FindPlan for JsonPlanner {
     fn find_plan(
         &self,
-        req: &super::planner::PlanReq,
-        ops: &cranelift_entity::PrimaryMap<
-            crate::exec::OpRef,
-            crate::exec::Operation,
-        >,
-        _states: &cranelift_entity::PrimaryMap<
-            crate::exec::StateRef,
-            crate::exec::State,
-        >,
+        req: &PlanReq,
+        ops: &PrimaryMap<OpRef, Operation>,
+        _states: &PrimaryMap<StateRef, State>,
     ) -> Option<PlanResp> {
+        let _ = _states;
         let mut stdin = io::stdin().lock();
         let mut input = String::new();
         let res = stdin.read_to_string(&mut input);
