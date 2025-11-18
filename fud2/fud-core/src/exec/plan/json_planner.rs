@@ -49,6 +49,9 @@ impl FindPlan for JsonPlanner {
                         .map(|f| ir.path_ref(f))
                         .collect(),
                     ir,
+                    // FIXME: Currently there is no way to figure out what should be written to
+                    // stdout or read from stdin just from an IR dump. This is to be resolved in
+                    // [#2568](https://github.com/calyxir/calyx/issues/2568).
                     to_stdout: vec![],
                     from_stdin: vec![],
                 })
