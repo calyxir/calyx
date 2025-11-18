@@ -3,7 +3,8 @@ use crate::exec::State;
 use super::{
     super::{OpRef, Operation, StateRef},
     FindPlan, PlanReq, Step,
-    planner::{PlanResp, resp_from_op_list},
+    op_list_converter::resp_from_op_list,
+    planner::PlanResp,
 };
 use cranelift_entity::PrimaryMap;
 

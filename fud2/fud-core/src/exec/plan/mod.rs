@@ -1,6 +1,7 @@
 mod enumerative_planner;
 mod json_planner;
 mod legacy_planner;
+mod op_list_converter;
 mod planner;
 
 pub use enumerative_planner::EnumeratePlanner;
