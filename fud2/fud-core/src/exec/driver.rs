@@ -1,5 +1,5 @@
 use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
-use crate::{run, script, utils};
+use crate::{flang::PathRef, run, script, utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::PrimaryMap;
 use rand::distributions::{Alphanumeric, DistString};
@@ -25,73 +25,59 @@ impl Driver {
     /// to the output state. If no such path exists in the operation graph, we return None.
     pub fn plan(&self, req: &Request) -> Option<Plan> {
         // Find a plan through the states.
-        let path =
+        let resp =
             req.planner
                 .find_plan(&req.into(), &self.ops, &self.states)?;
-        let steps = path
+
+        // Input and output files should have their paths relative to the user running `fud2`
+        // instead of the working directory. This gets the path of any `PathRef` `r` from `resp`
+        // and if that `r` is an input or output it augments the path to be relative to the user.
+        let get_path = |r: &PathRef| {
+            let p = resp.ir.path(*r).clone();
+            if (resp.inputs.contains(r) || resp.outputs.contains(r))
+                && (!resp.to_stdout.contains(r) && !resp.from_stdin.contains(r))
+            {
+                utils::relative_path(&p, &req.workdir)
+            } else {
+                p
+            }
+        };
+
+        // Convert response in flang into a list of ops an their input/output file paths.
+        let steps = resp
             .ir
             .iter()
             .map(|assign| {
                 (
                     assign.op_ref(),
-                    assign
-                        .args()
-                        .iter()
-                        .map(|r| {
-                            let p = path.ir.path(*r).clone();
-                            if (path.inputs.contains(r)
-                                || path.outputs.contains(r))
-                                && (!path.to_stdout.contains(r)
-                                    && !path.from_stdin.contains(r))
-                            {
-                                utils::relative_path(&p, &req.workdir)
-                            } else {
-                                p
-                            }
-                        })
-                        .collect(),
-                    assign
-                        .rets()
-                        .iter()
-                        .map(|r| {
-                            let p = path.ir.path(*r).clone();
-                            if (path.inputs.contains(r)
-                                || path.outputs.contains(r))
-                                && (!path.to_stdout.contains(r)
-                                    && !path.from_stdin.contains(r))
-                            {
-                                utils::relative_path(&p, &req.workdir)
-                            } else {
-                                p
-                            }
-                        })
-                        .collect(),
+                    assign.args().iter().map(get_path).collect(),
+                    assign.rets().iter().map(get_path).collect(),
                 )
             })
             .collect();
-        let inputs = path
+
+        // Gets the path of an input and tags it if it is a file or is read/written to stdio. If
+        // the path represents a file, it should be relative to the user, so this it's path is
+        // modified to be relative to the user instead of the working directory.
+        let get_io = |r: PathRef, stdios: &[PathRef]| {
+            let p = resp.ir.path(r).clone();
+            if stdios.contains(&r) {
+                IO::StdIO(p)
+            } else {
+                IO::File(utils::relative_path(&p, &req.workdir))
+            }
+        };
+
+        let inputs = resp
             .inputs
             .into_iter()
-            .map(|f| {
-                let p = path.ir.path(f).clone();
-                if path.from_stdin.contains(&f) {
-                    IO::StdIO(p)
-                } else {
-                    IO::File(utils::relative_path(&p, &req.workdir))
-                }
-            })
+            .map(|r| get_io(r, &resp.from_stdin))
             .collect();
-        let results = path
+
+        let results = resp
             .outputs
             .into_iter()
-            .map(|f| {
-                let p = path.ir.path(f).clone();
-                if path.to_stdout.contains(&f) {
-                    IO::StdIO(p)
-                } else {
-                    IO::File(utils::relative_path(&p, &req.workdir))
-                }
-            })
+            .map(|r| get_io(r, &resp.to_stdout))
             .collect();
         Some(Plan {
             steps,
