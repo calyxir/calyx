@@ -3,19 +3,17 @@ import "primitives/memories/seq.futil";
 import "primitives/binary_operators.futil";
 
 // Modified from pass-in-register.futil
-component multiply_and_add() -> () {
+component multiply_and_add(loaded_val_a: 32, loaded_val_b: 32) -> () {
   cells {
     ref acc = std_reg(32);
-    ref loaded_val_a = std_reg(32);
-    ref loaded_val_b = std_reg(32);
     add = std_add(32);
     mult = std_mult_pipe(32);
     result = std_reg(32);
   }
   wires {
     group do_mul {
-      mult.left = loaded_val_a.out;
-      mult.right = loaded_val_b.out;
+      mult.left = loaded_val_a;
+      mult.right = loaded_val_b;
       mult.go = 1'd1;
       result.in = mult.out;
       result.write_en = mult.done;
@@ -202,7 +200,7 @@ component main() -> () {
               while le2.out with cond2 {
                 seq { 
                   read_data;
-                  invoke mul_add[acc=acc, loaded_val_a=val_a, loaded_val_b=val_b]()();
+                  invoke mul_add[acc=acc](loaded_val_a = val_a.out, loaded_val_b = val_b.out)();
                   upd_k; 
                 }
               }
