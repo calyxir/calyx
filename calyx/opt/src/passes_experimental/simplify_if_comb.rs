@@ -190,11 +190,12 @@ impl Visitor for SimplifyIfComb {
                             let c_name = c_ref.borrow().name();
                             // let new_c_name = comp.generate_name(c_name);
 
-                            if let ir::CellType::Primitive {
-                                name,
-                                param_binding,
-                                ..
-                            } = &c_ref.borrow().prototype
+                            if !rewrite_map.contains_key(&c_name)
+                                && let ir::CellType::Primitive {
+                                    name,
+                                    param_binding,
+                                    ..
+                                } = &c_ref.borrow().prototype
                             {
                                 let new_cell = builder.add_primitive(
                                     c_name,
