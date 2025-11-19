@@ -469,36 +469,41 @@ impl SourceInfoTable {
         {
             writeln!(f, "  {position}: {file} {line}")?;
         }
-        // write the position table
-        writeln!(f, "MEMORY_LOCATIONS")?;
-        for (loc, MemoryLocation { cell, address }) in
-            self.mem_location_map.iter().sorted_by_key(|(k, _)| **k)
+        if !(self.mem_location_map.is_empty()
+            && self.variable_assignment_map.is_empty()
+            && self.position_state_map.is_empty())
         {
-            write!(f, "  {loc}: {cell}")?;
-            if !address.is_empty() {
-                write!(f, "[{}]", address.iter().join(","))?;
+            // write the position table
+            writeln!(f, "MEMORY_LOCATIONS")?;
+            for (loc, MemoryLocation { cell, address }) in
+                self.mem_location_map.iter().sorted_by_key(|(k, _)| **k)
+            {
+                write!(f, "  {loc}: {cell}")?;
+                if !address.is_empty() {
+                    write!(f, "[{}]", address.iter().join(","))?;
+                }
+                writeln!(f)?;
             }
-            writeln!(f)?;
-        }
 
-        writeln!(f, "VARIABLE_ASSIGNMENTS")?;
-        for (id, map) in self
-            .variable_assignment_map
-            .iter()
-            .sorted_by_key(|(k, _)| **k)
-        {
-            writeln!(f, "  {id}: {{")?;
-            for (var, loc) in map.iter().sorted() {
-                writeln!(f, "    {var}: {loc}")?;
+            writeln!(f, "VARIABLE_ASSIGNMENTS")?;
+            for (id, map) in self
+                .variable_assignment_map
+                .iter()
+                .sorted_by_key(|(k, _)| **k)
+            {
+                writeln!(f, "  {id}: {{")?;
+                for (var, loc) in map.iter().sorted() {
+                    writeln!(f, "    {var}: {loc}")?;
+                }
+                writeln!(f, "  }}")?;
             }
-            writeln!(f, "  }}")?;
-        }
 
-        writeln!(f, "POSITION_STATE_MAP")?;
-        for (pos, var) in
-            self.position_state_map.iter().sorted_by_key(|(k, _)| **k)
-        {
-            writeln!(f, "  {pos}: {var}")?;
+            writeln!(f, "POSITION_STATE_MAP")?;
+            for (pos, var) in
+                self.position_state_map.iter().sorted_by_key(|(k, _)| **k)
+            {
+                writeln!(f, "  {pos}: {var}")?;
+            }
         }
 
         writeln!(f, "}}#")
