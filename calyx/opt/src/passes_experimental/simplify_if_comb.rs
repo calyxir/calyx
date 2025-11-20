@@ -60,6 +60,16 @@ impl ConstructVisitor for SimplifyIfComb {
     fn clear_data(&mut self) {}
 }
 
+/// Checks if a block (then/else branch of an if) satsifies the heuristics
+/// for when it is safe to transform an if.
+/// Currently this is just when the block is either empty or a single enable.
+fn eligible_block(branch: &ir::Control) -> bool {
+    matches!(
+        branch,
+        calyx_ir::Control::Enable(_) | calyx_ir::Control::Empty(_)
+    )
+}
+
 impl Visitor for SimplifyIfComb {
     fn finish_if(
         &mut self,
@@ -70,66 +80,65 @@ impl Visitor for SimplifyIfComb {
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
         let mut rewrite_map = RewriteMap::new();
-        match s.tbranch.as_ref() {
-            calyx_ir::Control::Enable(enable) => {
-                if let Some(cond_group_ref) = &s.cond
-                    && s.fbranch.is_empty()
+        if let calyx_ir::Control::Enable(enable) = s.tbranch.as_ref()
+            && let Some(cond_group_ref) = &s.cond
+            && eligible_block(&s.fbranch)
+        {
+            // move all assignments in cond group to continuous
+            for cond_group_asgn in &cond_group_ref.borrow().assignments {
+                if let calyx_ir::PortParent::Cell(c) =
+                    &cond_group_asgn.dst.borrow().parent
                 {
-                    // move all assignments in cond group to continuous
-                    for cond_group_asgn in &cond_group_ref.borrow().assignments
-                    {
-                        if let calyx_ir::PortParent::Cell(c) =
-                            &cond_group_asgn.dst.borrow().parent
-                        {
-                            let c_ref = c.upgrade();
-                            let c_name = c_ref.borrow().name();
+                    let c_ref = c.upgrade();
+                    let c_name = c_ref.borrow().name();
 
-                            if !rewrite_map.contains_key(&c_name)
-                                && let ir::CellType::Primitive {
-                                    name,
-                                    param_binding,
-                                    ..
-                                } = &c_ref.borrow().prototype
-                            {
-                                let new_cell = builder.add_primitive(
-                                    c_name,
-                                    *name,
-                                    &param_binding
-                                        .iter()
-                                        .map(|(_, v)| *v)
-                                        .collect_vec(),
-                                );
-                                rewrite_map.insert(c_name, new_cell);
-                            }
-                        }
-                    }
-                    let rewrite = Rewriter {
-                        cell_map: rewrite_map,
-                        ..Default::default()
-                    };
-                    for cond_group_asgn in
-                        &cond_group_ref.borrow_mut().assignments
+                    if !rewrite_map.contains_key(&c_name)
+                        && let ir::CellType::Primitive {
+                            name,
+                            param_binding,
+                            ..
+                        } = &c_ref.borrow().prototype
                     {
-                        let mut new_asgn = cond_group_asgn.clone();
-                        rewrite.rewrite_assign(&mut new_asgn);
-                        comp.continuous_assignments.push(new_asgn);
+                        let new_cell = builder.add_primitive(
+                            c_name,
+                            *name,
+                            &param_binding
+                                .iter()
+                                .map(|(_, v)| *v)
+                                .collect_vec(),
+                        );
+                        rewrite_map.insert(c_name, new_cell);
                     }
-                    // create new enable for the true branch
-                    let new_tbranch =
-                        calyx_ir::Control::enable(enable.group.clone());
-                    let mut new_if = calyx_ir::Control::if_(
-                        s.port.clone(),
-                        None,
-                        Box::new(new_tbranch),
-                        Box::new(calyx_ir::Control::empty()),
-                    );
-                    rewrite.rewrite_control(&mut new_if);
-                    Ok(Action::change(new_if))
-                } else {
-                    Ok(Action::Continue)
                 }
             }
-            _ => Ok(Action::Continue),
+            let rewrite = Rewriter {
+                cell_map: rewrite_map,
+                ..Default::default()
+            };
+            for cond_group_asgn in &cond_group_ref.borrow_mut().assignments {
+                let mut new_asgn = cond_group_asgn.clone();
+                rewrite.rewrite_assign(&mut new_asgn);
+                comp.continuous_assignments.push(new_asgn);
+            }
+            // create new enable for the true branch
+            let new_tbranch = calyx_ir::Control::enable(enable.group.clone());
+            // rewrite false branch if necessary
+            let new_fbranch =
+                if let ir::Control::Enable(f_enable) = s.fbranch.as_ref() {
+                    ir::Control::enable(f_enable.group.clone())
+                } else {
+                    ir::Control::empty()
+                };
+            let mut new_if = calyx_ir::Control::if_(
+                s.port.clone(),
+                None,
+                Box::new(new_tbranch),
+                Box::new(new_fbranch),
+            );
+            rewrite.rewrite_control(&mut new_if);
+            Ok(Action::change(new_if))
+        } else {
+            Ok(Action::Continue)
         }
     }
 }
