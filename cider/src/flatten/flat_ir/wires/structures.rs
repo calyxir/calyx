@@ -2,6 +2,7 @@ use cider_idx::{iter::IndexRange, maps::IndexedMap};
 use smallvec::SmallVec;
 
 use crate::flatten::flat_ir::prelude::*;
+use calyx_frontend::source_info::PositionId;
 
 /// A map storing all the assignments defined by the program either explicitly
 /// or implicitly
@@ -35,6 +36,8 @@ pub struct Group {
     pub done: LocalPortOffset,
     /// the list of groups which this group could potentially activate
     pub structural_enables: SmallVec<[GroupIdx; 4]>,
+    /// position tags (optional)
+    pub pos: Option<Box<[PositionId]>>,
 }
 
 impl Group {
@@ -44,6 +47,7 @@ impl Group {
         assignments: IndexRange<AssignmentIdx>,
         go: LocalPortOffset,
         done: LocalPortOffset,
+        pos: Option<Box<[PositionId]>>,
     ) -> Self {
         Self {
             name,
@@ -51,6 +55,7 @@ impl Group {
             go,
             done,
             structural_enables: SmallVec::new(),
+            pos,
         }
     }
 
