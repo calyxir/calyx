@@ -1529,8 +1529,13 @@ impl CalyxParser {
     fn memory_str(input: Node) -> ParseResult<String> {
         Ok(match_nodes!(input.into_children();
             [string_lit(s)] => s.to_string(),
-            [identifier(head), identifier(mut tail)..] => {
-                head.to_string() + &tail.join(".")
+            [identifier(head), identifier(tail)..] => {
+                let tail_str = &tail.into_iter().join(".");
+                if tail_str.is_empty() {
+                    head.to_string()
+                } else {
+                    head.to_string() + "." + tail_str
+                }
             },
 
         ))
@@ -1628,8 +1633,9 @@ impl CalyxParser {
         input: Node,
     ) -> ParseResult<SourceInfoResult<SourceInfoTable>> {
         Ok(match_nodes!(input.into_children();
+            [file_table(f), position_table(p)] => SourceInfoTable::new_minimal(f, p),
             [file_table(f), position_table(p), memory_table(m), variable_table(v), pos_state_table(s)] => SourceInfoTable::new(f, p, m, v, s),
-            [file_table(f), position_table(p)] => SourceInfoTable::new_minimal(f, p)
+
         ))
     }
 
