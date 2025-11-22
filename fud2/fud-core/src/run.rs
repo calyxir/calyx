@@ -517,12 +517,12 @@ impl<'a> Run<'a> {
                 &mut emitter,
                 in_files
                     .iter()
-                    .map(|io| io.filename().as_str())
+                    .map(|io| io.as_str())
                     .collect::<Vec<_>>()
                     .as_slice(),
                 out_files
                     .iter()
-                    .map(|io| io.filename().as_str())
+                    .map(|io| io.as_str())
                     .collect::<Vec<_>>()
                     .as_slice(),
             )?;

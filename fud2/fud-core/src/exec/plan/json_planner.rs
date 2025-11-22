@@ -2,7 +2,16 @@
 //! and must be special cased by the logic later. Currently planners only emit states with file
 //! assignment done later.
 
-use super::{FindPlan, PlannerType};
+use std::io::{self, Read as _};
+
+use cranelift_entity::PrimaryMap;
+
+use crate::{
+    exec::{OpRef, Operation, State, StateRef},
+    flang::ast_to_ir,
+};
+
+use super::{FindPlan, PlanReq, planner::PlanResp};
 
 #[derive(Debug)]
 pub struct JsonPlanner {}
@@ -10,22 +19,43 @@ pub struct JsonPlanner {}
 impl FindPlan for JsonPlanner {
     fn find_plan(
         &self,
-        _start: &[crate::exec::StateRef],
-        _end: &[crate::exec::StateRef],
-        _through: &[crate::exec::OpRef],
-        _ops: &cranelift_entity::PrimaryMap<
-            crate::exec::OpRef,
-            crate::exec::Operation,
-        >,
-        _states: &cranelift_entity::PrimaryMap<
-            crate::exec::StateRef,
-            crate::exec::State,
-        >,
-    ) -> Option<Vec<super::Step>> {
-        None
-    }
+        req: &PlanReq,
+        ops: &PrimaryMap<OpRef, Operation>,
+        _states: &PrimaryMap<StateRef, State>,
+    ) -> Option<PlanResp> {
+        let _ = _states;
+        let mut stdin = io::stdin().lock();
+        let mut input = String::new();
+        let res = stdin.read_to_string(&mut input);
+        if let Err(e) = res {
+            eprintln!("error: {e}");
+            return None;
+        }
 
-    fn ty(&self) -> PlannerType {
-        PlannerType::FromJson
+        let ast = &serde_json::from_str(&input);
+        match ast {
+            Err(e) => unimplemented!("{e}"),
+            Ok(ast) => {
+                let mut ir = ast_to_ir(ast, ops);
+                Some(PlanResp {
+                    inputs: req
+                        .start_files
+                        .iter()
+                        .map(|f| ir.path_ref(f))
+                        .collect(),
+                    outputs: req
+                        .end_files
+                        .iter()
+                        .map(|f| ir.path_ref(f))
+                        .collect(),
+                    ir,
+                    // FIXME: Currently there is no way to figure out what should be written to
+                    // stdout or read from stdin just from an IR dump. This is to be resolved in
+                    // [#2568](https://github.com/calyxir/calyx/issues/2568).
+                    to_stdout: vec![],
+                    from_stdin: vec![],
+                })
+            }
+        }
     }
 }

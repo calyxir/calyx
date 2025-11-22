@@ -1,7 +1,6 @@
 ---
 source: fud2/tests/tests.rs
 description: "emit request: mrxl -> calyx"
-snapshot_kind: text
 ---
 build-tool = fud2
 rule get-rsrc
@@ -12,6 +11,6 @@ mrxl-exe = mrxl
 rule mrxl-to-calyx
   command = $mrxl-exe $in ${mrxl_flags} > $out
 
-build _to_stdout_calyx.futil: mrxl-to-calyx _from_stdin_mrxl.mrxl
+build calyx1.futil: mrxl-to-calyx mrxl0.mrxl
 
-default _to_stdout_calyx.futil
+default calyx1.futil
