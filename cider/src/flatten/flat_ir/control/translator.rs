@@ -138,15 +138,10 @@ fn translate_group(
     let range: IndexRange<AssignmentIdx> =
         IndexRange::new(base, ctx.primary.assignments.peek_next_idx());
 
-    // i'm sure this can be inlined i'm just stupid
-    let pos;
-    if let Some(attr) = group.get_attributes() {
-        pos = attr
-            .get_set(SetAttr::Pos)
-            .map(|x| x.iter().map(|p| PositionId::new(*p)).collect());
-    } else {
-        pos = None;
-    }
+    let pos = group.get_attributes().and_then(|attr| {
+        attr.get_set(SetAttr::Pos)
+            .map(|x| x.iter().map(|p| PositionId::new(*p)).collect())
+    });
 
     Group::new(
         id,

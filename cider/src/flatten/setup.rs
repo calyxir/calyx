@@ -1,5 +1,5 @@
 use calyx_frontend as frontend;
-use calyx_ir::{self as ir};
+use calyx_ir as ir;
 use calyx_opt::pass_manager::PassManager;
 use std::path::{Path, PathBuf};
 

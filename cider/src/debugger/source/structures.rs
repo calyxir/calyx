@@ -29,8 +29,11 @@ pub struct GroupContents {
     pub end_line: u64,
 }
 /// first item is group name and second is component name
-type GroupName = (String, String);
-
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct GroupName {
+    pub group: String,
+    pub component: String,
+}
 /// impl struct with path and number
 #[derive(Debug, Clone)]
 /// NewSourceMap contains the group name as the key and the line it lies on with
@@ -44,7 +47,7 @@ impl NewSourceMap {
     ) -> CiderResult<NewSourceMap> {
         let mut map: HashMap<GroupName, GroupContents> = HashMap::new();
         // iterate over groups
-        ctx.primary.groups.iter().for_each(|(g_idx, group)| {
+        for (g_idx, group) in ctx.primary.groups.iter() {
             // i'm assuming that multiple position tags would just reference the same place, so we just take the first
             let pos_data = table.lookup_position(
                 *group
@@ -56,49 +59,45 @@ impl NewSourceMap {
             ); // unwrapping is fine the pos should be there afaik
             let path = table
                 .lookup_file_path(pos_data.file)
-                .as_os_str()
                 .to_str()
-                .unwrap()
+                .expect("file path is not valid UTF8")
                 .to_string(); // check this is valid
             // get group name
             let grp_name = ctx.lookup_name(group.name());
             // get parent name
-            let parent = ctx
-                .secondary
-                .comp_aux_info
-                .iter()
-                .find(|(_comp_idx, comp_info)| {
-                    comp_info.definitions.groups().contains(g_idx)
-                })
-                .expect("group has no compoennt???");
-            let parent_name = ctx.lookup_name(parent.1.name);
+            let parent = ctx.get_component_from_group(g_idx);
+            let parent_name = ctx.lookup_name(parent);
             let start_line = pos_data.line.into_inner().get() as u64;
 
             // i'm just assuming it has the end line, i need to make sure that's a valid assumption
             map.insert(
-                (grp_name.clone(), parent_name.clone()),
+                GroupName {
+                    group: grp_name.clone(),
+                    component: parent_name.clone(),
+                },
                 GroupContents {
                     path,
-                    start_line, // how do i make this a u64 T-T
+                    start_line,
                     end_line: pos_data
                         .end_line
                         .map(|l| l.into_inner().get() as u64)
-                        .unwrap_or(start_line),
+                        .unwrap_or(start_line), // if no end line then assumed to be one line
                 },
             );
-        });
+        }
         Ok(NewSourceMap(map))
     }
     /// look up group name, if not present, return None
-    pub fn lookup(&self, key: &(String, String)) -> Option<&GroupContents> {
+    pub fn lookup(&self, key: &GroupName) -> Option<&GroupContents> {
         self.0.get(key)
     }
 
-    pub fn lookup_line(&self, line_num: u64) -> Option<(&String, &String)> {
+    pub fn lookup_line(&self, line_num: u64) -> Option<GroupName> {
         self.0
             .iter()
             .find(|(_, v)| v.start_line == line_num)
-            .map(|(k, _)| (&k.0, &k.1))
+            .map(|(k, _)| k)
+            .cloned()
     }
 }
 
