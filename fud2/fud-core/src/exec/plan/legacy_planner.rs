@@ -1,9 +1,12 @@
-use crate::exec::{State, plan::op_list_converter::resp_from_op_list};
+use crate::{
+    exec::{State, plan::op_list_converter::prog_from_op_list},
+    flang::Prog,
+};
 
 use super::{
     super::{OpRef, Operation, StateRef},
     FindPlan, PlanReq,
-    planner::{PlanResp, Step},
+    planner::Step,
 };
 use cranelift_entity::{PrimaryMap, SecondaryMap};
 
@@ -117,7 +120,7 @@ impl FindPlan for LegacyPlanner {
         req: &PlanReq,
         ops: &PrimaryMap<OpRef, Operation>,
         states: &PrimaryMap<StateRef, State>,
-    ) -> Option<PlanResp> {
+    ) -> Option<Prog> {
         assert!(req.start_states.len() == 1 && req.end_states.len() == 1);
         Self::find_plan(
             req.start_states[0],
@@ -125,6 +128,6 @@ impl FindPlan for LegacyPlanner {
             req.through,
             ops,
         )
-        .map(|plan| resp_from_op_list(&plan, req, ops, states))
+        .map(|plan| prog_from_op_list(&plan, req, ops, states))
     }
 }

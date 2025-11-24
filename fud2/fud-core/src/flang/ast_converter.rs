@@ -9,7 +9,7 @@ use crate::{
     },
 };
 
-use super::{Ir, PathRef};
+use super::{Ir, PathRef, ast, ir};
 
 pub fn steps_to_ast(
     plan: &Vec<(OpRef, Vec<Utf8PathBuf>, Vec<Utf8PathBuf>)>,
@@ -64,14 +64,22 @@ impl Visitor for ASTToIr<'_> {
     }
 }
 
-pub fn ast_to_ir(
-    ast: &AssignmentList,
+pub fn ast_to_prog(
+    p: &ast::Prog,
     ops: &PrimaryMap<OpRef, Operation>,
-) -> Ir {
+) -> ir::Prog {
     let mut visitor = ASTToIr { ir: Ir::new(), ops };
-    let res = ast.visit(&mut visitor);
+    let res = p.ast.visit(&mut visitor);
     if let ops::ControlFlow::Break(e) = res {
         unimplemented!("{e}");
     }
-    visitor.ir
+    let mut to_path_ref =
+        |v: &[Utf8PathBuf]| v.iter().map(|f| visitor.ir.path_ref(f)).collect();
+    ir::Prog::from_parts(
+        to_path_ref(&p.stdins),
+        to_path_ref(&p.stdouts),
+        to_path_ref(&p.inputs),
+        to_path_ref(&p.outputs),
+        visitor.ir,
+    )
 }

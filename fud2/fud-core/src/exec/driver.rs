@@ -33,9 +33,9 @@ impl Driver {
         // instead of the working directory. This gets the path of any `PathRef` `r` from `resp`
         // and if that `r` is an input or output it augments the path to be relative to the user.
         let get_path = |r: &PathRef| {
-            let p = resp.ir.path(*r).clone();
-            if (resp.inputs.contains(r) || resp.outputs.contains(r))
-                && (!resp.to_stdout.contains(r) && !resp.from_stdin.contains(r))
+            let p = resp.path(*r).clone();
+            if (resp.inputs().contains(r) || resp.outputs().contains(r))
+                && (!resp.stdins().contains(r) && !resp.stdouts().contains(r))
             {
                 utils::relative_path(&p, &req.workdir)
             } else {
@@ -45,7 +45,6 @@ impl Driver {
 
         // Convert response in flang into a list of ops an their input/output file paths.
         let steps = resp
-            .ir
             .iter()
             .map(|assign| {
                 (
@@ -60,7 +59,7 @@ impl Driver {
         // the path represents a file, it should be relative to the user, so this it's path is
         // modified to be relative to the user instead of the working directory.
         let get_io = |r: PathRef, stdios: &[PathRef]| {
-            let p = resp.ir.path(r).clone();
+            let p = resp.path(r).clone();
             if stdios.contains(&r) {
                 IO::StdIO(p)
             } else {
@@ -69,15 +68,15 @@ impl Driver {
         };
 
         let inputs = resp
-            .inputs
-            .into_iter()
-            .map(|r| get_io(r, &resp.from_stdin))
+            .inputs()
+            .iter()
+            .map(|&r| get_io(r, resp.stdins()))
             .collect();
 
         let results = resp
-            .outputs
-            .into_iter()
-            .map(|r| get_io(r, &resp.to_stdout))
+            .outputs()
+            .iter()
+            .map(|&r| get_io(r, resp.stdouts()))
             .collect();
         Some(Plan {
             steps,
