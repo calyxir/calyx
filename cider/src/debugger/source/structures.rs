@@ -92,12 +92,11 @@ impl NewSourceMap {
         self.0.get(key)
     }
 
-    pub fn lookup_line(&self, line_num: u64) -> Option<GroupName> {
+    pub fn lookup_line(&self, line_num: u64) -> Option<&GroupName> {
         self.0
             .iter()
             .find(|(_, v)| v.start_line == line_num)
             .map(|(k, _)| k)
-            .cloned()
     }
 }
 
