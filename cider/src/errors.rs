@@ -14,7 +14,7 @@ use crate::{
         },
         text_utils::Color,
     },
-    serialization::Shape,
+    serialization::Dimensions,
 };
 use baa::BitVecOps;
 use calyx_utils::{Error as CalyxError, MultiError as CalyxMultiError};
@@ -228,7 +228,7 @@ pub enum RuntimeError {
     #[error("invalid memory access to memory. Given index ({}) but memory has dimension ", access.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", "))]
     InvalidMemoryAccess {
         access: Vec<u64>,
-        dims: Shape,
+        dims: Dimensions,
         idx: GlobalCellIdx,
     },
 

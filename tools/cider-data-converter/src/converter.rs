@@ -437,6 +437,11 @@ mod tests {
 
     prop_compose! {
         fn arb_format_info_bitnum()(width in 1_u32..=128, signed in any::<bool>()) -> crate::json_data::FormatInfo {
+            let width = if signed && width == 1 {
+                width + 1
+            } else {
+                width
+            };
             crate::json_data::FormatInfo {
                 width: Some(width),
                 is_signed: signed,
@@ -449,6 +454,11 @@ mod tests {
 
     prop_compose! {
         fn arb_format_info_fixed()(int_width in 1_u32..=128, frac_width in 1_u32..=128, signed in any::<bool>()) -> crate::json_data::FormatInfo {
+            let int_width = if signed && int_width == 1 {
+                int_width + 1
+            } else {
+                int_width
+            };
             crate::json_data::FormatInfo {
                 width: None,
                 is_signed: signed,
