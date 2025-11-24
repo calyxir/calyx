@@ -34,14 +34,14 @@ macro_rules! make_test {
                 pub outputs: Vec<camino::Utf8PathBuf>,
             }
 
-            impl From<fud_core::flang::Prog> for __TestResp {
-                fn from(value: fud_core::flang::Prog) -> Self {
+            impl From<fud_core::flang::Ir> for __TestResp {
+                fn from(value: fud_core::flang::Ir) -> Self {
                     let inputs = value.inputs().iter().map(|&i| value.path(i).clone()).collect();
                     let outputs = value.outputs().iter().map(|&i| value.path(i).clone()).collect();
                     let mut v = vec![];
                     for a in &value {
-                        let args = a.args().iter().map(|&a| value.path(a)).cloned().collect();
-                        let rets = a.rets().iter().map(|&a| value.path(a)).cloned().collect();
+                        let args = value.to_path_buf_vec(a.args());
+                        let rets = value.to_path_buf_vec(a.rets());
                         v.push((a.op_ref(), args, rets));
                     }
                     Self { ir: v, inputs, outputs }
@@ -83,8 +83,8 @@ macro_rules! make_test {
                     $(ir.push($io, &[$($arg),+], &[$($var),+]);)*
                     let mut v = vec![];
                     for a in &ir {
-                        let args = a.args().iter().map(|&a| ir.path(a)).cloned().collect();
-                        let rets = a.rets().iter().map(|&a| ir.path(a)).cloned().collect();
+                        let args = ir.to_path_buf_vec(a.args());
+                        let rets = ir.to_path_buf_vec(a.rets());
                         v.push((a.op_ref(), args, rets));
                     }
                     let expected_resp = __TestResp {

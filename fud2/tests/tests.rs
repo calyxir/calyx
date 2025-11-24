@@ -3,9 +3,10 @@ use fud_core::{
     Driver, DriverBuilder,
     config::default_config,
     exec::{
-        IO, Plan, Request,
+        Plan, Request,
         plan::{EnumeratePlanner, FindPlan, LegacyPlanner},
     },
+    flang::Ir,
     run::{Run, RunError},
 };
 use itertools::Itertools;
@@ -63,9 +64,9 @@ trait InstaTest: Sized {
 impl InstaTest for Plan {
     fn desc(&self, driver: &Driver) -> String {
         let ops = self
-            .steps
+            .ir
             .iter()
-            .map(|(opref, _, _)| driver.ops[*opref].name.to_string())
+            .map(|a| driver.ops[a.op_ref()].name.to_string())
             .collect_vec()
             .join(" -> ");
         format!("emit plan: {ops}")
@@ -73,9 +74,9 @@ impl InstaTest for Plan {
 
     fn slug(&self, driver: &Driver) -> String {
         let ops = self
-            .steps
+            .ir
             .iter()
-            .map(|(opref, _, _)| driver.ops[*opref].name.to_string())
+            .map(|a| driver.ops[a.op_ref()].name.to_string())
             .collect_vec()
             .join("_");
         format!("plan_{ops}")
@@ -214,15 +215,15 @@ fn request(
 fn all_ops() {
     let driver = test_driver();
     for op in driver.ops.keys() {
+        let mut ir = Ir::new();
+        let input = ir.path_ref_of_str("/input.ext");
+        let output = ir.path_ref_of_str("/output.ext");
+        ir.push(op, &[input], &[output]);
+        ir.push_input(input);
+        ir.push_output(output);
         let plan = Plan {
-            steps: vec![(
-                op,
-                vec!["/input.ext".into()],
-                vec!["/output.ext".into()],
-            )],
+            ir,
             workdir: ".".into(),
-            inputs: vec![IO::File("/input.ext".into())],
-            results: vec![IO::File("/output.ext".into())],
         };
         plan.test(&driver);
     }

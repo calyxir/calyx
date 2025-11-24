@@ -3,7 +3,7 @@ use cranelift_entity::PrimaryMap;
 
 use crate::{
     exec::{self, State},
-    flang::Prog,
+    flang::Ir,
 };
 
 use super::super::{OpRef, Operation, StateRef};
@@ -23,7 +23,7 @@ pub trait FindPlan: std::fmt::Debug {
         req: &Request,
         ops: &PrimaryMap<OpRef, Operation>,
         states: &PrimaryMap<StateRef, State>,
-    ) -> Option<Prog>;
+    ) -> Option<Ir>;
 }
 
 pub struct Request<'a> {

@@ -1,6 +1,6 @@
 use crate::{
     exec::{State, plan::op_list_converter::prog_from_op_list},
-    flang::Prog,
+    flang::Ir,
 };
 
 use super::{
@@ -121,7 +121,7 @@ impl FindPlan for LegacyPlanner {
         req: &Request,
         ops: &PrimaryMap<OpRef, Operation>,
         states: &PrimaryMap<StateRef, State>,
-    ) -> Option<Prog> {
+    ) -> Option<Ir> {
         assert!(req.start_states.len() == 1 && req.end_states.len() == 1);
         Self::find_plan(
             req.start_states[0],

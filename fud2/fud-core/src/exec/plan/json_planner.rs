@@ -22,7 +22,7 @@ impl FindPlan for JsonPlanner {
         _req: &Request,
         ops: &PrimaryMap<OpRef, Operation>,
         _states: &PrimaryMap<StateRef, State>,
-    ) -> Option<flang::Prog> {
+    ) -> Option<flang::Ir> {
         let _ = _states;
         let mut stdin = io::stdin().lock();
         let mut input = String::new();

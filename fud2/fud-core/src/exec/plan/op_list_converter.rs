@@ -3,7 +3,7 @@ use cranelift_entity::{PrimaryMap, SecondaryMap};
 
 use crate::{
     exec::{OpRef, Operation, State, StateRef},
-    flang::{Ir, Prog},
+    flang::Ir,
 };
 
 use super::planner::Request;
@@ -22,7 +22,7 @@ pub fn prog_from_op_list(
     req: &Request,
     ops: &PrimaryMap<OpRef, Operation>,
     states: &PrimaryMap<StateRef, State>,
-) -> Prog {
+) -> Ir {
     let input_files: SecondaryMap<StateRef, Option<&Utf8PathBuf>> = req
         .start_states
         .iter()
@@ -37,10 +37,6 @@ pub fn prog_from_op_list(
         .collect();
 
     let mut ir = Ir::new();
-    let mut inputs = vec![];
-    let mut outputs = vec![];
-    let mut from_stdin = vec![];
-    let mut to_stdout = vec![];
     let mut state_idx: SecondaryMap<StateRef, u32> = SecondaryMap::new();
     for &(op_ref, ref op_outputs) in op_list {
         let op = &ops[op_ref];
@@ -50,7 +46,7 @@ pub fn prog_from_op_list(
                 && state_idx[s] == 0
             {
                 let r = ir.path_ref(p);
-                inputs.push(r);
+                ir.push_input(r);
                 r
             } else {
                 let empty = "".to_string();
@@ -62,9 +58,9 @@ pub fn prog_from_op_list(
                     ))
                     .with_extension(ext),
                 );
-                if req.start_states.contains(&s) && state_idx[s] == 0 {
-                    from_stdin.push(r);
-                    inputs.push(r);
+                if req.start_states.contains(&s) {
+                    ir.push_stdin(r);
+                    ir.push_input(r);
                 }
                 r
             };
@@ -74,7 +70,7 @@ pub fn prog_from_op_list(
         for &s in op_outputs {
             let r = if let Some(p) = output_files[s] {
                 let r = ir.path_ref(p);
-                outputs.push(r);
+                ir.push_output(r);
                 r
             } else {
                 state_idx[s] += 1;
@@ -88,8 +84,8 @@ pub fn prog_from_op_list(
                     .with_extension(ext),
                 );
                 if req.end_states.contains(&s) {
-                    to_stdout.push(r);
-                    outputs.push(r);
+                    ir.push_stdout(r);
+                    ir.push_output(r);
                 }
                 r
             };
@@ -98,5 +94,5 @@ pub fn prog_from_op_list(
 
         ir.push(op_ref, &args, &rets);
     }
-    Prog::from_parts(from_stdin, to_stdout, inputs, outputs, ir)
+    ir
 }
