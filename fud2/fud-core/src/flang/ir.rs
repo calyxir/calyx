@@ -109,6 +109,10 @@ impl Ir {
         self.steps.iter()
     }
 
+    pub fn set_path(&mut self, path_ref: PathRef, path: Utf8PathBuf) {
+        self.paths[path_ref] = path;
+    }
+
     pub fn extend_inputs_buf(&mut self, path: &[Utf8PathBuf]) {
         let buf: Vec<PathRef> = path.iter().map(|f| self.path_ref(f)).collect();
         self.inputs.extend(buf);
