@@ -4,33 +4,10 @@ use std::ops;
 
 use crate::{
     exec::{OpRef, Operation},
-    flang::ast::{
-        Assignment, AssignmentList, Op, Visitable, Visitor, VisitorResult,
-    },
+    flang::ast::{Assignment, Op, Visitable, Visitor, VisitorResult},
 };
 
-use super::{Ir, PathRef};
-
-pub fn steps_to_ast(
-    plan: &Vec<(OpRef, Vec<Utf8PathBuf>, Vec<Utf8PathBuf>)>,
-    ops: &PrimaryMap<OpRef, Operation>,
-) -> AssignmentList {
-    let mut ast = AssignmentList { assigns: vec![] };
-    for step in plan {
-        let vars = step.1.clone();
-        let args = step.2.clone();
-
-        let fun = Op {
-            name: ops[step.0].name.clone(),
-            args,
-        };
-
-        let assignment = Assignment { vars, value: fun };
-        ast.assigns.push(assignment);
-    }
-
-    ast
-}
+use super::{Ir, PathRef, ast};
 
 struct ASTToIr<'a> {
     ir: Ir,
@@ -64,14 +41,36 @@ impl Visitor for ASTToIr<'_> {
     }
 }
 
-pub fn ast_to_ir(
-    ast: &AssignmentList,
-    ops: &PrimaryMap<OpRef, Operation>,
-) -> Ir {
+pub fn ast_to_prog(p: &ast::Prog, ops: &PrimaryMap<OpRef, Operation>) -> Ir {
     let mut visitor = ASTToIr { ir: Ir::new(), ops };
-    let res = ast.visit(&mut visitor);
+    let res = p.ast.visit(&mut visitor);
     if let ops::ControlFlow::Break(e) = res {
         unimplemented!("{e}");
     }
-    visitor.ir
+    let mut ir = visitor.ir;
+    ir.extend_inputs_buf(&p.inputs);
+    ir.extend_outputs_buf(&p.outputs);
+    ir.extend_stdins_buf(&p.stdins);
+    ir.extend_stdouts_buf(&p.stdouts);
+    ir
+}
+
+pub fn prog_to_ast(p: &Ir, ops: &PrimaryMap<OpRef, Operation>) -> ast::Prog {
+    let mut assigns = vec![];
+    for a in p {
+        let vars = p.to_path_buf_vec(a.rets());
+        let args = p.to_path_buf_vec(a.args());
+        let name = ops[a.op_ref()].name.clone();
+        assigns.push(Assignment {
+            vars,
+            value: Op { name, args },
+        });
+    }
+    ast::Prog {
+        stdins: p.stdins_buf_vec(),
+        stdouts: p.stdouts_buf_vec(),
+        inputs: p.inputs_buf_vec(),
+        outputs: p.outputs_buf_vec(),
+        ast: ast::AssignmentList { assigns },
+    }
 }
