@@ -27,8 +27,7 @@ fn do_setup(
     if !skip_verification {
         pm.execute_plan(&mut ctx, &["validate".to_string()], &[], &[], false)?;
     }
-
-    let mapping = if gen_metadata {
+    if gen_metadata {
         pm.execute_plan(
             &mut ctx,
             &["metadata-table-generation".to_string()],
@@ -36,10 +35,18 @@ fn do_setup(
             &[],
             false,
         )?;
-        ctx.metadata
+    }
+
+    let mut flat_ctx = crate::flatten::flat_ir::translate(&ctx);
+    if !entangled_mems.is_empty() || !entangled_files.is_empty() {
+        flat_ctx.entangle_memories(entangled_mems, entangled_files)?;
+    }
+
+    let mapping = if gen_metadata {
+        ctx.source_info_table
             .as_ref()
             .map(|metadata| {
-                crate::debugger::source::new_parser::parse_metadata(metadata)
+                NewSourceMap::generate_from_source_info(metadata, &flat_ctx)
             })
             .unwrap_or_else(|| {
                 Err(crate::errors::CiderError::MissingMetaData.into())
@@ -48,13 +55,8 @@ fn do_setup(
         Err(crate::errors::CiderError::MissingMetaData.into())
     };
 
-    let mut ctx = crate::flatten::flat_ir::translate(&ctx);
-    if !entangled_mems.is_empty() || !entangled_files.is_empty() {
-        ctx.entangle_memories(entangled_mems, entangled_files)?;
-    }
-
     // general setup
-    Ok((ctx, mapping))
+    Ok((flat_ctx, mapping))
 }
 
 /// This function sets up the simulation context for the given program. This is

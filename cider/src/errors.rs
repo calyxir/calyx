@@ -99,10 +99,6 @@ pub enum CiderError {
         pest_consume::Error<crate::debugger::source::metadata_parser::Rule>,
     ),
     /// Unable to parse metadata
-    #[error(transparent)]
-    NewMetadataParseError(
-        #[from] pest_consume::Error<crate::debugger::source::new_parser::Rule>,
-    ),
 
     /// Metadata is unavailable
     #[error("missing metadata")]

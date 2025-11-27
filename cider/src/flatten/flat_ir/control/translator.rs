@@ -138,11 +138,17 @@ fn translate_group(
     let range: IndexRange<AssignmentIdx> =
         IndexRange::new(base, ctx.primary.assignments.peek_next_idx());
 
+    let pos = group.get_attributes().and_then(|attr| {
+        attr.get_set(SetAttr::Pos)
+            .map(|x| x.iter().map(|p| PositionId::new(*p)).collect())
+    });
+
     Group::new(
         id,
         range,
         *map[&group.get("go").as_raw()].unwrap_local(),
         *map[&group.get("done").as_raw()].unwrap_local(),
+        pos,
     )
 }
 
