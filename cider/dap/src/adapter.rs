@@ -1,7 +1,7 @@
 use crate::error::AdapterResult;
 use baa::BitVecOps;
 use cider::debugger::commands::{BreakTarget, ParsedGroupName};
-use cider::debugger::source::structures::NewSourceMap;
+use cider::debugger::source::structures::{GroupName, NewSourceMap};
 use cider::debugger::{OwnedDebugger, StoppedReason};
 use cider::flatten::flat_ir::indexes::{GlobalCellIdx, PortValue};
 use dap::events::{Event, OutputEventBody, StoppedEventBody};
@@ -89,12 +89,12 @@ impl MyAdapter {
             );
             to_client.push(breakpoint);
 
-            if let Some((component, group)) = name {
+            if let Some(grp_name) = name {
                 if to_set.contains(&source_point.line) {
                     to_debugger_set.push(BreakTarget::Name(
                         ParsedGroupName::from_comp_and_control(
-                            component.clone(),
-                            group.clone(),
+                            grp_name.component.clone(),
+                            grp_name.group.clone(),
                         ),
                     ))
                 }
@@ -113,11 +113,11 @@ impl MyAdapter {
         let mut to_debugger: Vec<BreakTarget> = vec![];
         for point in to_delete {
             let name = self.ids.lookup_line(point as u64);
-            if let Some((component, group)) = name {
+            if let Some(grp_name) = name {
                 to_debugger.push(BreakTarget::Name(
                     ParsedGroupName::from_comp_and_control(
-                        component.clone(),
-                        group.clone(),
+                        grp_name.component.clone(),
+                        grp_name.group.clone(),
                     ),
                 ))
             }
@@ -200,7 +200,11 @@ impl MyAdapter {
             // the code for now goes to the line of the last group running in the map, should deal
             // with this in the future for when groups run in parallel.
             for id in map {
-                let value = self.ids.lookup(id).unwrap().start_line;
+                let grp_name = GroupName {
+                    group: id.0.clone(),
+                    component: id.1.clone(),
+                };
+                let value = self.ids.lookup(&grp_name).unwrap().start_line;
                 line_number = value;
             }
             // Set line of the stack frame and tell debugger we're not finished.
@@ -294,7 +298,15 @@ impl MyAdapter {
                 StoppedReason::Breakpoint(names) => {
                     let bp_lines: Vec<i64> = names
                         .into_iter()
-                        .map(|x| self.ids.lookup(&x).unwrap().start_line as i64)
+                        .map(|x| {
+                            self.ids
+                                .lookup(&GroupName {
+                                    group: x.0,
+                                    component: x.1,
+                                })
+                                .unwrap()
+                                .start_line as i64
+                        })
                         .collect();
                     dbg!(&bp_lines);
                     //in map add adjusting stack frame lines

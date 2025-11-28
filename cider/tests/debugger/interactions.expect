@@ -54,65 +54,47 @@ Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
       After store_b:
          (1): print-state \u main.read_b enabled
 main.read_a: 0
-
 main.read_b: 0
-
 Hit breakpoint: main: main.-4-b-1
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
 main.read_a: 0
-
 main.read_b: 0
-
 Hit breakpoint: main: main.-4-b-1
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
 main.read_a: 0
-
 main.read_b: 0
-
 Hit breakpoint: main: main.-4-b-1
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
 main.read_a: 0
-
 main.read_b: 0
-
 Hit breakpoint: main: main.-4-b-1
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
 main.read_a: 0
-
 main.read_b: 0
-
 Hit breakpoint: main: main.-4-b-1
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
 main.read_a: 0
-
 main.read_b: 0
-
 Hit breakpoint: main: main.-4-b-1
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
 main.read_a: 0
-
 main.read_b: 0
-
 Hit breakpoint: main: main.-4-b-1
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
 main.read_a: 0
-
 main.read_b: 0
-
 Hit breakpoint: main: main.-4-b-1
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
 main.read_a: 0
-
 main.read_b: 0
-
 Hit breakpoint: main: main.-4-b-1
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-1

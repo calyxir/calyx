@@ -1503,20 +1503,30 @@ impl CalyxParser {
 
     fn position_entry(
         input: Node,
-    ) -> ParseResult<(PositionId, MetadataFileId, LineNum)> {
+    ) -> ParseResult<(PositionId, MetadataFileId, LineNum, Option<LineNum>)>
+    {
         Ok(match_nodes!(input.into_children();
+        [bitwidth(pos_num), bitwidth(file_num), bitwidth(line_no), bitwidth(end_line)] => {
+                let pos_num = pos_num.try_into().expect("position ids must fit in a u32");
+                let file_num = file_num.try_into().expect("file ids must fit in a u32");
+                let line_no = line_no.try_into().expect("line numbers must fit in a u32");
+                let end_line = end_line.try_into().expect("line numbers must fit in a u32");
+                (PositionId::new(pos_num), MetadataFileId::new(file_num), LineNum::new(line_no), Some(LineNum::new(end_line)))},
+
             [bitwidth(pos_num), bitwidth(file_num), bitwidth(line_no)] => {
                 let pos_num = pos_num.try_into().expect("position ids must fit in a u32");
                 let file_num = file_num.try_into().expect("file ids must fit in a u32");
                 let line_no = line_no.try_into().expect("line numbers must fit in a u32");
-                (PositionId::new(pos_num), MetadataFileId::new(file_num), LineNum::new(line_no))}
+                (PositionId::new(pos_num), MetadataFileId::new(file_num), LineNum::new(line_no), None)}
         ))
     }
 
     fn position_table(
         input: Node,
     ) -> ParseResult<
-        impl IntoIterator<Item = (PositionId, MetadataFileId, LineNum)>,
+        impl IntoIterator<
+            Item = (PositionId, MetadataFileId, LineNum, Option<LineNum>),
+        >,
     > {
         Ok(match_nodes!(input.into_children();
                 [position_header(_), position_entry(e)..] => e))
@@ -1529,8 +1539,13 @@ impl CalyxParser {
     fn memory_str(input: Node) -> ParseResult<String> {
         Ok(match_nodes!(input.into_children();
             [string_lit(s)] => s.to_string(),
-            [identifier(head), identifier(mut tail)..] => {
-                head.to_string() + &tail.join(".")
+            [identifier(head), identifier(tail)..] => {
+                let tail_str = &tail.into_iter().join(".");
+                if tail_str.is_empty() {
+                    head.to_string()
+                } else {
+                    head.to_string() + "." + tail_str
+                }
             },
 
         ))
@@ -1628,8 +1643,9 @@ impl CalyxParser {
         input: Node,
     ) -> ParseResult<SourceInfoResult<SourceInfoTable>> {
         Ok(match_nodes!(input.into_children();
+            [file_table(f), position_table(p)] => SourceInfoTable::new_minimal(f, p),
             [file_table(f), position_table(p), memory_table(m), variable_table(v), pos_state_table(s)] => SourceInfoTable::new(f, p, m, v, s),
-            [file_table(f), position_table(p)] => SourceInfoTable::new_minimal(f, p)
+
         ))
     }
 
