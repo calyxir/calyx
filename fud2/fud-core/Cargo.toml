@@ -12,7 +12,7 @@ description = "Library for building declarative build tools"
 
 [dependencies]
 argh.workspace = true
-cranelift-entity = "0.103.0"
+cranelift-entity = "0.125.4"
 serde.workspace = true
 serde_json.workspace = true
 figment = { version = "0.10.12", features = ["toml"] }
