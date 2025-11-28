@@ -3,9 +3,8 @@ use calyx_ir::{self as ir, LibrarySignatures, Rewriter, rewriter::RewriteMap};
 use calyx_utils::CalyxResult;
 use itertools::Itertools;
 
-/// Transforms `if`s with `comb` groups where the `then` block of the `if` consists
-/// of a single enable into `if`s with the condition being computed via continuous
-/// assignments.
+/// Transforms `if`s with `comb` groups into `if`s with the condition being computed
+/// via continuous assignments.
 ///
 /// The cell used for the condition (and any other cells on the LHS of an assignment
 /// in the comb group) will be cloned. Therefore, it is important that dead-cell-removal
@@ -60,16 +59,6 @@ impl ConstructVisitor for SimplifyIfComb {
     fn clear_data(&mut self) {}
 }
 
-/// Checks if a block (then/else branch of an if) satsifies the heuristics
-/// for when it is safe to transform an if.
-/// Currently this is just when the block is either empty or a single enable.
-fn eligible_block(branch: &ir::Control) -> bool {
-    matches!(
-        branch,
-        calyx_ir::Control::Enable(_) | calyx_ir::Control::Empty(_)
-    )
-}
-
 impl Visitor for SimplifyIfComb {
     fn finish_if(
         &mut self,
@@ -80,10 +69,7 @@ impl Visitor for SimplifyIfComb {
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
         let mut rewrite_map = RewriteMap::new();
-        if let calyx_ir::Control::Enable(enable) = s.tbranch.as_ref()
-            && let Some(cond_group_ref) = &s.cond
-            && eligible_block(&s.fbranch)
-        {
+        if let Some(cond_group_ref) = &s.cond {
             // move all assignments in cond group to continuous
             for cond_group_asgn in &cond_group_ref.borrow().assignments {
                 if let calyx_ir::PortParent::Cell(c) =
@@ -121,19 +107,18 @@ impl Visitor for SimplifyIfComb {
                 comp.continuous_assignments.push(new_asgn);
             }
             // create new enable for the true branch
-            let new_tbranch = calyx_ir::Control::enable(enable.group.clone());
             // rewrite false branch if necessary
-            let new_fbranch =
-                if let ir::Control::Enable(f_enable) = s.fbranch.as_ref() {
-                    ir::Control::enable(f_enable.group.clone())
-                } else {
-                    ir::Control::empty()
-                };
+            // let new_fbranch =
+            //     if let ir::Control::Enable(f_enable) = s.fbranch.as_ref() {
+            //         ir::Control::enable(f_enable.group.clone())
+            //     } else {
+            //         ir::Control::empty()
+            //     };
             let mut new_if = calyx_ir::Control::if_(
                 s.port.clone(),
                 None,
-                Box::new(new_tbranch),
-                Box::new(new_fbranch),
+                Box::new(s.tbranch.take_control()),
+                Box::new(s.fbranch.take_control()),
             );
             rewrite.rewrite_control(&mut new_if);
             Ok(Action::change(new_if))
