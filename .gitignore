@@ -71,6 +71,9 @@ tools/profiler/fg-tmp
 *.folded
 fud2-runs
 
+# pass-cycle-check ignore
+tools/pass-cycle-check/out*
+
 temp/
 
 # large queue .data and .expect files ignore
