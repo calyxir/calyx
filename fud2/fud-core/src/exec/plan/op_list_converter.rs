@@ -46,7 +46,9 @@ pub fn resp_from_op_list(
         let op = &ops[op_ref];
         let mut args = vec![];
         for &s in &op.input {
-            let r = if let Some(p) = input_files[s] {
+            let r = if let Some(p) = input_files[s]
+                && state_idx[s] == 0
+            {
                 let r = ir.path_ref(p);
                 inputs.push(r);
                 r
@@ -60,7 +62,7 @@ pub fn resp_from_op_list(
                     ))
                     .with_extension(ext),
                 );
-                if req.start_states.contains(&s) {
+                if req.start_states.contains(&s) && state_idx[s] == 0 {
                     from_stdin.push(r);
                     inputs.push(r);
                 }
