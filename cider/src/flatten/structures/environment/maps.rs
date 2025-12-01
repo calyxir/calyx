@@ -457,4 +457,8 @@ impl MemoryMap {
     {
         region.into_iter().map(move |i| func(&self.data[i]))
     }
+
+    pub fn get_region_slice(&self, region: MemoryRegion) -> &[BitVecValue] {
+        self.data.get_region_slice(region)
+    }
 }

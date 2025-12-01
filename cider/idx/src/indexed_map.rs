@@ -65,6 +65,26 @@ where
     pub fn range(&self) -> IndexRange<K> {
         IndexRange::new(K::new(0), K::new(self.len()))
     }
+
+    /// Extract a contiguous portion of the map as a slice. Will panic if an
+    /// invalid region is given. Note that this function should only be used if
+    /// a slice is absolutely necessary and should otherwise be avoided. If you
+    /// want to iterate over a region, use [iter_region] instead
+    ///
+    /// [iter_region]: Self::iter_region
+    pub fn get_region_slice(&self, region: IndexRange<K>) -> &[D] {
+        let start = region.start().index();
+        let end = region.end().index();
+        &self.data[start..end]
+    }
+
+    /// iterate over a region specified by the given range
+    pub fn iter_region(
+        &self,
+        region: IndexRange<K>,
+    ) -> impl Iterator<Item = &D> {
+        region.into_iter().map(|idx| &self[idx])
+    }
 }
 
 impl<K> IndexedMap<K, ()>

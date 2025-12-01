@@ -2,6 +2,7 @@ import json
 import os
 
 from collections import defaultdict
+from profiler.classes.primitive_metadata import PrimitiveMetadata
 from profiler.classes.cell_metadata import CellMetadata
 from profiler.classes.control_metadata import ControlMetadata
 
@@ -57,17 +58,26 @@ def read_component_cell_names_json(json_file):
     also depends on the OS being used, and may be different based on the machine.)
     """
     cell_json = json.load(open(json_file))
+    primitive_metadata = PrimitiveMetadata()
     # For each component, contains a map from each cell name to its corresponding component
     # component name --> { cell name --> component name }
     cells_to_components = {}
     main_component = ""
     for curr_component_entry in cell_json:
+        component_name = curr_component_entry["component"]
         cell_map = {}  # mapping cell names to component names for all cells in the current component
+        primitive_map = {}  # primitive cell name --> primitive type
         if curr_component_entry["is_main_component"]:
-            main_component = curr_component_entry["component"]
+            main_component = component_name
         for cell_info in curr_component_entry["cell_info"]:
             cell_map[cell_info["cell_name"]] = cell_info["component_name"]
-        cells_to_components[curr_component_entry["component"]] = cell_map
+        for primitive_info in curr_component_entry["primitive_info"]:
+            primitive_map[primitive_info["cell_name"]] = primitive_info[
+                "primitive_type"
+            ]
+        cells_to_components[component_name] = cell_map
+        # FIXME: avoid direct assignment
+        primitive_metadata.p_map[component_name] = primitive_map
     components_to_cells = {
         main_component: [main_component]
     }  # come up with a better name for this
@@ -82,7 +92,7 @@ def read_component_cell_names_json(json_file):
         for cell in components_to_cells[component]:
             cell_names_to_components[cell] = component
 
-    return CellMetadata(main_component, components_to_cells)
+    return CellMetadata(main_component, components_to_cells), primitive_metadata
 
 
 def read_ctrl_metadata_file(ctrl_map_file: str):

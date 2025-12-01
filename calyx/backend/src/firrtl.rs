@@ -262,7 +262,7 @@ fn get_guard_string(guard: &ir::Guard<ir::Nothing>) -> String {
             let g_str = get_guard_string(g);
             format!("not({g_str})")
         }
-        ir::Guard::True => String::from(""),
+        ir::Guard::True => String::from("UInt<1>(1)"),
         ir::Guard::CompOp(op, l, r) => {
             let l_str = get_port_string(&l.borrow(), false);
             let r_str = get_port_string(&r.borrow(), false);
