@@ -124,4 +124,4 @@ def main():
                 case "hls-impl":
                     hls_impl_summary(args.directory or "benchmark.prj", args.top)
         case "viz":
-                flamegraph_folded(args.filename, map[args.column])
+            flamegraph_folded(args.filename, map[args.column])
