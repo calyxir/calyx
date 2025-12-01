@@ -1,10 +1,9 @@
-use crate::exec::State;
+use crate::{exec::State, flang::Ir};
 
 use super::{
     super::{OpRef, Operation, StateRef},
     FindPlan, PlanReq, Step,
-    op_list_converter::resp_from_op_list,
-    planner::PlanResp,
+    op_list_converter::prog_from_op_list,
 };
 use cranelift_entity::PrimaryMap;
 
@@ -174,8 +173,8 @@ impl FindPlan for EnumeratePlanner {
         req: &PlanReq,
         ops: &PrimaryMap<OpRef, Operation>,
         states: &PrimaryMap<StateRef, State>,
-    ) -> Option<PlanResp> {
+    ) -> Option<Ir> {
         Self::find_plan(req.start_states, req.end_states, req.through, ops)
-            .map(|plan| resp_from_op_list(&plan, req, ops, states))
+            .map(|plan| prog_from_op_list(&plan, req, ops, states))
     }
 }
