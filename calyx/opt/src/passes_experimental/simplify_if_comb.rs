@@ -70,7 +70,7 @@ impl Visitor for SimplifyIfComb {
         let mut builder = ir::Builder::new(comp, sigs);
         let mut rewrite_map = RewriteMap::new();
         if let Some(cond_group_ref) = &s.cond {
-            // move all assignments in cond group to continuous
+            // create new cell for all cells in LHS of cond group assignments
             for cond_group_asgn in &cond_group_ref.borrow().assignments {
                 if let calyx_ir::PortParent::Cell(c) =
                     &cond_group_asgn.dst.borrow().parent
@@ -101,6 +101,7 @@ impl Visitor for SimplifyIfComb {
                 cell_map: rewrite_map,
                 ..Default::default()
             };
+            // move all assignments in cond group to continuous and rewrite cells
             for cond_group_asgn in &cond_group_ref.borrow_mut().assignments {
                 let mut new_asgn = cond_group_asgn.clone();
                 rewrite.rewrite_assign(&mut new_asgn);
