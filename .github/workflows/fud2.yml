@@ -13,5 +13,6 @@ jobs:
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
       - run: cargo install runt
+      - run: cargo install --path fud2
       - run: cargo test -p fud
       - run: runt fud2/tests/runt -d -o fail
