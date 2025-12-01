@@ -1,0 +1,9 @@
+ver = "0.4.1"
+
+[[tests]]
+name = "emit json"
+paths = ["emit-json/*.sh"]
+cmd = """
+./{}
+"""
+timeout = 1
