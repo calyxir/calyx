@@ -106,14 +106,6 @@ impl Visitor for SimplifyIfComb {
                 rewrite.rewrite_assign(&mut new_asgn);
                 comp.continuous_assignments.push(new_asgn);
             }
-            // create new enable for the true branch
-            // rewrite false branch if necessary
-            // let new_fbranch =
-            //     if let ir::Control::Enable(f_enable) = s.fbranch.as_ref() {
-            //         ir::Control::enable(f_enable.group.clone())
-            //     } else {
-            //         ir::Control::empty()
-            //     };
             let mut new_if = calyx_ir::Control::if_(
                 s.port.clone(),
                 None,
