@@ -8,7 +8,7 @@ use cranelift_entity::PrimaryMap;
 
 use crate::{
     exec::{OpRef, Operation, State, StateRef},
-    flang::{self, ast_to_prog},
+    flang::{self, ast_to_ir},
 };
 
 use super::{FindPlan, PlanReq};
@@ -35,7 +35,7 @@ impl FindPlan for JsonPlanner {
         let ast = &serde_json::from_str(&input);
         match ast {
             Err(e) => unimplemented!("{e}"),
-            Ok(p) => Some(ast_to_prog(p, ops)),
+            Ok(p) => Some(ast_to_ir(p, ops)),
         }
     }
 }

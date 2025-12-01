@@ -41,7 +41,7 @@ impl Visitor for ASTToIr<'_> {
     }
 }
 
-pub fn ast_to_prog(p: &ast::Prog, ops: &PrimaryMap<OpRef, Operation>) -> Ir {
+pub fn ast_to_ir(p: &ast::Prog, ops: &PrimaryMap<OpRef, Operation>) -> Ir {
     let mut visitor = ASTToIr { ir: Ir::new(), ops };
     let res = p.ast.visit(&mut visitor);
     if let ops::ControlFlow::Break(e) = res {
@@ -55,7 +55,7 @@ pub fn ast_to_prog(p: &ast::Prog, ops: &PrimaryMap<OpRef, Operation>) -> Ir {
     ir
 }
 
-pub fn prog_to_ast(p: &Ir, ops: &PrimaryMap<OpRef, Operation>) -> ast::Prog {
+pub fn ir_to_ast(p: &Ir, ops: &PrimaryMap<OpRef, Operation>) -> ast::Prog {
     let mut assigns = vec![];
     for a in p {
         let vars = p.to_path_buf_vec(a.rets());
