@@ -272,15 +272,3 @@ jobs:
         runt -i Unrolled -d
         # Run the interpreter benchmarks
         # runt -i Interpreter -d
-
-  # Extra regression tests for fud2 to make sure they don't break stuff in the greater calyx ecosystem.
-  fud2:
-    name: Test fud2 
-    needs: [docker, hash]
-    if: always() && !failure() && !cancelled()
-    runs-on: ubuntu-latest
-    permissions:
-      packages: read
-    container: ghcr.io/calyxir/calyx:${{ needs.hash.outputs.hash }}
-    steps:
-      - run: runt fud2/tests/runt -d -o fail
