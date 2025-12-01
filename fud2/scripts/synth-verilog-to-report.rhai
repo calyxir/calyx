@@ -34,7 +34,7 @@ fn synth_setup(e) {
     e.rsrc("synth.tcl");
 
     // Python scripts for parsing reports for visualization and extracting JSON summary
-    e.rule("parse-rpt", "synthrep viz -t flamegraph -f $in > $out");
+    e.rule("parse-rpt", "synthrep viz -f $in > $out");
     e.rule("extract-util-json", "synthrep summary -m utilization > $out");
     e.rule("extract-hierarchy-json", "aext vivado out/hierarchical_utilization_placed.rpt > $out");
 }

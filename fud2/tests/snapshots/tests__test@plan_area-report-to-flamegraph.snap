@@ -25,7 +25,7 @@ device_xdc = default.xdc
 build default.xdc: get-rsrc
 build synth.tcl: get-rsrc
 rule parse-rpt
-  command = synthrep viz -t flamegraph -f $in > $out
+  command = synthrep viz -f $in > $out
 rule extract-util-json
   command = synthrep summary -m utilization > $out
 rule extract-hierarchy-json
