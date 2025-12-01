@@ -9,7 +9,7 @@ for a specific variable. Currently, the following technologies are supported:
 - Vivado, as hierarchical area synthesis reports
 - Yosys, as both IL and statistics files
 
-It can be installed using `uv pip install .` from the outermost `AreaExtract`
+It can be installed using `uv tool install .` from the outermost `AreaExtract`
 directory.
 
 ## Usage
