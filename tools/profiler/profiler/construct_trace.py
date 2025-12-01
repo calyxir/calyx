@@ -551,7 +551,7 @@ def create_utilization_cycle_trace(
     utilization: Area,
 ):
     """
-    Creates a UtilizationCycleTrace object for stack elements in this cycle, computing the dependencies between them.
+    Creates an AreaCycleTrace object for stack elements in this cycle, computing the dependencies between them.
     """
     cycle_trace = create_cycle_trace(
         cell_info, info_this_cycle, shared_cell_map, include_primitives

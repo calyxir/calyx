@@ -168,6 +168,9 @@ class Area:
     Hierarchical area wrapper.
     """
 
+    # A map from cell name to resource map (which itself is a map from resource
+    # name to value)
+    # EXAMPLE: { "main.par1.r0": { "ff": "3" } }
     map: dict[str, dict[str, str]]
     accessed: set[str]
     origin: str

@@ -1,4 +1,3 @@
-import re
 import json
 from dataclasses import dataclass
 from AreaExtract.lib.cdf.cdf import (
@@ -27,23 +26,6 @@ class CellWithParams:
 Map from modules to cell names to cells with parameters.
 """
 type ModuleCellTypes = dict[str, dict[str, CellWithParams]]
-
-
-def parse_il_file_old(path: str) -> ModuleCellTypes:
-    module_to_name_to_type: ModuleCellTypes = {}
-    current_module = None
-    with open(path, "r") as f:
-        for line in f:
-            line = line.strip()
-            if line.startswith("module"):
-                current_module = line.split()[1]
-                module_to_name_to_type[current_module] = {}
-            elif line.startswith("cell"):
-                match = re.match(r"cell\s+(\S+)\s+(\S+)", line)
-                if match:
-                    cell_type, cell_name = match.groups()
-                    module_to_name_to_type[current_module][cell_name] = cell_type
-    return module_to_name_to_type
 
 
 def parse_il_file(path: str) -> ModuleCellTypes:

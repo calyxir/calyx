@@ -23,7 +23,7 @@ class VivadoRsrc:
 
 type YosysRsrc = dict[str, int]
 """
-Yosys resources for a cell.
+Yosys resources for a cell, mapping resource name (e.g. "width") to integer value.
 """
 
 
