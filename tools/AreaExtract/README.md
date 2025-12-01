@@ -3,17 +3,20 @@
 AreaExtract is a tool that replaces previous technology-specific frontends for
 the Calyx profiler, Petal. It offers a combined frontend for several sources of
 area data for accelerator designs, and outputs processed data in a common data
-format that is parseable by Petal. Currently, the following technologies are
-supported:
+format that is parseable by Petal. It can also output area-only visualizations
+for a specific variable. Currently, the following technologies are supported:
 
 - Vivado, as hierarchical area synthesis reports
 - Yosys, as both IL and statistics files
+
+It can be installed using `uv pip install .` from the outermost `AreaExtract`
+directory.
 
 ## Usage
 
 ```
 $ aext -h 
-usage: aext [-h] [-o OUTPUT] {vivado,yosys} ...
+usage: aext [-h] [-o OUTPUT] [-v VISUAL] [-c COLUMN] {vivado,yosys} ...
 
 Parse FPGA synthesis reports into a Common Data Format.
 
@@ -21,17 +24,20 @@ Supported origins:
   - Vivado: single hierarchical .rpt file
   - Yosys: .il (intermediate language) and .json (stat) file
 
-Output is a JSON serialization of the Common Data Format.
+Supported outputs:
+  - CDF: JSON serialization of the Common Data Format.
+  - Visualizations: HTML hierarchical area-only visualizations.
 
 positional arguments:
   {vivado,yosys}
-    vivado              parse a Vivado utilization .rpt file
-    yosys               parse Yosys IL and stat JSON files
+    vivado             parse a Vivado utilization .rpt file
+    yosys              parse Yosys IL and stat JSON files
 
 options:
-  -h, --help            show this help message and exit
-  -o OUTPUT, --output OUTPUT
-                        optional output file for JSON (defaults to stdout)
+  -h, --help           show this help message and exit
+  -o, --output OUTPUT  optional output file for JSON (defaults to stdout)
+  -v, --visual VISUAL  save visualizations to folder (not done by default)
+  -c, --column COLUMN  column to visualize (defaults to 'ff' for Vivado, 'width' for Yosys)
 ```
 
 ## Obtaining area data
@@ -58,7 +64,13 @@ report_utilization -hierarchical -file <report>.rpt
 
 ### Yosys
 
-Using the OSS-CAD suite, IL and statistics files can be obtained as follows:
+The synthesizable Verilog file can be obtained with:
+
+```
+fud2 <design>.futil --through calyx-to-synth-verilog > <rtl>.verilog
+```
+
+Then, using the OSS-CAD suite, IL and statistics files can be obtained as follows:
 
 ```
 yosys -p "read_verilog -sv <VERILOG_FILE>.sv; hierarchy -top main; opt; write_rtlil <IL_FILE>.il; tee -o <STAT_FILE>.json stat -json"
@@ -66,14 +78,3 @@ yosys -p "read_verilog -sv <VERILOG_FILE>.sv; hierarchy -top main; opt; write_rt
 
 It is also possible to pass Liberty files to [the `stat` command](https://yosyshq.readthedocs.io/projects/yosys/en/0.47/cmd/stat.html)
 through the flag `-liberty <file>`.
-
-## Future work
-
-This tool is not yet a full replacement of its technology-specific predecessors,
-`synthrep` for Vivado and `aprof` for Yosys, as it is not able to produce area-only
-visualizations, which is a desirable feature. In addition, some of `synthrep`'s
-functionality is unrelated to area, and is not in scope for AreaExtract. Another
-area that is being explored is the addition of other technologies, especially
-OpenROAD as it targets ASICs instead of FPGAs. While Yosys also offers ASIC
-capabilities, it is primarily oriented towards FPGAs; Vivado exclusively targets
-AMD FPGAs.

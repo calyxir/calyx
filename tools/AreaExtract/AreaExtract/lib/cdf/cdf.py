@@ -17,6 +17,9 @@ class VivadoRsrc:
     uram: int
     dsp: int
 
+    def __getitem__(self, item):
+        return getattr(self, item)
+
 
 type YosysRsrc = dict[str, int]
 """
