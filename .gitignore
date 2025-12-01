@@ -71,8 +71,8 @@ tools/profiler/fg-tmp
 *.folded
 fud2-runs
 
-# pass-cycle-check ignore
-tools/pass-cycle-check/out*
+# compare-experimental-args ignore
+tools/compare-experimental-args/out*
 
 temp/
 

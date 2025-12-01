@@ -1,7 +1,10 @@
-# This script runs the queues programs unless if we wanted to use different benches
+# This script compares cycle counts between the default Calyx compiler and experimental compiler arguments.
+# Currently this script runs the queues programs using Verilator to benchmark.
 
 if [ $# -lt 1 ]; then
-    echo "USAGE: bash $0 PASSES"
+    echo "USAGE: bash $0 CALYX_ARGS"
+    echo "where CALYX_ARGS is a string in quotes specifying experimental calyx args"
+    echo "ex) bash $0 \"-p simplify-if-comb -p dead-cell-removal -p dead-group-removal -p all\""
     exit
 fi
 
