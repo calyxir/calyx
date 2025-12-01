@@ -693,3 +693,11 @@ cmd = """
  fud2 axi-wrapped.futil --from calyx --to verilog-noverify -o axi-wrapped.v 2> /dev/null && \
  fud2 axi-wrapped.v --from verilog-noverify --to cocotb-axi --set sim.data=${dirname}/../vectorized-add.data 2> /dev/null
  """
+
+[[tests]]
+name = "fud2 emit json"
+paths = ["fud2/tests/runt/emit-json/*.sh"]
+cmd = """
+./{}
+"""
+timeout = 1
