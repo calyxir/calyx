@@ -18,7 +18,7 @@ enum Mode {
     Generate,
     Run,
     Cmds,
-    JsonPlan,
+    EmitJson,
 }
 
 impl FromStr for Mode {
@@ -32,7 +32,7 @@ impl FromStr for Mode {
             "run" => Ok(Mode::Run),
             "dot" => Ok(Mode::ShowDot),
             "cmds" => Ok(Mode::Cmds),
-            "json-plan" => Ok(Mode::JsonPlan),
+            "emit-json" => Ok(Mode::EmitJson),
             _ => Err("unknown mode".to_string()),
         }
     }
@@ -47,7 +47,7 @@ impl Display for Mode {
             Mode::Run => write!(f, "run"),
             Mode::ShowDot => write!(f, "dot"),
             Mode::Cmds => write!(f, "cmds"),
-            Mode::JsonPlan => write!(f, "json-plan"),
+            Mode::EmitJson => write!(f, "emit-json"),
         }
     }
 }
@@ -522,7 +522,7 @@ fn cli_ext<T: CliExt>(
             args.force_rebuild,
             csv_path,
         )?,
-        Mode::JsonPlan => run.show_ops_json(),
+        Mode::EmitJson => run.show_ops_json(),
     }
 
     Ok(())
