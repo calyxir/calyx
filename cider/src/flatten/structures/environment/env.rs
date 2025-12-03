@@ -11,7 +11,7 @@ use crate::{
     configuration::{LoggingConfig, RuntimeConfig},
     debugger::{
         self,
-        commands::{ParseNodes, ParsePath},
+        commands::{ParseNodes, ParsePath, PrintTarget},
     },
     errors::*,
     flatten::{
@@ -3187,12 +3187,13 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         &self,
         cell_idx: GlobalCellIdx,
         print_code: PrintCode,
-        name: Option<&str>,
+        name: Option<impl AsRef<str>>,
     ) -> String {
         let mut buf = String::new();
 
         if let Some(name_override) = name {
-            writeln!(buf, "{}:", name_override.stylize_name()).unwrap();
+            writeln!(buf, "{}:", name_override.as_ref().stylize_name())
+                .unwrap();
         } else {
             writeln!(buf, "{}:", self.get_full_name(cell_idx).stylize_name())
                 .unwrap();
@@ -3210,27 +3211,25 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         buf
     }
 
+    /// return a string containing formatted data for the given target, assuming
+    /// there is internal state to inspect and that the target does not contain
+    /// an invalid address
     pub fn format_cell_state(
         &self,
         cell_idx: GlobalCellIdx,
         print_code: PrintCode,
-        name: Option<&str>,
+        target: &PrintTarget,
     ) -> Option<String> {
         let cell = self.env.cells[cell_idx].unwrap_primitive();
-        let serializer = cell.serializer()?;
-        let mut output = String::new();
+        let state = cell
+            .serializer()?
+            .serialize(print_code, &self.env.state_map);
 
-        let state = serializer.serialize(Some(print_code), &self.env.state_map);
-
-        if let Some(name_override) = name {
-            write!(output, "{name_override}: ").unwrap();
+        if let Some(addr) = target.address() {
+            state.format_address(addr)
         } else {
-            write!(output, "{}: ", self.get_full_name(cell_idx)).unwrap();
+            Some(format!("{state}"))
         }
-
-        writeln!(output, "{state}").unwrap();
-
-        Some(output)
     }
 }
 

@@ -1,0 +1,7 @@
+print-state \u a b c d
+print-state \u e f g h
+c
+print-state \u a b c d
+print-state \u e f g h
+print-state \u a[2] b[0,2] c[0,0,2] d[0,0,0,2]
+print-state \u a[500] b[0]

@@ -7,7 +7,10 @@ use super::{
 use crate::{
     configuration::RuntimeConfig,
     debugger::{
-        commands::{BreakTarget, PointAction, PrintCommand},
+        commands::{
+            BreakTarget, ParsePrintTarget, PointAction, PrintCommand,
+            PrintTarget, PrintTuple,
+        },
         debugging_context::context::format_control_node,
         source::SourceMap,
         unwrap_error_message,
@@ -21,7 +24,7 @@ use crate::{
         setup_simulation_with_metadata,
         structures::{
             context::Context,
-            environment::{Path, PathError, PolicyChoice, Simulator},
+            environment::{PathError, PolicyChoice, Simulator, TraversalError},
         },
         text_utils::{Color, format_file_line, print_debugger_welcome},
     },
@@ -32,6 +35,7 @@ use std::{collections::HashSet, num::NonZeroU32, path::PathBuf, rc::Rc};
 
 use itertools::Itertools;
 use std::path::Path as FilePath;
+use thiserror::Error;
 
 /// Constant amount of space used for debugger messages
 pub(super) const SPACING: &str = "    ";
@@ -266,6 +270,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                         target,
                         print_tuple.print_code(),
                         *print_tuple.print_mode(),
+                        Option::<&str>::None,
                     ) {
                         println!("{}", e.stylize_error());
                     };
@@ -354,7 +359,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                             self.interpreter.format_cell_ports(
                                 cell,
                                 PrintCode::Binary,
-                                None
+                                Option::<&str>::None
                             )
                         )
                     }
@@ -365,6 +370,11 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                         {
                             println!("{}", e.stylize_error());
                         };
+                    }
+                }
+                Command::PrintVar(targets, code) => {
+                    if let Err(e) = self.do_print_var(targets, code) {
+                        println!("{}", e.stylize_error());
                     }
                 }
                 Command::Help => {
@@ -530,9 +540,64 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         }
     }
 
+    fn do_print_var(
+        &self,
+        targets: Vec<String>,
+        code: Option<PrintCode>,
+    ) -> Result<(), VarPrintError> {
+        let Some(source_info) =
+            &self.program_context.as_ref().secondary.source_info_table
+        else {
+            return Err(VarPrintError::MissingMetadata);
+        };
+
+        let iter_positions: Vec<_> =
+            self.interpreter.env().iter_positions().collect();
+
+        let variable_maps: Vec<_> = iter_positions
+            .into_iter()
+            .filter_map(|x| source_info.get_variable_mapping(x))
+            .collect();
+
+        for target in targets {
+            let Some(mem_loc) =
+                variable_maps.iter().find_map(|map| map.get(&target))
+            else {
+                return Err(VarPrintError::UndefinedSourceVar(target));
+            };
+
+            let calyx_target = source_info.get_memory_location(mem_loc);
+
+            let name_split: Vec<String> =
+                calyx_target.cell.split('.').map(|x| x.into()).collect();
+
+            let path = self.interpreter.traverse_name_vec(&name_split)?;
+
+            let calyx_target = PrintTarget::new(
+                path,
+                (!calyx_target.address.is_empty())
+                    .then(|| calyx_target.address.clone()),
+            );
+
+            self.print_from_path(
+                &calyx_target,
+                &code,
+                PrintMode::State,
+                Some(format!(
+                    "{} ({})",
+                    target.stylize_name(),
+                    calyx_target
+                        .as_string(self.interpreter.env())
+                        .stylize_port_name()
+                )),
+            )?;
+        }
+        Ok(())
+    }
+
     fn create_watchpoint(
         &mut self,
-        print_target: Vec<Vec<String>>,
+        print_target: Vec<ParsePrintTarget>,
         print_code: Option<PrintCode>,
         print_mode: PrintMode,
         group: super::commands::ParsedGroupName,
@@ -540,10 +605,12 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     ) {
         let mut error_occurred = false;
         let mut paths = Vec::new();
-        for target in print_target.iter() {
-            match self.interpreter.traverse_name_vec(target) {
+        for mut target in print_target {
+            match self.interpreter.traverse_name_vec(target.path()) {
                 Ok(path) => {
-                    paths.push(path);
+                    let new_path =
+                        PrintTarget::new(path, target.take_address());
+                    paths.push(new_path);
                 }
                 Err(e) => {
                     error_occurred = true;
@@ -570,7 +637,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         self.debugging_context.add_watchpoint(
             watch_target,
             watch_pos,
-            (paths, print_code, print_mode),
+            PrintTuple::new(paths, print_code, print_mode),
         );
     }
 
@@ -693,44 +760,67 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     fn do_print(
         &self,
-        target: &[String],
+        target: &ParsePrintTarget,
         code: Option<PrintCode>,
         print_mode: PrintMode,
     ) -> Result<(), PathError> {
-        let traversal_res = self.interpreter.traverse_name_vec(target)?;
+        let traversal_res =
+            self.interpreter.traverse_name_vec(target.path())?;
 
-        self.print_from_path(&traversal_res, &code, print_mode)?;
+        // would be nice if this clone could be avoided but I think it doesn't
+        // really matter all that much
+        let traversal_res =
+            PrintTarget::new(traversal_res, target.address().cloned());
+
+        let name: Option<&str> = None;
+        self.print_from_path(&traversal_res, &code, print_mode, name)?;
 
         Ok(())
     }
 
     fn print_from_path(
         &self,
-        path: &Path,
+        path: &PrintTarget,
         code: &Option<PrintCode>,
         mode: PrintMode,
+        name_override: Option<impl AsRef<str>>,
     ) -> Result<(), PathError> {
         let code = code.unwrap_or(PrintCode::Binary);
 
-        let name_override = match path {
-            Path::Cell(_) | Path::Port(_) => None,
-            Path::AbstractCell(_) | Path::AbstractPort { .. } => {
-                Some(path.as_string(self.interpreter.env()))
-            }
-        };
+        let resolved = path.path().resolve_path(self.interpreter.env())?;
 
-        let resolved = path.resolve_path(self.interpreter.env())?;
         match resolved {
             crate::flatten::structures::environment::PathResolution::Cell(
                 cell,
             ) => {
                 if let PrintMode::State = mode {
-                    if let Some(state) = self.interpreter.format_cell_state(
-                        cell,
-                        code,
-                        name_override.as_deref(),
-                    ) {
+                    if let Some(state) =
+                        self.interpreter.format_cell_state(cell, code, path)
+                    {
+                        if let Some(name) = name_override {
+                            print!("{}: ", name.as_ref())
+                        } else {
+                            print!(
+                                "{}: ",
+                                path.as_string(self.interpreter.env())
+                            );
+                        }
+
                         println!("{state}");
+                        return Ok(());
+                    } else if path.address().is_some_and(|x| !x.is_empty()) {
+                        println!(
+                            "{}",
+                            format_args!(
+                                "{} is not a valid memory address",
+                                path.as_string(self.interpreter.env())
+                            )
+                            .stylize_error()
+                        );
+                        // this should probably return an error, but that means
+                        // changing the error type to an enum covering path
+                        // errors and address errors. Probably worth fixing if
+                        // the memory addressing comes up elsewhere in a similar way
                         return Ok(());
                     } else {
                         println!("{}","Target cell has no internal state, printing port information instead".stylize_warning());
@@ -742,20 +832,20 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     self.interpreter.format_cell_ports(
                         cell,
                         code,
-                        name_override.as_deref()
+                        name_override
                     )
                 )
             }
             crate::flatten::structures::environment::PathResolution::Port(
                 port,
             ) => {
-                let path_str = name_override
-                    .unwrap_or_else(|| self.interpreter.get_full_name(port));
+                if let Some(name) = name_override {
+                    print!("{} = ", name.as_ref())
+                } else {
+                    print!("{} = ", path.as_string(self.interpreter.env()));
+                }
 
-                println!(
-                    "{path_str} = {}",
-                    self.interpreter.format_port_value(port, code)
-                )
+                println!("{}", self.interpreter.format_port_value(port, code))
             }
         }
 
@@ -811,5 +901,26 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 }
             }
         }
+    }
+}
+
+#[derive(Debug, Error)]
+enum VarPrintError {
+    /// There was an error in looking up the given port/cell
+    #[error(transparent)]
+    PathError(#[from] PathError),
+
+    #[error("variable '{0}' is not defined at this point in the program")]
+    UndefinedSourceVar(String),
+
+    #[error(
+        "the program does not have metadata available to look up source variables"
+    )]
+    MissingMetadata,
+}
+
+impl From<TraversalError> for VarPrintError {
+    fn from(value: TraversalError) -> Self {
+        Self::PathError(value.into())
     }
 }
