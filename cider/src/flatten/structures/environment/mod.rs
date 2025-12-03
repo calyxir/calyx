@@ -11,4 +11,4 @@ pub use env::{BaseSimulator, Environment, Simulator};
 pub use maps::PortMap;
 pub(crate) use maps::{CellLedger, MemoryMap};
 pub use policies::PolicyChoice;
-pub use traverser::{Path, PathError, PathResolution};
+pub use traverser::{Path, PathError, PathResolution, TraversalError};

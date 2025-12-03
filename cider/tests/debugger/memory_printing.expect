@@ -1,0 +1,27 @@
+
+---STDERR---
+==== Cider: The Calyx Interpreter and Debugger ====
+main.a: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+main.b: [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]
+main.c: [[[0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]]
+main.d: [[[[0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]]]
+main.e: [0, 0]
+main.f: [[0, 0], [0, 0]]
+main.g: [[[0, 0], [0, 0]], [[0, 0], [0, 0]]]
+main.h: [[[[0, 0], [0, 0]], [[0, 0], [0, 0]]], [[[0, 0], [0, 0]], [[0, 0], [0, 0]]]]
+Main component has finished executing. Debugger is now in inspection mode.
+main.a: [0, 0, 5, 0, 0, 0, 0, 0, 0, 0]
+main.b: [[0, 0, 5, 0, 0, 0, 0, 0, 0, 0]]
+main.c: [[[0, 0, 5, 0, 0, 0, 0, 0, 0, 0]]]
+main.d: [[[[0, 0, 5, 0, 0, 0, 0, 0, 0, 0]]]]
+main.e: [0, 0]
+main.f: [[0, 0], [0, 0]]
+main.g: [[[0, 0], [0, 0]], [[0, 0], [0, 0]]]
+main.h: [[[[0, 0], [0, 0]], [[0, 0], [0, 0]]], [[[0, 0], [0, 0]], [[0, 0], [0, 0]]]]
+main.a[2]: 5
+main.b[0, 2]: 5
+main.c[0, 0, 2]: 5
+main.d[0, 0, 0, 2]: 5
+main.a[500] is not a valid memory address
+main.b[0] is not a valid memory address
+Exiting.
