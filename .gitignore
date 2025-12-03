@@ -71,6 +71,9 @@ tools/profiler/fg-tmp
 *.folded
 fud2-runs
 
+# compare-experimental-args ignore
+tools/compare-experimental-args/out*
+
 temp/
 
 # large queue .data and .expect files ignore

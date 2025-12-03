@@ -1,0 +1,28 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @external mem = comb_mem_d1(32, 1, 1);
+    lt = std_lt(32);
+    @generated lt0 = std_lt(32);
+  }
+  wires {
+    group the_answer {
+      mem.addr0 = 1'd0;
+      mem.write_data = 32'd42;
+      mem.write_en = 1'd1;
+      the_answer[done] = mem.done;
+    }
+    comb group cond {
+      lt.left = 32'd1;
+      lt.right = 32'd8;
+    }
+    lt0.left = 32'd1;
+    lt0.right = 32'd8;
+  }
+  control {
+    if lt0.out {
+      the_answer;
+    }
+  }
+}

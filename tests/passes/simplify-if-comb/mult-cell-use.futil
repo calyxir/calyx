@@ -1,0 +1,43 @@
+// -p simplify-if-comb
+
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main(@go go: 1) -> (@done done: 1) {
+  cells {
+    @external(1) mem = comb_mem_d1(32, 1, 1);
+    lt = std_lt(32);
+  }
+  wires {
+    group the_answer {
+      mem.addr0 = 1'b0;
+      mem.write_data = 32'd42;
+      mem.write_en = 1'b1;
+      the_answer[done] = mem.done;
+    }
+    group the_answer_2 {
+      mem.addr0 = 1'b0;
+      mem.write_data = 32'd100;
+      mem.write_en = 1'b1;
+      the_answer_2[done] = mem.done;
+    }
+    comb group cond {
+      lt.left = 32'd1;
+      lt.right = 32'd8;
+    }
+    comb group cond2 {
+      lt.left = 32'd1;
+      lt.right = 32'd100;
+    }
+  }
+  control {
+    seq {
+      if lt.out with cond {
+         the_answer;
+      }
+      if lt.out with cond2 {
+         the_answer_2;
+      }      
+    }
+  }
+}
