@@ -1,0 +1,44 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main(@go go: 1) -> (@done done: 1) {
+  cells {
+    @external(1) mem = comb_mem_d1(32, 1, 1);
+    add_a = std_add(32);
+    add_b = std_add(32);
+    result_a = std_reg(32);
+    result_b = std_reg(32);
+  }
+
+  wires {
+    group add_group {
+      // First adder: 10 + 20 = 30
+      add_a.left = 32'd10;
+      add_a.right = 32'd20;
+      result_a.in = add_a.out;
+      result_a.write_en = 1'b1;
+
+      // Second adder: 30 + 15 = 45
+      add_b.left = add_a.out;
+      add_b.right = 32'd15;
+      result_b.in = add_b.out;
+      result_b.write_en = 1'b1;
+
+      add_group[done] = result_b.done;
+    }
+
+    group write {
+      mem.addr0 = 1'b0;
+      mem.write_en = 1'b1;
+      mem.write_data = result_b.out;
+      write[done] = mem.done;
+    }
+  }
+
+  control {
+    seq {
+      add_group;
+      write;
+    }
+  }
+}

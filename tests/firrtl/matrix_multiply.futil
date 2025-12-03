@@ -1,0 +1,216 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+import "primitives/binary_operators.futil";
+
+// Modified from pass-in-register.futil
+component multiply_and_add(loaded_val_a: 32, loaded_val_b: 32) -> () {
+  cells {
+    ref acc = std_reg(32);
+    add = std_add(32);
+    mult = std_mult_pipe(32);
+    result = std_reg(32);
+  }
+  wires {
+    group do_mul {
+      mult.left = loaded_val_a;
+      mult.right = loaded_val_b;
+      mult.go = 1'd1;
+      result.in = mult.out;
+      result.write_en = mult.done;
+      do_mul[done] = result.done;
+    }
+
+    group do_add {
+      acc.write_en = 1'd1;
+
+      add.left = acc.out;
+      add.right = result.out;
+      acc.in = add.out;
+      do_add[done] = acc.done;
+    }
+  }
+  control {
+    seq { 
+      do_mul;
+      do_add;
+    }
+  }
+}
+
+component main() -> () {
+  cells {
+    // 4×4 matrix memories
+    @external arr_1 = seq_mem_d2(32, 4, 4, 4, 4);
+    @external arr_2 = seq_mem_d2(32, 4, 4, 4, 4);
+    @external mem_output = seq_mem_d2(32, 4, 4, 4, 4);
+
+    // Constants
+    const0 = std_const(32,3);
+    const1 = std_const(32,0);
+    const2 = std_const(32,1);
+
+    // Registers
+    i = std_reg(32);
+    j = std_reg(32);
+    k = std_reg(32);
+    acc = std_reg(32);
+    val_a = std_reg(32);
+    val_b = std_reg(32);
+
+    // Multiply-and-accumulate unit
+    mul_add = multiply_and_add();
+
+    // Comparators
+    le0 = std_le(32);
+    le1 = std_le(32);
+    le2 = std_le(32);
+
+    // Adder
+    add = std_add(32);
+
+    // Bit Slicer
+    slice0 = std_slice(32, 4);
+    slice1 = std_slice(32, 4);
+    slice2 = std_slice(32, 4);
+  }
+
+  wires {
+    // Loop Conditions
+    comb group cond0 { 
+      le0.left = i.out; 
+      le0.right = const0.out;
+    }
+    comb group cond1 { 
+      le1.left = j.out; 
+      le1.right = const0.out; 
+    }
+    comb group cond2 { 
+      le2.left = k.out; 
+      le2.right = const0.out; 
+    }
+
+    // Loop Initialization
+    group let0<"promotable"=1> { 
+      i.in = const1.out; 
+      i.write_en = 1'd1; 
+      let0[done] = i.done; 
+    }
+    group let1<"promotable"=1> { 
+      j.in = const1.out; 
+      j.write_en = 1'd1; 
+      let1[done] = j.done; 
+    }
+    group let2<"promotable"=1> { 
+      k.in = const1.out; 
+      k.write_en = 1'd1; 
+      let2[done] = k.done; 
+    }
+
+    // Accumulator Reset
+    group begin_acc {
+      acc.in = const1.out;
+      acc.write_en = 1'd1;
+      begin_acc[done] = acc.done;
+    }
+
+    group read_data {
+      slice0.in = i.out;
+      slice1.in = k.out;
+      slice2.in = j.out;
+      arr_1.addr0 = slice0.out; 
+      arr_1.addr1 = slice1.out;
+      arr_1.content_en = 1'd1;
+
+      arr_2.addr0 = slice1.out; 
+      arr_2.addr1 = slice2.out;
+      arr_2.content_en = 1'd1;
+
+      val_a.in = arr_1.read_data;
+      val_a.write_en = arr_1.done ? 1'd1;
+      val_b.in = arr_2.read_data;
+      val_b.write_en = arr_2.done ? 1'd1;
+      read_data[done] = val_b.done;
+    }
+
+    // Writing results
+    group write_result {
+      slice0.in = i.out;
+      slice1.in = j.out;
+      mem_output.addr0 = slice0.out;
+      mem_output.addr1 = slice1.out;
+      mem_output.content_en = 1'd1;
+      mem_output.write_data = acc.out;
+      mem_output.write_en = 1'd1;
+      write_result[done] = mem_output.done;
+    }
+
+    // Loop Increment
+    group upd_i<"promotable"=1> { 
+      add.left = i.out; 
+      add.right = const2.out; 
+      i.in = add.out; 
+      i.write_en = 1'd1; 
+      upd_i[done] = i.done; 
+    }
+    group upd_j<"promotable"=1> { 
+      add.left = j.out; 
+      add.right = const2.out; 
+      j.in = add.out; 
+      j.write_en = 1'd1; 
+      upd_j[done] = j.done; 
+    }
+    group upd_k<"promotable"=1> { 
+      add.left = k.out; 
+      add.right = const2.out; 
+      k.in = add.out; 
+      k.write_en = 1'd1; 
+      upd_k[done] = k.done; 
+    }
+    group reset_i {
+      i.in = const1.out;
+      i.write_en = 1'd1;
+      reset_i[done] = i.done;
+    }
+    group reset_j {
+      j.in = const1.out;
+      j.write_en = 1'd1;
+      reset_j[done] = j.done;
+    }
+    group reset_k {
+      k.in = const1.out;
+      k.write_en = 1'd1;
+      reset_k[done] = k.done;
+    }
+  }
+
+  control {
+    seq {
+      // i, j, k initialization
+      let0; 
+      let1; 
+      let2;
+      reset_i;
+      while le0.out with cond0 {
+        seq {
+          reset_j;
+          while le1.out with cond1 {
+            seq {
+              reset_k;
+              begin_acc;
+              while le2.out with cond2 {
+                seq { 
+                  read_data;
+                  invoke mul_add[acc=acc](loaded_val_a = val_a.out, loaded_val_b = val_b.out)();
+                  upd_k; 
+                }
+              }
+              write_result;
+              upd_j;
+            }
+          }
+          upd_i;
+        }
+      }
+    }
+  }
+}

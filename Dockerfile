@@ -60,7 +60,7 @@ RUN uv pip install antlr4-python3-runtime==4.7.2 .
 
 # Install Dahlia
 WORKDIR /home
-RUN git  clone https://github.com/cucapra/dahlia.git
+RUN git clone https://github.com/cucapra/dahlia.git
 WORKDIR /home/dahlia
 ## Checkout specific version. Fetch before checkout because clone might be cached.
 RUN git fetch --all && git checkout 9ec9a58
@@ -103,6 +103,12 @@ RUN uv pip install ./frontends/mrxl
 # ensure that it gets installed in non-editable mode, which can affect its
 # stacktrace-walking magic that dictates source position generation.
 RUN uv pip install ./calyx-py
+
+# Install Firtool
+WORKDIR /home
+RUN curl -L https://github.com/llvm/circt/releases/download/firtool-1.75.0/firrtl-bin-linux-x64.tar.gz | tar -xz \
+    && chmod +x /home/firtool-1.75.0/bin/firtool \
+    && printf "[firrtl]\nfirtool = \"/home/firtool-1.75.0/bin/firtool\"\n" >> ~/.config/fud2.toml
 
 # Used to make runt cocotb tests happy
 ENV LANG=C.UTF-8
