@@ -10,8 +10,8 @@ this-config-better-not-exist = gholdengo
 rule t5_rule_1
   command = echo ${this-config-better-not-exist}
 build _t5_rule_1.fake $o0: t5_rule_1 $i0
-  i0 = _from_stdin_state0
-  o0 = _to_stdout_state1
+  i0 = state00
+  o0 = state11
 
 
-default _to_stdout_state1
+default state11
