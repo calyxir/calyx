@@ -29,7 +29,7 @@ function round() {
 
 (
     cd ${CALYX_DIR}
-    echo "name,og,opt,diff,diff(%)" > ${out}
+    echo "name,og,exp,diff,diff(%)" > ${out}
     py_args="20000 --keepgoing"
     for f in $( cat ${SCRIPT_DIR}/queues-tests.txt ); do
 	name=$( basename "${f}" | cut -d. -f1 )
