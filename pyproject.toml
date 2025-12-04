@@ -44,6 +44,8 @@ profiler = [
     # with that right now
     "profiler",
     "synthrep",
+    "AreaExtract",
+    "compare"
 ]
 fud2_scripts = [
     # Some fud2 components import pieces of OG fud's Python implementation. It

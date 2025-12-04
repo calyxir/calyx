@@ -1,0 +1,5 @@
+DESIGN,COMP_SIM,SIM_DATA,COMP_SYNTH,SYNTH_VAR,SYNTH_PERIOD
+sandpile.futil,True,sandpile.data,True,ff,7.00
+sandpile-opt.futil,True,sandpile.data,True,ff,7.00
+sandpile.futil,True,sandpile.data,True,ff,5.00
+sandpile-opt.futil,True,sandpile.data,True,ff,5.00
