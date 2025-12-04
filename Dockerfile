@@ -104,5 +104,8 @@ RUN uv pip install ./frontends/mrxl
 # stacktrace-walking magic that dictates source position generation.
 RUN uv pip install ./calyx-py
 
+# Install AreaExtract
+RUN uv pip install ./tools/AreaExtract
+
 # Used to make runt cocotb tests happy
 ENV LANG=C.UTF-8
