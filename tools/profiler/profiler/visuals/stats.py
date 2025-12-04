@@ -272,8 +272,7 @@ def write_par_stats(tracedata: TraceData, out_dir):
         writer.writeheader()
         writer.writerows(stats)
 
+
 def write_total_cycles(tracedata: TraceData, out_dir):
-    with open(
-        os.path.join(out_dir, "total_cycles.txt"), "w", encoding="utf-8"
-    ) as file:
+    with open(os.path.join(out_dir, "total_cycles.txt"), "w", encoding="utf-8") as file:
         file.write(str(len(tracedata.trace.trace)))
