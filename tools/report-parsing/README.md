@@ -69,7 +69,6 @@ synthrep viz [--type TYPE] [--filename FILE] [--column COL] [-v]
 
 **Options:**
 
-- `-t`, `--type` – one of `treemap`, `sunburst`, `icicle`, `flamegraph`
 - `-f`, `--filename` – path to a `.rpt` file (default: `out/hierarchical_utilization_placed.rpt`)
 - `-c`, `--column` – one of `ff`, `lut`, `llut`, `lutram` (default: `ff`)
 - `-v`, `--verbose` – prints the parsed data table
@@ -77,18 +76,17 @@ synthrep viz [--type TYPE] [--filename FILE] [--column COL] [-v]
 **Example:**
 
 ```bash
-synthrep viz -t sunburst -c lut
+synthrep viz -c lut
 ```
 
 ### Output
 
-- Visuals (via Plotly on the default browser)
 - Folded stack format for flamegraphs (stdout)
 
 A clone of [Brendan Gregg's FlameGraph repository](https://github.com/brendangregg/FlameGraph) is needed to generate FlameGraph SVGs. The folded stack output can be directly chained into the FlameGraph Perl script:
 
 ```bash
-synthrep viz -c lut -t flamegraph | path/to/FlameGraph/flamegraph.pl > flamegraph.svg
+synthrep viz -c lut | path/to/FlameGraph/flamegraph.pl > flamegraph.svg
 ```
 
 ## Supported formats

@@ -163,26 +163,31 @@ class CycleTrace:
 
 
 @dataclass
-class Utilization:
+class Area:
     """
-    Hierarchical utilization wrapper.
+    Hierarchical area wrapper.
     """
 
+    # A map from cell name to resource map (which itself is a map from resource
+    # name to value)
+    # EXAMPLE: { "main.par1.r0": { "ff": "3" } }
     map: dict[str, dict[str, str]]
     accessed: set[str]
+    origin: str
 
     def __init__(self, json_dict):
-        self.map = json_dict
+        self.map = json_dict.get("design", {})
         self.accessed = set()
+        self.origin = json_dict.get("metadata", {}).get("origin", "")
 
     def get_module(self, name: str) -> dict[str, str]:
         """
-        Get the utilization map for a module. `name` is a fully qualified name
+        Get the area map for a module. `name` is a fully qualified name
         of a module on a stack.
         """
         if name in self.map:
             self.accessed.add(name)
-        return self.map.get(name, {})
+        return self.map.get(name, {}).get("rsrc", {})
 
     def get_unaccessed(self):
         """
@@ -192,14 +197,14 @@ class Utilization:
         return module_set.difference(self.accessed)
 
 
-class UtilizationCycleTrace(CycleTrace):
+class AreaCycleTrace(CycleTrace):
     """
     List of stacks that are active in a single cycle, containing utilization information
     (both aggregated and per primitive).
     """
 
     # Reference to the global utilization map from all primitives to their utilization
-    global_utilization: Utilization
+    global_utilization: Area
     # Aggregated utilization of all the primitives in this cycle
     # Ex. {'Total LUTs': 21, 'Logic LUTs': 5, 'LUTRAMs': 16, 'SRLs': 0, 'FFs': 38, 'RAMB36': 0, 'RAMB18': 0, 'URAM': 0, 'DSP Blocks': 0}
     utilization: dict
@@ -212,7 +217,7 @@ class UtilizationCycleTrace(CycleTrace):
 
     def __init__(
         self,
-        utilization: Utilization,
+        utilization: Area,
         control_metadata: ControlMetadata,
         stacks_this_cycle: list[list[StackElement]] | None = None,
     ):
@@ -248,7 +253,7 @@ class UtilizationCycleTrace(CycleTrace):
         # NOT include control primitives!
         for p in self.primitives_active:
             util = {
-                k: int(v) if v.isdigit() else v
+                k: int(v) if type(v) is str and v.isdigit() else v
                 for k, v in self.global_utilization.get_module(p).items()
             }
             self.utilization_per_primitive[p] = util
@@ -435,7 +440,7 @@ class TraceData:
         control_groups_trace: dict[int, set[str]],
         cell_metadata: CellMetadata,
         control_metadata: ControlMetadata,
-        utilization: Utilization | None = None,
+        utilization: Area | None = None,
     ):
         """
         Populates the field trace_with_control_groups by combining control group information (from control_groups_trace) with self.trace.
@@ -447,7 +452,7 @@ class TraceData:
                 new_cycletrace = (
                     CycleTrace()
                     if utilization is None
-                    else UtilizationCycleTrace(utilization, control_metadata)
+                    else AreaCycleTrace(utilization, control_metadata)
                 )
                 # fully qualified control group --> path descriptor
                 active_control_group_to_desc: dict[str, str] = (
