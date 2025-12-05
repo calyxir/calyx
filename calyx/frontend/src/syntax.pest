@@ -42,7 +42,7 @@ bad_num = @{ ASCII_DIGIT ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "'")* }
 
 comb = { "comb" }
 
-reference = { "ref" }
+reference = @{ "ref" ~ &WHITESPACE }
 
 static_word = { "static" }
 
