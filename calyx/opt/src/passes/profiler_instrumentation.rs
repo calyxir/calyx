@@ -83,7 +83,6 @@ fn count_helper<T>(map_opt: Option<CallsFromGroupMap<T>>) -> u32 {
     match map_opt {
         Some(map) => map
             .values()
-            .into_iter()
             .fold(0, |acc, vec_ref| acc + vec_ref.len() as u32),
         None => 0,
     }
@@ -99,12 +98,12 @@ fn count<T>(
     let num_cell_invokes = count_helper(cell_invoke_map_opt);
     let num_primitive_invokes = count_helper(primitive_map_opt);
 
-    return StatsEntry {
+    StatsEntry {
         group_probe: num_groups,
         structural_enable_probe: num_structural_enables,
         cell_probe: num_cell_invokes,
         primitive_probe: num_primitive_invokes,
-    };
+    }
 }
 
 /// Creates probe cells and assignments pertaining to standard groups.
