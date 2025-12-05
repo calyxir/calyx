@@ -55,11 +55,41 @@ component middle(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     mid = middle();
+    @control @generated @protected invoke0___main_group_probe = std_wire(1);
+    @control @generated @protected mid___invoke0___main_cell_probe = std_wire(1);
   }
-  wires {}
+  wires {
+    group invoke0 {
+      mid.go = 1'd1;
+      invoke0[done] = mid.done;
+      invoke0___main_group_probe.in = 1'd1;
+      mid___invoke0___main_cell_probe.in = 1'd1;
+    }
+  }
   control {
     seq {
-      invoke mid()();
+      invoke0;
     }
+  }
+}
+---STDERR---
+{
+  "identity": {
+    "group_probe": 1,
+    "structural_enable_probe": 0,
+    "cell_probe": 0,
+    "primitive_probe": 1
+  },
+  "main": {
+    "group_probe": 1,
+    "structural_enable_probe": 0,
+    "cell_probe": 1,
+    "primitive_probe": 0
+  },
+  "middle": {
+    "group_probe": 2,
+    "structural_enable_probe": 0,
+    "cell_probe": 1,
+    "primitive_probe": 1
   }
 }

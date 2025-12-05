@@ -11,6 +11,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @control @generated @protected r___read___main_primitive_probe = std_wire(1);
     @control @generated @protected write___main_group_probe = std_wire(1);
     @control @generated @protected mem___write___main_primitive_probe = std_wire(1);
+    @control @generated @protected invoke0___main_group_probe = std_wire(1);
+    @control @generated @protected id___invoke0___main_cell_probe = std_wire(1);
   }
   wires {
     group read {
@@ -29,15 +31,19 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       write___main_group_probe.in = 1'd1;
       mem___write___main_primitive_probe.in = 1'd1;
     }
+    group invoke0 {
+      id.go = 1'd1;
+      invoke0[done] = id.done;
+      id.in_1 = r.out;
+      ans.in = id.out;
+      invoke0___main_group_probe.in = 1'd1;
+      id___invoke0___main_cell_probe.in = 1'd1;
+    }
   }
   control {
     seq {
       read;
-      invoke id(
-        in_1 = r.out
-      )(
-        out = ans.in
-      );
+      invoke0;
       write;
     }
   }
@@ -65,5 +71,20 @@ component identity(in_1: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 3
   }
   control {
     save;
+  }
+}
+---STDERR---
+{
+  "identity": {
+    "group_probe": 1,
+    "structural_enable_probe": 0,
+    "cell_probe": 0,
+    "primitive_probe": 2
+  },
+  "main": {
+    "group_probe": 3,
+    "structural_enable_probe": 0,
+    "cell_probe": 1,
+    "primitive_probe": 2
   }
 }

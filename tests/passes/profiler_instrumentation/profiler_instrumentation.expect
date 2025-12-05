@@ -52,3 +52,11 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
 }
 ---STDERR---
 [WARN  calyx_frontend::attribute] The attribute @static is deprecated and will be ignored by the compiler.
+{
+  "main": {
+    "group_probe": 2,
+    "structural_enable_probe": 0,
+    "cell_probe": 0,
+    "primitive_probe": 4
+  }
+}

@@ -1,4 +1,4 @@
-// -p profiler-instrumentation
+// -p compile-invoke -p profiler-instrumentation -x profiler-instrumentation:emit-probe-stats=<err>
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
