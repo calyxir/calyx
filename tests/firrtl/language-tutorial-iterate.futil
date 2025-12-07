@@ -1,0 +1,83 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+  cells {
+    @external(1) mem = comb_mem_d1(32, 1, 1);
+    val = std_reg(32);
+    add = std_add(32);
+
+    // ANCHOR: new_cells
+    counter = std_reg(32);
+    add2 = std_add(32);
+    lt = std_lt(32);
+    // ANCHOR_END: new_cells
+  }
+
+  wires {
+    group read {
+      mem.addr0 = 1'b0;
+      val.in = mem.read_data;
+      val.write_en = 1'b1;
+      read[done] = val.done;
+    }
+
+    group upd {
+      add.left = val.out;
+      add.right = 32'd4;
+      val.in = add.out;
+      val.write_en = 1'b1;
+      upd[done] = val.done;
+    }
+
+    group write {
+      mem.addr0 = 1'b0;
+      mem.write_en = 1'b1;
+      mem.write_data = val.out;
+      write[done] = mem.done;
+    }
+
+    // ANCHOR: init
+    group init {
+      counter.in = 32'd0;
+      counter.write_en = 1'b1;
+      init[done] = counter.done;
+    }
+    // ANCHOR_END: init
+
+    // ANCHOR: incr
+    group incr {
+      add2.left = counter.out;
+      add2.right = 32'd1;
+      counter.in = add2.out;
+      counter.write_en = 1'b1;
+      incr[done] = counter.done;
+    }
+    // ANCHOR_END: incr
+
+    // ANCHOR: cond
+    comb group cond {
+      lt.left = counter.out;
+      lt.right = 32'd8;
+    }
+    // ANCHOR_END: cond
+  }
+
+  // ANCHOR: control
+  control {
+    seq {
+      init;
+      while lt.out with cond {
+        par {
+          seq {
+            read;
+            upd;
+            write;
+          }
+          incr;
+        }
+      }
+    }
+  }
+  // ANCHOR_END: control
+}
