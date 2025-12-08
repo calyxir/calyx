@@ -1,0 +1,72 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @control lt = std_lt(1);
+    @data a = std_reg(2);
+    @data b = std_reg(2);
+    @generated comb_reg = std_reg(1);
+    @generated fsm_0 = std_wire(1);
+    @generated fsm_1 = std_wire(1);
+    @generated fsm_2 = std_wire(1);
+    @generated fsm_3 = std_wire(1);
+    @generated fsm_4 = std_wire(1);
+    @generated fsm_5 = std_wire(1);
+    @generated fsm_6 = std_wire(1);
+    @generated @fsm_control looped_once = std_reg(1);
+  }
+  wires {
+    fsm fsm {
+      0 : {
+        fsm_0.in = fsm[start] ? 1'd1;
+        looped_once.in = fsm[start] ? 1'd1;
+        looped_once.write_en = 1'd1;
+        fsm[done] = looped_once.out;
+      } => {
+        comb_reg.out & fsm[start] -> 1,
+        !comb_reg.out & fsm[start] -> 4,
+        default -> 0,
+      },
+      1 : {
+        fsm_1.in = 1'd1;
+      } => {
+        comb_reg.out -> 2,
+        default -> 1,
+      },
+      2 : {
+        fsm_2.in = 1'd1;
+      } => {
+        comb_reg.out -> 3,
+        default -> 2,
+      },
+      3 : {
+        fsm_3.in = 1'd1;
+      } => 0,
+      4 : {
+        fsm_4.in = 1'd1;
+      } => {
+        !comb_reg.out -> 5,
+        default -> 4,
+      },
+      5 : {
+        fsm_5.in = 1'd1;
+      } => {
+        !comb_reg.out -> 6,
+        default -> 5,
+      },
+      6 : {
+        fsm_6.in = 1'd1;
+      } => 0,
+    }
+    comb_reg.write_en = fsm_0.out ? 1'd1;
+    comb_reg.in = fsm_0.out ? lt.out;
+    a.write_en = comb_reg.out & fsm_1.out | comb_reg.out & fsm_2.out | comb_reg.out & fsm_3.out | !comb_reg.out & fsm_4.out | !comb_reg.out & fsm_5.out | !comb_reg.out & fsm_6.out ? 1'd1;
+    a.in = !comb_reg.out & fsm_4.out | !comb_reg.out & fsm_5.out | !comb_reg.out & fsm_6.out ? 2'd1;
+    a.in = comb_reg.out & fsm_1.out | comb_reg.out & fsm_2.out | comb_reg.out & fsm_3.out ? 2'd0;
+    lt.left = fsm_0.out ? 1'd1;
+    lt.right = fsm_0.out ? 1'd0;
+  }
+  control {
+    fsm;
+  }
+}

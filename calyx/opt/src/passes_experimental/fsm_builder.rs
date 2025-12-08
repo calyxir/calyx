@@ -2,6 +2,8 @@ use crate::analysis::{IncompleteTransition, StaticSchedule};
 use crate::traversal::{Action, ConstructVisitor, Named, Visitor};
 use calyx_ir::{self as ir, GetAttributes};
 use calyx_utils::CalyxResult;
+use core::ops::Not;
+use itertools::Itertools;
 const ACYCLIC: ir::Attribute =
     ir::Attribute::Internal(ir::InternalAttr::ACYCLIC);
 const UNROLL: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::UNROLL);
@@ -152,7 +154,6 @@ impl StaticSchedule<'_, '_> {
             ir::StaticControl::Seq(sseq) => {
                 if is_acyclic(sseq) && is_inline(sseq) {
                     // @NUM_STATES(n) @ACYCLIC @INLINE
-
                     (
                         sseq.stmts.iter().enumerate().fold(
                             transitions_to_curr,
@@ -377,10 +378,40 @@ impl StaticSchedule<'_, '_> {
             ir::StaticControl::If(sif) => {
                 if is_acyclic(sif) && is_inline(sif) {
                     // @NUM_STATES(n) @ACYCLIC @INLINE
-                    todo!()
+                    // Both branches execute in parallel with conditional guards
+                    let true_guard =
+                        guard.clone().and(ir::Guard::port(sif.port.clone()));
+                    let false_guard = guard
+                        .clone()
+                        .and(ir::Guard::not(ir::Guard::port(sif.port.clone())));
+
+                    // Build both branches with their respective guards
+                    (
+                        self.build_abstract(
+                            &sif.tbranch,
+                            true_guard,
+                            transitions_to_curr.clone(),
+                            looped_once_guard.clone(),
+                        )
+                        .0
+                        .into_iter()
+                        .chain(
+                            self.build_abstract(
+                                &sif.fbranch,
+                                false_guard,
+                                transitions_to_curr,
+                                looped_once_guard,
+                            )
+                            .0,
+                        )
+                        .collect(),
+                        None,
+                    )
                 } else if is_offload(sif) {
                     // @NUM_STATES(1) @OFFLOAD
-                    todo!()
+                    unreachable!(
+                        "`build_abstract` encountered an impossible offload of Static Seq node."
+                    )
                 } else {
                     // we must have at least one `attr` annotation
                     unreachable!(
@@ -603,6 +634,105 @@ impl Visitor for FSMBuilder {
                 group: repeat_group,
                 attributes: ir::Attributes::default(),
             });
+            enable.get_mut_attributes().insert(INLINE, 1);
+            Ok(Action::static_change(enable))
+        } else {
+            Ok(Action::Continue)
+        }
+    }
+
+    fn finish_static_if(
+        &mut self,
+        s: &mut calyx_ir::StaticIf,
+        comp: &mut calyx_ir::Component,
+        sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> crate::traversal::VisResult {
+        if is_offload(s) {
+            let non_promoted_static_component = comp.is_static()
+                && !(comp
+                    .attributes
+                    .has(ir::Attribute::Bool(ir::BoolAttr::Promoted)));
+
+            let mut builder = ir::Builder::new(comp, sigs);
+            let signal_on = builder.add_constant(1, 1);
+
+            // generate FSM for true branch
+            let mut sch_constructor_true = StaticSchedule::from(&mut builder);
+            let true_branch_fsm = sch_constructor_true.fsm_build(
+                &s.tbranch,
+                Component {
+                    non_promoted_static_component: Some(
+                        non_promoted_static_component,
+                    ),
+                    static_control_component: true,
+                },
+            );
+
+            // group to active each FSM conditionally
+            let if_group = builder.add_static_group("if", s.latency);
+            let true_guard: ir::Guard<ir::StaticTiming> =
+                ir::Guard::port(ir::RRC::clone(&s.port));
+            let false_guard = ir::Guard::not(true_guard.clone());
+
+            // assignments to active each FSM
+            let mut trigger_fsms_with_branch_latency = vec![(
+                builder.build_assignment(
+                    true_branch_fsm.borrow().get("start"),
+                    signal_on.borrow().get("out"),
+                    true_guard,
+                ),
+                s.tbranch.get_latency(),
+            )];
+
+            // generate FSM and start condition for false branch if branch not empty
+            if !(matches!(&*s.fbranch, ir::StaticControl::Empty(_))) {
+                let mut sch_constructor_false =
+                    StaticSchedule::from(&mut builder);
+                let false_branch_fsm = sch_constructor_false.fsm_build(
+                    &s.fbranch,
+                    Component {
+                        non_promoted_static_component: Some(
+                            non_promoted_static_component,
+                        ),
+                        static_control_component: true,
+                    },
+                );
+                trigger_fsms_with_branch_latency.push((
+                    builder.build_assignment(
+                        false_branch_fsm.borrow().get("start"),
+                        signal_on.borrow().get("out"),
+                        false_guard,
+                    ),
+                    s.fbranch.get_latency(),
+                ));
+            }
+
+            // make sure [start] for each FSM is pulsed at most once, at the first
+            // cycle
+
+            let trigger_fsms = trigger_fsms_with_branch_latency
+                .into_iter()
+                .map(|(mut assign, latency)| {
+                    assign
+                        .guard
+                        .add_interval(ir::StaticTiming::new((0, latency)));
+                    assign
+                })
+                .collect_vec();
+
+            if_group.borrow_mut().assignments.extend(trigger_fsms);
+
+            // ensure this group only gets one state in the parent FSM, and only
+            // transitions out when the latency counter has completed
+            let mut enable = ir::StaticControl::Enable(ir::StaticEnable {
+                group: if_group,
+                attributes: ir::Attributes::default(),
+            });
+            // enable
+            //     .get_mut_attributes()
+            //     .insert(ir::BoolAttr::OneState, 1);
+
             enable.get_mut_attributes().insert(INLINE, 1);
             Ok(Action::static_change(enable))
         } else {
