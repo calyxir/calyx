@@ -94,11 +94,10 @@ impl<T: CliExt> argh::DynamicSubCommand for FakeCli<T> {
         args: &[&str],
     ) -> Option<Result<Vec<String>, argh::EarlyExit>> {
         for (reg_name, f) in T::inner_redact_arg_values() {
-            if let Some(&name) = command_name.last() {
-                if name == reg_name {
+            if let Some(&name) = command_name.last()
+                && name == reg_name {
                     return Some(f(command_name, args));
                 }
-            }
         }
         None
     }
@@ -108,11 +107,10 @@ impl<T: CliExt> argh::DynamicSubCommand for FakeCli<T> {
         args: &[&str],
     ) -> Option<Result<Self, argh::EarlyExit>> {
         for (reg_name, f) in T::inner_from_args() {
-            if let Some(&name) = command_name.last() {
-                if name == reg_name {
+            if let Some(&name) = command_name.last()
+                && name == reg_name {
                     return Some(f(command_name, args).map(FakeCli));
                 }
-            }
         }
         None
     }

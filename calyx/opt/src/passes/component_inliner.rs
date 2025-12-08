@@ -137,11 +137,10 @@ impl ComponentInliner {
         assigns.iter_mut().for_each(|assign| {
             assign.for_each_port(|port| {
                 port_rewrite.get(port).or_else(|| {
-                    if let Some(grp) = new_group {
-                        if port.borrow().is_hole() {
+                    if let Some(grp) = new_group
+                        && port.borrow().is_hole() {
                             return Some(grp.borrow().get(&port.borrow().name));
                         }
-                    }
                     None
                 })
             });
@@ -161,11 +160,10 @@ impl ComponentInliner {
         assigns.iter_mut().for_each(|assign| {
             assign.for_each_port(|port| {
                 port_rewrite.get(port).or_else(|| {
-                    if let Some(grp) = new_group {
-                        if port.borrow().is_hole() {
+                    if let Some(grp) = new_group
+                        && port.borrow().is_hole() {
                             return Some(grp.borrow().get(&port.borrow().name));
                         }
-                    }
                     None
                 })
             });

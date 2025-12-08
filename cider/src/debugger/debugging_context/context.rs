@@ -391,8 +391,8 @@ impl WatchpointMap {
             .remove(&idx)
             .or_else(|| self.watchpoints_after.remove(&idx));
 
-        if let Some(point) = point {
-            if let Some(idxs) = self.group_idx_map.get_mut(&point.group) {
+        if let Some(point) = point
+            && let Some(idxs) = self.group_idx_map.get_mut(&point.group) {
                 match idxs {
                     WatchPointIndices::Before(b) => b.retain(|i| *i != idx),
                     WatchPointIndices::After(a) => a.retain(|i| *i != idx),
@@ -406,7 +406,6 @@ impl WatchpointMap {
                     self.group_idx_map.remove(&point.group);
                 }
             }
-        }
     }
 
     fn delete_by_group(&mut self, group: GroupIdx) {

@@ -311,8 +311,8 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         for (idx, ledger) in env.cells.iter() {
             if let CellLedger::Component(comp) = ledger {
                 let comp_info = &ctx.primary[comp.comp_id];
-                if !comp_info.is_comb() {
-                    if let Some(ctrl) = comp_info.as_standard().unwrap().control
+                if !comp_info.is_comb()
+                    && let Some(ctrl) = comp_info.as_standard().unwrap().control
                     {
                         env.pc.vec_mut().push(ProgramPointer::new_active(
                             (comp.comp_id == root).then_some(root_thread),
@@ -322,7 +322,6 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                             },
                         ))
                     }
-                }
             }
         }
 
@@ -1844,12 +1843,12 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
     fn check_transitive_reads(&mut self) -> Result<(), BoxedCiderError> {
         let mut clock_map = std::mem::take(&mut self.env.clocks);
         for cell in self.env.cells.values() {
-            if let Some(dyn_prim) = cell.as_primitive() {
-                if !dyn_prim.is_combinational() {
+            if let Some(dyn_prim) = cell.as_primitive()
+                && !dyn_prim.is_combinational() {
                     let sig = dyn_prim.get_ports();
                     for port in sig.iter_first() {
-                        if let Some(val) = self.env.ports[port].as_option() {
-                            if val.propagate_clocks()
+                        if let Some(val) = self.env.ports[port].as_option()
+                            && val.propagate_clocks()
                                 && (val.transitive_clocks().is_some())
                             {
                                 // For non-combinational cells with
@@ -1867,10 +1866,8 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                 )
                                 .map_err(|e| e.prettify_message(&self.env))?
                             }
-                        }
                     }
                 }
-            }
         }
         self.env.clocks = clock_map;
 
@@ -2416,8 +2413,8 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                             let dest = self
                                 .get_global_port_idx(&assign.dst, *active_cell);
 
-                            if let Some(done) = done {
-                                if dest != done {
+                            if let Some(done) = done
+                                && dest != done {
                                     let done_val = &self.env.ports[done];
 
                                     if done_val.as_bool().unwrap_or(true) {
@@ -2426,7 +2423,6 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                         continue;
                                     }
                                 }
-                            }
 
                             if self.conf.debug_logging {
                                 self.log_assignment(
@@ -2789,8 +2785,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         .primary
                         .guard_read_map
                         .get(assign.guard)
-                    {
-                        if self.env.ports[dest].is_def() {
+                        && self.env.ports[dest].is_def() {
                             for port in read_ports {
                                 let port = self
                                     .get_global_port_idx(port, *active_cell);
@@ -2823,7 +2818,6 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                 .unwrap()
                                 .set_propagate_clocks(true);
                         }
-                    }
                 }
             }
         }
@@ -2920,8 +2914,8 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
                         for port in signature.iter_first() {
                             let val = &self.env.ports[port];
-                            if let Some(val) = val.as_option() {
-                                if val.propagate_clocks()
+                            if let Some(val) = val.as_option()
+                                && val.propagate_clocks()
                                     && (val.clocks().is_some()
                                         || val.transitive_clocks().is_some())
                                 {
@@ -2931,7 +2925,6 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                     working_set
                                         .extend(val.iter_transitive_clocks());
                                 }
-                            }
                         }
 
                         if signature.iter_second().len() == 1 {
@@ -3063,13 +3056,12 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         go: Option<GlobalPortIdx>,
     ) -> Option<ThreadIdx> {
         thread.or_else(|| {
-            if let Some(go_idx) = go {
-                if let Some(go_thread) =
+            if let Some(go_idx) = go
+                && let Some(go_thread) =
                     self.env.ports[go_idx].as_option().and_then(|a| a.thread())
                 {
                     return Some(go_thread);
                 }
-            }
             comp_go.and_then(|comp_go| {
                 self.env.ports[comp_go].as_option().and_then(|x| x.thread())
             })

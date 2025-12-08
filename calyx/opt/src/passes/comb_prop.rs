@@ -79,15 +79,14 @@ impl WireRewriter {
     ) -> Option<RRC<ir::Port>> {
         let from_idx = from.borrow().canonical();
         let old = self.rewrites.insert(from_idx, to);
-        if log::log_enabled!(log::Level::Debug) {
-            if let Some(ref old) = old {
+        if log::log_enabled!(log::Level::Debug)
+            && let Some(ref old) = old {
                 log::debug!(
                     "Previous rewrite: {} -> {}",
                     from.borrow().canonical(),
                     old.borrow().canonical()
                 );
             }
-        }
         old
     }
 

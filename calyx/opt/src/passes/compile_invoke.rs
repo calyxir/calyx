@@ -323,8 +323,8 @@ impl Visitor for CompileInvoke {
         // signatures of all the ref cells.
         for cell in comp.cells.iter() {
             let mut new_ports: Vec<RRC<ir::Port>> = Vec::new();
-            if let Some(name) = cell.borrow().type_name() {
-                if let Some(ports) = self.port_names.get_ports(&name) {
+            if let Some(name) = cell.borrow().type_name()
+                && let Some(ports) = self.port_names.get_ports(&name) {
                     log::debug!(
                         "Updating ports of cell `{}' (type `{name}')",
                         cell.borrow().name()
@@ -340,7 +340,6 @@ impl Visitor for CompileInvoke {
                         new_ports.push(new_port);
                     }
                 }
-            }
             cell.borrow_mut().ports.extend(new_ports);
         }
 

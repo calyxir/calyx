@@ -226,11 +226,10 @@ impl ReachingDefinitionAnalysis {
             .cell_uses()
             .filter_map(|cell| {
                 let cell_ref = cell.borrow();
-                if let Some(name) = cell_ref.type_name() {
-                    if name == "std_reg" {
+                if let Some(name) = cell_ref.type_name()
+                    && name == "std_reg" {
                         return Some(cell_ref.name());
                     }
-                }
                 None
             })
             .collect();

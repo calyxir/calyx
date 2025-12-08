@@ -1691,11 +1691,10 @@ impl CalyxParser {
             [imports(imports), externs_and_comps(mixed), extra_info(info), EOI(_)] => {
                 let (mut metadata, source_info_table) = info;
                 // remove empty metadata strings
-                if let Some(m) = &metadata {
-                    if m.is_empty() {
+                if let Some(m) = &metadata
+                    && m.is_empty() {
                         metadata = None;
                     }
-                }
 
                 let mut namespace =
                     ast::NamespaceDef {

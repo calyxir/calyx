@@ -133,8 +133,7 @@ fn group(
         for assignment_ref in group.assignments.iter() {
             let dst_borrow = assignment_ref.dst.borrow();
             if let ir::PortParent::Group(parent_group_ref) = &dst_borrow.parent
-            {
-                if dst_borrow.name == "go" {
+                && dst_borrow.name == "go" {
                     // found an invocation of go
                     let invoked_group_name =
                         parent_group_ref.upgrade().borrow().name();
@@ -149,7 +148,6 @@ fn group(
                         }
                     }
                 }
-            }
             if let ir::PortParent::Cell(cell_ref) = &dst_borrow.parent {
                 match cell_ref.upgrade().borrow().prototype.clone() {
                     calyx_ir::CellType::Primitive {
@@ -382,8 +380,7 @@ fn static_group(
         for assignment_ref in group.assignments.iter() {
             let dst_borrow = assignment_ref.dst.borrow();
             if let ir::PortParent::Group(parent_group_ref) = &dst_borrow.parent
-            {
-                if dst_borrow.name == "go" {
+                && dst_borrow.name == "go" {
                     // found an invocation of go
                     let invoked_group_name =
                         parent_group_ref.upgrade().borrow().name();
@@ -393,7 +390,6 @@ fn static_group(
                         .or_default()
                         .push((group.name(), guard));
                 }
-            }
             if let ir::PortParent::Cell(cell_ref) = &dst_borrow.parent {
                 match cell_ref.upgrade().borrow().prototype.clone() {
                     calyx_ir::CellType::Primitive { is_comb, .. } => {

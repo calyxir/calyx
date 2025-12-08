@@ -90,11 +90,11 @@ fn get_comp_latency(
             }
         }
     } else {
-        return Err(Error::undefined(
+        Err(Error::undefined(
             comp_name,
             "primitive or component".to_string(),
         )
-        .with_pos(attrs));
+        .with_pos(attrs))
     }
 }
 
@@ -114,11 +114,11 @@ fn get_static_latency(
     } else if let Some((_, latency)) = sig_ctx.comp_sigs.get(&comp_name) {
         Ok(*latency)
     } else {
-        return Err(Error::undefined(
+        Err(Error::undefined(
             comp_name,
             "primitive or component".to_string(),
         )
-        .with_pos(attrs));
+        .with_pos(attrs))
     }
 }
 

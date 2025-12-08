@@ -1376,8 +1376,8 @@ impl Visitor for CompileStatic {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if s.cond.is_none() {
-            if let ir::Control::Static(sc) = &mut *(s.body) {
+        if s.cond.is_none()
+            && let ir::Control::Static(sc) = &mut *(s.body) {
                 let mut builder = ir::Builder::new(comp, sigs);
                 let reset_group_name = self.get_reset_group_name(sc);
 
@@ -1392,7 +1392,6 @@ impl Visitor for CompileStatic {
                 let c = ir::Control::enable(wrapper_group);
                 return Ok(Action::change(c));
             }
-        }
 
         Ok(Action::Continue)
     }

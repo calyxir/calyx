@@ -434,8 +434,8 @@ fn create_lang_to_posid_map(
 
     // iterate through fileids to find the corresponding Adl
     for (fileid, path) in source_info_table.iter_file_map() {
-        if let Some(path_ext) = path.extension() {
-            if let Some(path_ext_str) = path_ext.to_str() {
+        if let Some(path_ext) = path.extension()
+            && let Some(path_ext_str) = path_ext.to_str() {
                 match path_ext_str {
                     "futil" => {
                         fileid_to_lang.insert(*fileid, Adl::Calyx);
@@ -449,7 +449,6 @@ fn create_lang_to_posid_map(
                     _ => println!("Unsupported file extension: {path_ext_str}"),
                 }
             }
-        }
     }
 
     for (posid, source_loc) in source_info_table.iter_position_map() {
@@ -492,8 +491,8 @@ fn gen_control_info_helper(
     // add information from this particular control node.
 
     let control_name = get_control_name(control)?;
-    if let Some(control_id) = control_name {
-        if let Some(pos_set) = control
+    if let Some(control_id) = control_name
+        && let Some(pos_set) = control
             .get_attributes()
             .get_set(SetAttribute::Set(SetAttr::Pos))
         {
@@ -511,7 +510,6 @@ fn gen_control_info_helper(
                 })
             }
         }
-    }
 
     // recurse into child control nodes.
     match control {

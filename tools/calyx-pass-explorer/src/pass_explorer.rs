@@ -263,8 +263,8 @@ impl PassExplorer {
 
     /// Produces the incoming file if it does not exist already.
     fn ensure_inc_file_exists(&mut self) -> std::io::Result<()> {
-        if let Some(inc_file) = self.incoming_file() {
-            if !self.file_exists.contains(&inc_file) {
+        if let Some(inc_file) = self.incoming_file()
+            && !self.file_exists.contains(&inc_file) {
                 // We reapply passes to the source file because calyx IR is not deserializable
                 let source_file = self.source_file();
                 let mut args = vec![
@@ -282,7 +282,6 @@ impl PassExplorer {
                 capture_command_stdout(&self.calyx_exec, &args, true)?;
                 self.file_exists.insert(inc_file.clone());
             }
-        }
 
         Ok(())
     }

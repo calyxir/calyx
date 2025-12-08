@@ -115,11 +115,10 @@ impl StaticPromotion {
     // we know we will never promote such a control.
     // This can be helpful to the pass when applying the heuristics.
     fn remove_large_promotables(&self, c: &mut ir::Control) {
-        if let Some(pr) = c.get_attribute(ir::NumAttr::Promotable) {
-            if !self.within_cycle_limit(pr) {
+        if let Some(pr) = c.get_attribute(ir::NumAttr::Promotable)
+            && !self.within_cycle_limit(pr) {
                 c.get_mut_attributes().remove(ir::NumAttr::Promotable)
             }
-        }
     }
 
     fn within_cycle_limit(&self, latency: u64) -> bool {

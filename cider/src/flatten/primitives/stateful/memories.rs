@@ -690,8 +690,8 @@ impl RaceDetectionPrimitive for CombMem {
             port_map,
             self.base_port,
             self.global_idx,
-        )? {
-            if addr < self.internal_state.size() {
+        )?
+            && addr < self.internal_state.size() {
                 if let Some(thread) = thread {
                     let addr_loc = self.internal_state.nth_entry(addr);
                     let clock = &state_map.get_clock(addr_loc).unwrap();
@@ -721,7 +721,6 @@ impl RaceDetectionPrimitive for CombMem {
                     panic!("unable to determine thread for comb mem");
                 }
             }
-        }
 
         self.exec_cycle(port_map, state_map)
     }
@@ -1067,8 +1066,8 @@ impl RaceDetectionPrimitive for SeqMem {
             port_map,
             self.base_port,
             self.global_idx,
-        )? {
-            if addr < self.internal_state.size() {
+        )?
+            && addr < self.internal_state.size() {
                 let addr_loc = self.internal_state.nth_entry(addr);
 
                 let clock = state_map.get_clock(addr_loc).unwrap();
@@ -1104,7 +1103,6 @@ impl RaceDetectionPrimitive for SeqMem {
                     // the value is never used
                 }
             }
-        }
         self.exec_cycle(port_map, state_map)
     }
 }

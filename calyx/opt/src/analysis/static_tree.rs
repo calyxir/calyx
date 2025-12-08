@@ -645,8 +645,7 @@ impl SingleNode {
             // it is counting to n.)
             if let Some(((beg, end), state_type)) =
                 self.fsm_schedule.iter().next()
-            {
-                if !(matches!(state_type, StateType::Offload(_))
+                && !(matches!(state_type, StateType::Offload(_))
                     && *beg == 0
                     && *end > 1)
                 {
@@ -666,7 +665,6 @@ impl SingleNode {
                     // separately
                     incr_guard = incr_guard.and(first_state.not())
                 }
-            }
         };
 
         // We shouldn't increment when we are in the final state

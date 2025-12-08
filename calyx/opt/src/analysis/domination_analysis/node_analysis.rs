@@ -21,16 +21,14 @@ const END_ID: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::END_ID);
 fn not_end_id(c: &ir::Control, id: u64) -> bool {
     match c {
         ir::Control::If(if_control) => {
-            if let Some(begin) = if_control.attributes.get(BEGIN_ID) {
-                if begin == id {
+            if let Some(begin) = if_control.attributes.get(BEGIN_ID)
+                && begin == id {
                     return true;
                 }
-            }
-            if let Some(end) = if_control.attributes.get(END_ID) {
-                if end == id {
+            if let Some(end) = if_control.attributes.get(END_ID)
+                && end == id {
                     return false;
                 }
-            }
             unreachable!("id should match either beginning or ending id")
         }
         _ => true,
@@ -44,16 +42,14 @@ fn not_end_id(c: &ir::Control, id: u64) -> bool {
 fn not_end_id_static(c: &ir::StaticControl, id: u64) -> bool {
     match c {
         ir::StaticControl::If(if_control) => {
-            if let Some(begin) = if_control.attributes.get(BEGIN_ID) {
-                if begin == id {
+            if let Some(begin) = if_control.attributes.get(BEGIN_ID)
+                && begin == id {
                     return true;
                 }
-            }
-            if let Some(end) = if_control.attributes.get(END_ID) {
-                if end == id {
+            if let Some(end) = if_control.attributes.get(END_ID)
+                && end == id {
                     return false;
                 }
-            }
             unreachable!("id should match either beginning or ending id")
         }
         _ => true,
@@ -98,11 +94,10 @@ fn add_parent_if_shareable(
     share: &ShareSet,
     port: &ir::RRC<ir::Port>,
 ) {
-    if let ir::PortParent::Cell(cell) = &port.borrow().parent {
-        if share.is_shareable_component(&cell.upgrade()) {
+    if let ir::PortParent::Cell(cell) = &port.borrow().parent
+        && share.is_shareable_component(&cell.upgrade()) {
             reads.insert(cell.upgrade().borrow().name());
         }
-    }
 }
 
 ///Contains the ids of all the cells that are read from in a given "node".
@@ -252,11 +247,9 @@ impl NodeSearch {
             if dst_ref.attributes.has(ir::NumAttr::Go)
                 && assign.guard.is_true()
                 && assign.src.borrow().is_constant(1, 1)
-            {
-                if let ir::PortParent::Cell(cell_wref) = &dst_ref.parent {
+                && let ir::PortParent::Cell(cell_wref) = &dst_ref.parent {
                     return cell_wref.upgrade().borrow().name() == self.name;
                 }
-            }
             false
         })
     }

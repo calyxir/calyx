@@ -391,14 +391,12 @@ impl Visitor for CellShare {
             for (a, b) in cells.iter().tuple_combinations() {
                 // checking if live ranges overlap
                 // nodes (groups/invokes) in which a is live
-                if let Some(live_a) = cell_to_nodes.get(a) {
-                    if let Some(live_b) = cell_to_nodes.get(b) {
-                        if !live_a.is_disjoint(live_b) {
+                if let Some(live_a) = cell_to_nodes.get(a)
+                    && let Some(live_b) = cell_to_nodes.get(b)
+                        && !live_a.is_disjoint(live_b) {
                             g.insert_conflict(a, b);
                             continue;
                         }
-                    }
-                }
                 // checking if b is live at any groups/invokes running in parallel
                 // to groups/invokes live at a
                 // get the children of pars in which a was alive "at least once"
