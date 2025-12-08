@@ -388,7 +388,7 @@ impl CalyxParser {
         }
     }
 
-    fn char(input: Node) -> ParseResult<&str> {
+    fn char(input: Node<'_>) -> ParseResult<&str> {
         Ok(input.as_str())
     }
 
@@ -425,7 +425,7 @@ impl CalyxParser {
         ))
     }
 
-    fn block_char(input: Node) -> ParseResult<&str> {
+    fn block_char(input: Node<'_>) -> ParseResult<&str> {
         Ok(input.as_str())
     }
 

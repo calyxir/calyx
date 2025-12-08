@@ -106,7 +106,7 @@ impl Document {
     }
 
     /// Returns the root `treesit` node.
-    pub fn root_node(&self) -> Option<ts::Node> {
+    pub fn root_node(&self) -> Option<ts::Node<'_>> {
         self.tree.as_ref().map(|t| t.root_node())
     }
 
@@ -245,7 +245,7 @@ impl Document {
     }
 
     /// Return an iterator over components or primitives
-    pub fn components(&self) -> impl Iterator<Item = ts::Node> {
+    pub fn components(&self) -> impl Iterator<Item = ts::Node<'_>> {
         self.root_node().into_iter().flat_map(|root| {
             self.captures(
                 root,
@@ -384,7 +384,7 @@ impl Document {
     }
 
     /// Find the treesit node at `point`
-    pub fn node_at_point(&self, point: &Point) -> Option<ts::Node> {
+    pub fn node_at_point(&self, point: &Point) -> Option<ts::Node<'_>> {
         self.root_node().and_then(|root| {
             root.descendant_for_point_range(
                 point.clone().into(),
@@ -394,7 +394,7 @@ impl Document {
     }
 
     /// Find the semantic thing that is under `point`
-    pub fn thing_at_point(&self, point: Point) -> Option<Things> {
+    pub fn thing_at_point(&self, point: Point) -> Option<Things<'_>> {
         self.node_at_point(&point).and_then(|node| {
             if node.parent().is_some_and(|p| p.kind() == "port") {
                 // when our parent is a port and we have a next sibling

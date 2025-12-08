@@ -41,7 +41,7 @@ where
     }
 
     /// Iterate over all the keys contained in the range
-    pub fn iter(&self) -> IndexRangeIterator<I> {
+    pub fn iter(&self) -> IndexRangeIterator<'_, I> {
         IndexRangeIterator::new(self)
     }
 
