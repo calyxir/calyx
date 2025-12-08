@@ -1,0 +1,51 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @data a = std_reg(2);
+    @data cond = std_reg(1);
+    @generated fsm_0 = std_wire(1);
+    @generated @fsm_control looped_once = std_reg(1);
+    @generated group_counter = std_reg(1);
+    @generated const0_1_ = std_wire(1);
+    @generated adder = std_add(1);
+    @generated fsm0_0 = std_wire(1);
+    @generated @fsm_control looped_once0 = std_reg(1);
+  }
+  wires {
+    fsm fsm {
+      0 : {
+        fsm_0.in = fsm[start] ? 1'd1;
+        looped_once.in = fsm[start] ? 1'd1;
+        looped_once.write_en = 1'd1;
+        fsm[done] = looped_once.out;
+      } => {
+        fsm[start] -> 0,
+        default -> 0,
+      },
+    }
+    fsm fsm0 {
+      0 : {
+        fsm0_0.in = fsm0[start] ? 1'd1;
+        looped_once0.in = fsm0[start] ? 1'd1;
+        looped_once0.write_en = 1'd1;
+        fsm0[done] = looped_once0.out;
+      } => {
+        group_counter.out == const0_1_.out & fsm0[start] -> 0,
+        default -> 0,
+      },
+    }
+    const0_1_.in = fsm0_0.out ? 1'd0;
+    fsm[start] = cond.out & 1'b1 & fsm0_0.out ? 1'd1;
+    adder.left = fsm0_0.out ? group_counter.out;
+    adder.right = fsm0_0.out ? 1'd1;
+    a.write_en = fsm_0.out ? 1'd1;
+    a.in = fsm_0.out ? 2'd0;
+    group_counter.write_en = fsm0_0.out ? 1'd1;
+    group_counter.in = group_counter.out != const0_1_.out & fsm0_0.out ? adder.out;
+    group_counter.in = group_counter.out == const0_1_.out & fsm0_0.out ? 1'd0;
+  }
+  control {
+    fsm0;
+  }
+}
