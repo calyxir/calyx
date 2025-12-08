@@ -212,13 +212,13 @@ pub fn build_primitive(
                     if let Some(set) = merge_set
                         && let Some(region) =
                             entangle_map.get(&set.representative())
-                        {
-                            let mem = SeqMem::new_with_region(config, *region);
-                            return box_race_detection_primitive(
-                                clocks.is_some(),
-                                mem,
-                            );
-                        }
+                    {
+                        let mem = SeqMem::new_with_region(config, *region);
+                        return box_race_detection_primitive(
+                            clocks.is_some(),
+                            mem,
+                        );
+                    }
                     let region_start = state_map.peek_next_memory_location();
 
                     let mem = if let Some(data) = data {
@@ -252,13 +252,13 @@ pub fn build_primitive(
                     if let Some(set) = merge_set
                         && let Some(region) =
                             entangle_map.get(&set.representative())
-                        {
-                            let mem = CombMem::new_with_region(config, *region);
-                            return box_race_detection_primitive(
-                                clocks.is_some(),
-                                mem,
-                            );
-                        }
+                    {
+                        let mem = CombMem::new_with_region(config, *region);
+                        return box_race_detection_primitive(
+                            clocks.is_some(),
+                            mem,
+                        );
+                    }
                     let region_start = state_map.peek_next_memory_location();
 
                     let mem = if let Some(data) = data {

@@ -70,9 +70,9 @@ fn construct_invoke(
         if !port.is_hole()
             && let ir::CellType::Primitive { is_comb, .. } =
                 port.cell_parent().borrow().prototype
-            {
-                return is_comb;
-            }
+        {
+            return is_comb;
+        }
         false
     };
 

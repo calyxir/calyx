@@ -173,10 +173,11 @@ impl<T> Guard<T> {
     /// returns true if the self is !cell_name, false otherwise.
     pub fn is_not_done(&self, cell_name: &crate::Id) -> bool {
         if let Guard::Not(g) = self
-            && let Guard::Port(port) = &(**g) {
-                return port.borrow().attributes.has(NumAttr::Done)
-                    && port.borrow().get_parent_name() == cell_name;
-            }
+            && let Guard::Port(port) = &(**g)
+        {
+            return port.borrow().attributes.has(NumAttr::Done)
+                && port.borrow().get_parent_name() == cell_name;
+        }
         false
     }
 

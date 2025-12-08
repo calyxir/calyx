@@ -1201,9 +1201,10 @@ impl Schedule<'_, '_> {
                 _ => None,
             };
             if let Some(attrs) = attrs_opt
-                && let Some(pos_set) = attrs.get_set(SetAttr::Pos) {
-                    self.topmost_node_pos.extend(pos_set.iter());
-                }
+                && let Some(pos_set) = attrs.get_set(SetAttr::Pos)
+            {
+                self.topmost_node_pos.extend(pos_set.iter());
+            }
         }
         let first_state = (0, ir::Guard::True);
         // We create an empty first state in case the control program starts with

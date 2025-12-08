@@ -133,21 +133,22 @@ fn group(
         for assignment_ref in group.assignments.iter() {
             let dst_borrow = assignment_ref.dst.borrow();
             if let ir::PortParent::Group(parent_group_ref) = &dst_borrow.parent
-                && dst_borrow.name == "go" {
-                    // found an invocation of go
-                    let invoked_group_name =
-                        parent_group_ref.upgrade().borrow().name();
-                    let guard = *(assignment_ref.guard.clone());
-                    match structural_enable_map.get_mut(&invoked_group_name) {
-                        Some(vec_ref) => vec_ref.push((group.name(), guard)),
-                        None => {
-                            structural_enable_map.insert(
-                                invoked_group_name,
-                                vec![(group.name(), guard)],
-                            );
-                        }
+                && dst_borrow.name == "go"
+            {
+                // found an invocation of go
+                let invoked_group_name =
+                    parent_group_ref.upgrade().borrow().name();
+                let guard = *(assignment_ref.guard.clone());
+                match structural_enable_map.get_mut(&invoked_group_name) {
+                    Some(vec_ref) => vec_ref.push((group.name(), guard)),
+                    None => {
+                        structural_enable_map.insert(
+                            invoked_group_name,
+                            vec![(group.name(), guard)],
+                        );
                     }
                 }
+            }
             if let ir::PortParent::Cell(cell_ref) = &dst_borrow.parent {
                 match cell_ref.upgrade().borrow().prototype.clone() {
                     calyx_ir::CellType::Primitive {
@@ -380,16 +381,17 @@ fn static_group(
         for assignment_ref in group.assignments.iter() {
             let dst_borrow = assignment_ref.dst.borrow();
             if let ir::PortParent::Group(parent_group_ref) = &dst_borrow.parent
-                && dst_borrow.name == "go" {
-                    // found an invocation of go
-                    let invoked_group_name =
-                        parent_group_ref.upgrade().borrow().name();
-                    let guard = *(assignment_ref.guard).clone();
-                    structural_enable_map
-                        .entry(invoked_group_name)
-                        .or_default()
-                        .push((group.name(), guard));
-                }
+                && dst_borrow.name == "go"
+            {
+                // found an invocation of go
+                let invoked_group_name =
+                    parent_group_ref.upgrade().borrow().name();
+                let guard = *(assignment_ref.guard).clone();
+                structural_enable_map
+                    .entry(invoked_group_name)
+                    .or_default()
+                    .push((group.name(), guard));
+            }
             if let ir::PortParent::Cell(cell_ref) = &dst_borrow.parent {
                 match cell_ref.upgrade().borrow().prototype.clone() {
                     calyx_ir::CellType::Primitive { is_comb, .. } => {

@@ -70,12 +70,10 @@ impl Bookkeeper {
                 if let ir::CellType::Primitive { name, .. } =
                     &c.borrow().prototype
                     && name == "std_reg"
-                        && let Some(in_port) = c.borrow().find("in") {
-                            return Some((
-                                c.borrow().name(),
-                                in_port.borrow().width,
-                            ));
-                        }
+                    && let Some(in_port) = c.borrow().find("in")
+                {
+                    return Some((c.borrow().name(), in_port.borrow().width));
+                }
                 None
             })
             .collect();

@@ -75,10 +75,11 @@ impl Visitor for Canonicalize {
             let mut group = gr.borrow_mut();
             let done_assign = group.done_cond_mut();
             if let Guard::Port(p) = &(*done_assign.guard)
-                && done_assign.src.borrow().is_constant(1, 1) {
-                    done_assign.src = p.clone(); //rc clone
-                    done_assign.guard = Guard::True.into();
-                }
+                && done_assign.src.borrow().is_constant(1, 1)
+            {
+                done_assign.src = p.clone(); //rc clone
+                done_assign.guard = Guard::True.into();
+            }
             // Deals with aassignment ordering
             let assigns = std::mem::take(&mut group.assignments);
             group.assignments = self.order.dataflow_sort(assigns)?;

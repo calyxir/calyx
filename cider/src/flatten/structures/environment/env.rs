@@ -313,15 +313,15 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 let comp_info = &ctx.primary[comp.comp_id];
                 if !comp_info.is_comb()
                     && let Some(ctrl) = comp_info.as_standard().unwrap().control
-                    {
-                        env.pc.vec_mut().push(ProgramPointer::new_active(
-                            (comp.comp_id == root).then_some(root_thread),
-                            ControlPoint {
-                                comp: idx,
-                                control_node_idx: ctrl,
-                            },
-                        ))
-                    }
+                {
+                    env.pc.vec_mut().push(ProgramPointer::new_active(
+                        (comp.comp_id == root).then_some(root_thread),
+                        ControlPoint {
+                            comp: idx,
+                            control_node_idx: ctrl,
+                        },
+                    ))
+                }
             }
         }
 
@@ -1844,30 +1844,31 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         let mut clock_map = std::mem::take(&mut self.env.clocks);
         for cell in self.env.cells.values() {
             if let Some(dyn_prim) = cell.as_primitive()
-                && !dyn_prim.is_combinational() {
-                    let sig = dyn_prim.get_ports();
-                    for port in sig.iter_first() {
-                        if let Some(val) = self.env.ports[port].as_option()
-                            && val.propagate_clocks()
-                                && (val.transitive_clocks().is_some())
-                            {
-                                // For non-combinational cells with
-                                // transitive reads, we will check them at
-                                // the cycle boundary and attribute the read
-                                // to the continuous thread
-                                let (assign_idx, cell) =
-                                    val.winner().as_assign().unwrap();
-                                self.check_read(
-                                    ThreadMap::continuous_thread(),
-                                    port,
-                                    &mut clock_map,
-                                    ReadSource::Assignment(assign_idx),
-                                    cell,
-                                )
-                                .map_err(|e| e.prettify_message(&self.env))?
-                            }
+                && !dyn_prim.is_combinational()
+            {
+                let sig = dyn_prim.get_ports();
+                for port in sig.iter_first() {
+                    if let Some(val) = self.env.ports[port].as_option()
+                        && val.propagate_clocks()
+                        && (val.transitive_clocks().is_some())
+                    {
+                        // For non-combinational cells with
+                        // transitive reads, we will check them at
+                        // the cycle boundary and attribute the read
+                        // to the continuous thread
+                        let (assign_idx, cell) =
+                            val.winner().as_assign().unwrap();
+                        self.check_read(
+                            ThreadMap::continuous_thread(),
+                            port,
+                            &mut clock_map,
+                            ReadSource::Assignment(assign_idx),
+                            cell,
+                        )
+                        .map_err(|e| e.prettify_message(&self.env))?
                     }
                 }
+            }
         }
         self.env.clocks = clock_map;
 
@@ -2414,15 +2415,16 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                 .get_global_port_idx(&assign.dst, *active_cell);
 
                             if let Some(done) = done
-                                && dest != done {
-                                    let done_val = &self.env.ports[done];
+                                && dest != done
+                            {
+                                let done_val = &self.env.ports[done];
 
-                                    if done_val.as_bool().unwrap_or(true) {
-                                        // skip this assignment when we are done or
-                                        // or the done signal is undefined
-                                        continue;
-                                    }
+                                if done_val.as_bool().unwrap_or(true) {
+                                    // skip this assignment when we are done or
+                                    // or the done signal is undefined
+                                    continue;
                                 }
+                            }
 
                             if self.conf.debug_logging {
                                 self.log_assignment(
@@ -2785,39 +2787,35 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         .primary
                         .guard_read_map
                         .get(assign.guard)
-                        && self.env.ports[dest].is_def() {
-                            for port in read_ports {
-                                let port = self
-                                    .get_global_port_idx(port, *active_cell);
-                                if let Some(clock) =
-                                    self.env.ports[port].clocks()
-                                {
-                                    set_extension.insert(clock);
-                                }
-                                if let Some(clocks) =
-                                    self.env.ports[port].transitive_clocks()
-                                {
-                                    set_extension
-                                        .extend(clocks.iter().copied());
-                                }
+                        && self.env.ports[dest].is_def()
+                    {
+                        for port in read_ports {
+                            let port =
+                                self.get_global_port_idx(port, *active_cell);
+                            if let Some(clock) = self.env.ports[port].clocks() {
+                                set_extension.insert(clock);
                             }
-                            if !set_extension.is_empty() {
-                                self.env.ports[dest]
-                                    .as_option_mut()
-                                    .unwrap()
-                                    .add_transitive_clocks(
-                                        set_extension.drain(),
-                                    );
+                            if let Some(clocks) =
+                                self.env.ports[port].transitive_clocks()
+                            {
+                                set_extension.extend(clocks.iter().copied());
                             }
-
-                            // this is necessary for ports which were implicitly
-                            // assigned zero and is redundant for other ports
-                            // which will already have propagate_clocks set
+                        }
+                        if !set_extension.is_empty() {
                             self.env.ports[dest]
                                 .as_option_mut()
                                 .unwrap()
-                                .set_propagate_clocks(true);
+                                .add_transitive_clocks(set_extension.drain());
                         }
+
+                        // this is necessary for ports which were implicitly
+                        // assigned zero and is redundant for other ports
+                        // which will already have propagate_clocks set
+                        self.env.ports[dest]
+                            .as_option_mut()
+                            .unwrap()
+                            .set_propagate_clocks(true);
+                    }
                 }
             }
         }
@@ -2916,15 +2914,15 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                             let val = &self.env.ports[port];
                             if let Some(val) = val.as_option()
                                 && val.propagate_clocks()
-                                    && (val.clocks().is_some()
-                                        || val.transitive_clocks().is_some())
-                                {
-                                    if let Some(clocks) = val.clocks() {
-                                        working_set.push(*clocks);
-                                    }
-                                    working_set
-                                        .extend(val.iter_transitive_clocks());
+                                && (val.clocks().is_some()
+                                    || val.transitive_clocks().is_some())
+                            {
+                                if let Some(clocks) = val.clocks() {
+                                    working_set.push(*clocks);
                                 }
+                                working_set
+                                    .extend(val.iter_transitive_clocks());
+                            }
                         }
 
                         if signature.iter_second().len() == 1 {
@@ -3059,9 +3057,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             if let Some(go_idx) = go
                 && let Some(go_thread) =
                     self.env.ports[go_idx].as_option().and_then(|a| a.thread())
-                {
-                    return Some(go_thread);
-                }
+            {
+                return Some(go_thread);
+            }
             comp_go.and_then(|comp_go| {
                 self.env.ports[comp_go].as_option().and_then(|x| x.thread())
             })

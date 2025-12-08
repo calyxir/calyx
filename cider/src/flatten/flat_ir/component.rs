@@ -249,26 +249,24 @@ impl ComponentCore {
                     }
                     Control::If(i) => {
                         if let Some(comb) = i.cond_group()
-                            && ctx.primary[comb].assignments.contains(assign) {
-                                return Some(
-                                    AssignmentDefinitionLocation::CombGroup(
-                                        comb,
-                                    ),
-                                );
-                            }
+                            && ctx.primary[comb].assignments.contains(assign)
+                        {
+                            return Some(
+                                AssignmentDefinitionLocation::CombGroup(comb),
+                            );
+                        }
 
                         search_stack.push(i.tbranch());
                         search_stack.push(i.fbranch());
                     }
                     Control::While(wh) => {
                         if let Some(comb) = wh.cond_group()
-                            && ctx.primary[comb].assignments.contains(assign) {
-                                return Some(
-                                    AssignmentDefinitionLocation::CombGroup(
-                                        comb,
-                                    ),
-                                );
-                            }
+                            && ctx.primary[comb].assignments.contains(assign)
+                        {
+                            return Some(
+                                AssignmentDefinitionLocation::CombGroup(comb),
+                            );
+                        }
                         search_stack.push(wh.body());
                     }
                     Control::Repeat(r) => {
@@ -276,13 +274,12 @@ impl ComponentCore {
                     }
                     Control::Invoke(i) => {
                         if let Some(comb) = i.comb_group
-                            && ctx.primary[comb].assignments.contains(assign) {
-                                return Some(
-                                    AssignmentDefinitionLocation::CombGroup(
-                                        comb,
-                                    ),
-                                );
-                            }
+                            && ctx.primary[comb].assignments.contains(assign)
+                        {
+                            return Some(
+                                AssignmentDefinitionLocation::CombGroup(comb),
+                            );
+                        }
 
                         if i.assignments.contains(assign) {
                             return Some(AssignmentDefinitionLocation::Invoke(
