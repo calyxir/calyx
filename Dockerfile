@@ -83,8 +83,10 @@ RUN mkdir -p /root/.config
 # Link fud2
 WORKDIR /home/calyx
 RUN ln -s /home/calyx/target/debug/fud2 /bin/
+# AYAKA: try running fud2 env init?
 RUN printf "dahlia = \"/home/dahlia/fuse\"\n" >> ~/.config/fud2.toml
 RUN printf "[calyx]\nbase = \"/home/calyx\"\n" >> ~/.config/fud2.toml
+RUN fud2 env init
 
 # Setup fud
 RUN fud config --create global.root /home/calyx && \
@@ -95,14 +97,15 @@ RUN fud config --create global.root /home/calyx && \
     fud register mrxl -p '/home/calyx/frontends/mrxl/fud/mrxl.py' && \
     fud register icarus-verilog -p '/home/calyx/fud/icarus/icarus.py'
 
-# Install MrXL
-WORKDIR /home/calyx
-RUN uv pip install ./frontends/mrxl
+# AYAKA: attempt to remove unneeded installation
+# # Install MrXL
+# WORKDIR /home/calyx
+# RUN uv pip install ./frontends/mrxl
 
 # Install calyx-py. We do this separately from the other `uv pip install`s to
 # ensure that it gets installed in non-editable mode, which can affect its
 # stacktrace-walking magic that dictates source position generation.
-RUN uv pip install ./calyx-py
+# RUN uv pip install ./calyx-py
 
 # Install Firtool
 WORKDIR /home
