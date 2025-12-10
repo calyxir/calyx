@@ -263,25 +263,25 @@ impl PassExplorer {
 
     /// Produces the incoming file if it does not exist already.
     fn ensure_inc_file_exists(&mut self) -> std::io::Result<()> {
-        if let Some(inc_file) = self.incoming_file() {
-            if !self.file_exists.contains(&inc_file) {
-                // We reapply passes to the source file because calyx IR is not deserializable
-                let source_file = self.source_file();
-                let mut args = vec![
-                    "-o",
-                    inc_file.to_str().unwrap(),
-                    source_file.to_str().unwrap(),
-                ];
-                for applied_index in &self.passes_applied {
-                    args.push("-p");
-                    args.push(&self.passes[*applied_index]);
-                }
-                let inc_pass = self.incoming_pass().unwrap();
+        if let Some(inc_file) = self.incoming_file()
+            && !self.file_exists.contains(&inc_file)
+        {
+            // We reapply passes to the source file because calyx IR is not deserializable
+            let source_file = self.source_file();
+            let mut args = vec![
+                "-o",
+                inc_file.to_str().unwrap(),
+                source_file.to_str().unwrap(),
+            ];
+            for applied_index in &self.passes_applied {
                 args.push("-p");
-                args.push(&inc_pass);
-                capture_command_stdout(&self.calyx_exec, &args, true)?;
-                self.file_exists.insert(inc_file.clone());
+                args.push(&self.passes[*applied_index]);
             }
+            let inc_pass = self.incoming_pass().unwrap();
+            args.push("-p");
+            args.push(&inc_pass);
+            capture_command_stdout(&self.calyx_exec, &args, true)?;
+            self.file_exists.insert(inc_file.clone());
         }
 
         Ok(())

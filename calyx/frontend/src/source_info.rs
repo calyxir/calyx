@@ -539,7 +539,7 @@ impl SourceInfoTable {
     pub fn get_position_string(
         &self,
         pos: PositionId,
-    ) -> Result<String, SourceLookupError> {
+    ) -> Result<String, SourceLookupError<'_>> {
         let Some(src_loc) = self.get_position(pos) else {
             return Err(SourceLookupError::MissingPosition(pos));
         };

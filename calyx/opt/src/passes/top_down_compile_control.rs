@@ -1200,10 +1200,10 @@ impl Schedule<'_, '_> {
                 | ir::Control::If(_) => Some(con.get_attributes()),
                 _ => None,
             };
-            if let Some(attrs) = attrs_opt {
-                if let Some(pos_set) = attrs.get_set(SetAttr::Pos) {
-                    self.topmost_node_pos.extend(pos_set.iter());
-                }
+            if let Some(attrs) = attrs_opt
+                && let Some(pos_set) = attrs.get_set(SetAttr::Pos)
+            {
+                self.topmost_node_pos.extend(pos_set.iter());
             }
         }
         let first_state = (0, ir::Guard::True);

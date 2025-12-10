@@ -69,15 +69,10 @@ impl Bookkeeper {
             .filter_map(|c| {
                 if let ir::CellType::Primitive { name, .. } =
                     &c.borrow().prototype
+                    && name == "std_reg"
+                    && let Some(in_port) = c.borrow().find("in")
                 {
-                    if name == "std_reg" {
-                        if let Some(in_port) = c.borrow().find("in") {
-                            return Some((
-                                c.borrow().name(),
-                                in_port.borrow().width,
-                            ));
-                        }
-                    }
+                    return Some((c.borrow().name(), in_port.borrow().width));
                 }
                 None
             })

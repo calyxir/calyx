@@ -332,12 +332,12 @@ fn get_resource(driver: &Driver, cmd: GetResource) -> anyhow::Result<()> {
     let to_path = cmd.output.as_deref().unwrap_or(&cmd.filename);
 
     // Try extracting embedded resource data.
-    if let Some(rsrc_files) = &driver.rsrc_files {
-        if let Some(data) = rsrc_files.get(cmd.filename.as_str()) {
-            log::info!("extracting {} to {}", cmd.filename, to_path);
-            std::fs::write(to_path, data)?;
-            return Ok(());
-        }
+    if let Some(rsrc_files) = &driver.rsrc_files
+        && let Some(data) = rsrc_files.get(cmd.filename.as_str())
+    {
+        log::info!("extracting {} to {}", cmd.filename, to_path);
+        std::fs::write(to_path, data)?;
+        return Ok(());
     }
 
     // Try copying a resource file from the resource directory.
