@@ -102,6 +102,7 @@ RUN fud config --create global.root /home/calyx && \
 # WORKDIR /home/calyx
 # RUN uv pip install ./frontends/mrxl
 
+# AYAKA: attempt to remove
 # Install calyx-py. We do this separately from the other `uv pip install`s to
 # ensure that it gets installed in non-editable mode, which can affect its
 # stacktrace-walking magic that dictates source position generation.
