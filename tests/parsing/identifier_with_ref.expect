@@ -1,0 +1,13 @@
+import "primitives/compile.futil";
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    reformreg = std_reg(38);
+  }
+  wires {
+    reformreg.in = 38'd15;
+    reformreg.write_en = 1'd1;
+    done = reformreg.done;
+  }
+  control {}
+}

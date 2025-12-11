@@ -391,20 +391,20 @@ impl WatchpointMap {
             .remove(&idx)
             .or_else(|| self.watchpoints_after.remove(&idx));
 
-        if let Some(point) = point {
-            if let Some(idxs) = self.group_idx_map.get_mut(&point.group) {
-                match idxs {
-                    WatchPointIndices::Before(b) => b.retain(|i| *i != idx),
-                    WatchPointIndices::After(a) => a.retain(|i| *i != idx),
-                    WatchPointIndices::Both { before, after } => {
-                        before.retain(|i| *i != idx);
-                        after.retain(|i| *i != idx);
-                    }
+        if let Some(point) = point
+            && let Some(idxs) = self.group_idx_map.get_mut(&point.group)
+        {
+            match idxs {
+                WatchPointIndices::Before(b) => b.retain(|i| *i != idx),
+                WatchPointIndices::After(a) => a.retain(|i| *i != idx),
+                WatchPointIndices::Both { before, after } => {
+                    before.retain(|i| *i != idx);
+                    after.retain(|i| *i != idx);
                 }
+            }
 
-                if idxs.is_empty() {
-                    self.group_idx_map.remove(&point.group);
-                }
+            if idxs.is_empty() {
+                self.group_idx_map.remove(&point.group);
             }
         }
     }

@@ -89,15 +89,15 @@ impl MyAdapter {
             );
             to_client.push(breakpoint);
 
-            if let Some(grp_name) = name {
-                if to_set.contains(&source_point.line) {
-                    to_debugger_set.push(BreakTarget::Name(
-                        ParsedGroupName::from_comp_and_control(
-                            grp_name.component.clone(),
-                            grp_name.group.clone(),
-                        ),
-                    ))
-                }
+            if let Some(grp_name) = name
+                && to_set.contains(&source_point.line)
+            {
+                to_debugger_set.push(BreakTarget::Name(
+                    ParsedGroupName::from_comp_and_control(
+                        grp_name.component.clone(),
+                        grp_name.group.clone(),
+                    ),
+                ))
             }
         }
         //send ones to set to debugger

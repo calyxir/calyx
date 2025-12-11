@@ -223,8 +223,8 @@ pub trait ConstructVisitor {
             .filter_map(|opt| {
                 // The format is either -x pass:opt or -x pass:opt=val
                 let mut splits = opt.split(':');
-                if let Some(pass) = splits.next() {
-                    if pass == n {
+                if let Some(pass) = splits.next()
+                    && pass == n {
                         let mut splits = splits.next()?.split('=');
                         let opt = splits.next()?.to_string();
                         let Some(opt) = opts.iter().find(|o| o.name == opt) else {
@@ -245,7 +245,6 @@ pub trait ConstructVisitor {
                         };
                         return Some((opt.name(), val));
                     }
-                }
                 None
             })
             .collect();

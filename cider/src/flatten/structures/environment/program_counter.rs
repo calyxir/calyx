@@ -383,7 +383,7 @@ impl ProgramCounter {
         comp: GlobalCellIdx,
         thread: ThreadIdx,
         control: ControlIdx,
-    ) -> Entry<(GlobalCellIdx, ThreadIdx, ControlIdx), ThreadIdx> {
+    ) -> Entry<'_, (GlobalCellIdx, ThreadIdx, ControlIdx), ThreadIdx> {
         self.thread_memoizer.entry((comp, thread, control))
     }
 }

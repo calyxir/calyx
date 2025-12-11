@@ -67,12 +67,11 @@ fn construct_invoke(
 ) -> ir::Control {
     // Check if port's parent is a combinational primitive
     let parent_is_comb = |port: &ir::Port| -> bool {
-        if !port.is_hole() {
-            if let ir::CellType::Primitive { is_comb, .. } =
+        if !port.is_hole()
+            && let ir::CellType::Primitive { is_comb, .. } =
                 port.cell_parent().borrow().prototype
-            {
-                return is_comb;
-            }
+        {
+            return is_comb;
         }
         false
     };

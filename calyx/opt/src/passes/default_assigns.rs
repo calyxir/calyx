@@ -113,7 +113,7 @@ impl Visitor for DefaultAssigns {
                 .collect_vec();
 
             assigns.extend(
-                required.iter().filter(|p| (!cell_writes.contains(p))).map(
+                required.iter().filter(|p| !cell_writes.contains(p)).map(
                     |name| {
                         let port = cell.get(name);
                         let zero = builder.add_constant(0, port.borrow().width);
