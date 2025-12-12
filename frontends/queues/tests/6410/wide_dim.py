@@ -26,19 +26,20 @@ def make_random_fi(prog, name_prefix, num_children):
     return fi.insert_boundary_flow_inference(prog, f"{name_prefix}_fi", priorities)
 
 
-def make_random_queue(prog, name_prefix, children, fi_node):
+def make_random_queue(prog, name_prefix, children, fi_node, len_factor=4):
     """
     Randomly choose SP or RR for an internal queue.
+    By default, queues have length 2^len_factor = 16.
     """
     is_rr = random.choice([True, False])
     if is_rr:
         return strict_or_rr.insert_queue(
-            prog, f"{name_prefix}_rr", True, children, fi_node, 7
+            prog, f"{name_prefix}_rr", True, children, fi_node, len_factor
         )
     else:
         priorities = list(range(len(children)))
         return strict_or_rr.insert_queue(
-            prog, f"{name_prefix}_sp", False, children, fi_node, priorities, 7
+            prog, f"{name_prefix}_sp", False, children, fi_node, priorities, len_factor
         )
 
 
@@ -79,7 +80,7 @@ def build():
     for i in range(BRANCH):
         leaf_fifos = []
         for j in range(BRANCH):
-            leaf = fifo.insert_fifo(prog, f"fifo_{i}_{j}", 7)
+            leaf = fifo.insert_fifo(prog, f"fifo_{i}_{j}", 1)  # FIFO of length 2
             leaf_fifos.append(leaf)
         fifo_leaves.append(leaf_fifos)
 
@@ -91,7 +92,9 @@ def build():
     # 2. CREATE ROOT QUEUE
     # -----------------------------
     fi_root = make_random_fi(prog, "root", BRANCH)
-    root = make_random_queue(prog, "root", mid_level_nodes, fi_root)
+    root = make_random_queue(
+        prog, "root", mid_level_nodes, fi_root, 7
+    )  # a queue of length 2^7 = 128
 
     # -----------------------------
     # 3. PREPARE COMMANDS TO ROUTE VALUES
