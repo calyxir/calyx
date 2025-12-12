@@ -1,0 +1,196 @@
+6,8c6,8
+<     @pos{1} mem = seq_mem_d1(32, 128, 7);
+<     @pos{2} reg_1 = std_reg(7);
+<     @pos{3} reg_2 = std_reg(7);
+---
+>     @pos{1} mem = seq_mem_d1(32, 32, 5);
+>     @pos{2} reg_1 = std_reg(5);
+>     @pos{3} reg_2 = std_reg(5);
+11,17c11,17
+<     @pos{6} reg_3 = std_reg(8);
+<     @pos{8} eq_4 = std_eq(8);
+<     @pos{10} reg_2_incr_1_5 = std_add(7);
+<     @pos{11} reg_3_decr_1_6 = std_sub(8);
+<     @pos{13} eq_7 = std_eq(8);
+<     @pos{15} reg_1_incr_1_8 = std_add(7);
+<     @pos{16} reg_3_incr_1_9 = std_add(8);
+---
+>     @pos{6} reg_3 = std_reg(6);
+>     @pos{8} eq_4 = std_eq(6);
+>     @pos{10} reg_2_incr_1_5 = std_add(5);
+>     @pos{11} reg_3_decr_1_6 = std_sub(6);
+>     @pos{13} eq_7 = std_eq(6);
+>     @pos{15} reg_1_incr_1_8 = std_add(5);
+>     @pos{16} reg_3_incr_1_9 = std_add(6);
+29c29
+<       eq_4.right = 8'd0;
+---
+>       eq_4.right = 6'd0;
+40c40
+<       reg_2_incr_1_5.right = 7'd1;
+---
+>       reg_2_incr_1_5.right = 5'd1;
+47c47
+<       reg_3_decr_1_6.right = 8'd1;
+---
+>       reg_3_decr_1_6.right = 6'd1;
+54c54
+<       eq_7.right = 8'd128;
+---
+>       eq_7.right = 6'd32;
+65c65
+<       reg_1_incr_1_8.right = 7'd1;
+---
+>       reg_1_incr_1_8.right = 5'd1;
+72c72
+<       reg_3_incr_1_9.right = 8'd1;
+---
+>       reg_3_incr_1_9.right = 6'd1;
+110,112c110,112
+<     @pos{1} mem = seq_mem_d1(32, 128, 7);
+<     @pos{2} reg_1 = std_reg(7);
+<     @pos{3} reg_2 = std_reg(7);
+---
+>     @pos{1} mem = seq_mem_d1(32, 32, 5);
+>     @pos{2} reg_1 = std_reg(5);
+>     @pos{3} reg_2 = std_reg(5);
+115,121c115,121
+<     @pos{6} reg_3 = std_reg(8);
+<     @pos{8} eq_4 = std_eq(8);
+<     @pos{10} reg_2_incr_1_5 = std_add(7);
+<     @pos{11} reg_3_decr_1_6 = std_sub(8);
+<     @pos{13} eq_7 = std_eq(8);
+<     @pos{15} reg_1_incr_1_8 = std_add(7);
+<     @pos{16} reg_3_incr_1_9 = std_add(8);
+---
+>     @pos{6} reg_3 = std_reg(6);
+>     @pos{8} eq_4 = std_eq(6);
+>     @pos{10} reg_2_incr_1_5 = std_add(5);
+>     @pos{11} reg_3_decr_1_6 = std_sub(6);
+>     @pos{13} eq_7 = std_eq(6);
+>     @pos{15} reg_1_incr_1_8 = std_add(5);
+>     @pos{16} reg_3_incr_1_9 = std_add(6);
+133c133
+<       eq_4.right = 8'd0;
+---
+>       eq_4.right = 6'd0;
+144c144
+<       reg_2_incr_1_5.right = 7'd1;
+---
+>       reg_2_incr_1_5.right = 5'd1;
+151c151
+<       reg_3_decr_1_6.right = 8'd1;
+---
+>       reg_3_decr_1_6.right = 6'd1;
+158c158
+<       eq_7.right = 8'd128;
+---
+>       eq_7.right = 6'd32;
+169c169
+<       reg_1_incr_1_8.right = 7'd1;
+---
+>       reg_1_incr_1_8.right = 5'd1;
+176c176
+<       reg_3_incr_1_9.right = 8'd1;
+---
+>       reg_3_incr_1_9.right = 6'd1;
+214,216c214,216
+<     @pos{1} mem = seq_mem_d1(32, 128, 7);
+<     @pos{2} reg_1 = std_reg(7);
+<     @pos{3} reg_2 = std_reg(7);
+---
+>     @pos{1} mem = seq_mem_d1(32, 32, 5);
+>     @pos{2} reg_1 = std_reg(5);
+>     @pos{3} reg_2 = std_reg(5);
+219,225c219,225
+<     @pos{6} reg_3 = std_reg(8);
+<     @pos{8} eq_4 = std_eq(8);
+<     @pos{10} reg_2_incr_1_5 = std_add(7);
+<     @pos{11} reg_3_decr_1_6 = std_sub(8);
+<     @pos{13} eq_7 = std_eq(8);
+<     @pos{15} reg_1_incr_1_8 = std_add(7);
+<     @pos{16} reg_3_incr_1_9 = std_add(8);
+---
+>     @pos{6} reg_3 = std_reg(6);
+>     @pos{8} eq_4 = std_eq(6);
+>     @pos{10} reg_2_incr_1_5 = std_add(5);
+>     @pos{11} reg_3_decr_1_6 = std_sub(6);
+>     @pos{13} eq_7 = std_eq(6);
+>     @pos{15} reg_1_incr_1_8 = std_add(5);
+>     @pos{16} reg_3_incr_1_9 = std_add(6);
+237c237
+<       eq_4.right = 8'd0;
+---
+>       eq_4.right = 6'd0;
+248c248
+<       reg_2_incr_1_5.right = 7'd1;
+---
+>       reg_2_incr_1_5.right = 5'd1;
+255c255
+<       reg_3_decr_1_6.right = 8'd1;
+---
+>       reg_3_decr_1_6.right = 6'd1;
+262c262
+<       eq_7.right = 8'd128;
+---
+>       eq_7.right = 6'd32;
+273c273
+<       reg_1_incr_1_8.right = 7'd1;
+---
+>       reg_1_incr_1_8.right = 5'd1;
+280c280
+<       reg_3_incr_1_9.right = 8'd1;
+---
+>       reg_3_incr_1_9.right = 6'd1;
+318,320c318,320
+<     @pos{1} mem = seq_mem_d1(32, 128, 7);
+<     @pos{2} reg_1 = std_reg(7);
+<     @pos{3} reg_2 = std_reg(7);
+---
+>     @pos{1} mem = seq_mem_d1(32, 32, 5);
+>     @pos{2} reg_1 = std_reg(5);
+>     @pos{3} reg_2 = std_reg(5);
+323,329c323,329
+<     @pos{6} reg_3 = std_reg(8);
+<     @pos{8} eq_4 = std_eq(8);
+<     @pos{10} reg_2_incr_1_5 = std_add(7);
+<     @pos{11} reg_3_decr_1_6 = std_sub(8);
+<     @pos{13} eq_7 = std_eq(8);
+<     @pos{15} reg_1_incr_1_8 = std_add(7);
+<     @pos{16} reg_3_incr_1_9 = std_add(8);
+---
+>     @pos{6} reg_3 = std_reg(6);
+>     @pos{8} eq_4 = std_eq(6);
+>     @pos{10} reg_2_incr_1_5 = std_add(5);
+>     @pos{11} reg_3_decr_1_6 = std_sub(6);
+>     @pos{13} eq_7 = std_eq(6);
+>     @pos{15} reg_1_incr_1_8 = std_add(5);
+>     @pos{16} reg_3_incr_1_9 = std_add(6);
+341c341
+<       eq_4.right = 8'd0;
+---
+>       eq_4.right = 6'd0;
+352c352
+<       reg_2_incr_1_5.right = 7'd1;
+---
+>       reg_2_incr_1_5.right = 5'd1;
+359c359
+<       reg_3_decr_1_6.right = 8'd1;
+---
+>       reg_3_decr_1_6.right = 6'd1;
+366c366
+<       eq_7.right = 8'd128;
+---
+>       eq_7.right = 6'd32;
+377c377
+<       reg_1_incr_1_8.right = 7'd1;
+---
+>       reg_1_incr_1_8.right = 5'd1;
+384c384
+<       reg_3_incr_1_9.right = 8'd1;
+---
+>       reg_3_incr_1_9.right = 6'd1;
+611c611
+<       eq_2.right = 32'd128;
+---
+>       eq_2.right = 32'd64;
