@@ -138,6 +138,23 @@ python3 {} 20000 --keepgoing |\
 """
 
 [[tests]]
+name = "[frontend] advsystems correctness"
+paths = [
+  "frontends/queues/tests/6410/*.py"
+]
+cmd = """
+name=$(basename {} .py) &&
+dir=$(dirname {}) &&
+python3 {} 20000 --keepgoing |\
+ fud2 --from calyx --to jq \
+      --through icarus \
+      -s sim.data="$dir/$name.data" \
+      -s jq.expr=".memories" \
+      -q
+"""
+
+
+[[tests]]
 name = "[frontend] queues sdn no-promote correctness"
 paths = ["frontends/queues/tests/sdn.py"]
 cmd = """
