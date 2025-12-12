@@ -40,7 +40,13 @@ def build():
 
     # sp(A, B): strict priority queue
     pifo_sp = strict_or_rr.insert_queue(
-        prog, "pifo_sp", False, [fifo_A, fifo_B], fi_sp, [0, 1], 7  # strict priority
+        prog,
+        "pifo_sp",
+        False,
+        [fifo_A, fifo_B],
+        fi_sp,
+        [0, 1],
+        7,  # strict priority
     )
 
     # rr(C, D): round-robin queue
