@@ -25,7 +25,7 @@ use cider_idx::{
     impl_index_nonzero,
     maps::{IndexedMap, SecondarySparseMap},
 };
-use fxhash::{FxHashMap, FxHashSet};
+use rustc_hash::{FxHashMap, FxHashSet};
 use thiserror::Error;
 
 use super::Environment;

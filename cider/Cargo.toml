@@ -40,7 +40,7 @@ num-traits = "0.2.19"
 ciborium = "0.2.2"
 fst-writer = "0.2.3"
 bon = "2.3"
-fxhash = "0.2.1"
+rustc-hash = "2"
 delegate = "0.13.3"
 rand.workspace = true
 

@@ -46,9 +46,9 @@ use baa::{BitVecOps, BitVecValue};
 use calyx_frontend::source_info::PositionId;
 use cider_idx::{IndexRef, maps::SecondaryMap};
 use delegate::delegate;
-use fxhash::{FxHashMap, FxHashSet};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 #[derive(Debug, Clone)]
 pub struct Environment<C: AsRef<Context> + Clone> {
