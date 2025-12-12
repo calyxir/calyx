@@ -1,0 +1,270 @@
+{
+  "synth": {
+    "summary": {
+      "lut": 1578,
+      "dsp": 0,
+      "brams": 0,
+      "registers": 704,
+      "carry8": 66,
+      "f7_muxes": 128,
+      "f8_muxes": 0,
+      "f9_muxes": 0
+    },
+    "tables": {
+      "slice_logic": [
+        {
+          "Site Type": "CLB LUTs*",
+          "Used": "1578",
+          "Fixed": "0",
+          "Available": "70560",
+          "Util%": "2.24"
+        },
+        {
+          "Site Type": "LUT as Logic",
+          "Used": "1322",
+          "Fixed": "0",
+          "Available": "70560",
+          "Util%": "1.87"
+        },
+        {
+          "Site Type": "LUT as Memory",
+          "Used": "256",
+          "Fixed": "0",
+          "Available": "28800",
+          "Util%": "0.89"
+        },
+        {
+          "Site Type": "LUT as Distributed RAM",
+          "Used": "256",
+          "Fixed": "0",
+          "Available": "",
+          "Util%": ""
+        },
+        {
+          "Site Type": "LUT as Shift Register",
+          "Used": "0",
+          "Fixed": "0",
+          "Available": "",
+          "Util%": ""
+        },
+        {
+          "Site Type": "CLB Registers",
+          "Used": "704",
+          "Fixed": "0",
+          "Available": "141120",
+          "Util%": "0.50"
+        },
+        {
+          "Site Type": "Register as Flip Flop",
+          "Used": "704",
+          "Fixed": "0",
+          "Available": "141120",
+          "Util%": "0.50"
+        },
+        {
+          "Site Type": "Register as Latch",
+          "Used": "0",
+          "Fixed": "0",
+          "Available": "141120",
+          "Util%": "0.00"
+        },
+        {
+          "Site Type": "CARRY8",
+          "Used": "66",
+          "Fixed": "0",
+          "Available": "8820",
+          "Util%": "0.75"
+        },
+        {
+          "Site Type": "F7 Muxes",
+          "Used": "128",
+          "Fixed": "0",
+          "Available": "35280",
+          "Util%": "0.36"
+        },
+        {
+          "Site Type": "F8 Muxes",
+          "Used": "0",
+          "Fixed": "0",
+          "Available": "17640",
+          "Util%": "0.00"
+        },
+        {
+          "Site Type": "F9 Muxes",
+          "Used": "0",
+          "Fixed": "0",
+          "Available": "8820",
+          "Util%": "0.00"
+        }
+      ],
+      "bram_table": [
+        {
+          "Site Type": "Block RAM Tile",
+          "Used": "0",
+          "Fixed": "0",
+          "Available": "216",
+          "Util%": "0.00"
+        },
+        {
+          "Site Type": "RAMB36/FIFO*",
+          "Used": "0",
+          "Fixed": "0",
+          "Available": "216",
+          "Util%": "0.00"
+        },
+        {
+          "Site Type": "RAMB18",
+          "Used": "0",
+          "Fixed": "0",
+          "Available": "432",
+          "Util%": "0.00"
+        }
+      ],
+      "dsp_table": [
+        {
+          "Site Type": "DSPs",
+          "Used": "0",
+          "Fixed": "0",
+          "Available": "360",
+          "Util%": "0.00"
+        }
+      ]
+    }
+  },
+  "impl": {
+    "summary": {
+      "lut": 1484,
+      "dsp": 0,
+      "brams": 0,
+      "registers": 704,
+      "carry8": 66,
+      "f7_muxes": 128,
+      "f8_muxes": 0,
+      "f9_muxes": 0
+    },
+    "tables": {
+      "slice_logic": [
+        {
+          "Site Type": "CLB LUTs",
+          "Used": "1484",
+          "Fixed": "0",
+          "Available": "70560",
+          "Util%": "2.10"
+        },
+        {
+          "Site Type": "LUT as Logic",
+          "Used": "1228",
+          "Fixed": "0",
+          "Available": "70560",
+          "Util%": "1.74"
+        },
+        {
+          "Site Type": "LUT as Memory",
+          "Used": "256",
+          "Fixed": "0",
+          "Available": "28800",
+          "Util%": "0.89"
+        },
+        {
+          "Site Type": "LUT as Distributed RAM",
+          "Used": "256",
+          "Fixed": "0",
+          "Available": "",
+          "Util%": ""
+        },
+        {
+          "Site Type": "LUT as Shift Register",
+          "Used": "0",
+          "Fixed": "0",
+          "Available": "",
+          "Util%": ""
+        },
+        {
+          "Site Type": "CLB Registers",
+          "Used": "704",
+          "Fixed": "0",
+          "Available": "141120",
+          "Util%": "0.50"
+        },
+        {
+          "Site Type": "Register as Flip Flop",
+          "Used": "704",
+          "Fixed": "0",
+          "Available": "141120",
+          "Util%": "0.50"
+        },
+        {
+          "Site Type": "Register as Latch",
+          "Used": "0",
+          "Fixed": "0",
+          "Available": "141120",
+          "Util%": "0.00"
+        },
+        {
+          "Site Type": "CARRY8",
+          "Used": "66",
+          "Fixed": "0",
+          "Available": "8820",
+          "Util%": "0.75"
+        },
+        {
+          "Site Type": "F7 Muxes",
+          "Used": "128",
+          "Fixed": "0",
+          "Available": "35280",
+          "Util%": "0.36"
+        },
+        {
+          "Site Type": "F8 Muxes",
+          "Used": "0",
+          "Fixed": "0",
+          "Available": "17640",
+          "Util%": "0.00"
+        },
+        {
+          "Site Type": "F9 Muxes",
+          "Used": "0",
+          "Fixed": "0",
+          "Available": "8820",
+          "Util%": "0.00"
+        }
+      ],
+      "bram_table": [
+        {
+          "Site Type": "Block RAM Tile",
+          "Used": "0",
+          "Fixed": "0",
+          "Available": "216",
+          "Util%": "0.00"
+        },
+        {
+          "Site Type": "RAMB36/FIFO*",
+          "Used": "0",
+          "Fixed": "0",
+          "Available": "216",
+          "Util%": "0.00"
+        },
+        {
+          "Site Type": "RAMB18",
+          "Used": "0",
+          "Fixed": "0",
+          "Available": "432",
+          "Util%": "0.00"
+        }
+      ],
+      "dsp_table": [
+        {
+          "Site Type": "DSPs",
+          "Used": "0",
+          "Fixed": "0",
+          "Available": "360",
+          "Util%": "0.00"
+        }
+      ]
+    }
+  },
+  "meet_timing": 1,
+  "worst_slack": 3.22,
+  "period": 7.0,
+  "frequency": 142.857
+}
