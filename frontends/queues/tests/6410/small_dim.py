@@ -20,10 +20,10 @@ def build():
     prog = cb.Builder()
 
     # Leaf FIFOs A, B, C, D
-    fifo_A = fifo.insert_fifo(prog, "fifo_A", 7)
-    fifo_B = fifo.insert_fifo(prog, "fifo_B", 7)
-    fifo_C = fifo.insert_fifo(prog, "fifo_C", 7)
-    fifo_D = fifo.insert_fifo(prog, "fifo_D", 7)
+    fifo_A = fifo.insert_fifo(prog, "fifo_A", 5)
+    fifo_B = fifo.insert_fifo(prog, "fifo_B", 5)
+    fifo_C = fifo.insert_fifo(prog, "fifo_C", 5)
+    fifo_D = fifo.insert_fifo(prog, "fifo_D", 5)
 
     # Flow inference nodes for the new structure
     fi_sp = fi.insert_boundary_flow_inference(
@@ -40,12 +40,12 @@ def build():
 
     # sp(A, B): strict priority queue
     pifo_sp = strict_or_rr.insert_queue(
-        prog, "pifo_sp", False, [fifo_A, fifo_B], fi_sp, [0, 1], 7  # strict priority
+        prog, "pifo_sp", False, [fifo_A, fifo_B], fi_sp, [0, 1], 6  # strict priority
     )
 
     # rr(C, D): round-robin queue
     pifo_rr2 = strict_or_rr.insert_queue(
-        prog, "pifo_rr2", True, [fifo_C, fifo_D], fi_rr2, 7
+        prog, "pifo_rr2", True, [fifo_C, fifo_D], fi_rr2, 6
     )
 
     # Root: rr(sp(A,B), rr(C,D))
