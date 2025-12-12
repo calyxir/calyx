@@ -131,7 +131,7 @@ name=$(basename {} .py) &&
 dir=$(dirname {}) &&
 python3 {} 20000 --keepgoing |\
  fud2 --from calyx --to jq \
-      --through verilator \
+      --through icarus \
       -s sim.data="$dir/$name.data" \
       -s jq.expr=".memories" \
       -q
@@ -145,7 +145,7 @@ name=$(basename {} .py) &&
 dir=$(dirname {}) &&
 python3 {} 20000 --keepgoing |\
  fud2 --from calyx --to jq \
-      --through verilator \
+      --through icarus \
       -s sim.data="$dir/$name.data" \
       -s calyx.args=' -d static-promotion' \
       -s jq.expr=".memories" \
@@ -164,7 +164,7 @@ name=$(basename {} .py) &&
 dir=$(dirname {}) &&
 python3 {} 20000 --static --keepgoing |\
  fud2 --from calyx --to jq \
-      --through verilator \
+      --through icarus \
       -s sim.data="$dir/$name.data" \
       -s calyx.args=' -d well-formed -d static-promotion' \
       -s jq.expr=".memories" \
