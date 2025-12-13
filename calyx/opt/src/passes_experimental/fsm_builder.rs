@@ -425,7 +425,9 @@ impl StaticSchedule<'_, '_> {
                     todo!()
                 } else if is_offload(spar) {
                     // @NUM_STATES(1) @OFFLOAD
-                    todo!()
+                    unreachable!(
+                        "`build_abstract` encountered an impossible offload of Static Seq node."
+                    )
                 } else {
                     // we must have at least one `attr` annotation
                     unreachable!(
@@ -446,7 +448,7 @@ impl StaticSchedule<'_, '_> {
     fn fsm_build(
         &mut self,
         control: &ir::StaticControl,
-        build_component_type: Component, // need to get better type name. Some(True) means non-promoted-static-component. False means promoted/static island. Otherwise it's a
+        build_component_type: Component, // need to get better type name. Some(True) means non-promoted-static-component. False means promoted/static island. Otherwise it's dynamic
     ) -> ir::RRC<ir::FSM> {
         let signal_on = self.builder.add_constant(1, 1);
 
@@ -740,6 +742,62 @@ impl Visitor for FSMBuilder {
         }
     }
 
+    fn finish_static_par(
+        &mut self,
+        spar: &mut calyx_ir::StaticPar,
+        comp: &mut calyx_ir::Component,
+        sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> crate::traversal::VisResult {
+        let non_promoted_static_component = comp.is_static()
+            && !(comp
+                .attributes
+                .has(ir::Attribute::Bool(ir::BoolAttr::Promoted)));
+        if is_offload(spar) {
+            let mut builder = ir::Builder::new(comp, sigs);
+            let signal_on = builder.add_constant(1, 1);
+            let par_group = builder.add_static_group("par", spar.latency);
+            par_group
+                .borrow_mut()
+                .assignments
+                .extend(spar.stmts.iter().map(|thread: &ir::StaticControl| {
+                    let mut sch_generator = StaticSchedule::from(&mut builder);
+                    let thread_latency = thread.get_latency();
+                    let thread_fsm = sch_generator.fsm_build(
+                        thread,
+                        Component {
+                            non_promoted_static_component: Some(
+                                non_promoted_static_component,
+                            ),
+                            static_control_component: true,
+                        },
+                    );
+                    let mut trigger_thread = builder.build_assignment(
+                        thread_fsm.borrow().get("start"),
+                        signal_on.borrow().get("out"),
+                        ir::Guard::True,
+                    );
+                    trigger_thread.guard.add_interval(ir::StaticTiming::new((
+                        0,
+                        thread_latency,
+                    )));
+                    trigger_thread
+                }));
+
+            let mut enable = ir::StaticControl::Enable(ir::StaticEnable {
+                group: par_group,
+                attributes: ir::Attributes::default(),
+            });
+            // enable
+            //     .get_mut_attributes()
+            //     .insert(ir::BoolAttr::OneState, 1);
+            enable.get_mut_attributes().insert(INLINE, 1);
+
+            Ok(Action::static_change(enable))
+        } else {
+            Ok(Action::Continue)
+        }
+    }
     /// `finish_static_control` is called once, at the very end of traversing the control tree,
     /// when all child nodes have been traversed. We traverse the static control node from parent to
     /// child, and recurse inward to inline children.

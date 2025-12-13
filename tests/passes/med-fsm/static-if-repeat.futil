@@ -11,10 +11,8 @@ component main() -> () {
   }
 
   wires {
-    comb group cond {
-      lt.left = 1'b1;
-      lt.right = 1'b0;
-    }
+    lt.left = 1'b1;
+    lt.right = 1'b0;
 
     static<1> group A {
       a.in = 2'd0;
@@ -27,7 +25,7 @@ component main() -> () {
   }
 
   control {
-    if lt.out with cond {
+    static if lt.out {
       static repeat 3{
         A;
       }
