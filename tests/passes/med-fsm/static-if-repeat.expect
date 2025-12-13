@@ -2,17 +2,15 @@ import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
-    @control lt = std_lt(1);
+    @data lt = std_lt(1);
     @data a = std_reg(2);
     @data b = std_reg(2);
-    @generated comb_reg = std_reg(1);
     @generated fsm_0 = std_wire(1);
     @generated fsm_1 = std_wire(1);
     @generated fsm_2 = std_wire(1);
     @generated fsm_3 = std_wire(1);
     @generated fsm_4 = std_wire(1);
     @generated fsm_5 = std_wire(1);
-    @generated fsm_6 = std_wire(1);
     @generated @fsm_control looped_once = std_reg(1);
   }
   wires {
@@ -23,50 +21,342 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
         looped_once.write_en = 1'd1;
         fsm[done] = looped_once.out;
       } => {
-        comb_reg.out & fsm[start] -> 1,
-        !comb_reg.out & fsm[start] -> 4,
+        lt.out & fsm[start] -> 1,
         default -> 0,
       },
       1 : {
         fsm_1.in = 1'd1;
       } => {
-        comb_reg.out -> 2,
+        lt.out -> 2,
         default -> 1,
       },
       2 : {
         fsm_2.in = 1'd1;
-      } => {
-        comb_reg.out -> 3,
-        default -> 2,
-      },
+      } => 0,
       3 : {
         fsm_3.in = 1'd1;
-      } => 0,
+      } => {
+        !lt.out -> 4,
+        default -> 3,
+      },
       4 : {
         fsm_4.in = 1'd1;
       } => {
-        !comb_reg.out -> 5,
+        !lt.out -> 5,
         default -> 4,
       },
       5 : {
         fsm_5.in = 1'd1;
-      } => {
-        !comb_reg.out -> 6,
-        default -> 5,
-      },
-      6 : {
-        fsm_6.in = 1'd1;
       } => 0,
     }
-    comb_reg.write_en = fsm_0.out ? 1'd1;
-    comb_reg.in = fsm_0.out ? lt.out;
-    a.write_en = comb_reg.out & fsm_1.out | comb_reg.out & fsm_2.out | comb_reg.out & fsm_3.out | !comb_reg.out & fsm_4.out | !comb_reg.out & fsm_5.out | !comb_reg.out & fsm_6.out ? 1'd1;
-    a.in = !comb_reg.out & fsm_4.out | !comb_reg.out & fsm_5.out | !comb_reg.out & fsm_6.out ? 2'd1;
-    a.in = comb_reg.out & fsm_1.out | comb_reg.out & fsm_2.out | comb_reg.out & fsm_3.out ? 2'd0;
-    lt.left = fsm_0.out ? 1'd1;
-    lt.right = fsm_0.out ? 1'd0;
+    a.write_en = lt.out & fsm_0.out | lt.out & fsm_1.out | lt.out & fsm_2.out | !lt.out & fsm_3.out | !lt.out & fsm_4.out | !lt.out & fsm_5.out ? 1'd1;
+    a.in = !lt.out & fsm_3.out | !lt.out & fsm_4.out | !lt.out & fsm_5.out ? 2'd1;
+    a.in = lt.out & fsm_0.out | lt.out & fsm_1.out | lt.out & fsm_2.out ? 2'd0;
+    lt.left = 1'd1;
+    lt.right = 1'd0;
   }
   control {
     fsm;
   }
 }
+---STDERR---
+[calyx/opt/src/passes_experimental/fsm_annotator.rs:214:17] &ctrl.fbranch = Repeat(
+    StaticRepeat {
+        attributes: Attributes {
+            inl: InlineAttributes {
+                attrs: 0,
+            },
+            hinfo: HeapAttrInfo {
+                attrs: {
+                    Internal(
+                        NODE_ID,
+                    ): 3,
+                    Internal(
+                        NUM_STATES,
+                    ): 3,
+                    Internal(
+                        UNROLL,
+                    ): 1,
+                    Internal(
+                        ACYCLIC,
+                    ): 1,
+                },
+                set_attrs: {},
+                span: GPosIdx(
+                    PosIdx(
+                        24,
+                    ),
+                ),
+            },
+        },
+        body: Enable(
+            StaticEnable {
+                group: RefCell {
+                    value: StaticGroup {
+                        name: Id {
+                            id: "B",
+                        },
+                        assignments: [
+                            Assignment {
+                                dst: RefCell {
+                                    value: Port {
+                                        name: Id {
+                                            id: "in",
+                                        },
+                                        width: 2,
+                                        direction: Input,
+                                        parent: Cell(
+                                            WRC {
+                                                internal: (Weak),
+                                                debug_name: Id {
+                                                    id: "a",
+                                                },
+                                            },
+                                        ),
+                                        attributes: Attributes {
+                                            inl: InlineAttributes {
+                                                attrs: 64,
+                                            },
+                                            hinfo: HeapAttrInfo {
+                                                attrs: {
+                                                    Num(
+                                                        WriteTogether,
+                                                    ): 1,
+                                                },
+                                                set_attrs: {},
+                                                span: GPosIdx(
+                                                    PosIdx(
+                                                        0,
+                                                    ),
+                                                ),
+                                            },
+                                        },
+                                    },
+                                },
+                                src: RefCell {
+                                    value: Port {
+                                        name: Id {
+                                            id: "out",
+                                        },
+                                        width: 2,
+                                        direction: Output,
+                                        parent: Cell(
+                                            WRC {
+                                                internal: (Weak),
+                                                debug_name: Id {
+                                                    id: "_1_2",
+                                                },
+                                            },
+                                        ),
+                                        attributes: Attributes {
+                                            inl: InlineAttributes {
+                                                attrs: 0,
+                                            },
+                                            hinfo: HeapAttrInfo {
+                                                attrs: {},
+                                                set_attrs: {},
+                                                span: GPosIdx(
+                                                    PosIdx(
+                                                        0,
+                                                    ),
+                                                ),
+                                            },
+                                        },
+                                    },
+                                },
+                                guard: True,
+                                attributes: Attributes {
+                                    inl: InlineAttributes {
+                                        attrs: 0,
+                                    },
+                                    hinfo: HeapAttrInfo {
+                                        attrs: {},
+                                        set_attrs: {},
+                                        span: GPosIdx(
+                                            PosIdx(
+                                                17,
+                                            ),
+                                        ),
+                                    },
+                                },
+                            },
+                            Assignment {
+                                dst: RefCell {
+                                    value: Port {
+                                        name: Id {
+                                            id: "write_en",
+                                        },
+                                        width: 1,
+                                        direction: Input,
+                                        parent: Cell(
+                                            WRC {
+                                                internal: (Weak),
+                                                debug_name: Id {
+                                                    id: "a",
+                                                },
+                                            },
+                                        ),
+                                        attributes: Attributes {
+                                            inl: InlineAttributes {
+                                                attrs: 0,
+                                            },
+                                            hinfo: HeapAttrInfo {
+                                                attrs: {
+                                                    Num(
+                                                        WriteTogether,
+                                                    ): 1,
+                                                    Num(
+                                                        Interval,
+                                                    ): 1,
+                                                    Num(
+                                                        Go,
+                                                    ): 1,
+                                                },
+                                                set_attrs: {},
+                                                span: GPosIdx(
+                                                    PosIdx(
+                                                        0,
+                                                    ),
+                                                ),
+                                            },
+                                        },
+                                    },
+                                },
+                                src: RefCell {
+                                    value: Port {
+                                        name: Id {
+                                            id: "out",
+                                        },
+                                        width: 1,
+                                        direction: Output,
+                                        parent: Cell(
+                                            WRC {
+                                                internal: (Weak),
+                                                debug_name: Id {
+                                                    id: "_1_1",
+                                                },
+                                            },
+                                        ),
+                                        attributes: Attributes {
+                                            inl: InlineAttributes {
+                                                attrs: 0,
+                                            },
+                                            hinfo: HeapAttrInfo {
+                                                attrs: {},
+                                                set_attrs: {},
+                                                span: GPosIdx(
+                                                    PosIdx(
+                                                        0,
+                                                    ),
+                                                ),
+                                            },
+                                        },
+                                    },
+                                },
+                                guard: Info(
+                                    StaticTiming {
+                                        interval: (
+                                            0,
+                                            1,
+                                        ),
+                                    },
+                                ),
+                                attributes: Attributes {
+                                    inl: InlineAttributes {
+                                        attrs: 0,
+                                    },
+                                    hinfo: HeapAttrInfo {
+                                        attrs: {},
+                                        set_attrs: {},
+                                        span: GPosIdx(
+                                            PosIdx(
+                                                19,
+                                            ),
+                                        ),
+                                    },
+                                },
+                            },
+                        ],
+                        holes: [
+                            RefCell {
+                                value: Port {
+                                    name: Id {
+                                        id: "go",
+                                    },
+                                    width: 1,
+                                    direction: Inout,
+                                    parent: StaticGroup(
+                                        WRC {
+                                            internal: (Weak),
+                                            debug_name: Id {
+                                                id: "B",
+                                            },
+                                        },
+                                    ),
+                                    attributes: Attributes {
+                                        inl: InlineAttributes {
+                                            attrs: 0,
+                                        },
+                                        hinfo: HeapAttrInfo {
+                                            attrs: {},
+                                            set_attrs: {},
+                                            span: GPosIdx(
+                                                PosIdx(
+                                                    0,
+                                                ),
+                                            ),
+                                        },
+                                    },
+                                },
+                            },
+                        ],
+                        attributes: Attributes {
+                            inl: InlineAttributes {
+                                attrs: 0,
+                            },
+                            hinfo: HeapAttrInfo {
+                                attrs: {},
+                                set_attrs: {},
+                                span: GPosIdx(
+                                    PosIdx(
+                                        16,
+                                    ),
+                                ),
+                            },
+                        },
+                        latency: 1,
+                    },
+                },
+                attributes: Attributes {
+                    inl: InlineAttributes {
+                        attrs: 0,
+                    },
+                    hinfo: HeapAttrInfo {
+                        attrs: {
+                            Internal(
+                                NODE_ID,
+                            ): 4,
+                            Internal(
+                                NUM_STATES,
+                            ): 1,
+                            Internal(
+                                INLINE,
+                            ): 1,
+                            Internal(
+                                ACYCLIC,
+                            ): 1,
+                        },
+                        set_attrs: {},
+                        span: GPosIdx(
+                            PosIdx(
+                                25,
+                            ),
+                        ),
+                    },
+                },
+            },
+        ),
+        num_repeats: 3,
+        latency: 3,
+    },
+)

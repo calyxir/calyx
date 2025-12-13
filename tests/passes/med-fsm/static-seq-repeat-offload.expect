@@ -1860,5 +1860,3 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     fsm0;
   }
 }
----STDERR---
-[WARN  calyx_opt::pass_manager] fsm-builder: 14004ms

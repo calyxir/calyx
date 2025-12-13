@@ -211,6 +211,7 @@ impl FSMPolicy for ir::StaticIf {
     fn policy(ctrl: &mut ir::StaticIf, _: u64) -> FSMImplementation {
         let (num_states, acyclic, attr) =
             if is_acyclic(&ctrl.tbranch) && is_acyclic(&ctrl.fbranch) {
+                dbg!(&ctrl.fbranch);
                 (
                     ctrl.latency,
                     true,
