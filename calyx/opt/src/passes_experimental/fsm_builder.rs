@@ -158,15 +158,13 @@ impl StaticSchedule<'_, '_> {
                         sseq.stmts.iter().enumerate().fold(
                             transitions_to_curr,
                             |transitions_to_this_stmt, (_, stmt)| {
-                                let result = self
-                                    .build_abstract(
-                                        stmt,
-                                        guard.clone(),
-                                        transitions_to_this_stmt,
-                                        looped_once_guard.clone(),
-                                    )
-                                    .0;
-                                result
+                                self.build_abstract(
+                                    stmt,
+                                    guard.clone(),
+                                    transitions_to_this_stmt,
+                                    looped_once_guard.clone(),
+                                )
+                                .0
                             },
                         ),
                         None,
@@ -261,7 +259,7 @@ impl StaticSchedule<'_, '_> {
                     let counter_width =
                         calyx_utils::math::bits_needed_for(srep.num_repeats);
                     let counter = self.builder.add_primitive(
-                        format!("repeat_counter_{}", loop_start_state),
+                        format!("repeat_counter_{loop_start_state}"),
                         "std_reg",
                         &[counter_width],
                     );
@@ -276,7 +274,7 @@ impl StaticSchedule<'_, '_> {
 
                     // Increment counter on the last state of the loop body
                     let incr = self.builder.add_primitive(
-                        format!("repeat_incr_{}", loop_start_state),
+                        format!("repeat_incr_{loop_start_state}"),
                         "std_add",
                         &[counter_width],
                     );
@@ -319,7 +317,7 @@ impl StaticSchedule<'_, '_> {
 
                     // Create guard: counter < num_repeats - 1 (loop condition)
                     let lt = self.builder.add_primitive(
-                        format!("repeat_lt_{}", loop_start_state),
+                        format!("repeat_lt_{loop_start_state}"),
                         "std_lt",
                         &[counter_width],
                     );
