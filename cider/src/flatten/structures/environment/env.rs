@@ -83,6 +83,8 @@ pub struct Environment<C: AsRef<Context> + Clone> {
     /// Reverse map from ports to the cells they are attached to. Used to
     /// determine which primitives to re=evaluate
     ports_to_cells_map: SecondaryMap<GlobalPortIdx, GlobalCellIdx>,
+    /// reused scratchpad
+    changed_cells: FxHashSet<GlobalCellIdx>,
 }
 
 impl<C: AsRef<Context> + Clone> Environment<C> {
@@ -287,6 +289,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             ports_to_cells_map: SecondaryMap::new_with_default(0.into()),
             pinned_ports: PinnedPorts::new(),
             state_map: MemoryMap::new(),
+            changed_cells: FxHashSet::new(),
         };
 
         let ctx = ctx.as_ref();
@@ -2367,7 +2370,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             info!(self.env.logger, "Started combinational convergence");
         }
 
-        let mut changed_cells: FxHashSet<GlobalCellIdx> = FxHashSet::new();
+        let mut changed_cells = std::mem::take(&mut self.env.changed_cells);
 
         self.run_primitive_comb_path(self.env.cells.range().into_iter())?;
         let mut rerun_all_primitives = false;
@@ -2610,6 +2613,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         if self.conf.debug_logging {
             info!(self.env.logger, "Finished combinational convergence");
         }
+
+        changed_cells.clear();
+        self.env.changed_cells = changed_cells;
 
         Ok(())
     }
