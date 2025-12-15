@@ -43,6 +43,7 @@ bon = "2.3"
 rustc-hash = "2"
 delegate = "0.13.3"
 rand.workspace = true
+mimalloc = { version = "*", features = ["v3"] }
 
 [dev-dependencies]
 proptest = "1.0.0"
