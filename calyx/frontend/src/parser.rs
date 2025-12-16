@@ -388,7 +388,7 @@ impl CalyxParser {
         }
     }
 
-    fn char(input: Node) -> ParseResult<&str> {
+    fn char(input: Node<'_>) -> ParseResult<&str> {
         Ok(input.as_str())
     }
 
@@ -425,7 +425,7 @@ impl CalyxParser {
         ))
     }
 
-    fn block_char(input: Node) -> ParseResult<&str> {
+    fn block_char(input: Node<'_>) -> ParseResult<&str> {
         Ok(input.as_str())
     }
 
@@ -1691,11 +1691,10 @@ impl CalyxParser {
             [imports(imports), externs_and_comps(mixed), extra_info(info), EOI(_)] => {
                 let (mut metadata, source_info_table) = info;
                 // remove empty metadata strings
-                if let Some(m) = &metadata {
-                    if m.is_empty() {
+                if let Some(m) = &metadata
+                    && m.is_empty() {
                         metadata = None;
                     }
-                }
 
                 let mut namespace =
                     ast::NamespaceDef {

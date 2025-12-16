@@ -18,7 +18,7 @@ enum Mode {
     Generate,
     Run,
     Cmds,
-    JsonPlan,
+    EmitJson,
 }
 
 impl FromStr for Mode {
@@ -32,7 +32,7 @@ impl FromStr for Mode {
             "run" => Ok(Mode::Run),
             "dot" => Ok(Mode::ShowDot),
             "cmds" => Ok(Mode::Cmds),
-            "json-plan" => Ok(Mode::JsonPlan),
+            "emit-json" => Ok(Mode::EmitJson),
             _ => Err("unknown mode".to_string()),
         }
     }
@@ -47,7 +47,7 @@ impl Display for Mode {
             Mode::Run => write!(f, "run"),
             Mode::ShowDot => write!(f, "dot"),
             Mode::Cmds => write!(f, "cmds"),
-            Mode::JsonPlan => write!(f, "json-plan"),
+            Mode::EmitJson => write!(f, "emit-json"),
         }
     }
 }
@@ -332,12 +332,12 @@ fn get_resource(driver: &Driver, cmd: GetResource) -> anyhow::Result<()> {
     let to_path = cmd.output.as_deref().unwrap_or(&cmd.filename);
 
     // Try extracting embedded resource data.
-    if let Some(rsrc_files) = &driver.rsrc_files {
-        if let Some(data) = rsrc_files.get(cmd.filename.as_str()) {
-            log::info!("extracting {} to {}", cmd.filename, to_path);
-            std::fs::write(to_path, data)?;
-            return Ok(());
-        }
+    if let Some(rsrc_files) = &driver.rsrc_files
+        && let Some(data) = rsrc_files.get(cmd.filename.as_str())
+    {
+        log::info!("extracting {} to {}", cmd.filename, to_path);
+        std::fs::write(to_path, data)?;
+        return Ok(());
     }
 
     // Try copying a resource file from the resource directory.
@@ -522,7 +522,7 @@ fn cli_ext<T: CliExt>(
             args.force_rebuild,
             csv_path,
         )?,
-        Mode::JsonPlan => run.show_ops_json(),
+        Mode::EmitJson => run.show_ops_json(),
     }
 
     Ok(())

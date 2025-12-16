@@ -1376,22 +1376,28 @@ impl Visitor for CompileStatic {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if s.cond.is_none() {
-            if let ir::Control::Static(sc) = &mut *(s.body) {
-                let mut builder = ir::Builder::new(comp, sigs);
-                let reset_group_name = self.get_reset_group_name(sc);
+        if s.cond.is_none()
+            && let ir::Control::Static(sc) = &mut *(s.body)
+        {
+            let mut builder = ir::Builder::new(comp, sigs);
+            let reset_group_name = self.get_reset_group_name(sc);
 
-                // Get fsm for reset_group
-                let (_, fsm_first_state, _) = self.fsm_info_map.get(reset_group_name).unwrap_or_else(|| unreachable!("group {} has no correspondoing fsm in self.fsm_map", reset_group_name));
-                let wrapper_group = self.build_wrapper_group_while(
-                    fsm_first_state.clone(),
-                    reset_group_name,
-                    Rc::clone(&s.port),
-                    &mut builder,
-                );
-                let c = ir::Control::enable(wrapper_group);
-                return Ok(Action::change(c));
-            }
+            // Get fsm for reset_group
+            let (_, fsm_first_state, _) =
+                self.fsm_info_map.get(reset_group_name).unwrap_or_else(|| {
+                    unreachable!(
+                        "group {} has no correspondoing fsm in self.fsm_map",
+                        reset_group_name
+                    )
+                });
+            let wrapper_group = self.build_wrapper_group_while(
+                fsm_first_state.clone(),
+                reset_group_name,
+                Rc::clone(&s.port),
+                &mut builder,
+            );
+            let c = ir::Control::enable(wrapper_group);
+            return Ok(Action::change(c));
         }
 
         Ok(Action::Continue)

@@ -553,23 +553,23 @@ impl Primitive for CombMem {
 
         let read_data = self.read_data();
 
-        let read =
-            if addr.is_some() && addr.unwrap() < self.internal_state.size() {
-                let addr = addr.unwrap();
-                let addr = self.internal_state.nth_entry(addr);
+        let read = if let Some(addr) = addr
+            && addr < self.internal_state.size()
+        {
+            let addr = self.internal_state.nth_entry(addr);
 
-                port_map.insert_val_general(
-                    read_data,
-                    AssignedValue::cell_value(state_map[addr].clone())
-                        .with_clocks(state_map.get_clock_or_default(addr)),
-                )?
-            }
-            // either the address is undefined or it is outside the range of valid addresses
-            else {
-                // throw error on cycle boundary rather than here
-                port_map.write_undef(read_data)?;
-                UpdateStatus::Unchanged
-            };
+            port_map.insert_val_general(
+                read_data,
+                AssignedValue::cell_value(state_map[addr].clone())
+                    .with_clocks(state_map.get_clock_or_default(addr)),
+            )?
+        }
+        // either the address is undefined or it is outside the range of valid addresses
+        else {
+            // throw error on cycle boundary rather than here
+            port_map.write_undef(read_data)?;
+            UpdateStatus::Unchanged
+        };
 
         let done_signal = port_map.insert_val_general(
             self.done(),
@@ -690,36 +690,35 @@ impl RaceDetectionPrimitive for CombMem {
             port_map,
             self.base_port,
             self.global_idx,
-        )? {
-            if addr < self.internal_state.size() {
-                if let Some(thread) = thread {
-                    let addr_loc = self.internal_state.nth_entry(addr);
-                    let clock = &state_map.get_clock(addr_loc).unwrap();
+        )? && addr < self.internal_state.size()
+        {
+            if let Some(thread) = thread {
+                let addr_loc = self.internal_state.nth_entry(addr);
+                let clock = &state_map.get_clock(addr_loc).unwrap();
 
-                    if port_map[self.write_en()].as_bool().unwrap_or_default() {
-                        clock
-                            .check_write_with_ascription(
-                                thread,
-                                thread_map,
-                                clock_map,
-                                port_map[self.write_en()].winner().unwrap(),
+                if port_map[self.write_en()].as_bool().unwrap_or_default() {
+                    clock
+                        .check_write_with_ascription(
+                            thread,
+                            thread_map,
+                            clock_map,
+                            port_map[self.write_en()].winner().unwrap(),
+                        )
+                        .map_err(|e| {
+                            let cell_info =
+                                clock_map.lookup_cell(*clock).unwrap();
+                            e.add_cell_info(
+                                cell_info.attached_cell,
+                                cell_info.entry_number,
                             )
-                            .map_err(|e| {
-                                let cell_info =
-                                    clock_map.lookup_cell(*clock).unwrap();
-                                e.add_cell_info(
-                                    cell_info.attached_cell,
-                                    cell_info.entry_number,
-                                )
-                            })?;
-                    }
-                } else if addr != 0
-                    || port_map[self.write_en()].as_bool().unwrap_or_default()
-                {
-                    // HACK: if the addr is 0, we're reading, and the thread
-                    // can't be determined then we assume the read is not real
-                    panic!("unable to determine thread for comb mem");
+                        })?;
                 }
+            } else if addr != 0
+                || port_map[self.write_en()].as_bool().unwrap_or_default()
+            {
+                // HACK: if the addr is 0, we're reading, and the thread
+                // can't be determined then we assume the read is not real
+                panic!("unable to determine thread for comb mem");
             }
         }
 
@@ -1067,42 +1066,38 @@ impl RaceDetectionPrimitive for SeqMem {
             port_map,
             self.base_port,
             self.global_idx,
-        )? {
-            if addr < self.internal_state.size() {
-                let addr_loc = self.internal_state.nth_entry(addr);
+        )? && addr < self.internal_state.size()
+        {
+            let addr_loc = self.internal_state.nth_entry(addr);
 
-                let clock = state_map.get_clock(addr_loc).unwrap();
+            let clock = state_map.get_clock(addr_loc).unwrap();
 
-                if port_map[self.write_enable()].as_bool().unwrap_or_default()
-                    && port_map[self.content_enable()]
-                        .as_bool()
-                        .unwrap_or_default()
-                {
-                    clock
-                        .check_write_with_ascription(
-                            thread.expect(
-                                "unable to determine thread for seq mem",
-                            ),
-                            thread_map,
-                            clock_map,
-                            port_map[self.write_enable()].winner().unwrap(),
-                        )
-                        .map_err(|e| {
-                            let cell_info =
-                                clock_map.lookup_cell(clock).unwrap();
-                            e.add_cell_info(
-                                cell_info.attached_cell,
-                                cell_info.entry_number,
-                            )
-                        })?;
-                } else if port_map[self.content_enable()]
+            if port_map[self.write_enable()].as_bool().unwrap_or_default()
+                && port_map[self.content_enable()]
                     .as_bool()
                     .unwrap_or_default()
-                {
-                    // we don't want to check the read here, since that makes
-                    // merely assigning the content_en constitute a read even if
-                    // the value is never used
-                }
+            {
+                clock
+                    .check_write_with_ascription(
+                        thread.expect("unable to determine thread for seq mem"),
+                        thread_map,
+                        clock_map,
+                        port_map[self.write_enable()].winner().unwrap(),
+                    )
+                    .map_err(|e| {
+                        let cell_info = clock_map.lookup_cell(clock).unwrap();
+                        e.add_cell_info(
+                            cell_info.attached_cell,
+                            cell_info.entry_number,
+                        )
+                    })?;
+            } else if port_map[self.content_enable()]
+                .as_bool()
+                .unwrap_or_default()
+            {
+                // we don't want to check the read here, since that makes
+                // merely assigning the content_en constitute a read even if
+                // the value is never used
             }
         }
         self.exec_cycle(port_map, state_map)

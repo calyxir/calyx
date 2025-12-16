@@ -209,16 +209,15 @@ pub fn build_primitive(
 
             match mem_type {
                 MemType::Seq => {
-                    if let Some(set) = merge_set {
-                        if let Some(region) =
+                    if let Some(set) = merge_set
+                        && let Some(region) =
                             entangle_map.get(&set.representative())
-                        {
-                            let mem = SeqMem::new_with_region(config, *region);
-                            return box_race_detection_primitive(
-                                clocks.is_some(),
-                                mem,
-                            );
-                        }
+                    {
+                        let mem = SeqMem::new_with_region(config, *region);
+                        return box_race_detection_primitive(
+                            clocks.is_some(),
+                            mem,
+                        );
                     }
                     let region_start = state_map.peek_next_memory_location();
 
@@ -250,16 +249,15 @@ pub fn build_primitive(
                     return box_race_detection_primitive(clocks.is_some(), mem);
                 }
                 MemType::Std => {
-                    if let Some(set) = merge_set {
-                        if let Some(region) =
+                    if let Some(set) = merge_set
+                        && let Some(region) =
                             entangle_map.get(&set.representative())
-                        {
-                            let mem = CombMem::new_with_region(config, *region);
-                            return box_race_detection_primitive(
-                                clocks.is_some(),
-                                mem,
-                            );
-                        }
+                    {
+                        let mem = CombMem::new_with_region(config, *region);
+                        return box_race_detection_primitive(
+                            clocks.is_some(),
+                            mem,
+                        );
                     }
                     let region_start = state_map.peek_next_memory_location();
 
