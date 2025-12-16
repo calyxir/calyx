@@ -112,7 +112,10 @@ impl Visitor for SimplifyIfComb {
             rewrite.rewrite_assign(asgn);
             comp.continuous_assignments.push(asgn.clone());
         }
-        s.cond = None;
+
+        // NOTE: Technically no assignments within `s.tbranch` and `s.fbranch` should reference
+        // any cells that are being set in the original `s.comb` so we probably don't need
+        // to rewrite the whole `if`, but doing so in case someone refers to cells set in `s.comb`
         let mut new_if = calyx_ir::Control::if_(
             s.port.clone(),
             None,
