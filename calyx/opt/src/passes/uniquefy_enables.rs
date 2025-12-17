@@ -13,6 +13,9 @@ use serde::Serialize;
 // (2) statically assigns par thread ids to each unique enable group (outputted to `par_thread_json` if provided).
 // Used by the profiler.
 
+// UG stands for "unique group". This is to separate these names from the original group names
+const UNIQUE_GROUP_SUFFIX: &str = "UG";
+
 pub struct UniquefyEnables {
     path_descriptor_json: Option<OutputFile>,
     path_descriptor_infos: BTreeMap<String, PathDescriptorInfo>,
@@ -137,6 +140,12 @@ fn assign_par_threads_static(
                 enable_to_track,
             )
         }
+        ir::StaticControl::Invoke(ir::StaticInvoke { comb_group, .. }) => {
+            let c_group_name =
+                comb_group.as_ref().unwrap().borrow().name().to_string();
+            enable_to_track.insert(c_group_name, start_idx);
+            start_idx + 1
+        }
         _ => next_idx,
     }
 }
@@ -218,8 +227,11 @@ fn assign_par_threads(
             next_idx,
             enable_to_track,
         ),
-        ir::Control::Invoke(_) => {
-            panic!("compile-invoke should be run before uniquefy-enables!")
+        ir::Control::Invoke(ir::Invoke { comb_group, .. }) => {
+            let c_group_name =
+                comb_group.as_ref().unwrap().borrow().name().to_string();
+            enable_to_track.insert(c_group_name, start_idx);
+            start_idx + 1
         }
         _ => next_idx,
     }
@@ -322,9 +334,7 @@ fn compute_path_descriptors_static(
                 .insert(if_id, retrieve_pos_set(attributes));
         }
         ir::StaticControl::Empty(_empty) => (),
-        ir::StaticControl::Invoke(_static_invoke) => {
-            panic!("compile-invoke should be run before unique-control!")
-        }
+        ir::StaticControl::Invoke(ir::StaticInvoke { comb_group, .. }) => {}
     }
 }
 
@@ -497,9 +507,8 @@ fn create_unique_comb_group(
     sigs: &calyx_ir::LibrarySignatures,
 ) -> Option<std::rc::Rc<std::cell::RefCell<calyx_ir::CombGroup>>> {
     if let Some(comb_group) = cond {
-        // UG stands for "unique group". This is to separate these names from the original group names
         let unique_comb_group_name: String =
-            format!("{}UG", comb_group.borrow().name());
+            format!("{}{}", comb_group.borrow().name(), UNIQUE_GROUP_SUFFIX);
         let mut builder = ir::Builder::new(comp, sigs);
         let unique_comb_group = builder.add_comb_group(unique_comb_group_name);
         unique_comb_group.borrow_mut().assignments =
@@ -547,7 +556,8 @@ impl Visitor for UniquefyEnables {
         // create a unique group for this particular enable.
         let group_name = s.group.borrow().name();
         // UG stands for "unique group". This is to separate these names from the original group names
-        let unique_group_name: String = format!("{group_name}UG");
+        let unique_group_name: String =
+            format!("{group_name}{UNIQUE_GROUP_SUFFIX}");
         // create an unique-ified version of the group
         let mut builder = ir::Builder::new(comp, sigs);
         let unique_group = builder.add_group(unique_group_name);
@@ -587,8 +597,7 @@ impl Visitor for UniquefyEnables {
     ) -> VisResult {
         // create a unique group for this particular static enable.
         let group_name = s.group.borrow().name();
-        // UG stands for "unique group". This is to separate these names from the original group names
-        let unique_group_name = format!("{group_name}UG");
+        let unique_group_name = format!("{group_name}{UNIQUE_GROUP_SUFFIX}");
         // create an unique-ified version of the group
         let mut builder = ir::Builder::new(comp, sigs);
         let unique_group = builder.add_static_group(
@@ -605,6 +614,27 @@ impl Visitor for UniquefyEnables {
         Ok(Action::Change(Box::new(ir::Control::static_enable(
             unique_group,
         ))))
+    }
+
+    fn invoke(
+        &mut self,
+        s: &mut calyx_ir::Invoke,
+        comp: &mut calyx_ir::Component,
+        sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        // invokes need a uniquely named comb group attached to them
+        let mut builder = ir::Builder::new(comp, sigs);
+        let invoked_cell_name = s.comp.borrow().name();
+        let comb_cell_prefix = format!("invoke_{invoked_cell_name}");
+        match &s.comb_group {
+            Some(_comb_group_ref) => {}
+            None => {
+                // create new comb group
+                builder.add_comb_group(comb_cell_prefix)
+            }
+        }
+        Ok(Action::Continue)
     }
 
     fn finish(

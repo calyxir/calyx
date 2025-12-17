@@ -1,4 +1,5 @@
 //! Passes for the Calyx compiler.
+mod add_invoke_with;
 mod canonical;
 mod cell_share;
 mod clk_insertion;
