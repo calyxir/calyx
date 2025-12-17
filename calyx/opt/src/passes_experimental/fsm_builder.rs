@@ -420,7 +420,88 @@ impl StaticSchedule<'_, '_> {
             ir::StaticControl::Par(spar) => {
                 if is_acyclic(spar) && is_inline(spar) {
                     // @NUM_STATES(n) @ACYCLIC @INLINE
-                    todo!()
+                    // schedule children in lock-step.
+                    // we register incoming transitions to the start state of the par region
+                    // for each child, build its schedule into a temporary StaticSchedule
+                    // (so the child's states start at 0 in the tmp schedule).
+                    // then we collect each child's per-state assignments and merge them 
+                    // into `self.state2assigns` aligned at `self.state`.
+                    // and finally reserve `L = max_i latency(i)` states in `self.state` 
+                    // and return a single exit transition from `self.state + L - 1`.
+
+                    // Register incoming transitions to the start of the par region
+                    self.register_transitions(
+                        self.state,
+                        &mut transitions_to_curr,
+                        guard.clone(),
+                    );
+
+                    let par_start = self.state;
+
+                    // Build temporary schedules and collect per-thread maps
+                    let mut max_len: u64 = 0;
+                    let mut per_thread_maps: Vec<
+                        std::collections::HashMap<
+                            u64,
+                            Vec<ir::Assignment<ir::Nothing>>,
+                        >,
+                    > = Vec::new();
+
+                    for thread in spar.stmts.iter() {
+                        // Build the thread in a temporary schedule so we can observe
+                        // its per-state assignments without advancing `self.state`.
+                        let mut tmp = StaticSchedule::from(&mut *self.builder);
+                        let (_exits, _g) = tmp.build_abstract(
+                            thread,
+                            guard.clone(),
+                            vec![],
+                            looped_once_guard.clone(),
+                        );
+
+                        let thread_len = get_num_states(thread);
+                        max_len = max_len.max(thread_len);
+
+                        // Drain the tmp schedule's state->assigns map into a HashMap
+                        let map: std::collections::HashMap<
+                            u64,
+                            Vec<ir::Assignment<ir::Nothing>>,
+                        > = tmp.state2assigns.drain().collect();
+                        per_thread_maps.push(map);
+                    }
+
+                    // Merge per-thread maps into the current schedule, aligned at par_start
+                    for map in per_thread_maps.into_iter() {
+                        for (s, assigns) in map.into_iter() {
+                            let target = par_start + s;
+                            self.state2assigns
+                                .entry(target)
+                                .and_modify(|other| {
+                                    other.extend(assigns.clone())
+                                })
+                                .or_insert(assigns.clone());
+                        }
+                    }
+
+                    // Reserve max_len states and return exit transition from final state
+                    if max_len == 0 {
+                        // empty par -> immediate exit
+                        (
+                            vec![IncompleteTransition::new(
+                                par_start,
+                                ir::Guard::True,
+                            )],
+                            None,
+                        )
+                    } else {
+                        self.state += max_len;
+                        (
+                            vec![IncompleteTransition::new(
+                                self.state - 1,
+                                ir::Guard::True,
+                            )],
+                            None,
+                        )
+                    }
                 } else if is_offload(spar) {
                     // @NUM_STATES(1) @OFFLOAD
                     unreachable!(
