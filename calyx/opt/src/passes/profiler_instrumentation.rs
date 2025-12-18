@@ -794,6 +794,81 @@ impl Visitor for ProfilerInstrumentation {
         Ok(Action::Continue)
     }
 
+    fn static_invoke(
+        &mut self,
+        s: &mut calyx_ir::StaticInvoke,
+        comp: &mut calyx_ir::Component,
+        sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        let cell_name = s.comp.borrow().name();
+        // for invokes, we instrument the comb group
+        let mut comb_group = match &s.comb_group {
+            Some(s) => s.borrow_mut(),
+            None => {
+                panic!(
+                    "Invokes should come with a comb group. Please run `uniquefy_enables` before running this pass!"
+                )
+            }
+        };
+        let comb_group_name = comb_group.name();
+
+        // To avoid code cloning, we will reuse create_probes_and_assignments by passing in
+        // one-key maps (where the key is the name of the comb group) for cell_invoke_map_opt and primitive_invoke_map_opt
+        let mut cell_invoke_map: CallsFromGroupMap<Nothing> = HashMap::new();
+        cell_invoke_map.insert(comb_group_name, vec![(cell_name, Guard::True)]);
+
+        // scanning to see if there are primitive uses (this can happen if the comb group was user defined)
+        let mut primitive_name_set = HashSet::new();
+        let mut primitives_invoked_vec = vec![];
+        for assignment_ref in comb_group.assignments.iter() {
+            let dst_borrow = assignment_ref.dst.borrow();
+            if let ir::PortParent::Cell(cell_ref) = &dst_borrow.parent
+                && let calyx_ir::CellType::Primitive { name, .. } =
+                    cell_ref.upgrade().borrow().prototype.clone()
+            {
+                if primitive_name_set.insert(name) {
+                    primitives_invoked_vec
+                        .push((name, *(assignment_ref.guard.clone())));
+                }
+            }
+        }
+        let mut primitive_invoke_map: CallsFromGroupMap<Nothing> =
+            HashMap::new();
+        primitive_invoke_map.insert(comb_group_name, primitives_invoked_vec);
+
+        let group_name_asgn_and_cell = create_probes_and_assignments(
+            comp,
+            sigs,
+            &[comb_group_name],
+            None,
+            Some(&cell_invoke_map),
+            Some(&primitive_invoke_map),
+        );
+
+        // insert created assignments back into comb group
+        for (_comb_group_name, asgn, cell) in group_name_asgn_and_cell {
+            comb_group.assignments.push(asgn.clone());
+            comp.cells.add(cell.to_owned());
+        }
+
+        // collect statistics
+        let stats = if self.emit_probe_stats.is_some() {
+            Some(count(
+                1,
+                None,
+                Some(cell_invoke_map),
+                Some(primitive_invoke_map),
+            ))
+        } else {
+            None
+        };
+        self.invoke_comb_groups_to_stats
+            .insert(comb_group_name, stats);
+
+        Ok(Action::Continue)
+    }
+
     fn finish(
         &mut self,
         comp: &mut calyx_ir::Component,
