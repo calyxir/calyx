@@ -274,6 +274,18 @@ fn compute_path_descriptors_static(
                 .enables
                 .insert(group_name.to_string(), group_id);
         }
+        ir::StaticControl::Invoke(ir::StaticInvoke { comb_group, .. }) => {
+            // edge case: the entire control is just this static invoke
+            let invoke_id = if parent_is_component {
+                format!("{current_id}0")
+            } else {
+                current_id
+            };
+            let comb_group_name = comb_group.as_ref().unwrap().borrow().name();
+            path_descriptor_info
+                .enables
+                .insert(comb_group_name.to_string(), invoke_id);
+        }
         ir::StaticControl::Par(ir::StaticPar {
             stmts, attributes, ..
         }) => {
@@ -334,7 +346,6 @@ fn compute_path_descriptors_static(
                 .insert(if_id, retrieve_pos_set(attributes));
         }
         ir::StaticControl::Empty(_empty) => (),
-        ir::StaticControl::Invoke(ir::StaticInvoke { comb_group, .. }) => {}
     }
 }
 
@@ -455,6 +466,19 @@ fn compute_path_descriptors(
                 .enables
                 .insert(group_name.to_string(), group_id);
         }
+        ir::Control::Invoke(ir::Invoke { comb_group, .. }) => {
+            let invoke_id = if parent_is_component {
+                // edge case: the entire control is just this enable
+                format!("{current_id}0")
+            } else {
+                current_id
+            };
+            let comb_group_name =
+                comb_group.as_ref().unwrap().borrow().name().to_string();
+            path_descriptor_info
+                .enables
+                .insert(comb_group_name, invoke_id);
+        }
         ir::Control::Repeat(ir::Repeat {
             body, attributes, ..
         }) => {
@@ -482,9 +506,6 @@ fn compute_path_descriptors(
         }
         ir::Control::Empty(_) => (),
         ir::Control::FSMEnable(_) => todo!(),
-        ir::Control::Invoke(_) => {
-            panic!("compile-invoke should be run before unique-control!")
-        }
     }
 }
 
@@ -626,14 +647,16 @@ impl Visitor for UniquefyEnables {
         // invokes need a uniquely named comb group attached to them
         let mut builder = ir::Builder::new(comp, sigs);
         let invoked_cell_name = s.comp.borrow().name();
-        let comb_cell_prefix = format!("invoke_{invoked_cell_name}");
-        match &s.comb_group {
-            Some(_comb_group_ref) => {}
-            None => {
-                // create new comb group
-                builder.add_comb_group(comb_cell_prefix)
+        let comb_cell_prefix =
+            format!("invoke_{invoked_cell_name}{UNIQUE_GROUP_SUFFIX}");
+        let new_comb_group = builder.add_comb_group(comb_cell_prefix);
+        if let Some(comb_group_ref) = &s.comb_group {
+            // copy assignments over to new group
+            for asgn in &comb_group_ref.borrow().assignments {
+                new_comb_group.borrow_mut().assignments.push(asgn.clone());
             }
         }
+        s.comb_group = Some(new_comb_group);
         Ok(Action::Continue)
     }
 
