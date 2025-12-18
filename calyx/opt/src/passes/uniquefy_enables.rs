@@ -8,10 +8,11 @@ use calyx_ir::{self as ir, Nothing};
 use calyx_utils::{CalyxResult, OutputFile};
 use serde::Serialize;
 
-// Converts each dynamic and static enable to an enable of a unique group.
-// Also (1) computes path descriptors for each unique enable group and par (outputted to `path_descriptor_json` if provided); and
-// (2) statically assigns par thread ids to each unique enable group (outputted to `par_thread_json` if provided).
-// Used by the profiler.
+// This pass is used by the profiler.
+// 1) It converts each dynamic and static enable to an enable of a unique group.
+// 2) It creates a unique comb group for every invoke (to identify the invoke and give profiler-instrumentation a place to instrument the invoke)
+// 3) computes path descriptors for each unique enable group and par (outputted to `path_descriptor_json` if provided); and
+// 4) statically assigns par thread ids to each unique enable group (outputted to `par_thread_json` if provided).
 
 // UG stands for "unique group". This is to separate these names from the original group names
 const UNIQUE_GROUP_SUFFIX: &str = "UG";
@@ -640,6 +641,29 @@ impl Visitor for UniquefyEnables {
     fn invoke(
         &mut self,
         s: &mut calyx_ir::Invoke,
+        comp: &mut calyx_ir::Component,
+        sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        // invokes need a uniquely named comb group attached to them
+        let mut builder = ir::Builder::new(comp, sigs);
+        let invoked_cell_name = s.comp.borrow().name();
+        let comb_cell_prefix =
+            format!("invoke_{invoked_cell_name}{UNIQUE_GROUP_SUFFIX}");
+        let new_comb_group = builder.add_comb_group(comb_cell_prefix);
+        if let Some(comb_group_ref) = &s.comb_group {
+            // copy assignments over to new group
+            for asgn in &comb_group_ref.borrow().assignments {
+                new_comb_group.borrow_mut().assignments.push(asgn.clone());
+            }
+        }
+        s.comb_group = Some(new_comb_group);
+        Ok(Action::Continue)
+    }
+
+    fn static_invoke(
+        &mut self,
+        s: &mut calyx_ir::StaticInvoke,
         comp: &mut calyx_ir::Component,
         sigs: &calyx_ir::LibrarySignatures,
         _comps: &[calyx_ir::Component],

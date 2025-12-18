@@ -38,6 +38,7 @@ impl Add for StatsEntry {
 pub struct ProfilerInstrumentation {
     probe_stats: BTreeMap<String, StatsEntry>,
     emit_probe_stats: Option<OutputFile>,
+    invoke_comb_groups_to_stats: HashMap<Id, Option<StatsEntry>>,
 }
 
 /// Mapping group names to constructs (groups/primitives/cells) that the group enabled,
@@ -73,6 +74,7 @@ impl ConstructVisitor for ProfilerInstrumentation {
         Ok(ProfilerInstrumentation {
             probe_stats: BTreeMap::new(),
             emit_probe_stats: opts["emit-probe-stats"].not_null_outstream(),
+            invoke_comb_groups_to_stats: HashMap::new(),
         })
     }
 
@@ -199,7 +201,7 @@ fn group(
     }
 
     // create probe cells and assignments
-    let group_name_assign_and_cell = create_assignments(
+    let group_name_assign_and_cell = create_probes_and_assignments(
         comp,
         sigs,
         &group_names,
@@ -231,10 +233,14 @@ fn group(
 }
 
 /// Creates probe cells and assignments pertaining to combinational groups.
+/// `covered` is the set of comb groups that were attached to invokes
+/// and already got instrumentation probes covered, so should be ignored
+/// by this function.
 fn combinational_group(
     comp: &mut ir::Component,
     sigs: &ir::LibrarySignatures,
     collect_stats: bool,
+    covered: &HashSet<Id>,
 ) -> Option<StatsEntry> {
     // NOTE: combinational groups cannot structurally enable other groups
 
@@ -246,10 +252,16 @@ fn combinational_group(
     let group_names = comp
         .comb_groups
         .iter()
+        // filter out any comb groups that are in covered
+        .filter(|group| !covered.contains(&group.borrow().name()))
         .map(|group| group.borrow().name())
         .collect::<Vec<_>>();
 
-    for group_ref in comp.comb_groups.iter() {
+    for group_ref in comp
+        .comb_groups
+        .iter()
+        .filter(|group| !covered.contains(&group.borrow().name()))
+    {
         let group = &group_ref.borrow();
         let mut comb_primitives_covered = HashSet::new();
         let mut comb_cells_covered = HashSet::new();
@@ -319,7 +331,7 @@ fn combinational_group(
         }
     }
 
-    let group_name_asgn_and_cell = create_assignments(
+    let group_name_asgn_and_cell = create_probes_and_assignments(
         comp,
         sigs,
         &group_names,
@@ -429,7 +441,7 @@ fn static_group(
         primitive_invoke_map.insert(group_ref.borrow().name(), primitive_vec);
     }
 
-    let group_name_assign_and_cell = create_assignments(
+    let group_name_assign_and_cell = create_probes_and_assignments(
         comp,
         sigs,
         &group_names,
@@ -466,7 +478,7 @@ fn static_group(
 /// GROUP is the group to write the assignment in,
 /// ASGN is the probe assignment to insert into the group,
 /// CELL is the generated probe wire to add to cells
-fn create_assignments<T: Clone>(
+fn create_probes_and_assignments<T: Clone>(
     comp: &mut ir::Component,
     sigs: &ir::LibrarySignatures,
     group_names: &[Id],
@@ -707,15 +719,95 @@ fn populate_stats(
 }
 
 impl Visitor for ProfilerInstrumentation {
-    fn start(
+    fn invoke(
         &mut self,
-        comp: &mut ir::Component,
-        sigs: &ir::LibrarySignatures,
-        _comps: &[ir::Component],
+        s: &mut calyx_ir::Invoke,
+        comp: &mut calyx_ir::Component,
+        sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        let cell_name = s.comp.borrow().name();
+        // for invokes, we instrument the comb group
+        let mut comb_group = match &s.comb_group {
+            Some(s) => s.borrow_mut(),
+            None => {
+                panic!(
+                    "Invokes should come with a comb group. Please run `uniquefy_enables` before running this pass!"
+                )
+            }
+        };
+        let comb_group_name = comb_group.name();
+
+        // To avoid code cloning, we will reuse create_probes_and_assignments by passing in
+        // one-key maps (where the key is the name of the comb group) for cell_invoke_map_opt and primitive_invoke_map_opt
+        let mut cell_invoke_map: CallsFromGroupMap<Nothing> = HashMap::new();
+        cell_invoke_map.insert(comb_group_name, vec![(cell_name, Guard::True)]);
+
+        // scanning to see if there are primitive uses (this can happen if the comb group was user defined)
+        let mut primitive_name_set = HashSet::new();
+        let mut primitives_invoked_vec = vec![];
+        for assignment_ref in comb_group.assignments.iter() {
+            let dst_borrow = assignment_ref.dst.borrow();
+            if let ir::PortParent::Cell(cell_ref) = &dst_borrow.parent
+                && let calyx_ir::CellType::Primitive { name, .. } =
+                    cell_ref.upgrade().borrow().prototype.clone()
+            {
+                if primitive_name_set.insert(name) {
+                    primitives_invoked_vec
+                        .push((name, *(assignment_ref.guard.clone())));
+                }
+            }
+        }
+        let mut primitive_invoke_map: CallsFromGroupMap<Nothing> =
+            HashMap::new();
+        primitive_invoke_map.insert(comb_group_name, primitives_invoked_vec);
+
+        let group_name_asgn_and_cell = create_probes_and_assignments(
+            comp,
+            sigs,
+            &[comb_group_name],
+            None,
+            Some(&cell_invoke_map),
+            Some(&primitive_invoke_map),
+        );
+
+        // insert created assignments back into comb group
+        for (_comb_group_name, asgn, cell) in group_name_asgn_and_cell {
+            comb_group.assignments.push(asgn.clone());
+            comp.cells.add(cell.to_owned());
+        }
+
+        // collect statistics
+        let stats = if self.emit_probe_stats.is_some() {
+            Some(count(
+                1,
+                None,
+                Some(cell_invoke_map),
+                Some(primitive_invoke_map),
+            ))
+        } else {
+            None
+        };
+        self.invoke_comb_groups_to_stats
+            .insert(comb_group_name, stats);
+
+        Ok(Action::Continue)
+    }
+
+    fn finish(
+        &mut self,
+        comp: &mut calyx_ir::Component,
+        sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
     ) -> VisResult {
         let count = self.emit_probe_stats.is_some();
         let group_stats_opt = group(comp, sigs, count);
-        let comb_group_stats_opt = combinational_group(comp, sigs, count);
+        let comb_group_stats_opt = combinational_group(
+            comp,
+            sigs,
+            count,
+            &self.invoke_comb_groups_to_stats.keys().cloned().collect(),
+        );
         let static_group_stats_opt = static_group(comp, sigs, count);
         let continuous_assignments_opt =
             continuous_assignments(comp, sigs, count);
