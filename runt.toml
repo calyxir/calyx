@@ -693,3 +693,15 @@ cmd = """
  fud2 axi-wrapped.futil --from calyx --to verilog-noverify -o axi-wrapped.v 2> /dev/null && \
  fud2 axi-wrapped.v --from verilog-noverify --to cocotb-axi --set sim.data=${dirname}/../vectorized-add.data 2> /dev/null
  """
+
+
+##### AreaExtract Tests ######
+[[tests]]
+name = "AreaExtract tests for Vivado input"
+paths = [ "tools/AreaExtract/tests/vivado/*.rpt" ]
+cmd = "aext vivado {}"
+
+[[tests]]
+name = "AreaExtract tests for Yosys input"
+paths = [ "tools/AreaExtract/tests/yosys/*.il" ]
+cmd = "aext yosys {} tools/AreaExtract/tests/yosys/inline.json"
