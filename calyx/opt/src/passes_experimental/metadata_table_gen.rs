@@ -112,6 +112,38 @@ impl Visitor for Metadata {
             // add tag to group attributes
             attr.insert_set(calyx_frontend::SetAttr::Pos, pos.value());
         }
+
+        // visit all comb groups in context
+        for rrc_comb_group in comp.comb_groups.iter() {
+            let mut grp = rrc_comb_group.borrow_mut();
+            let attr = &mut grp.attributes;
+            let pos_data = attr.copy_span();
+            let (f, (line_start, line_end)) = pos_data.get_line_num();
+            let fid = self.file_ids.get(f).unwrap(); // this def should be in file_ids
+            let pos = self.src_table.push_position(
+                *fid,
+                LineNum::new(line_start as u32),
+                Some(LineNum::new(line_end as u32)),
+            );
+            // add tag to group attributes
+            attr.insert_set(calyx_frontend::SetAttr::Pos, pos.value());
+        }
+
+        // visit all static groups in context
+        for rrc_static_group in comp.static_groups.iter() {
+            let mut grp = rrc_static_group.borrow_mut();
+            let attr = &mut grp.attributes;
+            let pos_data = attr.copy_span();
+            let (f, (line_start, line_end)) = pos_data.get_line_num();
+            let fid = self.file_ids.get(f).unwrap(); // this def should be in file_ids
+            let pos = self.src_table.push_position(
+                *fid,
+                LineNum::new(line_start as u32),
+                Some(LineNum::new(line_end as u32)),
+            );
+            // add tag to group attributes
+            attr.insert_set(calyx_frontend::SetAttr::Pos, pos.value());
+        }
         Ok(Action::Continue)
     }
 
