@@ -80,6 +80,13 @@ cmd = """
  fud2 {} -q --to dat -s sim.data={}.data --through firrtl
 """
 
+[[tests]]
+name = "Firrtl-With-Primitives Tests"
+paths = ["tests/firrtl/*.futil"]
+cmd = """
+ fud2 {} -q --to dat -s sim.data={}.data --through firrtl-with-primitives
+"""
+
 ##### Frontend Tests #####
 [[tests]]
 name = "[frontend] dahlia"
