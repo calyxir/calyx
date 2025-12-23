@@ -1,11 +1,14 @@
-use std::{cmp, collections::BTreeMap, collections::BTreeSet};
+use std::{
+    cmp,
+    collections::{BTreeMap, BTreeSet, HashMap},
+};
 
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
 use calyx_frontend::SetAttr;
 use calyx_ir::{self as ir, Nothing};
-use calyx_utils::{CalyxResult, OutputFile};
+use calyx_utils::{CalyxResult, Id, OutputFile};
 use serde::Serialize;
 
 // This pass is used by the profiler.
@@ -22,6 +25,9 @@ pub struct UniquefyEnables {
     path_descriptor_infos: BTreeMap<String, PathDescriptorInfo>,
     par_thread_json: Option<OutputFile>,
     par_thread_info: BTreeMap<String, BTreeMap<String, u32>>,
+    // Map to maintain a trackable unique name for every invoke comb group.
+    // Will be cleared out after every component.
+    invoke_cell_to_counter: HashMap<Id, i64>,
 }
 
 impl Named for UniquefyEnables {
@@ -74,10 +80,13 @@ impl ConstructVisitor for UniquefyEnables {
             path_descriptor_infos: BTreeMap::new(),
             par_thread_json: opts[&"par-thread-json"].not_null_outstream(),
             par_thread_info: BTreeMap::new(),
+            invoke_cell_to_counter: HashMap::new(),
         })
     }
 
-    fn clear_data(&mut self) {}
+    fn clear_data(&mut self) {
+        self.invoke_cell_to_counter = HashMap::new();
+    }
 }
 
 fn assign_par_threads_static(
@@ -648,9 +657,18 @@ impl Visitor for UniquefyEnables {
         // invokes need a uniquely named comb group attached to them
         let mut builder = ir::Builder::new(comp, sigs);
         let invoked_cell_name = s.comp.borrow().name();
-        let comb_cell_prefix =
-            format!("invoke_{invoked_cell_name}{UNIQUE_GROUP_SUFFIX}");
+        // pull value from internal unique counter to differentiate between multiple invokes of the same cell.
+        let internal_counter = self
+            .invoke_cell_to_counter
+            .get(&invoked_cell_name)
+            .unwrap_or(&0);
+        let comb_cell_prefix = format!(
+            "invoke_{invoked_cell_name}{internal_counter}{UNIQUE_GROUP_SUFFIX}"
+        );
         let new_comb_group = builder.add_comb_group(comb_cell_prefix);
+        // update internal counter
+        self.invoke_cell_to_counter
+            .insert(invoked_cell_name, *internal_counter + 1);
         if let Some(comb_group_ref) = &s.comb_group {
             // copy assignments over to new group
             for asgn in &comb_group_ref.borrow().assignments {
@@ -671,8 +689,17 @@ impl Visitor for UniquefyEnables {
         // invokes need a uniquely named comb group attached to them
         let mut builder = ir::Builder::new(comp, sigs);
         let invoked_cell_name = s.comp.borrow().name();
-        let comb_cell_prefix =
-            format!("invoke_{invoked_cell_name}{UNIQUE_GROUP_SUFFIX}");
+        // pull value from internal unique counter to differentiate between multiple invokes of the same cell.
+        let internal_counter = self
+            .invoke_cell_to_counter
+            .get(&invoked_cell_name)
+            .unwrap_or(&0);
+        let comb_cell_prefix = format!(
+            "invoke_{invoked_cell_name}{internal_counter}{UNIQUE_GROUP_SUFFIX}"
+        );
+        // update internal counter
+        self.invoke_cell_to_counter
+            .insert(invoked_cell_name, *internal_counter + 1);
         let new_comb_group = builder.add_comb_group(comb_cell_prefix);
         if let Some(comb_group_ref) = &s.comb_group {
             // copy assignments over to new group
