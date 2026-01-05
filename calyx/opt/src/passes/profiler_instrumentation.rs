@@ -751,11 +751,10 @@ impl Visitor for ProfilerInstrumentation {
             if let ir::PortParent::Cell(cell_ref) = &dst_borrow.parent
                 && let calyx_ir::CellType::Primitive { name, .. } =
                     cell_ref.upgrade().borrow().prototype.clone()
+                && primitive_name_set.insert(name)
             {
-                if primitive_name_set.insert(name) {
-                    primitives_invoked_vec
-                        .push((name, *(assignment_ref.guard.clone())));
-                }
+                primitives_invoked_vec
+                    .push((name, *(assignment_ref.guard.clone())));
             }
         }
         let mut primitive_invoke_map: CallsFromGroupMap<Nothing> =
@@ -826,11 +825,10 @@ impl Visitor for ProfilerInstrumentation {
             if let ir::PortParent::Cell(cell_ref) = &dst_borrow.parent
                 && let calyx_ir::CellType::Primitive { name, .. } =
                     cell_ref.upgrade().borrow().prototype.clone()
+                && primitive_name_set.insert(name)
             {
-                if primitive_name_set.insert(name) {
-                    primitives_invoked_vec
-                        .push((name, *(assignment_ref.guard.clone())));
-                }
+                primitives_invoked_vec
+                    .push((name, *(assignment_ref.guard.clone())));
             }
         }
         let mut primitive_invoke_map: CallsFromGroupMap<Nothing> =
