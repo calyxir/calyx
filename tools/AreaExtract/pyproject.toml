@@ -7,7 +7,7 @@ name = "AreaExtract"
 authors = [{ name = "The Calyx Authors" }]
 classifiers = ["License :: OSI Approved :: MIT License"]
 dynamic = ["version", "description"]
-dependencies = []
+dependencies = ["plotly", "numpy"]
 readme = "README.md"
 
 [project.scripts]

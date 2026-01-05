@@ -22,13 +22,13 @@ class VivadoRsrc:
         return getattr(self, item)
 
 
-YosysRsrc : TypeAlias = dict[str, int]
+YosysRsrc: TypeAlias = dict[str, int]
 """
 Yosys resources for a cell, mapping resource name (e.g. "width") to integer value.
 """
 
 
-Rsrc : TypeAlias = VivadoRsrc | YosysRsrc
+Rsrc: TypeAlias = VivadoRsrc | YosysRsrc
 """
 Map representing resources used by a cell.
 """
@@ -60,7 +60,7 @@ class Metadata:
     origin: str
 
 
-Design : TypeAlias = dict[str, Cell]
+Design: TypeAlias = dict[str, Cell]
 """
 Design with qualified cell names and associated cells.
 """
