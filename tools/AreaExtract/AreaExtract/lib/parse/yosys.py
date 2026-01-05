@@ -7,6 +7,7 @@ from AreaExtract.lib.cdf.cdf import (
     Metadata,
     DesignWithMetadata,
 )
+from typing import TypeAlias
 
 toplevel: str = "main"
 
@@ -25,7 +26,7 @@ class CellWithParams:
 """
 Map from modules to cell names to cells with parameters.
 """
-type ModuleCellTypes = dict[str, dict[str, CellWithParams]]
+ModuleCellTypes: TypeAlias = dict[str, dict[str, CellWithParams]]
 
 
 def parse_il_file(path: str) -> ModuleCellTypes:

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import TypeAlias
 
 
 @dataclass
@@ -21,13 +22,13 @@ class VivadoRsrc:
         return getattr(self, item)
 
 
-type YosysRsrc = dict[str, int]
+YosysRsrc : TypeAlias = dict[str, int]
 """
 Yosys resources for a cell, mapping resource name (e.g. "width") to integer value.
 """
 
 
-type Rsrc = VivadoRsrc | YosysRsrc
+Rsrc : TypeAlias = VivadoRsrc | YosysRsrc
 """
 Map representing resources used by a cell.
 """
@@ -59,7 +60,7 @@ class Metadata:
     origin: str
 
 
-type Design = dict[str, Cell]
+Design : TypeAlias = dict[str, Cell]
 """
 Design with qualified cell names and associated cells.
 """
