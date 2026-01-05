@@ -105,6 +105,7 @@ RUN uv pip install ./frontends/mrxl
 RUN uv pip install ./calyx-py
 
 # Install AreaExtract
+# NOTE: should be replaced by `fud2 env init` at some point
 RUN uv pip install ./tools/AreaExtract
 
 # Install Firtool
