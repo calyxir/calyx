@@ -1,0 +1,143 @@
+{
+   "creator": "Yosys 0.55+112 (git sha1 bf9aaac0f, clang++ 18.1.8 -fPIC -O3)",
+   "invocation": "stat -json ",
+   "modules": {
+      "$paramod\\std_reg\\WIDTH=s32'00000000000000000000000000000011": {
+         "num_wires":         8,
+         "num_wire_bits":     14,
+         "num_pub_wires":     6,
+         "num_pub_wire_bits": 10,
+         "num_ports":         6,
+         "num_port_bits":     10,
+         "num_memories":      0,
+         "num_memory_bits":   0,
+         "num_processes":     1,
+         "num_cells":         0,
+         "num_cells_by_type": {
+
+         }
+      },
+      "$paramod\\std_reg\\WIDTH=s32'00000000000000000000000000010000": {
+         "num_wires":         8,
+         "num_wire_bits":     53,
+         "num_pub_wires":     6,
+         "num_pub_wire_bits": 36,
+         "num_ports":         6,
+         "num_port_bits":     36,
+         "num_memories":      0,
+         "num_memory_bits":   0,
+         "num_processes":     1,
+         "num_cells":         0,
+         "num_cells_by_type": {
+
+         }
+      },
+      "$paramod\\std_reg\\WIDTH=s32'00000000000000000000000000100000": {
+         "num_wires":         8,
+         "num_wire_bits":     101,
+         "num_pub_wires":     6,
+         "num_pub_wire_bits": 68,
+         "num_ports":         6,
+         "num_port_bits":     68,
+         "num_memories":      0,
+         "num_memory_bits":   0,
+         "num_processes":     1,
+         "num_cells":         0,
+         "num_cells_by_type": {
+
+         }
+      },
+      "$paramod\\std_wire\\WIDTH=s32'00000000000000000000000000000001": {
+         "num_wires":         2,
+         "num_wire_bits":     2,
+         "num_pub_wires":     2,
+         "num_pub_wire_bits": 2,
+         "num_ports":         2,
+         "num_port_bits":     2,
+         "num_memories":      0,
+         "num_memory_bits":   0,
+         "num_processes":     0,
+         "num_cells":         0,
+         "num_cells_by_type": {
+
+         }
+      },
+      "\\main": {
+         "num_wires":         196,
+         "num_wire_bits":     427,
+         "num_pub_wires":     189,
+         "num_pub_wire_bits": 377,
+         "num_ports":         18,
+         "num_port_bits":     110,
+         "num_memories":      0,
+         "num_memory_bits":   0,
+         "num_processes":     0,
+         "num_cells":         72,
+         "num_cells_by_type": {
+            "$and": 24,
+            "$eq": 6,
+            "$logic_not": 1,
+            "$mux": 10,
+            "$not": 6,
+            "$or": 8,
+            "$paramod\\std_reg\\WIDTH=s32'00000000000000000000000000000011": 1,
+            "$paramod\\std_wire\\WIDTH=s32'00000000000000000000000000000001": 14,
+            "my_reg": 1,
+            "my_reg2": 1
+         }
+      },
+      "\\my_reg": {
+         "num_wires":         20,
+         "num_wire_bits":     144,
+         "num_pub_wires":     20,
+         "num_pub_wire_bits": 144,
+         "num_ports":         6,
+         "num_port_bits":     68,
+         "num_memories":      0,
+         "num_memory_bits":   0,
+         "num_processes":     0,
+         "num_cells":         3,
+         "num_cells_by_type": {
+            "$paramod\\std_reg\\WIDTH=s32'00000000000000000000000000100000": 1,
+            "$paramod\\std_wire\\WIDTH=s32'00000000000000000000000000000001": 2
+         }
+      },
+      "\\my_reg2": {
+         "num_wires":         20,
+         "num_wire_bits":     80,
+         "num_pub_wires":     20,
+         "num_pub_wire_bits": 80,
+         "num_ports":         6,
+         "num_port_bits":     36,
+         "num_memories":      0,
+         "num_memory_bits":   0,
+         "num_processes":     0,
+         "num_cells":         3,
+         "num_cells_by_type": {
+            "$paramod\\std_reg\\WIDTH=s32'00000000000000000000000000010000": 1,
+            "$paramod\\std_wire\\WIDTH=s32'00000000000000000000000000000001": 2
+         }
+      }
+   },
+      "design": {
+         "num_wires":         296,
+         "num_wire_bits":     855,
+         "num_pub_wires":     283,
+         "num_pub_wire_bits": 751,
+         "num_ports":         84,
+         "num_port_bits":     364,
+         "num_memories":      0,
+         "num_memory_bits":   0,
+         "num_processes":     3,
+         "num_cells":         55,
+         "num_cells_by_type": {
+            "$and": 24,
+            "$eq": 6,
+            "$logic_not": 1,
+            "$mux": 10,
+            "$not": 6,
+            "$or": 8
+         }
+      }
+}
+
