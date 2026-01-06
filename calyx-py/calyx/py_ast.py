@@ -56,6 +56,7 @@ class PosTable:
             return None
 
         stacktrace = inspect.stack()
+        # print(stacktrace)
 
         # inspect top frame to determine the path to the calyx-py library
         top = stacktrace[0]
@@ -70,6 +71,12 @@ class PosTable:
             if frame.filename == "<string>":
                 continue
             if not frame.filename.startswith(library_path):
+                user = frame
+                break
+            # workaround for "source" files that live in this directory (e.g. gen_exp.py)
+            if library_path == FILEINFO_BASE_PATH and os.path.basename(
+                frame.filename
+            ) not in ["py_ast.py", "builder.py"]:
                 user = frame
                 break
         if user is None:
