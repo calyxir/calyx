@@ -496,9 +496,7 @@ class CombGroup(Structure):
 
     def doc(self) -> str:
         attribute_annotation = (
-            f'<{GroupAttribute("pos", self.loc).doc()}>'
-            if self.loc is not None 
-            else ""
+            f"<{GroupAttribute('pos', self.loc).doc()}>" if self.loc is not None else ""
         )
         return block(
             f"comb group {self.id.doc()}{attribute_annotation}",
@@ -515,9 +513,7 @@ class StaticGroup(Structure):
 
     def doc(self) -> str:
         attribute_annotation = (
-            f"<{GroupAttribute("pos", self.loc).doc()}>"
-            if self.loc is not None 
-            else ""
+            f"<{GroupAttribute('pos', self.loc).doc()}>" if self.loc is not None else ""
         )
         return block(
             f"static<{self.latency}> group {self.id.doc()}{attribute_annotation}",
