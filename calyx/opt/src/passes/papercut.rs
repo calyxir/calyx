@@ -61,7 +61,7 @@ impl Papercut {
             .join("\n")
     }
 
-    fn report(diag: &mut DiagnosticContext, as_error: bool, err: Error){
+    fn report(diag: &mut DiagnosticContext, as_error: bool, err: Error) {
         if as_error {
             diag.err(err);
         } else {
@@ -158,7 +158,11 @@ impl Visitor for Papercut {
                         });
                     if done_use.is_none() {
                         let err = Error::papercut(format!("Component `{}` has an empty control program and does not assign to the done port `{}`. Without an assignment to the done port, the component cannot return control flow.", comp.name, p.borrow().name)).with_pos(&comp.attributes);
-                        Self::report(&mut self.diag, self.warning_as_error, err);
+                        Self::report(
+                            &mut self.diag,
+                            self.warning_as_error,
+                            err,
+                        );
                     }
                 }
             }
@@ -220,7 +224,11 @@ impl Visitor for Papercut {
                             prim_name
                         );
                         // Use dummy Id to get correct source location for error
-                        Self::report(&mut self.diag, self.warning_as_error, Error::papercut(msg).with_pos(&s.attributes));
+                        Self::report(
+                            &mut self.diag,
+                            self.warning_as_error,
+                            Error::papercut(msg).with_pos(&s.attributes),
+                        );
                     }
                 }
             }
@@ -255,7 +263,11 @@ impl Visitor for Papercut {
                             prim_name
                         );
                         // Use dummy Id to get correct source location for error
-                        Self::report(&mut self.diag, self.warning_as_error, Error::papercut(msg).with_pos(&s.attributes));
+                        Self::report(
+                            &mut self.diag,
+                            self.warning_as_error,
+                            Error::papercut(msg).with_pos(&s.attributes),
+                        );
                     }
                 }
             }
@@ -304,7 +316,11 @@ impl Papercut {
                                         \nThe primitive type `{comp_type}' requires this invariant."
                         );
                         let err = Error::papercut(msg).with_pos(pos);
-                        Self::report(&mut self.diag, self.warning_as_error, err);
+                        Self::report(
+                            &mut self.diag,
+                            self.warning_as_error,
+                            err,
+                        );
                     }
                 }
             }
