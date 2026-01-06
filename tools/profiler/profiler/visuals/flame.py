@@ -77,15 +77,23 @@ class FlameTrace:
 
 
 def create_and_write_calyx_flame_maps(
-    trace: PTrace, out_dir: str, flame_out: str, mode: FlameMapMode = FlameMapMode.CALYX
+    trace: PTrace,
+    out_dir: str,
+    flame_out: str,
+    scaled_flame_out: str = None,
+    mode: FlameMapMode = FlameMapMode.CALYX,
 ) -> tuple[dict[str, int], dict[str, int]]:
     """
     Function to create flame maps for Calyx-style traces.
+    NOTE: consider refactoring so we don't need both `flame_out` and `scaled_flame_out`
+    (Might be worth adding a "prefix" argument to put in front of predetermined flame_out/scaled_flame_out)
     """
     # create string version
     string_trace: list[set[str]] = trace.string_repr(mode)
     flametrace: FlameTrace = FlameTrace(string_trace)
-    flametrace.write_flame_maps(out_dir, flame_out)
+    flametrace.write_flame_maps(
+        out_dir, flame_out, scaled_flame_out_file=scaled_flame_out
+    )
 
 
 def create_and_write_dahlia_flame_maps(
@@ -128,7 +136,7 @@ def create_flame_maps(
     flat_flame_map = {}  # stack to number of cycles
     for i in trace:
         i_trace: CycleTrace = trace[i]
-        for stack_id in i_trace.get_stack_str_list(mode):
+        for stack_id in i_trace.get_stack_str_set(mode):
             if stack_id not in flat_flame_map:
                 flat_flame_map[stack_id] = 1
             else:
@@ -142,7 +150,7 @@ def create_flame_maps(
         cycle_slice = round(1 / num_stacks, 3)
         last_cycle_slice = 1 - (cycle_slice * (num_stacks - 1))
         acc = 0
-        for stack_id in i_trace.get_stack_str_list(mode):
+        for stack_id in i_trace.get_stack_str_set(mode):
             slice_to_add = cycle_slice if acc < num_stacks - 1 else last_cycle_slice
             if stack_id not in scaled_flame_map:
                 scaled_flame_map[stack_id] = slice_to_add * SCALED_FLAME_MULTIPLIER
