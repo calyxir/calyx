@@ -61,11 +61,11 @@ impl Papercut {
             .join("\n")
     }
 
-    fn report(&mut self, err: Error) {
-        if self.warning_as_error {
-            self.diag.err(err);
+    fn report(diag: &mut DiagnosticContext, as_error: bool, err: Error){
+        if as_error {
+            diag.err(err);
         } else {
-            self.diag.warning(err);
+            diag.warning(err);
         }
     }
 }
@@ -157,7 +157,8 @@ impl Visitor for Papercut {
                             assign.name == p.borrow().name && !assign.is_hole()
                         });
                     if done_use.is_none() {
-                        self.report(Error::papercut(format!("Component `{}` has an empty control program and does not assign to the done port `{}`. Without an assignment to the done port, the component cannot return control flow.", comp.name, p.borrow().name)).with_pos(&comp.attributes))
+                        let err = Error::papercut(format!("Component `{}` has an empty control program and does not assign to the done port `{}`. Without an assignment to the done port, the component cannot return control flow.", comp.name, p.borrow().name)).with_pos(&comp.attributes);
+                        Self::report(&mut self.diag, self.warning_as_error, err);
                     }
                 }
             }
@@ -219,9 +220,7 @@ impl Visitor for Papercut {
                             prim_name
                         );
                         // Use dummy Id to get correct source location for error
-                        self.report(
-                            Error::papercut(msg).with_pos(&s.attributes),
-                        );
+                        Self::report(&mut self.diag, self.warning_as_error, Error::papercut(msg).with_pos(&s.attributes));
                     }
                 }
             }
@@ -256,9 +255,7 @@ impl Visitor for Papercut {
                             prim_name
                         );
                         // Use dummy Id to get correct source location for error
-                        self.report(
-                            Error::papercut(msg).with_pos(&s.attributes),
-                        );
+                        Self::report(&mut self.diag, self.warning_as_error, Error::papercut(msg).with_pos(&s.attributes));
                     }
                 }
             }
@@ -287,8 +284,6 @@ impl Papercut {
             .into_grouping_map()
             .collect::<HashSet<_>>();
 
-        let mut errors_to_report = Vec::new();
-
         for ((inst, comp_type), reads) in all_reads {
             if let Some(spec) = self.read_together.get(&comp_type) {
                 let empty = HashSet::new();
@@ -309,7 +304,7 @@ impl Papercut {
                                         \nThe primitive type `{comp_type}' requires this invariant."
                         );
                         let err = Error::papercut(msg).with_pos(pos);
-                        errors_to_report.push(err);
+                        Self::report(&mut self.diag, self.warning_as_error, err);
                     }
                 }
             }
@@ -343,14 +338,9 @@ impl Papercut {
                                  The primitive type `{comp_type}' specifies this using a @write_together spec."
                     );
                     let err = Error::papercut(msg).with_pos(pos);
-                    errors_to_report.push(err);
+                    Self::report(&mut self.diag, self.warning_as_error, err);
                 }
             }
-        }
-
-        // Report all the error
-        for err in errors_to_report {
-            self.report(err);
         }
     }
 }
