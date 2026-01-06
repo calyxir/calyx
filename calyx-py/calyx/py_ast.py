@@ -496,7 +496,7 @@ class CombGroup(Structure):
 
     def doc(self) -> str:
         attribute_annotation = (
-            f"<{GroupAttribute("pos", self.loc).doc()}>"
+            f'<{GroupAttribute("pos", self.loc).doc()}>'
             if self.loc is not None 
             else ""
         )
