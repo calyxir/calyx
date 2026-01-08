@@ -115,6 +115,7 @@ def create_visuals(
         out_dir,
     )
     stats.write_par_stats(tracedata, out_dir)
+    stats.write_total_cycles(tracedata, out_dir)
     print(f"End writing stats: {datetime.now()}")
 
     flame.create_and_write_calyx_flame_maps(
