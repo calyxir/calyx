@@ -749,12 +749,16 @@ impl Visitor for ProfilerInstrumentation {
         for assignment_ref in comb_group.assignments.iter() {
             let dst_borrow = assignment_ref.dst.borrow();
             if let ir::PortParent::Cell(cell_ref) = &dst_borrow.parent
-                && let calyx_ir::CellType::Primitive { name, .. } =
+                && let calyx_ir::CellType::Primitive { .. } =
                     cell_ref.upgrade().borrow().prototype.clone()
-                && primitive_name_set.insert(name)
             {
-                primitives_invoked_vec
-                    .push((name, *(assignment_ref.guard.clone())));
+                let primitive_cell_name = cell_ref.upgrade().borrow().name();
+                if primitive_name_set.insert(primitive_cell_name) {
+                    primitives_invoked_vec.push((
+                        primitive_cell_name,
+                        *(assignment_ref.guard.clone()),
+                    ));
+                }
             }
         }
         let mut primitive_invoke_map: CallsFromGroupMap<Nothing> =
