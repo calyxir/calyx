@@ -657,13 +657,20 @@ impl Visitor for UniquefyEnables {
         // invokes need a uniquely named comb group attached to them
         let mut builder = ir::Builder::new(comp, sigs);
         let invoked_cell_name = s.comp.borrow().name();
+        let invoke_id = if let Some(comb_group_ref) = &s.comb_group {
+            Id::new(format!(
+                "{}_{}",
+                invoked_cell_name,
+                comb_group_ref.borrow().name()
+            ))
+        } else {
+            invoked_cell_name
+        };
         // pull value from internal unique counter to differentiate between multiple invokes of the same cell.
-        let internal_counter = self
-            .invoke_cell_to_counter
-            .get(&invoked_cell_name)
-            .unwrap_or(&0);
+        let internal_counter =
+            self.invoke_cell_to_counter.get(&invoke_id).unwrap_or(&0);
         let comb_cell_prefix = format!(
-            "invoke_{invoked_cell_name}{internal_counter}{UNIQUE_GROUP_SUFFIX}"
+            "invoke_{invoke_id}{internal_counter}{UNIQUE_GROUP_SUFFIX}"
         );
         let new_comb_group = builder.add_comb_group(comb_cell_prefix);
         // update internal counter
