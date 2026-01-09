@@ -1,0 +1,181 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/binary_operators.futil";
+component exponent(base: 32, exp: 4, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+  cells {
+    pow = std_reg(32);
+    count = std_reg(4);
+    mul = std_mult_pipe(32);
+    lt = std_lt(4);
+    incr = std_add(4);
+    const0 = std_const(4, 3);
+  }
+  wires {
+    group init {
+      pow.in = 32'd1;
+      pow.write_en = 1'd1;
+      count.in = 4'd0;
+      count.write_en = 1'd1;
+      init[done] = pow.done & count.done ? 1'd1;
+    }
+    group do_mul {
+      mul.left = base;
+      mul.right = pow.out;
+      mul.go = !mul.done ? 1'd1;
+      pow.in = mul.out;
+      pow.write_en = mul.done;
+      do_mul[done] = pow.done;
+    }
+    group incr_count {
+      incr.left = 4'd1;
+      incr.right = count.out;
+      count.in = incr.out;
+      count.write_en = 1'd1;
+      incr_count[done] = count.done;
+    }
+    group initUG {
+      pow.in = 32'd1;
+      pow.write_en = 1'd1;
+      count.in = 4'd0;
+      count.write_en = 1'd1;
+      initUG[done] = pow.done & count.done ? 1'd1;
+    }
+    group do_mulUG {
+      mul.left = base;
+      mul.right = pow.out;
+      mul.go = !mul.done ? 1'd1;
+      pow.in = mul.out;
+      pow.write_en = mul.done;
+      do_mulUG[done] = pow.done;
+    }
+    group incr_countUG {
+      incr.left = 4'd1;
+      incr.right = count.out;
+      count.in = incr.out;
+      count.write_en = 1'd1;
+      incr_countUG[done] = count.done;
+    }
+    comb group cond {
+      lt.right = exp;
+      lt.left = count.out;
+    }
+    comb group condUG {
+      lt.right = exp;
+      lt.left = count.out;
+    }
+    out = pow.out;
+  }
+  control {
+    seq {
+      initUG;
+      while lt.out with condUG {
+        par {
+          do_mulUG;
+          incr_countUG;
+        }
+      }
+    }
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @external a0 = comb_mem_d1(32, 10, 4);
+    a_read0_0 = std_reg(32);
+    add0 = std_add(4);
+    const0 = std_const(4, 0);
+    const1 = std_const(4, 9);
+    const2 = std_const(4, 1);
+    const3 = std_const(4, 3);
+    exp0 = exponent();
+    i0 = std_reg(4);
+    le0 = std_le(4);
+    tmp_0 = std_reg(32);
+  }
+  wires {
+    group let0 {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    group let1 {
+      tmp_0.in = exp0.out;
+      tmp_0.write_en = 1'd1;
+      let1[done] = tmp_0.done;
+    }
+    group upd0 {
+      a_read0_0.write_en = 1'd1;
+      a0.addr0 = i0.out;
+      a_read0_0.in = a0.read_data;
+      upd0[done] = a_read0_0.done ? 1'd1;
+    }
+    group upd1 {
+      a0.addr0 = i0.out;
+      a0.write_en = 1'd1;
+      a0.write_data = tmp_0.out;
+      upd1[done] = a0.done ? 1'd1;
+    }
+    group upd2 {
+      i0.write_en = 1'd1;
+      add0.left = i0.out;
+      add0.right = const2.out;
+      i0.in = add0.out;
+      upd2[done] = i0.done ? 1'd1;
+    }
+    group let0UG {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0UG[done] = i0.done;
+    }
+    group upd0UG {
+      a_read0_0.write_en = 1'd1;
+      a0.addr0 = i0.out;
+      a_read0_0.in = a0.read_data;
+      upd0UG[done] = a_read0_0.done ? 1'd1;
+    }
+    group let1UG {
+      tmp_0.in = exp0.out;
+      tmp_0.write_en = 1'd1;
+      let1UG[done] = tmp_0.done;
+    }
+    group upd1UG {
+      a0.addr0 = i0.out;
+      a0.write_en = 1'd1;
+      a0.write_data = tmp_0.out;
+      upd1UG[done] = a0.done ? 1'd1;
+    }
+    group upd2UG {
+      i0.write_en = 1'd1;
+      add0.left = i0.out;
+      add0.right = const2.out;
+      i0.in = add0.out;
+      upd2UG[done] = i0.done ? 1'd1;
+    }
+    comb group cond0 {
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    comb group invoke_exp00UG {
+    }
+    comb group cond0UG {
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+  }
+  control {
+    seq {
+      let0UG;
+      while le0.out with cond0UG {
+        seq {
+          upd0UG;
+          invoke exp0(
+            base = a_read0_0.out,
+            exp = const3.out
+          )() with invoke_exp00UG;
+          let1UG;
+          upd1UG;
+          upd2UG;
+        }
+      }
+    }
+  }
+}
