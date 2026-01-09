@@ -56,7 +56,6 @@ class PosTable:
             return None
 
         stacktrace = inspect.stack()
-        # print(stacktrace)
 
         # inspect top frame to determine the path to the calyx-py library
         top = stacktrace[0]
@@ -74,6 +73,7 @@ class PosTable:
                 user = frame
                 break
             # workaround for "source" files that live in this directory (e.g. gen_exp.py)
+            # TODO: we should not be hardcoding the files that "don't count" as source files
             if library_path == FILEINFO_BASE_PATH and os.path.basename(
                 frame.filename
             ) not in ["py_ast.py", "builder.py"]:
