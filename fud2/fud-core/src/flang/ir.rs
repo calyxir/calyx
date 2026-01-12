@@ -1,4 +1,4 @@
-//! An internal representation of flang.
+//! An internal representation of fud2 plans expressed with flang.
 
 use camino::Utf8PathBuf;
 use cranelift_entity::{PrimaryMap, entity_impl};
