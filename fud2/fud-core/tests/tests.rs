@@ -36,8 +36,8 @@ macro_rules! make_test {
 
             impl From<fud_core::flang::Ir> for __TestResp {
                 fn from(value: fud_core::flang::Ir) -> Self {
-                    let inputs = value.inputs().iter().map(|&i| value.path(i).clone()).collect();
-                    let outputs = value.outputs().iter().map(|&i| value.path(i).clone()).collect();
+                    let inputs = value.inputs().iter().map(|&i| value.path(i).to_path_buf()).collect();
+                    let outputs = value.outputs().iter().map(|&i| value.path(i).to_path_buf()).collect();
                     let mut v = vec![];
                     for a in &value {
                         let args = value.to_path_buf_vec(a.args());

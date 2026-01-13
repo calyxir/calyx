@@ -92,7 +92,7 @@ impl Ir {
         self.paths.push(path.to_path_buf())
     }
 
-    pub fn path(&self, r: PathRef) -> &Utf8PathBuf {
+    pub fn path(&self, r: PathRef) -> &Utf8Path {
         &self.paths[r]
     }
 
@@ -143,12 +143,12 @@ impl Ir {
     pub fn to_path_buf(
         &self,
         buf: &[PathRef],
-    ) -> impl Iterator<Item = &Utf8PathBuf> {
+    ) -> impl Iterator<Item = &Utf8Path> {
         buf.iter().map(|&f| self.path(f))
     }
 
     pub fn to_path_buf_vec(&self, buf: &[PathRef]) -> Vec<Utf8PathBuf> {
-        self.to_path_buf(buf).cloned().collect()
+        self.to_path_buf(buf).map(|p| p.to_path_buf()).collect()
     }
 
     pub fn inputs(&self) -> &[PathRef] {
@@ -163,7 +163,7 @@ impl Ir {
         &self.outputs
     }
 
-    pub fn outputs_buf(&self) -> impl Iterator<Item = &Utf8PathBuf> {
+    pub fn outputs_buf(&self) -> impl Iterator<Item = &Utf8Path> {
         self.to_path_buf(self.outputs())
     }
 
@@ -175,7 +175,7 @@ impl Ir {
         &self.stdins
     }
 
-    pub fn stdins_buf(&self) -> impl Iterator<Item = &Utf8PathBuf> {
+    pub fn stdins_buf(&self) -> impl Iterator<Item = &Utf8Path> {
         self.to_path_buf(self.stdins())
     }
 
@@ -187,7 +187,7 @@ impl Ir {
         &self.stdouts
     }
 
-    pub fn stdouts_buf(&self) -> impl Iterator<Item = &Utf8PathBuf> {
+    pub fn stdouts_buf(&self) -> impl Iterator<Item = &Utf8Path> {
         self.to_path_buf(self.stdouts())
     }
 
