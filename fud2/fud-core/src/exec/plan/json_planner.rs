@@ -8,7 +8,7 @@ use cranelift_entity::PrimaryMap;
 
 use crate::{
     exec::{OpRef, Operation, State, StateRef},
-    flang::{self, ast_to_ir},
+    flang::{self, ast_to_plan},
 };
 
 use super::{FindPlan, planner::Request};
@@ -38,7 +38,7 @@ impl FindPlan for JsonPlanner {
             // In summery, it would be nice for planners to return `Result<PlanResp, SomeErrorType>`  so they could
             // better communicate how they fail.
             Err(e) => panic!("{e}"),
-            Ok(p) => Some(ast_to_ir(p, ops)),
+            Ok(p) => Some(ast_to_plan(p, ops)),
         }
     }
 }

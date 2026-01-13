@@ -10,7 +10,7 @@ use crate::{
 use super::{PathRef, Plan, ast};
 
 struct ASTToIr<'a> {
-    ir: Plan,
+    plan: Plan,
     ops: &'a PrimaryMap<OpRef, Operation>,
 }
 
@@ -18,7 +18,7 @@ impl ASTToIr<'_> {
     fn paths_to_refs(&mut self, vars: &Vec<Utf8PathBuf>) -> Vec<PathRef> {
         let mut out = vec![];
         for path in vars {
-            let r = self.ir.path_ref(path);
+            let r = self.plan.path_ref(path);
             out.push(r);
         }
         out
@@ -33,7 +33,7 @@ impl Visitor for ASTToIr<'_> {
         let args = self.paths_to_refs(&a.value.args);
         for (r, op) in self.ops {
             if op.name == a.value.name {
-                self.ir.push_vec(r, args, rets);
+                self.plan.push_vec(r, args, rets);
                 return Self::Result::output();
             }
         }
@@ -41,24 +41,24 @@ impl Visitor for ASTToIr<'_> {
     }
 }
 
-pub fn ast_to_ir(p: &ast::Prog, ops: &PrimaryMap<OpRef, Operation>) -> Plan {
+pub fn ast_to_plan(p: &ast::Prog, ops: &PrimaryMap<OpRef, Operation>) -> Plan {
     let mut visitor = ASTToIr {
-        ir: Plan::new(),
+        plan: Plan::new(),
         ops,
     };
     let res = p.ast.visit(&mut visitor);
     if let ops::ControlFlow::Break(e) = res {
         unimplemented!("{e}");
     }
-    let mut ir = visitor.ir;
-    ir.extend_inputs_buf(&p.inputs);
-    ir.extend_outputs_buf(&p.outputs);
-    ir.extend_stdins_buf(&p.stdins);
-    ir.extend_stdouts_buf(&p.stdouts);
-    ir
+    let mut plan = visitor.plan;
+    plan.extend_inputs_buf(&p.inputs);
+    plan.extend_outputs_buf(&p.outputs);
+    plan.extend_stdins_buf(&p.stdins);
+    plan.extend_stdouts_buf(&p.stdouts);
+    plan
 }
 
-pub fn ir_to_ast(p: &Plan, ops: &PrimaryMap<OpRef, Operation>) -> ast::Prog {
+pub fn plan_to_ast(p: &Plan, ops: &PrimaryMap<OpRef, Operation>) -> ast::Prog {
     let mut assigns = vec![];
     for a in p {
         let vars = p.to_path_buf_vec(a.rets());

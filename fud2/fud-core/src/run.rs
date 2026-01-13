@@ -1,4 +1,4 @@
-use crate::flang::{PathRef, Plan, ir_to_ast};
+use crate::flang::{PathRef, Plan, plan_to_ast};
 use crate::uninterrupt::Uninterrupt;
 use crate::utils::relative_path;
 use crate::{config, log_parser};
@@ -355,7 +355,7 @@ impl<'a> Run<'a> {
 
     /// Emit the sequence of ops used to create a plan as json text
     pub fn show_ops_json(&self) {
-        let ast = ir_to_ast(&self.plan, &self.driver.ops);
+        let ast = plan_to_ast(&self.plan, &self.driver.ops);
         let s = serde_json::to_string_pretty(&ast).unwrap();
         println!("{s}");
     }
