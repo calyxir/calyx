@@ -34,7 +34,10 @@ impl FindPlan for JsonPlanner {
 
         let ast = &serde_json::from_str(&input);
         match ast {
-            Err(e) => unimplemented!("{e}"),
+            // Panicing here isn't great. The open issue to fix this is https://github.com/calyxir/calyx/issues/2610
+            // In summery, it would be nice for planners to return `Result<PlanResp, SomeErrorType>`  so they could
+            // better communicate how they fail.
+            Err(e) => panic!("{e}"),
             Ok(ast) => {
                 let mut ir = ast_to_ir(ast, ops);
                 Some(PlanResp {
