@@ -489,7 +489,7 @@ fn cli_ext<T: CliExt>(
     })?;
 
     // Configure.
-    let mut run = Run::new(driver, plan, config.clone());
+    let mut run = Run::new(driver, plan, req.workdir, config.clone());
 
     // Override some global config options.
     if let Some(keep) = args.keep {

@@ -7,10 +7,10 @@ use crate::{
     flang::ast::{Assignment, Op, Visitable, Visitor, VisitorResult},
 };
 
-use super::{Ir, PathRef, ast};
+use super::{PathRef, Plan, ast};
 
 struct ASTToIr<'a> {
-    ir: Ir,
+    ir: Plan,
     ops: &'a PrimaryMap<OpRef, Operation>,
 }
 
@@ -41,8 +41,11 @@ impl Visitor for ASTToIr<'_> {
     }
 }
 
-pub fn ast_to_ir(p: &ast::Prog, ops: &PrimaryMap<OpRef, Operation>) -> Ir {
-    let mut visitor = ASTToIr { ir: Ir::new(), ops };
+pub fn ast_to_ir(p: &ast::Prog, ops: &PrimaryMap<OpRef, Operation>) -> Plan {
+    let mut visitor = ASTToIr {
+        ir: Plan::new(),
+        ops,
+    };
     let res = p.ast.visit(&mut visitor);
     if let ops::ControlFlow::Break(e) = res {
         unimplemented!("{e}");
@@ -55,7 +58,7 @@ pub fn ast_to_ir(p: &ast::Prog, ops: &PrimaryMap<OpRef, Operation>) -> Ir {
     ir
 }
 
-pub fn ir_to_ast(p: &Ir, ops: &PrimaryMap<OpRef, Operation>) -> ast::Prog {
+pub fn ir_to_ast(p: &Plan, ops: &PrimaryMap<OpRef, Operation>) -> ast::Prog {
     let mut assigns = vec![];
     for a in p {
         let vars = p.to_path_buf_vec(a.rets());

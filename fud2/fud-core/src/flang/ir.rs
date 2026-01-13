@@ -42,7 +42,7 @@ impl Step {
 
 /// The assignment lists of a flang program.
 #[derive(Default, Debug, PartialEq)]
-pub struct Ir {
+pub struct Plan {
     paths: PrimaryMap<PathRef, Utf8PathBuf>,
 
     /// The input files to be read from stdin.
@@ -57,21 +57,21 @@ pub struct Ir {
     /// The output files.
     outputs: Vec<PathRef>,
 
-    /// The list of steps in the IR
+    /// The list of steps in the `Plan`
     steps: Vec<Step>,
 }
 
-impl Ir {
+impl Plan {
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Appends an op to the current IR.
+    /// Appends an op to the current `Plan`.
     pub fn push(&mut self, op: OpRef, args: &[PathRef], rets: &[PathRef]) {
         self.steps.push(Step::from_parts(op, args, rets));
     }
 
-    /// Appends an op to the current IR using Vec args.
+    /// Appends an op to the current `Plan` using Vec args.
     pub fn push_vec(
         &mut self,
         op: OpRef,
@@ -196,7 +196,7 @@ impl Ir {
     }
 }
 
-impl<'a> IntoIterator for &'a Ir {
+impl<'a> IntoIterator for &'a Plan {
     type Item = &'a Step;
     type IntoIter = std::slice::Iter<'a, Step>;
 
@@ -205,7 +205,7 @@ impl<'a> IntoIterator for &'a Ir {
     }
 }
 
-impl IntoIterator for Ir {
+impl IntoIterator for Plan {
     type Item = Step;
     type IntoIter = std::vec::IntoIter<Step>;
 

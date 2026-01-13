@@ -22,7 +22,7 @@ impl FindPlan for JsonPlanner {
         _req: &Request,
         ops: &PrimaryMap<OpRef, Operation>,
         _states: &PrimaryMap<StateRef, State>,
-    ) -> Option<flang::Ir> {
+    ) -> Option<flang::Plan> {
         let _ = _states;
         let mut stdin = io::stdin().lock();
         let mut input = String::new();
@@ -37,7 +37,7 @@ impl FindPlan for JsonPlanner {
             // Panicing here isn't great. The open issue to fix this is https://github.com/calyxir/calyx/issues/2610
             // In summery, it would be nice for planners to return `Result<PlanResp, SomeErrorType>`  so they could
             // better communicate how they fail.
-            Err(e) => unimplemented!("{e}"),
+            Err(e) => panic!("{e}"),
             Ok(p) => Some(ast_to_ir(p, ops)),
         }
     }

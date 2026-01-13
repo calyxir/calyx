@@ -1,5 +1,5 @@
 use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
-use crate::{flang::Ir, run, script, utils};
+use crate::{flang::Plan, run, script, utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::PrimaryMap;
 use rand::distributions::{Alphanumeric, DistString};
@@ -25,27 +25,26 @@ impl Driver {
     /// to the output state. If no such path exists in the operation graph, we return None.
     pub fn plan(&self, req: &Request) -> Option<Plan> {
         // Find a plan through the states.
-        let mut ir =
+        let mut plan =
             req.planner
                 .find_plan(&req.into(), &self.ops, &self.states)?;
 
         // Modify input and output file paths so they are relative to the user's working directory.
-        let paths_to_change = ir
+        let paths_to_change = plan
             .inputs()
             .iter()
-            .chain(ir.outputs().iter())
-            .filter(|f| !ir.stdins().contains(f) && !ir.stdouts().contains(f))
+            .chain(plan.outputs().iter())
+            .filter(|f| {
+                !plan.stdins().contains(f) && !plan.stdouts().contains(f)
+            })
             .copied()
             .collect::<Vec<_>>();
         for r in paths_to_change {
-            let path_name = ir.path(r);
-            ir.set_path(r, utils::relative_path(path_name, &req.workdir));
+            let path_name = plan.path(r);
+            plan.set_path(r, utils::relative_path(path_name, &req.workdir));
         }
 
-        Some(Plan {
-            ir,
-            workdir: req.workdir.clone(),
-        })
+        Some(plan)
     }
 
     /// Infer the state of a file based on its extension.
@@ -331,13 +330,4 @@ impl DriverBuilder {
             rsrc_files: self.rsrc_files,
         }
     }
-}
-
-#[derive(Debug)]
-pub struct Plan {
-    /// The chain of operations to run and each step's input and output files.
-    pub ir: Ir,
-
-    /// The directory that the build will happen in.
-    pub workdir: Utf8PathBuf,
 }

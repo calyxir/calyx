@@ -1,12 +1,13 @@
+use camino::Utf8PathBuf;
 use figment::providers::Format as _;
 use fud_core::{
     Driver, DriverBuilder,
     config::default_config,
     exec::{
-        Plan, Request,
+        Request,
         plan::{EnumeratePlanner, FindPlan, LegacyPlanner},
     },
-    flang::Ir,
+    flang::Plan,
     run::{Run, RunError},
 };
 use itertools::Itertools;
@@ -61,10 +62,15 @@ trait InstaTest: Sized {
     }
 }
 
-impl InstaTest for Plan {
+struct PlanTest {
+    pub plan: Plan,
+    pub workdir: Utf8PathBuf,
+}
+
+impl InstaTest for PlanTest {
     fn desc(&self, driver: &Driver) -> String {
         let ops = self
-            .ir
+            .plan
             .iter()
             .map(|a| driver.ops[a.op_ref()].name.to_string())
             .collect_vec()
@@ -74,7 +80,7 @@ impl InstaTest for Plan {
 
     fn slug(&self, driver: &Driver) -> String {
         let ops = self
-            .ir
+            .plan
             .iter()
             .map(|a| driver.ops[a.op_ref()].name.to_string())
             .collect_vec()
@@ -98,7 +104,7 @@ impl InstaTest for Plan {
             .merge(("synth-verilog.hier", "/test/calyx/non-existent.json"))
             .merge(("synth-verilog.var", "ff"))
             .merge(("c0", "v1"));
-        let run = Run::with_config(driver, self, config);
+        let run = Run::with_config(driver, self.plan, self.workdir, config);
         let mut buf = vec![];
         run.emit(&mut buf).unwrap();
         // turn into string, and remove comments
@@ -112,11 +118,11 @@ impl InstaTest for Plan {
 }
 
 fn emit_with_config(
-    plan: Plan,
+    plan: PlanTest,
     driver: &Driver,
     config: figment::Figment,
 ) -> Result<String, RunError> {
-    let run = Run::with_config(driver, plan, config);
+    let run = Run::with_config(driver, plan.plan, plan.workdir, config);
     let mut buf = vec![];
     run.emit(&mut buf)?;
     Ok(String::from_utf8(buf)
@@ -176,7 +182,11 @@ impl InstaTest for Request {
 
     fn emit(self, driver: &Driver) -> String {
         let plan = driver.plan(&self).unwrap();
-        plan.emit(driver)
+        let test = PlanTest {
+            plan,
+            workdir: self.workdir,
+        };
+        test.emit(driver)
     }
 }
 
@@ -215,17 +225,17 @@ fn request(
 fn all_ops() {
     let driver = test_driver();
     for op in driver.ops.keys() {
-        let mut ir = Ir::new();
-        let input = ir.path_ref("/input.ext".into());
-        let output = ir.path_ref("/output.ext".into());
-        ir.push(op, &[input], &[output]);
-        ir.push_input(input);
-        ir.push_output(output);
-        let plan = Plan {
-            ir,
+        let mut plan = Plan::new();
+        let input = plan.path_ref("/input.ext".into());
+        let output = plan.path_ref("/output.ext".into());
+        plan.push(op, &[input], &[output]);
+        plan.push_input(input);
+        plan.push_output(output);
+        let test = PlanTest {
+            plan,
             workdir: ".".into(),
         };
-        plan.test(&driver);
+        test.test(&driver);
     }
 }
 
@@ -379,8 +389,12 @@ fn emit_bad_config() {
 
     let req = request(&driver, &["dahlia"], &["verilog"], &[]);
     let plan = driver.plan(&req).unwrap();
+    let test = PlanTest {
+        plan,
+        workdir: req.workdir,
+    };
 
-    let err = emit_with_config(plan, &driver, config).unwrap_err();
+    let err = emit_with_config(test, &driver, config).unwrap_err();
     if let RunError::RhaiError(err_str) = err {
         assert!(err_str.contains("missing required config key: dahlia"))
     } else {

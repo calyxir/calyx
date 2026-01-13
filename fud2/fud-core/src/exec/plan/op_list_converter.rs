@@ -3,7 +3,7 @@ use cranelift_entity::{PrimaryMap, SecondaryMap};
 
 use crate::{
     exec::{OpRef, Operation, State, StateRef},
-    flang::Ir,
+    flang::Plan,
 };
 
 use super::planner::Request;
@@ -22,7 +22,7 @@ pub fn prog_from_op_list(
     req: &Request,
     ops: &PrimaryMap<OpRef, Operation>,
     states: &PrimaryMap<StateRef, State>,
-) -> Ir {
+) -> Plan {
     let input_files: SecondaryMap<StateRef, Option<&Utf8PathBuf>> = req
         .start_states
         .iter()
@@ -36,7 +36,7 @@ pub fn prog_from_op_list(
         .zip(req.end_files.iter().map(Some))
         .collect();
 
-    let mut ir = Ir::new();
+    let mut plan = Plan::new();
     let mut state_idx: SecondaryMap<StateRef, u32> = SecondaryMap::new();
     for &(op_ref, ref op_outputs) in op_list {
         let op = &ops[op_ref];
@@ -45,13 +45,13 @@ pub fn prog_from_op_list(
             let r = if let Some(p) = input_files[s]
                 && state_idx[s] == 0
             {
-                let r = ir.path_ref(p);
-                ir.push_input(r);
+                let r = plan.path_ref(p);
+                plan.push_input(r);
                 r
             } else {
                 let empty = "".to_string();
                 let ext = states[s].extensions.first().unwrap_or(&empty);
-                let r = ir.path_ref(
+                let r = plan.path_ref(
                     &Utf8PathBuf::from(format!(
                         "{}_{}",
                         states[s].name, state_idx[s]
@@ -59,8 +59,8 @@ pub fn prog_from_op_list(
                     .with_extension(ext),
                 );
                 if req.start_states.contains(&s) {
-                    ir.push_stdin(r);
-                    ir.push_input(r);
+                    plan.push_stdin(r);
+                    plan.push_input(r);
                 }
                 r
             };
@@ -69,14 +69,14 @@ pub fn prog_from_op_list(
         let mut rets = vec![];
         for &s in op_outputs {
             let r = if let Some(p) = output_files[s] {
-                let r = ir.path_ref(p);
-                ir.push_output(r);
+                let r = plan.path_ref(p);
+                plan.push_output(r);
                 r
             } else {
                 state_idx[s] += 1;
                 let empty = "".to_string();
                 let ext = states[s].extensions.first().unwrap_or(&empty);
-                let r = ir.path_ref(
+                let r = plan.path_ref(
                     &Utf8PathBuf::from(format!(
                         "{}_{}",
                         states[s].name, state_idx[s]
@@ -84,15 +84,15 @@ pub fn prog_from_op_list(
                     .with_extension(ext),
                 );
                 if req.end_states.contains(&s) {
-                    ir.push_stdout(r);
-                    ir.push_output(r);
+                    plan.push_stdout(r);
+                    plan.push_output(r);
                 }
                 r
             };
             rets.push(r);
         }
 
-        ir.push(op_ref, &args, &rets);
+        plan.push(op_ref, &args, &rets);
     }
-    ir
+    plan
 }

@@ -34,8 +34,8 @@ macro_rules! make_test {
                 pub outputs: Vec<camino::Utf8PathBuf>,
             }
 
-            impl From<fud_core::flang::Ir> for __TestResp {
-                fn from(value: fud_core::flang::Ir) -> Self {
+            impl From<fud_core::flang::Plan> for __TestResp {
+                fn from(value: fud_core::flang::Plan) -> Self {
                     let inputs = value.inputs().iter().map(|&i| value.path(i).to_path_buf()).collect();
                     let outputs = value.outputs().iter().map(|&i| value.path(i).to_path_buf()).collect();
                     let mut v = vec![];
@@ -72,7 +72,7 @@ macro_rules! make_test {
                         };
                     let test_resp = $planner.find_plan(&req, &driver.ops, &driver.states);
                     #[allow(unused_mut)]
-                    let mut ir = fud_core::flang::Ir::new();
+                    let mut ir = fud_core::flang::Plan::new();
                     $(
                         $(
                             #[allow(unused)]

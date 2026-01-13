@@ -1,6 +1,6 @@
 use crate::{
     exec::{State, plan::op_list_converter::prog_from_op_list},
-    flang::Ir,
+    flang::Plan,
 };
 
 use super::{
@@ -176,7 +176,7 @@ impl FindPlan for EnumeratePlanner {
         req: &Request,
         ops: &PrimaryMap<OpRef, Operation>,
         states: &PrimaryMap<StateRef, State>,
-    ) -> Option<Ir> {
+    ) -> Option<Plan> {
         Self::find_plan(req.start_states, req.end_states, req.through, ops)
             .map(|plan| prog_from_op_list(&plan, req, ops, states))
     }
