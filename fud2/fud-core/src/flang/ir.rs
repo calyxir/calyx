@@ -82,42 +82,22 @@ impl Ir {
         &self.paths[r]
     }
 
-    pub fn iter<'a>(&'a self) -> Iter<'a> {
-        self.into_iter()
+    pub fn iter(&self) -> impl Iterator<Item = &Step> {
+        self.steps.iter()
     }
-}
-
-pub struct Iter<'a> {
-    ir: &'a Ir,
-    idx: usize,
 }
 
 impl<'a> IntoIterator for &'a Ir {
     type Item = &'a Step;
-
-    type IntoIter = Iter<'a>;
+    type IntoIter = std::slice::Iter<'a, Step>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Self::IntoIter { ir: self, idx: 0 }
-    }
-}
-
-impl<'a> Iterator for Iter<'a> {
-    type Item = &'a Step;
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.idx < self.ir.steps.len() {
-            let out = &self.ir.steps[self.idx];
-            self.idx += 1;
-            Some(out)
-        } else {
-            None
-        }
+        self.steps.iter()
     }
 }
 
 impl IntoIterator for Ir {
     type Item = Step;
-
     type IntoIter = std::vec::IntoIter<Step>;
 
     fn into_iter(self) -> Self::IntoIter {
