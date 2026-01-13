@@ -42,13 +42,13 @@ rule verilator-compile-custom-tb
 rule cp
   command = cp $in $out
 
-build verilog1.sv: calyx calyx0.futil
+build verilog_1.sv: calyx calyx_0.futil
   backend = verilog
-build verilator-out/Vtoplevel: verilator-compile-standalone-tb verilog1.sv | tb.sv
+build verilator-out/Vtoplevel: verilator-compile-standalone-tb verilog_1.sv | tb.sv
   out-dir = verilator-out
-build sim1.exe: cp verilator-out/Vtoplevel
-build sim.log vcd1.vcd: sim-run sim1.exe $datadir
-  bin = sim1.exe
-  args = +NOTRACE=0 +OUT=vcd1.vcd
+build sim_1.exe: cp verilator-out/Vtoplevel
+build sim.log vcd_1.vcd: sim-run sim_1.exe $datadir
+  bin = sim_1.exe
+  args = +NOTRACE=0 +OUT=vcd_1.vcd
 
-default vcd1.vcd
+default vcd_1.vcd

@@ -9,8 +9,8 @@ rule get-rsrc
 rule t2_rule_1
   command = echo five
 build f4 f5: t2_rule_1 $i0
-  i0 = s30
-  o0 = s41
+  i0 = s3_0
+  o0 = s4_1
 
 
-default s41
+default s4_1

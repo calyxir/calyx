@@ -12,6 +12,6 @@ dahlia-args =
 rule dahlia-to-calyx
   command = $dahlia-exe -b calyx --lower -l error $dahlia-args $in > $out
 
-build calyx1.futil: dahlia-to-calyx dahlia0.fuse
+build calyx_1.futil: dahlia-to-calyx dahlia_0.fuse
 
-default calyx1.futil
+default calyx_1.futil

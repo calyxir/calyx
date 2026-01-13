@@ -39,12 +39,12 @@ rule icarus-compile-standalone-tb
 rule icarus-compile-custom-tb
   command = $iverilog -g2012 -s toplevel -o $out tb.sv memories.sv $in
 
-build verilog-noverify1.sv: calyx calyx0.futil
+build verilog-noverify_1.sv: calyx calyx_0.futil
   backend = verilog
   args = --disable-verify $args
-build sim1.exe: icarus-compile-standalone-tb verilog-noverify1.sv | tb.sv
-build sim.log vcd1.vcd: sim-run sim1.exe $datadir
-  bin = sim1.exe
-  args = +NOTRACE=0 +OUT=vcd1.vcd
+build sim_1.exe: icarus-compile-standalone-tb verilog-noverify_1.sv | tb.sv
+build sim.log vcd_1.vcd: sim-run sim_1.exe $datadir
+  bin = sim_1.exe
+  args = +NOTRACE=0 +OUT=vcd_1.vcd
 
-default vcd1.vcd
+default vcd_1.vcd

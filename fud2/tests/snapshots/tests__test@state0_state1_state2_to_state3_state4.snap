@@ -9,21 +9,21 @@ rule get-rsrc
 rule t3_rule_1
   command = echo inputs $i0 $i1 $i2
 build _t3_rule_1.fake: t3_rule_1 $i0 $i1 $i2
-  i0 = state00
-  i1 = state10
-  i2 = state20
-  o0 = state31
-  o1 = state41
+  i0 = state0_0
+  i1 = state1_0
+  i2 = state2_0
+  o0 = state3_1
+  o1 = state4_1
 
 rule t3_rule_2
   command = echo outputs $o0 $o1
 build _t3_rule_2.fake $o0 $o1: t3_rule_2 _t3_rule_1.fake
-  i0 = state00
-  i1 = state10
-  i2 = state20
-  o0 = state31
-  o1 = state41
+  i0 = state0_0
+  i1 = state1_0
+  i2 = state2_0
+  o0 = state3_1
+  o1 = state4_1
 
 
-default state31
-default state41
+default state3_1
+default state4_1

@@ -57,7 +57,7 @@ pub fn resp_from_op_list(
                 let ext = states[s].extensions.first().unwrap_or(&empty);
                 let r = ir.path_ref(
                     &Utf8PathBuf::from(format!(
-                        "{}{}",
+                        "{}_{}",
                         states[s].name, state_idx[s]
                     ))
                     .with_extension(ext),
@@ -82,7 +82,7 @@ pub fn resp_from_op_list(
                 let ext = states[s].extensions.first().unwrap_or(&empty);
                 let r = ir.path_ref(
                     &Utf8PathBuf::from(format!(
-                        "{}{}",
+                        "{}_{}",
                         states[s].name, state_idx[s]
                     ))
                     .with_extension(ext),

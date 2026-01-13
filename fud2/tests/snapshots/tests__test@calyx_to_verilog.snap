@@ -18,7 +18,7 @@ cider-calyx-passes = -p none
 rule calyx-cider
   command = $calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out
 
-build verilog1.sv: calyx calyx0.futil
+build verilog_1.sv: calyx calyx_0.futil
   backend = verilog
 
-default verilog1.sv
+default verilog_1.sv

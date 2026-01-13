@@ -190,8 +190,8 @@ fn find_plan_multi_path_graph() {
             throughs: t4;
             found ir: yes;
             expected ir:
-                s31 = t1(s1);
-                s5 = t4(s31);
+                s3_1 = t1(s1);
+                s5 = t4(s3_1);
             ----------
             planner: path_finder;
             inputs: s1;
@@ -199,8 +199,8 @@ fn find_plan_multi_path_graph() {
             throughs: t5;
             found ir: yes;
             expected ir:
-                s31 = t1(s1);
-                s5 = t5(s31);
+                s3_1 = t1(s1);
+                s5 = t5(s3_1);
             ----------
             planner: path_finder;
             inputs: s6;
@@ -303,8 +303,8 @@ fn find_plan_cycle_graph() {
             throughs:;
             found ir: yes;
             expected ir:
-                s21 = t1(s1);
-                s1 = t2(s21);
+                s2_1 = t1(s1);
+                s1 = t2(s2_1);
         }
     }
 }
@@ -331,8 +331,8 @@ fn find_plan_nontrivial_cycle() {
             throughs:;
             found ir: yes;
             expected ir:
-                s21 = t2(s1);
-                s3 = t3(s21);
+                s2_1 = t2(s1);
+                s3 = t3(s2_1);
         }
     }
 }
@@ -412,10 +412,10 @@ fn op_creating_two_states_not_initial_and_final() {
             throughs:;
             found ir: yes;
             expected ir:
-                s11 = t0(s0);
-                s21, s31 = t1(s11);
-                s4 = t2(s21);
-                s5 = t3(s31);
+                s1_1 = t0(s0);
+                s2_1, s3_1 = t1(s1_1);
+                s4 = t2(s2_1);
+                s5 = t3(s3_1);
         }
     }
 }
@@ -443,10 +443,10 @@ fn op_compressing_two_states_not_initial_and_final() {
             throughs:;
             found ir: yes;
             expected ir:
-                s11 = t0(s0);
-                s31 = t1(s2);
-                s41 = t2(s11, s31);
-                s5 = t3(s41);
+                s1_1 = t0(s0);
+                s3_1 = t1(s2);
+                s4_1 = t2(s1_1, s3_1);
+                s5 = t3(s4_1);
         }
     }
 }

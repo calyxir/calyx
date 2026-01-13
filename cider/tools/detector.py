@@ -64,7 +64,7 @@ def rerun() -> str:
         sys.stderr.flush()
         process.check_returncode()
 
-    with open(Path(WORKDIR_NAME) / Path("dat1.json")) as w:
+    with open(Path(WORKDIR_NAME) / Path("dat_1.json")) as w:
         out = "".join(w.readlines())
 
     return out

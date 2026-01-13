@@ -9,10 +9,10 @@ rule get-rsrc
 rule t2_rule_1
   command = echo -_-
 build _t2_rule_1.fake $o0 $o1: t2_rule_1 $i0
-  i0 = state00
-  o0 = state11
-  o1 = state21
+  i0 = state0_0
+  o0 = state1_1
+  o1 = state2_1
 
 
-default state11
-default state21
+default state1_1
+default state2_1

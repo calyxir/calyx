@@ -11,6 +11,6 @@ mrxl-exe = mrxl
 rule mrxl-to-calyx
   command = $mrxl-exe $in ${mrxl_flags} > $out
 
-build calyx1.futil: mrxl-to-calyx mrxl0.mrxl
+build calyx_1.futil: mrxl-to-calyx mrxl_0.mrxl
 
-default calyx1.futil
+default calyx_1.futil
