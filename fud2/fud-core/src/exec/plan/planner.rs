@@ -20,13 +20,13 @@ pub trait FindPlan: std::fmt::Debug {
     /// `ops` is a complete list of operations.
     fn find_plan(
         &self,
-        req: &PlanReq,
+        req: &Request,
         ops: &PrimaryMap<OpRef, Operation>,
         states: &PrimaryMap<StateRef, State>,
     ) -> Option<PlanResp>;
 }
 
-pub struct PlanReq<'a> {
+pub struct Request<'a> {
     pub start_states: &'a [StateRef],
     pub end_states: &'a [StateRef],
     pub start_files: &'a [Utf8PathBuf],
@@ -47,9 +47,9 @@ pub struct PlanResp {
     pub to_stdout: Vec<PathRef>,
 }
 
-impl<'a> From<&'a exec::Request> for PlanReq<'a> {
+impl<'a> From<&'a exec::Request> for Request<'a> {
     fn from(value: &'a exec::Request) -> Self {
-        PlanReq {
+        Request {
             start_states: &value.start_states,
             end_states: &value.end_states,
             start_files: &value.start_files,

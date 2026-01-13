@@ -11,7 +11,7 @@ use crate::{
     flang::ast_to_ir,
 };
 
-use super::{FindPlan, PlanReq, planner::PlanResp};
+use super::{FindPlan, planner::PlanResp, planner::Request};
 
 #[derive(Debug)]
 pub struct JsonPlanner {}
@@ -19,7 +19,7 @@ pub struct JsonPlanner {}
 impl FindPlan for JsonPlanner {
     fn find_plan(
         &self,
-        req: &PlanReq,
+        req: &Request,
         ops: &PrimaryMap<OpRef, Operation>,
         _states: &PrimaryMap<StateRef, State>,
     ) -> Option<PlanResp> {

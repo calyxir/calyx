@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use cranelift_entity::PrimaryMap;
 use fud_core::{
-    exec::{OpRef, Operation, State, StateRef, plan::PlanReq},
+    exec::{OpRef, Operation, State, StateRef, plan::Request},
     flang::PathRef,
     run::EmitBuildFn,
 };
@@ -69,7 +69,7 @@ impl PlannerTest {
         planner: &dyn fud_core::exec::plan::FindPlan,
     ) -> PlannerTestResult {
         let plan = planner.find_plan(
-            &PlanReq {
+            &Request {
                 start_states: &self.inputs,
                 end_states: &self.outputs,
                 start_files: &[],

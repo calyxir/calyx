@@ -63,7 +63,7 @@ macro_rules! make_test {
                     let start_files = vec![$(camino::Utf8PathBuf::from(stringify!($ins))),+];
                     let end_files = vec![$(camino::Utf8PathBuf::from(stringify!($outs))),+];
                     let req =
-                        fud_core::exec::plan::PlanReq {
+                        fud_core::exec::plan::Request {
                             start_states: &[$($ins),+],
                             end_states: &[$($outs),+],
                             start_files: &start_files,

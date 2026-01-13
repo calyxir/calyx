@@ -6,7 +6,7 @@ use crate::{
     flang::Ir,
 };
 
-use super::{PlanReq, PlanResp};
+use super::{PlanResp, planner::Request};
 
 /// In the past, planners used to return a list of ops and the output states of that op which were
 /// used. It turned out this wasn't enough information and planners also need to assign file paths
@@ -19,7 +19,7 @@ use super::{PlanReq, PlanResp};
 /// know which input or output file should be assigned to the given state.
 pub fn resp_from_op_list(
     op_list: &Vec<(OpRef, Vec<StateRef>)>,
-    req: &PlanReq,
+    req: &Request,
     ops: &PrimaryMap<OpRef, Operation>,
     states: &PrimaryMap<StateRef, State>,
 ) -> PlanResp {
