@@ -1,1 +1,1 @@
-fud2 calyx.futil --to verilog -m json-plan
+fud2 calyx.futil --to verilog -m emit-json

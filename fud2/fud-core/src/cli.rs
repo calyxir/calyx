@@ -166,7 +166,7 @@ pub struct FudArgs<T: CliExt> {
     #[argh(option)]
     to: Vec<String>,
 
-    /// execution mode (run, plan, emit, gen, dot, json-plan)
+    /// execution mode (run, plan, emit, gen, dot, emit-json)
     #[argh(option, short = 'm', default = "Mode::Run")]
     mode: Mode,
 
