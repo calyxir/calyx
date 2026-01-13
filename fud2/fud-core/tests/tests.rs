@@ -1,4 +1,12 @@
-use fud_core::exec::plan::{EnumeratePlanner, FindPlan};
+use cranelift_entity::PrimaryMap;
+use fud_core::{
+    exec::{
+        OpRef, Operation,
+        plan::{EnumeratePlanner, FindPlan},
+    },
+    flang::{PathRef, Plan},
+    run::EmitBuildFn,
+};
 use rand::SeedableRng;
 
 mod graph_gen;
@@ -488,4 +496,113 @@ fn correctness_fuzzing() {
             }
         }
     }
+}
+
+fn dummy_op(name: &str) -> Operation {
+    let emitter: EmitBuildFn = |_, _, _| Ok(());
+    Operation {
+        name: name.to_string(),
+        input: vec![],
+        output: vec![],
+        setups: vec![],
+        emit: Box::new(emitter),
+        source: None,
+    }
+}
+
+fn test_ops() -> (Vec<OpRef>, PrimaryMap<OpRef, Operation>, Plan, Vec<PathRef>)
+{
+    let mut plan = Plan::new();
+    let f: Vec<PathRef> = ["f0", "f1", "f2", "f3"]
+        .into_iter()
+        .map(|s| plan.path_ref(s.into()))
+        .collect();
+    let ops: PrimaryMap<OpRef, Operation> =
+        [dummy_op("op0"), dummy_op("op1"), dummy_op("op2")]
+            .into_iter()
+            .collect();
+    let op = ops.keys().collect();
+    (op, ops, plan, f)
+}
+
+macro_rules! assert_ast_roundtrip_does_nothing {
+    ($plan:expr, $ops:expr) => {
+        let tup_of_plan = |plan: &Plan| {
+            let mut out = vec![];
+            for step in plan {
+                out.push((
+                    step.op_ref(),
+                    step.args()
+                        .iter()
+                        .map(|&r| plan.path(r).to_path_buf())
+                        .collect::<Vec<_>>(),
+                    step.rets()
+                        .iter()
+                        .map(|&r| plan.path(r).to_path_buf())
+                        .collect::<Vec<_>>(),
+                ))
+            }
+            out
+        };
+        let old = tup_of_plan(&$plan);
+        let new_plan = fud_core::flang::ast_to_plan(
+            &fud_core::flang::plan_to_ast(&$plan, &$ops),
+            &$ops,
+        );
+        let new = tup_of_plan(&new_plan);
+        assert_eq!(old, new);
+    };
+}
+
+#[test]
+fn empty_prog_round_trip() {
+    assert_ast_roundtrip_does_nothing!(Plan::new(), PrimaryMap::new());
+}
+
+#[test]
+fn single_op_prog_round_trip() {
+    let (op, ops, mut plan, f) = test_ops();
+    plan.push(op[0], &[f[0]], &[f[1]]);
+    assert_ast_roundtrip_does_nothing!(plan, ops);
+}
+
+#[test]
+fn multi_op_chain_prog_round_trip() {
+    let (op, ops, mut plan, f) = test_ops();
+    plan.push(op[0], &[f[0]], &[f[1]]);
+    plan.push(op[1], &[f[1]], &[f[2]]);
+    assert_ast_roundtrip_does_nothing!(plan, ops);
+}
+
+#[test]
+fn multi_op_chain_with_multiple_rets_prog_round_trip() {
+    let (op, ops, mut plan, f) = test_ops();
+    plan.push(op[0], &[f[0]], &[f[1], f[2]]);
+    plan.push(op[1], &[f[1]], &[f[2], f[3]]);
+    assert_ast_roundtrip_does_nothing!(plan, ops);
+}
+
+#[test]
+fn multi_op_chain_with_multiple_args_prog_round_trip() {
+    let (op, ops, mut plan, f) = test_ops();
+    plan.push(op[0], &[f[0], f[2]], &[f[1]]);
+    plan.push(op[1], &[f[1], f[3]], &[f[2]]);
+    assert_ast_roundtrip_does_nothing!(plan, ops);
+}
+
+#[test]
+fn multi_op_chain_with_multiple_everything_prog_round_trip() {
+    let (op, ops, mut plan, f) = test_ops();
+    plan.push(op[0], &[f[0], f[2]], &[f[1], f[3]]);
+    plan.push(op[1], &[f[1], f[2]], &[f[2], f[1]]);
+    assert_ast_roundtrip_does_nothing!(plan, ops);
+}
+
+#[test]
+fn multi_op_chain_with_some_empty_prog_round_trip() {
+    let (op, ops, mut plan, f) = test_ops();
+    plan.push(op[0], &[], &[f[1], f[3]]);
+    plan.push(op[1], &[f[1], f[2]], &[]);
+    plan.push(op[1], &[], &[]);
+    assert_ast_roundtrip_does_nothing!(plan, ops);
 }
