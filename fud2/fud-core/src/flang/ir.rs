@@ -40,7 +40,7 @@ impl Step {
     }
 }
 
-/// A flang program.
+/// The assignment lists of a flang program.
 #[derive(Default, Debug, PartialEq)]
 pub struct Ir {
     paths: PrimaryMap<PathRef, Utf8PathBuf>,
@@ -82,7 +82,7 @@ impl Ir {
         &self.paths[r]
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &Step> {
+    pub fn iter(&self) -> std::slice::Iter<'_, Step> {
         self.steps.iter()
     }
 }
@@ -102,5 +102,87 @@ impl IntoIterator for Ir {
 
     fn into_iter(self) -> Self::IntoIter {
         self.steps.into_iter()
+    }
+}
+
+/// A flang program, including input/output files and which of those input/output files should be
+/// read from stdio.
+#[derive(Debug, PartialEq)]
+pub struct Prog {
+    /// The input files to be read from stdin.
+    stdins: Vec<PathRef>,
+
+    /// The input files to be written to stdout.
+    stdouts: Vec<PathRef>,
+
+    /// The input files.
+    inputs: Vec<PathRef>,
+
+    /// The output files.
+    outputs: Vec<PathRef>,
+
+    // The flang assignment list.
+    ir: Ir,
+}
+
+impl Prog {
+    pub fn from_parts(
+        stdins: Vec<PathRef>,
+        stdouts: Vec<PathRef>,
+        inputs: Vec<PathRef>,
+        outputs: Vec<PathRef>,
+        ir: Ir,
+    ) -> Self {
+        Self {
+            stdins,
+            stdouts,
+            inputs,
+            outputs,
+            ir,
+        }
+    }
+
+    pub fn path(&self, r: PathRef) -> &Utf8PathBuf {
+        self.ir.path(r)
+    }
+
+    pub fn inputs(&self) -> &[PathRef] {
+        &self.inputs
+    }
+
+    pub fn outputs(&self) -> &[PathRef] {
+        &self.outputs
+    }
+
+    pub fn stdins(&self) -> &[PathRef] {
+        &self.stdins
+    }
+
+    pub fn stdouts(&self) -> &[PathRef] {
+        &self.stdouts
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, Step> {
+        self.ir.iter()
+    }
+}
+
+impl IntoIterator for Prog {
+    type Item = Step;
+
+    type IntoIter = std::vec::IntoIter<Step>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.ir.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a Prog {
+    type Item = &'a Step;
+
+    type IntoIter = std::slice::Iter<'a, Step>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }

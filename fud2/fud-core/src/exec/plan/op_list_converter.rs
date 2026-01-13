@@ -3,10 +3,10 @@ use cranelift_entity::{PrimaryMap, SecondaryMap};
 
 use crate::{
     exec::{OpRef, Operation, State, StateRef},
-    flang::Ir,
+    flang::{Ir, Prog},
 };
 
-use super::{PlanResp, planner::Request};
+use super::planner::Request;
 
 /// In the past, planners used to return a list of ops and the output states of that op which were
 /// used. It turned out this wasn't enough information and planners also need to assign file paths
@@ -17,12 +17,12 @@ use super::{PlanResp, planner::Request};
 /// This conversion makes the assumption that there is only one input or output file for a given
 /// state. This is required as otherwise, as described above, the function would have no way to
 /// know which input or output file should be assigned to the given state.
-pub fn resp_from_op_list(
+pub fn prog_from_op_list(
     op_list: &Vec<(OpRef, Vec<StateRef>)>,
     req: &Request,
     ops: &PrimaryMap<OpRef, Operation>,
     states: &PrimaryMap<StateRef, State>,
-) -> PlanResp {
+) -> Prog {
     let input_files: SecondaryMap<StateRef, Option<&Utf8PathBuf>> = req
         .start_states
         .iter()
@@ -98,11 +98,5 @@ pub fn resp_from_op_list(
 
         ir.push(op_ref, &args, &rets);
     }
-    PlanResp {
-        inputs,
-        outputs,
-        ir,
-        to_stdout,
-        from_stdin,
-    }
+    Prog::from_parts(from_stdin, to_stdout, inputs, outputs, ir)
 }

@@ -8,10 +8,10 @@ use cranelift_entity::PrimaryMap;
 
 use crate::{
     exec::{OpRef, Operation, State, StateRef},
-    flang::ast_to_ir,
+    flang::{self, ast_to_prog},
 };
 
-use super::{FindPlan, planner::PlanResp, planner::Request};
+use super::{FindPlan, planner::Request};
 
 #[derive(Debug)]
 pub struct JsonPlanner {}
@@ -19,10 +19,10 @@ pub struct JsonPlanner {}
 impl FindPlan for JsonPlanner {
     fn find_plan(
         &self,
-        req: &Request,
+        _req: &Request,
         ops: &PrimaryMap<OpRef, Operation>,
         _states: &PrimaryMap<StateRef, State>,
-    ) -> Option<PlanResp> {
+    ) -> Option<flang::Prog> {
         let _ = _states;
         let mut stdin = io::stdin().lock();
         let mut input = String::new();
@@ -37,28 +37,8 @@ impl FindPlan for JsonPlanner {
             // Panicing here isn't great. The open issue to fix this is https://github.com/calyxir/calyx/issues/2610
             // In summery, it would be nice for planners to return `Result<PlanResp, SomeErrorType>`  so they could
             // better communicate how they fail.
-            Err(e) => panic!("{e}"),
-            Ok(ast) => {
-                let mut ir = ast_to_ir(ast, ops);
-                Some(PlanResp {
-                    inputs: req
-                        .start_files
-                        .iter()
-                        .map(|f| ir.path_ref(f))
-                        .collect(),
-                    outputs: req
-                        .end_files
-                        .iter()
-                        .map(|f| ir.path_ref(f))
-                        .collect(),
-                    ir,
-                    // FIXME: Currently there is no way to figure out what should be written to
-                    // stdout or read from stdin just from an IR dump. This is to be resolved in
-                    // [#2568](https://github.com/calyxir/calyx/issues/2568).
-                    to_stdout: vec![],
-                    from_stdin: vec![],
-                })
-            }
+            Err(e) => unimplemented!("{e}"),
+            Ok(p) => Some(ast_to_prog(p, ops)),
         }
     }
 }
