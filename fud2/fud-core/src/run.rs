@@ -1,9 +1,9 @@
-use crate::flang::steps_to_ast;
+use crate::flang::{PathRef, Plan, plan_to_ast};
 use crate::uninterrupt::Uninterrupt;
 use crate::utils::relative_path;
 use crate::{config, log_parser};
 use crate::{
-    exec::{Driver, OpRef, Plan, SetupRef, StateRef},
+    exec::{Driver, OpRef, SetupRef, StateRef},
     log_parser::LogParseError,
 };
 use camino::{Utf8Path, Utf8PathBuf};
@@ -256,6 +256,7 @@ impl EmitSetup for EmitSetupFn {
 pub struct Run<'a> {
     pub driver: &'a Driver,
     pub plan: Plan,
+    pub workdir: Utf8PathBuf,
     pub config_data: figment::Figment,
     pub global_config: config::GlobalConfig,
 }
@@ -264,14 +265,16 @@ impl<'a> Run<'a> {
     pub fn new(
         driver: &'a Driver,
         plan: Plan,
+        workdir: Utf8PathBuf,
         config: figment::Figment,
     ) -> Self {
-        Self::with_config(driver, plan, config)
+        Self::with_config(driver, plan, workdir, config)
     }
 
     pub fn with_config(
         driver: &'a Driver,
         plan: Plan,
+        workdir: Utf8PathBuf,
         config_data: figment::Figment,
     ) -> Self {
         let global_config: config::GlobalConfig =
@@ -279,6 +282,7 @@ impl<'a> Run<'a> {
         Self {
             driver,
             plan,
+            workdir,
             config_data,
             global_config,
         }
@@ -286,20 +290,14 @@ impl<'a> Run<'a> {
 
     /// Just print the plan for debugging purposes.
     pub fn show(self) {
-        for (op, files_in, files_out) in self.plan.steps {
+        let files_string =
+            |v: &[PathRef]| self.plan.to_path_buf_vec(v).into_iter().join(", ");
+        for a in &self.plan {
             println!(
                 "{}: {} -> {}",
-                self.driver.ops[op].name,
-                files_in
-                    .into_iter()
-                    .map(|f| f.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-                files_out
-                    .into_iter()
-                    .map(|f| f.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", "),
+                self.driver.ops[a.op_ref()].name,
+                files_string(a.args()),
+                files_string(a.rets())
             );
         }
     }
@@ -313,17 +311,17 @@ impl<'a> Run<'a> {
         // Record the states and ops that are actually used in the plan.
         let mut states: HashMap<StateRef, String> = HashMap::new();
         let mut ops: HashSet<OpRef> = HashSet::new();
-        for (op_ref, files_in, files_out) in &self.plan.steps {
-            let op = &self.driver.ops[*op_ref];
-            for (s, f) in op.input.iter().zip(files_in.iter()) {
-                let filename = f.to_string();
+        for a in &self.plan {
+            let op = &self.driver.ops[a.op_ref()];
+            for (s, &f) in op.input.iter().zip(a.args().iter()) {
+                let filename = self.plan.path(f);
                 states.insert(*s, filename.to_string());
             }
-            for (s, f) in op.output.iter().zip(files_out.iter()) {
-                let filename = format!("{f}");
+            for (s, &f) in op.output.iter().zip(a.rets().iter()) {
+                let filename = self.plan.path(f);
                 states.insert(*s, filename.to_string());
             }
-            ops.insert(*op_ref);
+            ops.insert(a.op_ref());
         }
 
         // Show all states.
@@ -357,7 +355,7 @@ impl<'a> Run<'a> {
 
     /// Emit the sequence of ops used to create a plan as json text
     pub fn show_ops_json(&self) {
-        let ast = steps_to_ast(&self.plan.steps, &self.driver.ops);
+        let ast = plan_to_ast(&self.plan, &self.driver.ops);
         let s = serde_json::to_string_pretty(&ast).unwrap();
         println!("{s}");
     }
@@ -405,15 +403,9 @@ impl<'a> Run<'a> {
         let dir = self.emit_to_dir(dir)?;
 
         // Capture stdin.
-        for filename in self.plan.inputs.iter().filter_map(|f| {
-            if f.is_from_stdio() {
-                Some(f.filename())
-            } else {
-                None
-            }
-        }) {
+        for filename in self.plan.stdins_buf() {
             let stdin_file =
-                std::fs::File::create(self.plan.workdir.join(filename))?;
+                std::fs::File::create(self.workdir.join(filename))?;
             std::io::copy(
                 &mut std::io::stdin(),
                 &mut std::io::BufWriter::new(stdin_file),
@@ -449,15 +441,9 @@ impl<'a> Run<'a> {
         // Emit to stdout, only when Ninja succeeded.
         if status.success() {
             // Outputs results to stdio if tagged as such.
-            for filename in self.plan.results.iter().filter_map(|f| {
-                if f.is_from_stdio() {
-                    Some(f.filename())
-                } else {
-                    None
-                }
-            }) {
+            for filename in self.plan.stdouts_buf() {
                 let stdout_files =
-                    std::fs::File::open(self.plan.workdir.join(filename))
+                    std::fs::File::open(self.workdir.join(filename))
                         // The output file we're emitting to stdout should exist. If it doesn't,
                         // some op didn't produce the output file it claimed to.
                         .map_err(|e| if let std::io::ErrorKind::NotFound = e.kind() {
@@ -488,7 +474,7 @@ impl<'a> Run<'a> {
         let mut emitter = StreamEmitter::new(
             out,
             self.config_data.clone(),
-            self.plan.workdir.clone(),
+            self.workdir.clone(),
         );
 
         // Emit preamble.
@@ -498,8 +484,8 @@ impl<'a> Run<'a> {
 
         // Emit the setup for each operation used in the plan, only once.
         let mut done_setups = HashSet::<SetupRef>::new();
-        for (op, _, _) in &self.plan.steps {
-            for setup in &self.driver.ops[*op].setups {
+        for a in &self.plan {
+            for setup in &self.driver.ops[a.op_ref()].setups {
                 if done_setups.insert(*setup) {
                     let setup = &self.driver.setups[*setup];
                     writeln!(emitter.out, "# {}", setup.name)?;
@@ -510,28 +496,26 @@ impl<'a> Run<'a> {
         }
 
         // Emit the build commands for each step in the plan.
+        let to_str_buf = |v: &[PathRef]| {
+            self.plan
+                .to_path_buf(v)
+                .map(|f| f.as_str())
+                .collect::<Vec<_>>()
+        };
         emitter.comment("build targets")?;
-        for (op, in_files, out_files) in &self.plan.steps {
-            let op = &self.driver.ops[*op];
+        for a in &self.plan {
+            let op = &self.driver.ops[a.op_ref()];
             op.emit.build(
                 &mut emitter,
-                in_files
-                    .iter()
-                    .map(|io| io.as_str())
-                    .collect::<Vec<_>>()
-                    .as_slice(),
-                out_files
-                    .iter()
-                    .map(|io| io.as_str())
-                    .collect::<Vec<_>>()
-                    .as_slice(),
+                &to_str_buf(a.args()),
+                &to_str_buf(a.rets()),
             )?;
         }
         writeln!(emitter.out)?;
 
         // Mark the last file as the default targets.
-        for result in &self.plan.results {
-            writeln!(emitter.out, "default {}", result.filename())?;
+        for result in self.plan.outputs_buf() {
+            writeln!(emitter.out, "default {result}")?;
         }
 
         Ok(())

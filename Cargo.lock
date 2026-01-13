@@ -1287,6 +1287,7 @@ version = "0.0.2"
 dependencies = [
  "anyhow",
  "argh",
+ "camino",
  "figment",
  "fud-core",
  "include_dir",

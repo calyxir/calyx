@@ -1,5 +1,5 @@
 use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
-use crate::{flang::PathRef, run, script, utils};
+use crate::{flang::Plan, run, script, utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::PrimaryMap;
 use rand::distributions::{Alphanumeric, DistString};
@@ -25,66 +25,26 @@ impl Driver {
     /// to the output state. If no such path exists in the operation graph, we return None.
     pub fn plan(&self, req: &Request) -> Option<Plan> {
         // Find a plan through the states.
-        let resp =
+        let mut plan =
             req.planner
                 .find_plan(&req.into(), &self.ops, &self.states)?;
 
-        // Input and output files should have their paths relative to the user running `fud2`
-        // instead of the working directory. This gets the path of any `PathRef` `r` from `resp`
-        // and if that `r` is an input or output it augments the path to be relative to the user.
-        let get_path = |r: &PathRef| {
-            let p = resp.ir.path(*r).clone();
-            if (resp.inputs.contains(r) || resp.outputs.contains(r))
-                && (!resp.to_stdout.contains(r) && !resp.from_stdin.contains(r))
-            {
-                utils::relative_path(&p, &req.workdir)
-            } else {
-                p
-            }
-        };
-
-        // Convert response in flang into a list of ops an their input/output file paths.
-        let steps = resp
-            .ir
+        // Modify input and output file paths so they are relative to the user's working directory.
+        let paths_to_change = plan
+            .inputs()
             .iter()
-            .map(|assign| {
-                (
-                    assign.op_ref(),
-                    assign.args().iter().map(get_path).collect(),
-                    assign.rets().iter().map(get_path).collect(),
-                )
+            .chain(plan.outputs().iter())
+            .filter(|f| {
+                !plan.stdins().contains(f) && !plan.stdouts().contains(f)
             })
-            .collect();
+            .copied()
+            .collect::<Vec<_>>();
+        for r in paths_to_change {
+            let path_name = plan.path(r);
+            plan.set_path(r, utils::relative_path(path_name, &req.workdir));
+        }
 
-        // Gets the path of an input and tags it if it is a file or is read/written to stdio. If
-        // the path represents a file, it should be relative to the user, so this it's path is
-        // modified to be relative to the user instead of the working directory.
-        let get_io = |r: PathRef, stdios: &[PathRef]| {
-            let p = resp.ir.path(r).clone();
-            if stdios.contains(&r) {
-                IO::StdIO(p)
-            } else {
-                IO::File(utils::relative_path(&p, &req.workdir))
-            }
-        };
-
-        let inputs = resp
-            .inputs
-            .into_iter()
-            .map(|r| get_io(r, &resp.from_stdin))
-            .collect();
-
-        let results = resp
-            .outputs
-            .into_iter()
-            .map(|r| get_io(r, &resp.to_stdout))
-            .collect();
-        Some(Plan {
-            steps,
-            inputs,
-            results,
-            workdir: req.workdir.clone(),
-        })
+        Some(plan)
     }
 
     /// Infer the state of a file based on its extension.
@@ -370,54 +330,4 @@ impl DriverBuilder {
             rsrc_files: self.rsrc_files,
         }
     }
-}
-
-/// A file tagged with its input source.
-#[derive(Debug, Clone)]
-pub enum IO {
-    /// A file at a given path which is to be read from stdin or output to stdout.
-    StdIO(Utf8PathBuf),
-    /// A file at a given path which need not be read from stdin or output ot stdout.
-    File(Utf8PathBuf),
-}
-
-impl IO {
-    /// Returns the filename of the file `self` represents
-    pub fn filename(&self) -> &Utf8PathBuf {
-        match self {
-            Self::StdIO(p) => p,
-            Self::File(p) => p,
-        }
-    }
-
-    /// Returns if `self` is a `StdIO`.
-    pub fn is_from_stdio(&self) -> bool {
-        match self {
-            Self::StdIO(_) => true,
-            Self::File(_) => false,
-        }
-    }
-}
-
-impl Display for IO {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.filename())
-    }
-}
-
-#[derive(Debug)]
-pub struct Plan {
-    /// The chain of operations to run and each step's input and output files.
-    pub steps: Vec<(OpRef, Vec<Utf8PathBuf>, Vec<Utf8PathBuf>)>,
-
-    /// The inputs used to generate the results.
-    /// Earlier elements of inputs should be read before later ones.
-    pub inputs: Vec<IO>,
-
-    /// The resulting files of the plan.
-    /// Earlier elements of inputs should be written before later ones.
-    pub results: Vec<IO>,
-
-    /// The directory that the build will happen in.
-    pub workdir: Utf8PathBuf,
 }

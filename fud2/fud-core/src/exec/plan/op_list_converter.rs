@@ -3,10 +3,10 @@ use cranelift_entity::{PrimaryMap, SecondaryMap};
 
 use crate::{
     exec::{OpRef, Operation, State, StateRef},
-    flang::Ir,
+    flang::Plan,
 };
 
-use super::{PlanResp, planner::Request};
+use super::planner::Request;
 
 /// In the past, planners used to return a list of ops and the output states of that op which were
 /// used. It turned out this wasn't enough information and planners also need to assign file paths
@@ -17,12 +17,12 @@ use super::{PlanResp, planner::Request};
 /// This conversion makes the assumption that there is only one input or output file for a given
 /// state. This is required as otherwise, as described above, the function would have no way to
 /// know which input or output file should be assigned to the given state.
-pub fn resp_from_op_list(
+pub fn prog_from_op_list(
     op_list: &Vec<(OpRef, Vec<StateRef>)>,
     req: &Request,
     ops: &PrimaryMap<OpRef, Operation>,
     states: &PrimaryMap<StateRef, State>,
-) -> PlanResp {
+) -> Plan {
     let input_files: SecondaryMap<StateRef, Option<&Utf8PathBuf>> = req
         .start_states
         .iter()
@@ -36,11 +36,7 @@ pub fn resp_from_op_list(
         .zip(req.end_files.iter().map(Some))
         .collect();
 
-    let mut ir = Ir::new();
-    let mut inputs = vec![];
-    let mut outputs = vec![];
-    let mut from_stdin = vec![];
-    let mut to_stdout = vec![];
+    let mut plan = Plan::new();
     let mut state_idx: SecondaryMap<StateRef, u32> = SecondaryMap::new();
     for &(op_ref, ref op_outputs) in op_list {
         let op = &ops[op_ref];
@@ -49,22 +45,22 @@ pub fn resp_from_op_list(
             let r = if let Some(p) = input_files[s]
                 && state_idx[s] == 0
             {
-                let r = ir.path_ref(p);
-                inputs.push(r);
+                let r = plan.path_ref(p);
+                plan.push_input(r);
                 r
             } else {
                 let empty = "".to_string();
                 let ext = states[s].extensions.first().unwrap_or(&empty);
-                let r = ir.path_ref(
+                let r = plan.path_ref(
                     &Utf8PathBuf::from(format!(
                         "{}_{}",
                         states[s].name, state_idx[s]
                     ))
                     .with_extension(ext),
                 );
-                if req.start_states.contains(&s) && state_idx[s] == 0 {
-                    from_stdin.push(r);
-                    inputs.push(r);
+                if req.start_states.contains(&s) {
+                    plan.push_stdin(r);
+                    plan.push_input(r);
                 }
                 r
             };
@@ -73,14 +69,14 @@ pub fn resp_from_op_list(
         let mut rets = vec![];
         for &s in op_outputs {
             let r = if let Some(p) = output_files[s] {
-                let r = ir.path_ref(p);
-                outputs.push(r);
+                let r = plan.path_ref(p);
+                plan.push_output(r);
                 r
             } else {
                 state_idx[s] += 1;
                 let empty = "".to_string();
                 let ext = states[s].extensions.first().unwrap_or(&empty);
-                let r = ir.path_ref(
+                let r = plan.path_ref(
                     &Utf8PathBuf::from(format!(
                         "{}_{}",
                         states[s].name, state_idx[s]
@@ -88,21 +84,15 @@ pub fn resp_from_op_list(
                     .with_extension(ext),
                 );
                 if req.end_states.contains(&s) {
-                    to_stdout.push(r);
-                    outputs.push(r);
+                    plan.push_stdout(r);
+                    plan.push_output(r);
                 }
                 r
             };
             rets.push(r);
         }
 
-        ir.push(op_ref, &args, &rets);
+        plan.push(op_ref, &args, &rets);
     }
-    PlanResp {
-        inputs,
-        outputs,
-        ir,
-        to_stdout,
-        from_stdin,
-    }
+    plan
 }

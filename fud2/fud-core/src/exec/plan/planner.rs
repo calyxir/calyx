@@ -3,7 +3,7 @@ use cranelift_entity::PrimaryMap;
 
 use crate::{
     exec::{self, State},
-    flang::{Ir, PathRef},
+    flang::Plan,
 };
 
 use super::super::{OpRef, Operation, StateRef};
@@ -23,7 +23,7 @@ pub trait FindPlan: std::fmt::Debug {
         req: &Request,
         ops: &PrimaryMap<OpRef, Operation>,
         states: &PrimaryMap<StateRef, State>,
-    ) -> Option<PlanResp>;
+    ) -> Option<Plan>;
 }
 
 pub struct Request<'a> {
@@ -32,19 +32,6 @@ pub struct Request<'a> {
     pub start_files: &'a [Utf8PathBuf],
     pub end_files: &'a [Utf8PathBuf],
     pub through: &'a [OpRef],
-}
-
-#[derive(Debug, PartialEq)]
-pub struct PlanResp {
-    pub ir: Ir,
-    /// The input paths for `ir`.
-    pub inputs: Vec<PathRef>,
-    /// The output paths for `ir`.
-    pub outputs: Vec<PathRef>,
-    /// The paths in `inputs` which should be read from stdin.
-    pub from_stdin: Vec<PathRef>,
-    /// The paths in `outputs` which should be written to stdout.
-    pub to_stdout: Vec<PathRef>,
 }
 
 impl<'a> From<&'a exec::Request> for Request<'a> {

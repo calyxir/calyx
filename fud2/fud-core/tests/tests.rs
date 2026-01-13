@@ -1,4 +1,12 @@
-use fud_core::exec::plan::{EnumeratePlanner, FindPlan};
+use cranelift_entity::PrimaryMap;
+use fud_core::{
+    exec::{
+        OpRef, Operation,
+        plan::{EnumeratePlanner, FindPlan},
+    },
+    flang::{PathRef, Plan},
+    run::EmitBuildFn,
+};
 use rand::SeedableRng;
 
 mod graph_gen;
@@ -34,14 +42,14 @@ macro_rules! make_test {
                 pub outputs: Vec<camino::Utf8PathBuf>,
             }
 
-            impl From<fud_core::exec::plan::PlanResp> for __TestResp {
-                fn from(value: fud_core::exec::plan::PlanResp) -> Self {
-                    let inputs = value.inputs.into_iter().map(|i| value.ir.path(i).clone()).collect();
-                    let outputs = value.outputs.into_iter().map(|i| value.ir.path(i).clone()).collect();
+            impl From<fud_core::flang::Plan> for __TestResp {
+                fn from(value: fud_core::flang::Plan) -> Self {
+                    let inputs = value.inputs().iter().map(|&i| value.path(i).to_path_buf()).collect();
+                    let outputs = value.outputs().iter().map(|&i| value.path(i).to_path_buf()).collect();
                     let mut v = vec![];
-                    for a in &value.ir {
-                        let args = a.args().iter().map(|&a| value.ir.path(a)).cloned().collect();
-                        let rets = a.rets().iter().map(|&a| value.ir.path(a)).cloned().collect();
+                    for a in &value {
+                        let args = value.to_path_buf_vec(a.args());
+                        let rets = value.to_path_buf_vec(a.rets());
                         v.push((a.op_ref(), args, rets));
                     }
                     Self { ir: v, inputs, outputs }
@@ -72,7 +80,7 @@ macro_rules! make_test {
                         };
                     let test_resp = $planner.find_plan(&req, &driver.ops, &driver.states);
                     #[allow(unused_mut)]
-                    let mut ir = fud_core::flang::Ir::new();
+                    let mut ir = fud_core::flang::Plan::new();
                     $(
                         $(
                             #[allow(unused)]
@@ -83,8 +91,8 @@ macro_rules! make_test {
                     $(ir.push($io, &[$($arg),+], &[$($var),+]);)*
                     let mut v = vec![];
                     for a in &ir {
-                        let args = a.args().iter().map(|&a| ir.path(a)).cloned().collect();
-                        let rets = a.rets().iter().map(|&a| ir.path(a)).cloned().collect();
+                        let args = ir.to_path_buf_vec(a.args());
+                        let rets = ir.to_path_buf_vec(a.rets());
                         v.push((a.op_ref(), args, rets));
                     }
                     let expected_resp = __TestResp {
@@ -488,4 +496,113 @@ fn correctness_fuzzing() {
             }
         }
     }
+}
+
+fn dummy_op(name: &str) -> Operation {
+    let emitter: EmitBuildFn = |_, _, _| Ok(());
+    Operation {
+        name: name.to_string(),
+        input: vec![],
+        output: vec![],
+        setups: vec![],
+        emit: Box::new(emitter),
+        source: None,
+    }
+}
+
+fn test_ops() -> (Vec<OpRef>, PrimaryMap<OpRef, Operation>, Plan, Vec<PathRef>)
+{
+    let mut plan = Plan::new();
+    let f: Vec<PathRef> = ["f0", "f1", "f2", "f3"]
+        .into_iter()
+        .map(|s| plan.path_ref(s.into()))
+        .collect();
+    let ops: PrimaryMap<OpRef, Operation> =
+        [dummy_op("op0"), dummy_op("op1"), dummy_op("op2")]
+            .into_iter()
+            .collect();
+    let op = ops.keys().collect();
+    (op, ops, plan, f)
+}
+
+macro_rules! assert_ast_roundtrip_does_nothing {
+    ($plan:expr, $ops:expr) => {
+        let tup_of_plan = |plan: &Plan| {
+            let mut out = vec![];
+            for step in plan {
+                out.push((
+                    step.op_ref(),
+                    step.args()
+                        .iter()
+                        .map(|&r| plan.path(r).to_path_buf())
+                        .collect::<Vec<_>>(),
+                    step.rets()
+                        .iter()
+                        .map(|&r| plan.path(r).to_path_buf())
+                        .collect::<Vec<_>>(),
+                ))
+            }
+            out
+        };
+        let old = tup_of_plan(&$plan);
+        let new_plan = fud_core::flang::ast_to_plan(
+            &fud_core::flang::plan_to_ast(&$plan, &$ops),
+            &$ops,
+        );
+        let new = tup_of_plan(&new_plan);
+        assert_eq!(old, new);
+    };
+}
+
+#[test]
+fn empty_prog_round_trip() {
+    assert_ast_roundtrip_does_nothing!(Plan::new(), PrimaryMap::new());
+}
+
+#[test]
+fn single_op_prog_round_trip() {
+    let (op, ops, mut plan, f) = test_ops();
+    plan.push(op[0], &[f[0]], &[f[1]]);
+    assert_ast_roundtrip_does_nothing!(plan, ops);
+}
+
+#[test]
+fn multi_op_chain_prog_round_trip() {
+    let (op, ops, mut plan, f) = test_ops();
+    plan.push(op[0], &[f[0]], &[f[1]]);
+    plan.push(op[1], &[f[1]], &[f[2]]);
+    assert_ast_roundtrip_does_nothing!(plan, ops);
+}
+
+#[test]
+fn multi_op_chain_with_multiple_rets_prog_round_trip() {
+    let (op, ops, mut plan, f) = test_ops();
+    plan.push(op[0], &[f[0]], &[f[1], f[2]]);
+    plan.push(op[1], &[f[1]], &[f[2], f[3]]);
+    assert_ast_roundtrip_does_nothing!(plan, ops);
+}
+
+#[test]
+fn multi_op_chain_with_multiple_args_prog_round_trip() {
+    let (op, ops, mut plan, f) = test_ops();
+    plan.push(op[0], &[f[0], f[2]], &[f[1]]);
+    plan.push(op[1], &[f[1], f[3]], &[f[2]]);
+    assert_ast_roundtrip_does_nothing!(plan, ops);
+}
+
+#[test]
+fn multi_op_chain_with_multiple_everything_prog_round_trip() {
+    let (op, ops, mut plan, f) = test_ops();
+    plan.push(op[0], &[f[0], f[2]], &[f[1], f[3]]);
+    plan.push(op[1], &[f[1], f[2]], &[f[2], f[1]]);
+    assert_ast_roundtrip_does_nothing!(plan, ops);
+}
+
+#[test]
+fn multi_op_chain_with_some_empty_prog_round_trip() {
+    let (op, ops, mut plan, f) = test_ops();
+    plan.push(op[0], &[], &[f[1], f[3]]);
+    plan.push(op[1], &[f[1], f[2]], &[]);
+    plan.push(op[1], &[], &[]);
+    assert_ast_roundtrip_does_nothing!(plan, ops);
 }

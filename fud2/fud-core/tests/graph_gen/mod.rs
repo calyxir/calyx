@@ -83,14 +83,14 @@ impl PlannerTest {
         if let Some(plan) = plan {
             // Simulate the plan to see if it is valid.
             let mut cur_files: BTreeSet<PathRef> =
-                BTreeSet::from_iter(plan.inputs);
-            for a in plan.ir {
+                BTreeSet::from_iter(plan.inputs().iter().copied());
+            for a in &plan {
                 if !a.args().iter().all(|p| cur_files.contains(p)) {
                     return PlannerTestResult::FoundInvalidPlan;
                 }
                 cur_files.extend(a.rets());
             }
-            if plan.outputs.iter().all(|p| cur_files.contains(p)) {
+            if plan.outputs().iter().all(|p| cur_files.contains(p)) {
                 PlannerTestResult::FoundValidPlan
             } else {
                 PlannerTestResult::FoundInvalidPlan
