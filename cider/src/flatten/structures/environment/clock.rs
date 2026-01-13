@@ -25,7 +25,7 @@ use cider_idx::{
     impl_index_nonzero,
     maps::{IndexedMap, SecondarySparseMap},
 };
-use fxhash::{FxHashMap, FxHashSet};
+use rustc_hash::{FxHashMap, FxHashSet};
 use thiserror::Error;
 
 use super::Environment;
@@ -643,19 +643,16 @@ where
         // not sure if it's better to do extra redundant comparisons or incur
         // the cost of the `unique` call. Something to investigate in the future
 
-        let mut set = FxHashSet::with_capacity(self.map.len());
-        set.extend(self.map.keys());
-        set.extend(other.map.keys());
-        let iter =
-            set.into_iter()
-                .map(|id| match (self.get(id), other.get(id)) {
-                    (None, Some(count_other)) => C::default().cmp(count_other),
-                    (Some(count_self), None) => count_self.cmp(&C::default()),
-                    (Some(count_self), Some(count_other)) => {
-                        count_self.cmp(count_other)
-                    }
-                    (None, None) => unreachable!(),
-                });
+        let iter = self.map.keys().chain(other.map.keys()).map(|id| {
+            match (self.get(id), other.get(id)) {
+                (None, Some(count_other)) => C::default().cmp(count_other),
+                (Some(count_self), None) => count_self.cmp(&C::default()),
+                (Some(count_self), Some(count_other)) => {
+                    count_self.cmp(count_other)
+                }
+                (None, None) => unreachable!(),
+            }
+        });
 
         let mut current_answer = None;
         for cmp in iter {
