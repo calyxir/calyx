@@ -33,3 +33,4 @@ path = "src/main.rs"
 insta = "1.36.0"
 itertools.workspace = true
 figment = { version = "0.10.12", features = ["toml"] }
+camino = "1.1.6"

@@ -166,7 +166,7 @@ pub struct FudArgs<T: CliExt> {
     #[argh(option)]
     to: Vec<String>,
 
-    /// execution mode (run, plan, emit, gen, dot, json-plan)
+    /// execution mode (run, plan, emit, gen, dot, emit-json)
     #[argh(option, short = 'm', default = "Mode::Run")]
     mode: Mode,
 
@@ -489,7 +489,7 @@ fn cli_ext<T: CliExt>(
     })?;
 
     // Configure.
-    let mut run = Run::new(driver, plan, config.clone());
+    let mut run = Run::new(driver, plan, req.workdir, config.clone());
 
     // Override some global config options.
     if let Some(keep) = args.keep {
