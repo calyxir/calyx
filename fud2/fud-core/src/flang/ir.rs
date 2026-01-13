@@ -10,13 +10,14 @@ pub struct PathRef(u32);
 entity_impl!(PathRef, "path");
 
 #[derive(Debug, PartialEq)]
-pub struct IrAssign {
+/// A `Step` is a call to an op taking in the files `args` and assigning the results to the files `rets`.
+pub struct Step {
     op: OpRef,
     args: Vec<PathRef>,
     rets: Vec<PathRef>,
 }
 
-impl IrAssign {
+impl Step {
     pub fn op_ref(&self) -> OpRef {
         self.op
     }
@@ -30,7 +31,7 @@ impl IrAssign {
     }
 }
 
-impl IrAssign {
+impl Step {
     fn from_parts(op: OpRef, args: &[PathRef], rets: &[PathRef]) -> Self {
         Self::from_vecs(op, args.to_vec(), rets.to_vec())
     }
@@ -43,7 +44,7 @@ impl IrAssign {
 #[derive(Default, Debug, PartialEq)]
 pub struct Ir {
     paths: PrimaryMap<PathRef, Utf8PathBuf>,
-    assignments: Vec<IrAssign>,
+    steps: Vec<Step>,
 }
 
 impl Ir {
@@ -51,19 +52,19 @@ impl Ir {
         Self::default()
     }
 
-    /// Appends an assignment to the current IR.
+    /// Appends an op to the current IR.
     pub fn push(&mut self, op: OpRef, args: &[PathRef], rets: &[PathRef]) {
-        self.assignments.push(IrAssign::from_parts(op, args, rets));
+        self.steps.push(Step::from_parts(op, args, rets));
     }
 
-    /// Appends an assignment to the current IR using Vec args.
+    /// Appends an op to the current IR using Vec args.
     pub fn push_vec(
         &mut self,
         op: OpRef,
         args: Vec<PathRef>,
         rets: Vec<PathRef>,
     ) {
-        self.assignments.push(IrAssign::from_vecs(op, args, rets));
+        self.steps.push(Step::from_vecs(op, args, rets));
     }
 
     /// Gets a `PathRef` give a reference to a `path`. If none is found, a new reference is
@@ -92,7 +93,7 @@ pub struct Iter<'a> {
 }
 
 impl<'a> IntoIterator for &'a Ir {
-    type Item = &'a IrAssign;
+    type Item = &'a Step;
 
     type IntoIter = Iter<'a>;
 
@@ -102,10 +103,10 @@ impl<'a> IntoIterator for &'a Ir {
 }
 
 impl<'a> Iterator for Iter<'a> {
-    type Item = &'a IrAssign;
+    type Item = &'a Step;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.idx < self.ir.assignments.len() {
-            let out = &self.ir.assignments[self.idx];
+        if self.idx < self.ir.steps.len() {
+            let out = &self.ir.steps[self.idx];
             self.idx += 1;
             Some(out)
         } else {
@@ -115,11 +116,11 @@ impl<'a> Iterator for Iter<'a> {
 }
 
 impl IntoIterator for Ir {
-    type Item = IrAssign;
+    type Item = Step;
 
-    type IntoIter = std::vec::IntoIter<IrAssign>;
+    type IntoIter = std::vec::IntoIter<Step>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.assignments.into_iter()
+        self.steps.into_iter()
     }
 }
