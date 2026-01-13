@@ -1,7 +1,7 @@
 from collections import Counter
 import pandas as pd
 import plotly.express as px
-from profiler.classes.tracedata import UtilizationCycleTrace
+from profiler.classes.tracedata import PTrace
 
 
 class Plotter:
@@ -9,14 +9,14 @@ class Plotter:
     Wrapper around related utilization plotting functions.
     """
 
-    def __init__(self, data: dict[int, UtilizationCycleTrace]):
-        self.data = data
+    def __init__(self, data: PTrace):
+        self.data = data.trace
 
     def plot_utilization_per_cycle(self, var: str, out_dir: str):
         """Plot the value of `var` per cycle."""
         records = [
             {"cycle": cycle_id, "value": obj.utilization.get(var, 0)}
-            for cycle_id, obj in self.data.items()
+            for cycle_id, obj in enumerate(self.data)
         ]
         df = pd.DataFrame(records)
         fig = px.bar(
@@ -27,7 +27,7 @@ class Plotter:
     def plot_cycles_per_primitive(self, var: str, out_dir: str):
         """Plot the number of cycles each primitive has a nonzero value for `var`."""
         counter = Counter()
-        for obj in self.data.values():
+        for obj in self.data:
             for prim, varmap in obj.utilization_per_primitive.items():
                 if var in varmap and varmap[var] != 0:
                     counter[prim] += 1
@@ -48,7 +48,7 @@ class Plotter:
         usage_sum = Counter()
         active_cycles = Counter()
 
-        for cycle, trace in self.data.items():
+        for cycle, trace in enumerate(self.data):
             for prim, vars_dict in trace.utilization_per_primitive.items():
                 if var in vars_dict:
                     value = int(vars_dict[var])
@@ -67,6 +67,7 @@ class Plotter:
         sorted_primitives = sorted(ratios, key=ratios.get, reverse=True)
 
         df = pd.DataFrame(aggregated)
+        print(df)
         heatmap_data = df.pivot(index="primitive", columns="cycle", values="value")
         all_cycles = range(df["cycle"].min(), df["cycle"].max() + 1)
         heatmap_data = heatmap_data.reindex(columns=all_cycles)
@@ -86,7 +87,7 @@ class Plotter:
         usage_sum = Counter()
         active_cycles = Counter()
 
-        for obj in self.data.values():
+        for obj in self.data:
             for prim, varmap in obj.utilization_per_primitive.items():
                 if var in varmap:
                     usage_sum[prim] = int(varmap[var])

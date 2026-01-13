@@ -1,0 +1,32 @@
+Copyright 1986-2020 Xilinx, Inc. All Rights Reserved.
+--------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2020.2 (lin64) Build 3064766 Wed Nov 18 09:12:47 MST 2020
+| Date         : Fri Jul 25 16:33:02 2025
+| Host         : havarti.cs.cornell.edu running 64-bit Ubuntu 22.04.5 LTS
+| Command      : report_utilization -hierarchical -file ./out/hierarchical_utilization_placed.rpt
+| Design       : main
+| Device       : xczu3egsbva484-1
+| Design State : Routed
+--------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++--------------+-------------------------+------------+------------+---------+------+-----+--------+--------+------+------------+
+|   Instance   |          Module         | Total LUTs | Logic LUTs | LUTRAMs | SRLs | FFs | RAMB36 | RAMB18 | URAM | DSP Blocks |
++--------------+-------------------------+------------+------------+---------+------+-----+--------+--------+------+------------+
+| main         |                   (top) |          4 |          4 |       0 |    0 |   5 |      0 |      0 |    0 |          0 |
+|   (main)     |                   (top) |          0 |          0 |       0 |    0 |   0 |      0 |      0 |    0 |          0 |
+|   fsm        | std_reg__parameterized0 |          4 |          4 |       0 |    0 |   3 |      0 |      0 |    0 |          0 |
+|   r          |                 std_reg |          0 |          0 |       0 |    0 |   1 |      0 |      0 |    0 |          0 |
+|   signal_reg | std_reg__parameterized1 |          0 |          0 |       0 |    0 |   1 |      0 |      0 |    0 |          0 |
++--------------+-------------------------+------------+------------+---------+------+-----+--------+--------+------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

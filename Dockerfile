@@ -104,6 +104,10 @@ RUN uv pip install ./frontends/mrxl
 # stacktrace-walking magic that dictates source position generation.
 RUN uv pip install ./calyx-py
 
+# Install AreaExtract
+# NOTE: should be replaced by `fud2 env init` at some point
+RUN uv pip install ./tools/AreaExtract
+
 # Install Firtool
 WORKDIR /home
 RUN curl -L https://github.com/llvm/circt/releases/download/firtool-1.75.0/firrtl-bin-linux-x64.tar.gz | tar -xz \

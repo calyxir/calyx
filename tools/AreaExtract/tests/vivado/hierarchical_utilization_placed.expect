@@ -1,0 +1,87 @@
+{
+  "design": {
+    "main": {
+      "name": "main",
+      "type": "(top)",
+      "generated": false,
+      "rsrc": {
+        "lut": 4,
+        "llut": 4,
+        "lutram": 0,
+        "srl": 0,
+        "ff": 5,
+        "ramb36": 0,
+        "ramb18": 0,
+        "uram": 0,
+        "dsp": 0
+      }
+    },
+    "main.(main)": {
+      "name": "(main)",
+      "type": "(top)",
+      "generated": false,
+      "rsrc": {
+        "lut": 0,
+        "llut": 0,
+        "lutram": 0,
+        "srl": 0,
+        "ff": 0,
+        "ramb36": 0,
+        "ramb18": 0,
+        "uram": 0,
+        "dsp": 0
+      }
+    },
+    "main.fsm": {
+      "name": "fsm",
+      "type": "std_reg__parameterized0",
+      "generated": false,
+      "rsrc": {
+        "lut": 4,
+        "llut": 4,
+        "lutram": 0,
+        "srl": 0,
+        "ff": 3,
+        "ramb36": 0,
+        "ramb18": 0,
+        "uram": 0,
+        "dsp": 0
+      }
+    },
+    "main.r": {
+      "name": "r",
+      "type": "std_reg",
+      "generated": false,
+      "rsrc": {
+        "lut": 0,
+        "llut": 0,
+        "lutram": 0,
+        "srl": 0,
+        "ff": 1,
+        "ramb36": 0,
+        "ramb18": 0,
+        "uram": 0,
+        "dsp": 0
+      }
+    },
+    "main.signal_reg": {
+      "name": "signal_reg",
+      "type": "std_reg__parameterized1",
+      "generated": false,
+      "rsrc": {
+        "lut": 0,
+        "llut": 0,
+        "lutram": 0,
+        "srl": 0,
+        "ff": 1,
+        "ramb36": 0,
+        "ramb18": 0,
+        "uram": 0,
+        "dsp": 0
+      }
+    }
+  },
+  "metadata": {
+    "origin": "Vivado"
+  }
+}

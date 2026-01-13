@@ -1,0 +1,825 @@
+{
+  "design": {
+    "main.and$inline.sv:1001$164": {
+      "name": "and$inline.sv:1001$164",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:1005$167": {
+      "name": "and$inline.sv:1005$167",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:1007$168": {
+      "name": "and$inline.sv:1007$168",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:1011$171": {
+      "name": "and$inline.sv:1011$171",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:1013$172": {
+      "name": "and$inline.sv:1013$172",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:1022$176": {
+      "name": "and$inline.sv:1022$176",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:1024$177": {
+      "name": "and$inline.sv:1024$177",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:1030$180": {
+      "name": "and$inline.sv:1030$180",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:1032$181": {
+      "name": "and$inline.sv:1032$181",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:1037$185": {
+      "name": "and$inline.sv:1037$185",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:1039$186": {
+      "name": "and$inline.sv:1039$186",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:967$143": {
+      "name": "and$inline.sv:967$143",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:969$144": {
+      "name": "and$inline.sv:969$144",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:972$146": {
+      "name": "and$inline.sv:972$146",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:974$147": {
+      "name": "and$inline.sv:974$147",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:977$149": {
+      "name": "and$inline.sv:977$149",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:979$150": {
+      "name": "and$inline.sv:979$150",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:982$152": {
+      "name": "and$inline.sv:982$152",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:984$153": {
+      "name": "and$inline.sv:984$153",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:988$156": {
+      "name": "and$inline.sv:988$156",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:990$157": {
+      "name": "and$inline.sv:990$157",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:993$159": {
+      "name": "and$inline.sv:993$159",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:995$160": {
+      "name": "and$inline.sv:995$160",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.and$inline.sv:999$163": {
+      "name": "and$inline.sv:999$163",
+      "type": "and",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.eq$inline.sv:1004$166": {
+      "name": "eq$inline.sv:1004$166",
+      "type": "eq",
+      "generated": true,
+      "rsrc": {
+        "width": 3
+      }
+    },
+    "main.eq$inline.sv:1010$170": {
+      "name": "eq$inline.sv:1010$170",
+      "type": "eq",
+      "generated": true,
+      "rsrc": {
+        "width": 3
+      }
+    },
+    "main.eq$inline.sv:1021$175": {
+      "name": "eq$inline.sv:1021$175",
+      "type": "logic_not",
+      "generated": true,
+      "rsrc": {
+        "width": 3
+      }
+    },
+    "main.eq$inline.sv:1029$179": {
+      "name": "eq$inline.sv:1029$179",
+      "type": "eq",
+      "generated": true,
+      "rsrc": {
+        "width": 3
+      }
+    },
+    "main.eq$inline.sv:1033$182": {
+      "name": "eq$inline.sv:1033$182",
+      "type": "eq",
+      "generated": true,
+      "rsrc": {
+        "width": 3
+      }
+    },
+    "main.eq$inline.sv:1036$184": {
+      "name": "eq$inline.sv:1036$184",
+      "type": "eq",
+      "generated": true,
+      "rsrc": {
+        "width": 3
+      }
+    },
+    "main.eq$inline.sv:998$162": {
+      "name": "eq$inline.sv:998$162",
+      "type": "eq",
+      "generated": true,
+      "rsrc": {
+        "width": 3
+      }
+    },
+    "main.not$inline.sv:1003$165": {
+      "name": "not$inline.sv:1003$165",
+      "type": "not",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.not$inline.sv:1009$169": {
+      "name": "not$inline.sv:1009$169",
+      "type": "not",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.not$inline.sv:1020$174": {
+      "name": "not$inline.sv:1020$174",
+      "type": "not",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.not$inline.sv:1028$178": {
+      "name": "not$inline.sv:1028$178",
+      "type": "not",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.not$inline.sv:1035$183": {
+      "name": "not$inline.sv:1035$183",
+      "type": "not",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.not$inline.sv:997$161": {
+      "name": "not$inline.sv:997$161",
+      "type": "not",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.or$inline.sv:1016$173": {
+      "name": "or$inline.sv:1016$173",
+      "type": "or",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.or$inline.sv:927$116": {
+      "name": "or$inline.sv:927$116",
+      "type": "or",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.or$inline.sv:934$121": {
+      "name": "or$inline.sv:934$121",
+      "type": "or",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.or$inline.sv:940$125": {
+      "name": "or$inline.sv:940$125",
+      "type": "or",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.or$inline.sv:946$129": {
+      "name": "or$inline.sv:946$129",
+      "type": "or",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.or$inline.sv:952$133": {
+      "name": "or$inline.sv:952$133",
+      "type": "or",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.or$inline.sv:958$137": {
+      "name": "or$inline.sv:958$137",
+      "type": "or",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.or$inline.sv:964$141": {
+      "name": "or$inline.sv:964$141",
+      "type": "or",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.ternary$inline.sv:1042$188": {
+      "name": "ternary$inline.sv:1042$188",
+      "type": "mux",
+      "generated": true,
+      "rsrc": {
+        "width": 1
+      }
+    },
+    "main.ternary$inline.sv:1058$195": {
+      "name": "ternary$inline.sv:1058$195",
+      "type": "mux",
+      "generated": true,
+      "rsrc": {
+        "width": 3
+      }
+    },
+    "main.ternary$inline.sv:1059$194": {
+      "name": "ternary$inline.sv:1059$194",
+      "type": "mux",
+      "generated": true,
+      "rsrc": {
+        "width": 3
+      }
+    },
+    "main.ternary$inline.sv:1060$193": {
+      "name": "ternary$inline.sv:1060$193",
+      "type": "mux",
+      "generated": true,
+      "rsrc": {
+        "width": 3
+      }
+    },
+    "main.ternary$inline.sv:1061$192": {
+      "name": "ternary$inline.sv:1061$192",
+      "type": "mux",
+      "generated": true,
+      "rsrc": {
+        "width": 3
+      }
+    },
+    "main.ternary$inline.sv:1062$191": {
+      "name": "ternary$inline.sv:1062$191",
+      "type": "mux",
+      "generated": true,
+      "rsrc": {
+        "width": 3
+      }
+    },
+    "main.ternary$inline.sv:1063$190": {
+      "name": "ternary$inline.sv:1063$190",
+      "type": "mux",
+      "generated": true,
+      "rsrc": {
+        "width": 3
+      }
+    },
+    "main.ternary$inline.sv:1064$189": {
+      "name": "ternary$inline.sv:1064$189",
+      "type": "mux",
+      "generated": true,
+      "rsrc": {
+        "width": 3
+      }
+    },
+    "main.ternary$inline.sv:1074$197": {
+      "name": "ternary$inline.sv:1074$197",
+      "type": "mux",
+      "generated": true,
+      "rsrc": {
+        "width": 32
+      }
+    },
+    "main.ternary$inline.sv:1075$196": {
+      "name": "ternary$inline.sv:1075$196",
+      "type": "mux",
+      "generated": true,
+      "rsrc": {
+        "width": 32
+      }
+    },
+    "main.fsm": {
+      "name": "fsm",
+      "type": "std_reg",
+      "generated": false,
+      "rsrc": {
+        "width": 3,
+        "num_wires": 8,
+        "num_wire_bits": 14,
+        "num_pub_wires": 6,
+        "num_pub_wire_bits": 10,
+        "num_ports": 6,
+        "num_port_bits": 10,
+        "num_memories": 0,
+        "num_memory_bits": 0,
+        "num_processes": 1,
+        "num_cells": 0
+      }
+    },
+    "main.invoke0_done": {
+      "name": "invoke0_done",
+      "type": "std_wire",
+      "generated": false,
+      "rsrc": {
+        "width": 1,
+        "num_wires": 2,
+        "num_wire_bits": 2,
+        "num_pub_wires": 2,
+        "num_pub_wire_bits": 2,
+        "num_ports": 2,
+        "num_port_bits": 2,
+        "num_memories": 0,
+        "num_memory_bits": 0,
+        "num_processes": 0,
+        "num_cells": 0
+      }
+    },
+    "main.invoke0_go": {
+      "name": "invoke0_go",
+      "type": "std_wire",
+      "generated": false,
+      "rsrc": {
+        "width": 1,
+        "num_wires": 2,
+        "num_wire_bits": 2,
+        "num_pub_wires": 2,
+        "num_pub_wire_bits": 2,
+        "num_ports": 2,
+        "num_port_bits": 2,
+        "num_memories": 0,
+        "num_memory_bits": 0,
+        "num_processes": 0,
+        "num_cells": 0
+      }
+    },
+    "main.invoke1_done": {
+      "name": "invoke1_done",
+      "type": "std_wire",
+      "generated": false,
+      "rsrc": {
+        "width": 1,
+        "num_wires": 2,
+        "num_wire_bits": 2,
+        "num_pub_wires": 2,
+        "num_pub_wire_bits": 2,
+        "num_ports": 2,
+        "num_port_bits": 2,
+        "num_memories": 0,
+        "num_memory_bits": 0,
+        "num_processes": 0,
+        "num_cells": 0
+      }
+    },
+    "main.invoke1_go": {
+      "name": "invoke1_go",
+      "type": "std_wire",
+      "generated": false,
+      "rsrc": {
+        "width": 1,
+        "num_wires": 2,
+        "num_wire_bits": 2,
+        "num_pub_wires": 2,
+        "num_pub_wire_bits": 2,
+        "num_ports": 2,
+        "num_port_bits": 2,
+        "num_memories": 0,
+        "num_memory_bits": 0,
+        "num_processes": 0,
+        "num_cells": 0
+      }
+    },
+    "main.invoke2_done": {
+      "name": "invoke2_done",
+      "type": "std_wire",
+      "generated": false,
+      "rsrc": {
+        "width": 1,
+        "num_wires": 2,
+        "num_wire_bits": 2,
+        "num_pub_wires": 2,
+        "num_pub_wire_bits": 2,
+        "num_ports": 2,
+        "num_port_bits": 2,
+        "num_memories": 0,
+        "num_memory_bits": 0,
+        "num_processes": 0,
+        "num_cells": 0
+      }
+    },
+    "main.invoke2_go": {
+      "name": "invoke2_go",
+      "type": "std_wire",
+      "generated": false,
+      "rsrc": {
+        "width": 1,
+        "num_wires": 2,
+        "num_wire_bits": 2,
+        "num_pub_wires": 2,
+        "num_pub_wire_bits": 2,
+        "num_ports": 2,
+        "num_port_bits": 2,
+        "num_memories": 0,
+        "num_memory_bits": 0,
+        "num_processes": 0,
+        "num_cells": 0
+      }
+    },
+    "main.invoke3_done": {
+      "name": "invoke3_done",
+      "type": "std_wire",
+      "generated": false,
+      "rsrc": {
+        "width": 1,
+        "num_wires": 2,
+        "num_wire_bits": 2,
+        "num_pub_wires": 2,
+        "num_pub_wire_bits": 2,
+        "num_ports": 2,
+        "num_port_bits": 2,
+        "num_memories": 0,
+        "num_memory_bits": 0,
+        "num_processes": 0,
+        "num_cells": 0
+      }
+    },
+    "main.invoke3_go": {
+      "name": "invoke3_go",
+      "type": "std_wire",
+      "generated": false,
+      "rsrc": {
+        "width": 1,
+        "num_wires": 2,
+        "num_wire_bits": 2,
+        "num_pub_wires": 2,
+        "num_pub_wire_bits": 2,
+        "num_ports": 2,
+        "num_port_bits": 2,
+        "num_memories": 0,
+        "num_memory_bits": 0,
+        "num_processes": 0,
+        "num_cells": 0
+      }
+    },
+    "main.invoke4_done": {
+      "name": "invoke4_done",
+      "type": "std_wire",
+      "generated": false,
+      "rsrc": {
+        "width": 1,
+        "num_wires": 2,
+        "num_wire_bits": 2,
+        "num_pub_wires": 2,
+        "num_pub_wire_bits": 2,
+        "num_ports": 2,
+        "num_port_bits": 2,
+        "num_memories": 0,
+        "num_memory_bits": 0,
+        "num_processes": 0,
+        "num_cells": 0
+      }
+    },
+    "main.invoke4_go": {
+      "name": "invoke4_go",
+      "type": "std_wire",
+      "generated": false,
+      "rsrc": {
+        "width": 1,
+        "num_wires": 2,
+        "num_wire_bits": 2,
+        "num_pub_wires": 2,
+        "num_pub_wire_bits": 2,
+        "num_ports": 2,
+        "num_port_bits": 2,
+        "num_memories": 0,
+        "num_memory_bits": 0,
+        "num_processes": 0,
+        "num_cells": 0
+      }
+    },
+    "main.invoke5_done": {
+      "name": "invoke5_done",
+      "type": "std_wire",
+      "generated": false,
+      "rsrc": {
+        "width": 1,
+        "num_wires": 2,
+        "num_wire_bits": 2,
+        "num_pub_wires": 2,
+        "num_pub_wire_bits": 2,
+        "num_ports": 2,
+        "num_port_bits": 2,
+        "num_memories": 0,
+        "num_memory_bits": 0,
+        "num_processes": 0,
+        "num_cells": 0
+      }
+    },
+    "main.invoke5_go": {
+      "name": "invoke5_go",
+      "type": "std_wire",
+      "generated": false,
+      "rsrc": {
+        "width": 1,
+        "num_wires": 2,
+        "num_wire_bits": 2,
+        "num_pub_wires": 2,
+        "num_pub_wire_bits": 2,
+        "num_ports": 2,
+        "num_port_bits": 2,
+        "num_memories": 0,
+        "num_memory_bits": 0,
+        "num_processes": 0,
+        "num_cells": 0
+      }
+    },
+    "main.r0.invoke0_done": {
+      "name": "invoke0_done",
+      "type": "std_wire",
+      "generated": false,
+      "rsrc": {
+        "width": 1,
+        "num_wires": 2,
+        "num_wire_bits": 2,
+        "num_pub_wires": 2,
+        "num_pub_wire_bits": 2,
+        "num_ports": 2,
+        "num_port_bits": 2,
+        "num_memories": 0,
+        "num_memory_bits": 0,
+        "num_processes": 0,
+        "num_cells": 0
+      }
+    },
+    "main.r0.invoke0_go": {
+      "name": "invoke0_go",
+      "type": "std_wire",
+      "generated": false,
+      "rsrc": {
+        "width": 1,
+        "num_wires": 2,
+        "num_wire_bits": 2,
+        "num_pub_wires": 2,
+        "num_pub_wire_bits": 2,
+        "num_ports": 2,
+        "num_port_bits": 2,
+        "num_memories": 0,
+        "num_memory_bits": 0,
+        "num_processes": 0,
+        "num_cells": 0
+      }
+    },
+    "main.r0.r": {
+      "name": "r",
+      "type": "std_reg",
+      "generated": false,
+      "rsrc": {
+        "width": 32,
+        "num_wires": 8,
+        "num_wire_bits": 101,
+        "num_pub_wires": 6,
+        "num_pub_wire_bits": 68,
+        "num_ports": 6,
+        "num_port_bits": 68,
+        "num_memories": 0,
+        "num_memory_bits": 0,
+        "num_processes": 1,
+        "num_cells": 0
+      }
+    },
+    "main.r2.invoke0_done": {
+      "name": "invoke0_done",
+      "type": "std_wire",
+      "generated": false,
+      "rsrc": {
+        "width": 1,
+        "num_wires": 2,
+        "num_wire_bits": 2,
+        "num_pub_wires": 2,
+        "num_pub_wire_bits": 2,
+        "num_ports": 2,
+        "num_port_bits": 2,
+        "num_memories": 0,
+        "num_memory_bits": 0,
+        "num_processes": 0,
+        "num_cells": 0
+      }
+    },
+    "main.r2.invoke0_go": {
+      "name": "invoke0_go",
+      "type": "std_wire",
+      "generated": false,
+      "rsrc": {
+        "width": 1,
+        "num_wires": 2,
+        "num_wire_bits": 2,
+        "num_pub_wires": 2,
+        "num_pub_wire_bits": 2,
+        "num_ports": 2,
+        "num_port_bits": 2,
+        "num_memories": 0,
+        "num_memory_bits": 0,
+        "num_processes": 0,
+        "num_cells": 0
+      }
+    },
+    "main.r2.r": {
+      "name": "r",
+      "type": "std_reg",
+      "generated": false,
+      "rsrc": {
+        "width": 16,
+        "num_wires": 8,
+        "num_wire_bits": 53,
+        "num_pub_wires": 6,
+        "num_pub_wire_bits": 36,
+        "num_ports": 6,
+        "num_port_bits": 36,
+        "num_memories": 0,
+        "num_memory_bits": 0,
+        "num_processes": 1,
+        "num_cells": 0
+      }
+    },
+    "main.tdcc_done": {
+      "name": "tdcc_done",
+      "type": "std_wire",
+      "generated": false,
+      "rsrc": {
+        "width": 1,
+        "num_wires": 2,
+        "num_wire_bits": 2,
+        "num_pub_wires": 2,
+        "num_pub_wire_bits": 2,
+        "num_ports": 2,
+        "num_port_bits": 2,
+        "num_memories": 0,
+        "num_memory_bits": 0,
+        "num_processes": 0,
+        "num_cells": 0
+      }
+    },
+    "main.tdcc_go": {
+      "name": "tdcc_go",
+      "type": "std_wire",
+      "generated": false,
+      "rsrc": {
+        "width": 1,
+        "num_wires": 2,
+        "num_wire_bits": 2,
+        "num_pub_wires": 2,
+        "num_pub_wire_bits": 2,
+        "num_ports": 2,
+        "num_port_bits": 2,
+        "num_memories": 0,
+        "num_memory_bits": 0,
+        "num_processes": 0,
+        "num_cells": 0
+      }
+    }
+  },
+  "metadata": {
+    "origin": "Yosys"
+  }
+}
