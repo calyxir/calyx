@@ -138,11 +138,17 @@ fn translate_group(
     let range: IndexRange<AssignmentIdx> =
         IndexRange::new(base, ctx.primary.assignments.peek_next_idx());
 
+    let pos = group.get_attributes().and_then(|attr| {
+        attr.get_set(SetAttr::Pos)
+            .map(|x| x.iter().map(|p| PositionId::new(*p)).collect())
+    });
+
     Group::new(
         id,
         range,
         *map[&group.get("go").as_raw()].unwrap_local(),
         *map[&group.get("done").as_raw()].unwrap_local(),
+        pos,
     )
 }
 
@@ -297,15 +303,15 @@ fn translate_component(
     for group in auxiliary_component_info.definitions.groups() {
         for assignment in ctx.primary[group].assignments {
             let dst = ctx.primary[assignment].dst;
-            if let Some(local) = dst.as_local() {
-                if let Some(other_group) = go_port_group_map.get(local) {
-                    ctx.primary
-                        .groups
-                        .get_mut(group)
-                        .unwrap()
-                        .structural_enables
-                        .push(*other_group);
-                }
+            if let Some(local) = dst.as_local()
+                && let Some(other_group) = go_port_group_map.get(local)
+            {
+                ctx.primary
+                    .groups
+                    .get_mut(group)
+                    .unwrap()
+                    .structural_enables
+                    .push(*other_group);
             }
         }
     }

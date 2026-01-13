@@ -205,7 +205,7 @@ fn obtain_pos_info(
     file_lines_map: &HashMap<String, Vec<String>>,
     adl: &Adl,
 ) -> CalyxResult<PosInfo> {
-    let SourceLocation { file, line } =
+    let SourceLocation { file, line, .. } =
         source_info_table.lookup_position(PositionId::from(*pos_id));
     let filename = source_info_table
         .lookup_file_path(*file)
@@ -320,7 +320,7 @@ fn resolve(
     for (curr_component, curr_component_pos_ids) in component_pos_ids.iter() {
         let mut curr_component_info =
             if let Some(pos_id) = curr_component_pos_ids.component_pos_id {
-                let SourceLocation { file, line } =
+                let SourceLocation { file, line, .. } =
                     source_info_table.lookup_position(PositionId::from(pos_id));
                 let curr_component_filename = match adl {
                     Adl::Dahlia => {
@@ -434,20 +434,20 @@ fn create_lang_to_posid_map(
 
     // iterate through fileids to find the corresponding Adl
     for (fileid, path) in source_info_table.iter_file_map() {
-        if let Some(path_ext) = path.extension() {
-            if let Some(path_ext_str) = path_ext.to_str() {
-                match path_ext_str {
-                    "futil" => {
-                        fileid_to_lang.insert(*fileid, Adl::Calyx);
-                    }
-                    "py" => {
-                        fileid_to_lang.insert(*fileid, Adl::Py);
-                    }
-                    "fuse" => {
-                        fileid_to_lang.insert(*fileid, Adl::Dahlia);
-                    }
-                    _ => println!("Unsupported file extension: {path_ext_str}"),
+        if let Some(path_ext) = path.extension()
+            && let Some(path_ext_str) = path_ext.to_str()
+        {
+            match path_ext_str {
+                "futil" => {
+                    fileid_to_lang.insert(*fileid, Adl::Calyx);
                 }
+                "py" => {
+                    fileid_to_lang.insert(*fileid, Adl::Py);
+                }
+                "fuse" => {
+                    fileid_to_lang.insert(*fileid, Adl::Dahlia);
+                }
+                _ => println!("Unsupported file extension: {path_ext_str}"),
             }
         }
     }
@@ -492,24 +492,23 @@ fn gen_control_info_helper(
     // add information from this particular control node.
 
     let control_name = get_control_name(control)?;
-    if let Some(control_id) = control_name {
-        if let Some(pos_set) = control
+    if let Some(control_id) = control_name
+        && let Some(pos_set) = control
             .get_attributes()
             .get_set(SetAttribute::Set(SetAttr::Pos))
+    {
+        for calyx_pos in pos_set
+            .iter()
+            .filter(|pos| calyx_posids_to_linenums.contains_key(pos))
         {
-            for calyx_pos in pos_set
-                .iter()
-                .filter(|pos| calyx_posids_to_linenums.contains_key(pos))
-            {
-                // theoretically there should only be one, but let's consider all positions
-                let calyx_linenum =
-                    calyx_posids_to_linenums.get(calyx_pos).unwrap();
-                control_pos_infos.push(ControlCalyxPosInfo {
-                    pos_num: *calyx_pos,
-                    linenum: *calyx_linenum,
-                    ctrl_node: String::from(control_id),
-                })
-            }
+            // theoretically there should only be one, but let's consider all positions
+            let calyx_linenum =
+                calyx_posids_to_linenums.get(calyx_pos).unwrap();
+            control_pos_infos.push(ControlCalyxPosInfo {
+                pos_num: *calyx_pos,
+                linenum: *calyx_linenum,
+                ctrl_node: String::from(control_id),
+            })
         }
     }
 

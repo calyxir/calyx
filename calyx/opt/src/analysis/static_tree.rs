@@ -645,27 +645,23 @@ impl SingleNode {
             // it is counting to n.)
             if let Some(((beg, end), state_type)) =
                 self.fsm_schedule.iter().next()
-            {
-                if !(matches!(state_type, StateType::Offload(_))
+                && !(matches!(state_type, StateType::Offload(_))
                     && *beg == 0
                     && *end > 1)
-                {
-                    let first_state = self.get_fsm_query((0, 1), builder);
-                    // We must handle the 0->1 transition separately.
-                    // fsm.in = fsm == 0 & incr_start_cond ? fsm + 1;
-                    // fsm.write_en = fsm == 0 & incr_start_cond ? 1'd1;
-                    res_vec.extend(
-                        parent_fsm.borrow_mut().conditional_increment(
-                            first_state.clone().and(g),
-                            Rc::clone(&adder),
-                            builder,
-                        ),
-                    );
-                    // We also have to add fsm != 0 to incr_guard since
-                    // we have just added assignments to handle this situation
-                    // separately
-                    incr_guard = incr_guard.and(first_state.not())
-                }
+            {
+                let first_state = self.get_fsm_query((0, 1), builder);
+                // We must handle the 0->1 transition separately.
+                // fsm.in = fsm == 0 & incr_start_cond ? fsm + 1;
+                // fsm.write_en = fsm == 0 & incr_start_cond ? 1'd1;
+                res_vec.extend(parent_fsm.borrow_mut().conditional_increment(
+                    first_state.clone().and(g),
+                    Rc::clone(&adder),
+                    builder,
+                ));
+                // We also have to add fsm != 0 to incr_guard since
+                // we have just added assignments to handle this situation
+                // separately
+                incr_guard = incr_guard.and(first_state.not())
             }
         };
 
