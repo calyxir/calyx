@@ -216,8 +216,8 @@ fn all_ops() {
     let driver = test_driver();
     for op in driver.ops.keys() {
         let mut ir = Ir::new();
-        let input = ir.path_ref_of_str("/input.ext");
-        let output = ir.path_ref_of_str("/output.ext");
+        let input = ir.path_ref("/input.ext".into());
+        let output = ir.path_ref("/output.ext".into());
         ir.push(op, &[input], &[output]);
         ir.push_input(input);
         ir.push_output(output);

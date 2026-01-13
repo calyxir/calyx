@@ -1,6 +1,6 @@
 //! An internal representation of fud2 plans expressed with flang.
 
-use camino::Utf8PathBuf;
+use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::{PrimaryMap, entity_impl};
 
 use crate::exec::OpRef;
@@ -83,22 +83,13 @@ impl Ir {
 
     /// Gets a `PathRef` give a reference to a `path`. If none is found, a new reference is
     /// created.
-    pub fn path_ref(&mut self, path: &Utf8PathBuf) -> PathRef {
+    pub fn path_ref(&mut self, path: &Utf8Path) -> PathRef {
         for (r, p) in &self.paths {
             if p == path {
                 return r;
             }
         }
-        self.paths.push(path.clone())
-    }
-
-    pub fn path_ref_of_str(&mut self, path: &str) -> PathRef {
-        for (r, p) in &self.paths {
-            if p == path {
-                return r;
-            }
-        }
-        self.paths.push(path.into())
+        self.paths.push(path.to_path_buf())
     }
 
     pub fn path(&self, r: PathRef) -> &Utf8PathBuf {
