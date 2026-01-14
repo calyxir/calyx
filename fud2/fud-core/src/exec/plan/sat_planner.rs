@@ -36,7 +36,7 @@
 //! (s1 ^ op1 => s2 ^ s3) ^ (s1 ^ op2 => s1 ^ s4) ^ op1 ^ s1 ^ ~s4 ^ (s1 => op1 ^ op2)
 //! ```
 
-use std::collections::{HashMap, hash_map::Entry};
+use std::collections::HashMap;
 
 use cranelift_entity::{PrimaryMap, SecondaryMap};
 use rustsat::{
