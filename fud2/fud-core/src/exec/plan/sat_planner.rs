@@ -36,7 +36,7 @@
 //! (s1 ^ op1 => s2 ^ s3) ^ (s1 ^ op2 => s1 ^ s4) ^ op1 ^ s1 ^ ~s4 ^ (s1 => op1 ^ op2)
 //! ```
 
-use std::collections::HashMap;
+use std::collections::{HashMap, hash_map::Entry};
 
 use cranelift_entity::{PrimaryMap, SecondaryMap};
 use rustsat::{
@@ -71,14 +71,11 @@ impl LitMap {
         s: StateRef,
         instance: &mut SatInstance,
     ) -> Lit {
-        if !self.lit_of_state.contains_key(&s) {
+        *self.lit_of_state.entry(s).or_insert_with(|| {
             let lit = instance.new_lit();
-            self.lit_of_state.insert(s, lit);
             self.state_of_lit.insert(lit, s);
             lit
-        } else {
-            self.lit_of_state[&s]
-        }
+        })
     }
 
     pub fn op_lit_or_make(
@@ -86,13 +83,10 @@ impl LitMap {
         o: OpRef,
         instance: &mut SatInstance,
     ) -> Lit {
-        if !self.lit_of_op.contains_key(&o) {
-            let lit = instance.new_lit();
-            self.lit_of_op.insert(o, lit);
-            lit
-        } else {
-            self.lit_of_op[&o]
-        }
+        *self
+            .lit_of_op
+            .entry(o)
+            .or_insert_with(|| instance.new_lit())
     }
 
     pub fn state_lit(&self, s: StateRef) -> Lit {
