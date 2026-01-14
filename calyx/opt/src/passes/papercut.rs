@@ -34,7 +34,10 @@ pub struct Papercut {
     /// diagnostic context to accumulate multiple errors
     diag: DiagnosticContext,
 
-    // Pass Options
+    /// Treat warnings as errors.
+    ///
+    /// By default, this is `false`. When enabled, warnings will cause
+    /// the command to fail.
     warning_as_error: bool,
 }
 
@@ -60,7 +63,16 @@ impl Papercut {
             })
             .join("\n")
     }
-
+    /// Reports an error or warning to the given diagnostic context.
+    ///
+    /// If `as_error` is `true`, the diagnostic is emitted as an error.
+    /// Otherwise, it is emitted as a warning.
+    ///
+    /// This is implemented as an associated function rather than a
+    /// `Papercut` method because reporting requires mutable access to
+    /// `DiagnosticContext`, while the relevant `Papercut` APIs operate on
+    /// `&self`. Exposing this as a method would therefore require changing
+    /// the mutability of those APIs.
     fn report(diag: &mut DiagnosticContext, as_error: bool, err: Error) {
         if as_error {
             diag.err(err);
