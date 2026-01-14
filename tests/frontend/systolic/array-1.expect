@@ -9,59 +9,59 @@ static<1> component mac_pe<"pos"={0}>(top: 32, left: 32, mul_ready: 1) -> (out: 
     @pos{3} mul = pipelined_fp_smult(32, 16, 16);
   }
   wires {
-    static<1> group do_add {
+    static<1> group do_add<"pos"={4}> {
       adder.left = acc.out;
       adder.right = mul.out;
       acc.in = adder.out;
       acc.write_en = mul_ready;
     }
-    static<1> group do_mul {
+    static<1> group do_mul<"pos"={5}> {
       mul.left = top;
       mul.right = left;
     }
     out = acc.out;
   }
   control {
-    @pos{4} static par {
-      @pos{4} do_add;
-      @pos{4} do_mul;
+    @pos{6} static par {
+      @pos{6} do_add;
+      @pos{6} do_mul;
     }
   }
 }
-component systolic_array_comp<"pos"={5}>(depth: 32, t0_read_data: 32, l0_read_data: 32) -> (t0_addr0: 2, l0_addr0: 2, r0_valid: 1, r0_value: 32, r0_idx: 1) {
+component systolic_array_comp<"pos"={7}>(depth: 32, t0_read_data: 32, l0_read_data: 32) -> (t0_addr0: 2, l0_addr0: 2, r0_valid: 1, r0_value: 32, r0_idx: 1) {
   cells {
-    @pos{6} iter_limit = std_reg(32);
-    @pos{7} iter_limit_add = std_add(32);
-    @pos{8} idx = std_reg(32);
-    @pos{9} idx_add = std_add(32);
-    @pos{10} lt_iter_limit = std_lt(32);
-    @pos{11} depth_plus_0 = std_add(32);
-    @pos{11} depth_plus_5 = std_add(32);
-    @pos{12} index_eq_depth_plus_5 = std_eq(32);
-    @pos{13} index_ge_1 = std_ge(32);
-    @pos{13} index_ge_5 = std_ge(32);
-    @pos{14} index_lt_depth_plus_0 = std_lt(32);
-    @pos{14} index_lt_depth_plus_5 = std_lt(32);
-    @pos{15} idx_between_0_depth_plus_0_comb = std_wire(1);
-    @pos{16} idx_between_1_depth_plus_5_comb = std_and(1);
-    @pos{17} pe_0_0 = mac_pe();
-    @pos{18} top_0_0 = std_reg(32);
-    @pos{19} left_0_0 = std_reg(32);
-    @pos{20} idx_minus_0 = std_sub(32);
-    @pos{21} idx_minus_0_res = std_slice(32, 2);
+    @pos{8} iter_limit = std_reg(32);
+    @pos{9} iter_limit_add = std_add(32);
+    @pos{11} idx = std_reg(32);
+    @pos{12} idx_add = std_add(32);
+    @pos{15} lt_iter_limit = std_lt(32);
+    @pos{16} depth_plus_0 = std_add(32);
+    @pos{16} depth_plus_5 = std_add(32);
+    @pos{17} index_eq_depth_plus_5 = std_eq(32);
+    @pos{18} index_ge_1 = std_ge(32);
+    @pos{18} index_ge_5 = std_ge(32);
+    @pos{19} index_lt_depth_plus_0 = std_lt(32);
+    @pos{19} index_lt_depth_plus_5 = std_lt(32);
+    @pos{20} idx_between_0_depth_plus_0_comb = std_wire(1);
+    @pos{21} idx_between_1_depth_plus_5_comb = std_and(1);
+    @pos{22} pe_0_0 = mac_pe();
+    @pos{23} top_0_0 = std_reg(32);
+    @pos{24} left_0_0 = std_reg(32);
+    @pos{25} idx_minus_0 = std_sub(32);
+    @pos{26} idx_minus_0_res = std_slice(32, 2);
   }
   wires {
-    static<1> group init_iter_limit {
+    static<1> group init_iter_limit<"pos"={10}> {
       iter_limit_add.left = 32'd6;
       iter_limit_add.right = depth;
       iter_limit.in = iter_limit_add.out;
       iter_limit.write_en = 1'd1;
     }
-    static<1> group init_idx {
+    static<1> group init_idx<"pos"={13}> {
       idx.in = 32'd0;
       idx.write_en = 1'd1;
     }
-    static<1> group incr_idx {
+    static<1> group incr_idx<"pos"={14}> {
       idx_add.left = idx.out;
       idx_add.right = 32'd1;
       idx.in = idx_add.out;
@@ -89,46 +89,46 @@ component systolic_array_comp<"pos"={5}>(depth: 32, t0_read_data: 32, l0_read_da
     idx_minus_0.left = idx.out;
     idx_minus_0.right = 32'd0;
     idx_minus_0_res.in = idx_minus_0.out;
-    static<1> group t0_move {
+    static<1> group t0_move<"pos"={27}> {
       t0_addr0 = idx_minus_0_res.out;
       top_0_0.in = t0_read_data;
       top_0_0.write_en = 1'd1;
     }
-    static<1> group l0_move {
+    static<1> group l0_move<"pos"={27}> {
       l0_addr0 = idx_minus_0_res.out;
       left_0_0.in = l0_read_data;
       left_0_0.write_en = 1'd1;
     }
-    static<1> group pe_0_0_out_write {
+    static<1> group pe_0_0_out_write<"pos"={28}> {
       r0_valid = 1'd1;
       r0_value = pe_0_0.out;
       r0_idx = 1'd0;
     }
   }
   control {
-    @pos{35} seq {
-      @pos{24} static par {
-        @pos{22} init_idx;
-        @pos{23} init_iter_limit;
+    @pos{42} seq {
+      @pos{31} static par {
+        @pos{29} init_idx;
+        @pos{30} init_iter_limit;
       }
-      @pos{34} while lt_iter_limit.out {
-        @pos{33} static par {
-          @pos{25} incr_idx;
-          @pos{32} static par {
-            @pos{28} static if idx_between_0_depth_plus_0_comb.out {
-              @pos{27} static par {
-                @pos{26} l0_move;
-                @pos{26} t0_move;
+      @pos{41} while lt_iter_limit.out {
+        @pos{40} static par {
+          @pos{32} incr_idx;
+          @pos{39} static par {
+            @pos{35} static if idx_between_0_depth_plus_0_comb.out {
+              @pos{34} static par {
+                @pos{33} l0_move;
+                @pos{33} t0_move;
               }
             }
-            @pos{28} static if idx_between_1_depth_plus_5_comb.out {
-              @pos{27} static par {
+            @pos{35} static if idx_between_1_depth_plus_5_comb.out {
+              @pos{34} static par {
                 static invoke pe_0_0(top=top_0_0.out, left=left_0_0.out, mul_ready=index_ge_5.out)();
               }
             }
-            @pos{31} static if index_eq_depth_plus_5.out {
-              @pos{30} static par {
-                @pos{29} pe_0_0_out_write;
+            @pos{38} static if index_eq_depth_plus_5.out {
+              @pos{37} static par {
+                @pos{36} pe_0_0_out_write;
               }
             }
           }
@@ -137,41 +137,41 @@ component systolic_array_comp<"pos"={5}>(depth: 32, t0_read_data: 32, l0_read_da
     }
   }
 }
-component default_post_op<"pos"={36}>(out_mem_0_done: 1, r0_valid: 1, r0_value: 32, r0_idx: 1) -> (computation_done: 1, out_mem_0_addr0: 1, out_mem_0_write_data: 32, out_mem_0_write_en: 1) {
+component default_post_op<"pos"={43}>(out_mem_0_done: 1, r0_valid: 1, r0_value: 32, r0_idx: 1) -> (computation_done: 1, out_mem_0_addr0: 1, out_mem_0_write_data: 32, out_mem_0_write_en: 1) {
   cells {
-    @pos{37} delay_reg = std_reg(1);
+    @pos{45} delay_reg = std_reg(1);
   }
   wires {
-    static<1> group write_r0 {
+    static<1> group write_r0<"pos"={44}> {
       out_mem_0_write_en = r0_valid;
       out_mem_0_write_data = r0_value;
       out_mem_0_addr0 = r0_idx;
     }
-    static<1> group write_done_cond {
+    static<1> group write_done_cond<"pos"={46}> {
       delay_reg.in = 1'd1;
       delay_reg.write_en = (r0_valid & (r0_idx == 1'd0)) ? 1'd1;
       computation_done = delay_reg.done ? 1'd1;
     }
   }
   control {
-    @pos{40} static par {
-      @pos{38} write_done_cond;
-      @pos{39} write_r0;
+    @pos{49} static par {
+      @pos{47} write_done_cond;
+      @pos{48} write_r0;
     }
   }
 }
-component main<"pos"={41}>() -> () {
+component main<"pos"={50}>() -> () {
   cells {
-    @pos{42} systolic_array_component = systolic_array_comp();
-    @pos{43} post_op_component = default_post_op();
-    @external @pos{44} t0 = comb_mem_d1(32, 3, 2);
-    @external @pos{44} l0 = comb_mem_d1(32, 3, 2);
-    @external @pos{44} out_mem_0 = comb_mem_d1(32, 1, 1);
-    @pos{45} systolic_done = std_reg(1);
-    @pos{46} systolic_done_wire = std_wire(1);
+    @pos{51} systolic_array_component = systolic_array_comp();
+    @pos{52} post_op_component = default_post_op();
+    @external @pos{53} t0 = comb_mem_d1(32, 3, 2);
+    @external @pos{53} l0 = comb_mem_d1(32, 3, 2);
+    @external @pos{53} out_mem_0 = comb_mem_d1(32, 1, 1);
+    @pos{54} systolic_done = std_reg(1);
+    @pos{55} systolic_done_wire = std_wire(1);
   }
   wires {
-    group perform_computation<"pos"={47}> {
+    group perform_computation<"pos"={56}> {
       t0.addr0 = systolic_array_component.t0_addr0;
       systolic_array_component.t0_read_data = t0.read_data;
       l0.addr0 = systolic_array_component.l0_addr0;
@@ -193,7 +193,7 @@ component main<"pos"={41}>() -> () {
     }
   }
   control {
-    @pos{48} perform_computation;
+    @pos{57} perform_computation;
   }
 }
 metadata #{
@@ -212,49 +212,58 @@ POSITIONS
   1: 0 25
   2: 0 26
   3: 0 27
-  4: 0 42
-  5: 1 379
-  6: 1 206
-  7: 1 207
-  8: 1 221
-  9: 1 222
-  10: 1 234
-  11: 2 40
-  12: 2 94
-  13: 2 111
-  14: 2 126
-  15: 2 143
-  16: 2 150
-  17: 1 94
-  18: 1 95
-  19: 1 96
-  20: 1 107
-  21: 1 108
-  22: 1 295
-  23: 1 297
-  24: 1 298
-  25: 1 312
-  26: 1 168
-  27: 1 253
-  28: 1 251
-  29: 1 335
-  30: 1 271
-  31: 1 269
-  32: 1 338
-  33: 1 353
-  34: 1 360
-  35: 1 366
-  36: 3 128
-  37: 3 67
-  38: 3 135
-  39: 3 137
-  40: 3 134
-  41: 4 70
-  42: 4 71
-  43: 4 72
-  44: 4 44
-  45: 4 123
-  46: 4 124
-  47: 4 125
-  48: 4 141
+  4: 0 29
+  5: 0 35
+  6: 0 42
+  7: 1 379
+  8: 1 206
+  9: 1 207
+  10: 1 208
+  11: 1 221
+  12: 1 222
+  13: 1 224
+  14: 1 227
+  15: 1 234
+  16: 2 40
+  17: 2 94
+  18: 2 111
+  19: 2 126
+  20: 2 143
+  21: 2 150
+  22: 1 94
+  23: 1 95
+  24: 1 96
+  25: 1 107
+  26: 1 108
+  27: 1 83
+  28: 1 152
+  29: 1 295
+  30: 1 297
+  31: 1 298
+  32: 1 312
+  33: 1 168
+  34: 1 253
+  35: 1 251
+  36: 1 335
+  37: 1 271
+  38: 1 269
+  39: 1 338
+  40: 1 353
+  41: 1 360
+  42: 1 366
+  43: 3 128
+  44: 3 110
+  45: 3 67
+  46: 3 71
+  47: 3 135
+  48: 3 137
+  49: 3 134
+  50: 4 70
+  51: 4 71
+  52: 4 72
+  53: 4 44
+  54: 4 123
+  55: 4 124
+  56: 4 125
+  57: 4 141
 }#

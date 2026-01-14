@@ -30,15 +30,16 @@ synthrep viz -h
 Extracts a JSON summary of synthesis and implementation resource usage, as well as timing info.
 
 ```bash
-synthrep summary [-d DIRECTORY] [-m {utilization,hierarchy}]
+synthrep summary [-d DIRECTORY] [-m {utilization,hierarchy,hls,hls-impl}] [--top TOP]
 ```
 
 **Options:**
 
-- `-d`, `--directory` – specify Vivado output directory (default: `out`)
+- `-d`, `--directory` – specify Vivado output directory (default: \<mode dependent\>)
 - `-m`, `--mode` – set summary mode (default: `utilization`)
+- `--top` – specify top-level module/function (default: `main`)
 
-There are two modes:
+There are four modes:
 
 - `utilization`: prints a flat summary of total resource usage and timing results:
   - LUTs, FFs, DSPs, BRAMs
@@ -47,6 +48,10 @@ There are two modes:
   - Worst slack and clock frequency
 
 - `hierarchy`: prints the full utilization hierarchy, which can be passed to the profiler to obtain cycle-resource-utilization data and visualizations
+
+- `hls`: prints a summary of estimated resource usage and latency after high-level synthesis
+
+- `hls-impl`: prints a summary of resource usage and timing after high-level synthesis followed by RTL synthesis and implementation
 
 **Example:**
 
@@ -83,7 +88,7 @@ synthrep viz -t sunburst -c lut
 A clone of [Brendan Gregg's FlameGraph repository](https://github.com/brendangregg/FlameGraph) is needed to generate FlameGraph SVGs. The folded stack output can be directly chained into the FlameGraph Perl script:
 
 ```bash
-synthrep viz -c lut -t flamegraph | path/to/FlameGraph/flamegraph.pl > flamegraph.svg  
+synthrep viz -c lut -t flamegraph | path/to/FlameGraph/flamegraph.pl > flamegraph.svg
 ```
 
 ## Supported formats

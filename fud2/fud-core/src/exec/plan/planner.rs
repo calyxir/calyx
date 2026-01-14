@@ -1,22 +1,15 @@
+use camino::Utf8PathBuf;
 use cranelift_entity::PrimaryMap;
 
-use crate::exec::State;
+use crate::{
+    exec::{self, State},
+    flang::Plan,
+};
 
 use super::super::{OpRef, Operation, StateRef};
 
 /// `Step` is an op paired with its used outputs.
 pub type Step = (OpRef, Vec<StateRef>);
-
-/// The type of a planner.
-pub enum PlannerType {
-    #[cfg(feature = "egg_planner")]
-    Egg,
-    #[cfg(feature = "sat_planner")]
-    Sat,
-    Enumerative,
-    Legacy,
-    FromJson,
-}
 
 /// A reified function for finding a sequence of operations taking a start set of states to an end
 /// set of states while guaranteing a set of "though" operations is used in the sequence.
@@ -27,13 +20,28 @@ pub trait FindPlan: std::fmt::Debug {
     /// `ops` is a complete list of operations.
     fn find_plan(
         &self,
-        start: &[StateRef],
-        end: &[StateRef],
-        through: &[OpRef],
+        req: &Request,
         ops: &PrimaryMap<OpRef, Operation>,
         states: &PrimaryMap<StateRef, State>,
-    ) -> Option<Vec<Step>>;
+    ) -> Option<Plan>;
+}
 
-    /// Returns the type of the planner.
-    fn ty(&self) -> PlannerType;
+pub struct Request<'a> {
+    pub start_states: &'a [StateRef],
+    pub end_states: &'a [StateRef],
+    pub start_files: &'a [Utf8PathBuf],
+    pub end_files: &'a [Utf8PathBuf],
+    pub through: &'a [OpRef],
+}
+
+impl<'a> From<&'a exec::Request> for Request<'a> {
+    fn from(value: &'a exec::Request) -> Self {
+        Request {
+            start_states: &value.start_states,
+            end_states: &value.end_states,
+            start_files: &value.start_files,
+            end_files: &value.end_files,
+            through: &value.through,
+        }
+    }
 }

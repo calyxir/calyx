@@ -18,7 +18,7 @@ enum Mode {
     Generate,
     Run,
     Cmds,
-    JsonPlan,
+    EmitJson,
 }
 
 impl FromStr for Mode {
@@ -32,7 +32,7 @@ impl FromStr for Mode {
             "run" => Ok(Mode::Run),
             "dot" => Ok(Mode::ShowDot),
             "cmds" => Ok(Mode::Cmds),
-            "json-plan" => Ok(Mode::JsonPlan),
+            "emit-json" => Ok(Mode::EmitJson),
             _ => Err("unknown mode".to_string()),
         }
     }
@@ -47,7 +47,7 @@ impl Display for Mode {
             Mode::Run => write!(f, "run"),
             Mode::ShowDot => write!(f, "dot"),
             Mode::Cmds => write!(f, "cmds"),
-            Mode::JsonPlan => write!(f, "json-plan"),
+            Mode::EmitJson => write!(f, "emit-json"),
         }
     }
 }
@@ -57,8 +57,6 @@ impl Display for Mode {
 /// is more than one correct path to choose.
 enum Planner {
     Legacy,
-    #[cfg(feature = "egg_planner")]
-    Egg,
     Enumerate,
     FromJson,
     #[cfg(feature = "sat_planner")]
@@ -71,8 +69,6 @@ impl FromStr for Planner {
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s {
             "legacy" => Ok(Planner::Legacy),
-            #[cfg(feature = "egg_planner")]
-            "egg" => Ok(Planner::Egg),
             "enumerate" => Ok(Planner::Enumerate),
             "json" => Ok(Planner::FromJson),
             #[cfg(feature = "sat_planner")]
@@ -86,8 +82,6 @@ impl Display for Planner {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Planner::Legacy => write!(f, "legacy"),
-            #[cfg(feature = "egg_planner")]
-            Planner::Egg => write!(f, "egg"),
             Planner::Enumerate => write!(f, "enumerate"),
             Planner::FromJson => write!(f, "json"),
             #[cfg(feature = "sat_planner")]
@@ -178,7 +172,7 @@ pub struct FudArgs<T: CliExt> {
     #[argh(option)]
     to: Vec<String>,
 
-    /// execution mode (run, plan, emit, gen, dot, json-plan)
+    /// execution mode (run, plan, emit, gen, dot, emit-json)
     #[argh(option, short = 'm', default = "Mode::Run")]
     mode: Mode,
 
@@ -314,8 +308,6 @@ fn get_request<T: CliExt>(
         workdir,
         planner: match args.planner {
             Planner::Legacy => Box::new(plan::LegacyPlanner {}),
-            #[cfg(feature = "egg_planner")]
-            Planner::Egg => Box::new(plan::EggPlanner {}),
             Planner::Enumerate => Box::new(plan::EnumeratePlanner {}),
             Planner::FromJson => Box::new(plan::JsonPlanner {}),
             #[cfg(feature = "sat_planner")]
@@ -348,12 +340,12 @@ fn get_resource(driver: &Driver, cmd: GetResource) -> anyhow::Result<()> {
     let to_path = cmd.output.as_deref().unwrap_or(&cmd.filename);
 
     // Try extracting embedded resource data.
-    if let Some(rsrc_files) = &driver.rsrc_files {
-        if let Some(data) = rsrc_files.get(cmd.filename.as_str()) {
-            log::info!("extracting {} to {}", cmd.filename, to_path);
-            std::fs::write(to_path, data)?;
-            return Ok(());
-        }
+    if let Some(rsrc_files) = &driver.rsrc_files
+        && let Some(data) = rsrc_files.get(cmd.filename.as_str())
+    {
+        log::info!("extracting {} to {}", cmd.filename, to_path);
+        std::fs::write(to_path, data)?;
+        return Ok(());
     }
 
     // Try copying a resource file from the resource directory.
@@ -505,7 +497,7 @@ fn cli_ext<T: CliExt>(
     })?;
 
     // Configure.
-    let mut run = Run::new(driver, plan, config.clone());
+    let mut run = Run::new(driver, plan, req.workdir, config.clone());
 
     // Override some global config options.
     if let Some(keep) = args.keep {
@@ -538,7 +530,7 @@ fn cli_ext<T: CliExt>(
             args.force_rebuild,
             csv_path,
         )?,
-        Mode::JsonPlan => run.show_ops_json(),
+        Mode::EmitJson => run.show_ops_json(),
     }
 
     Ok(())

@@ -11,12 +11,13 @@ use crate::{
     attribute::SetAttribute,
     attributes::ParseAttributeWrapper,
     source_info::{
-        FileId as MetadataFileId, LineNum, PositionId, SourceInfoResult,
-        SourceInfoTable,
+        FileId as MetadataFileId, LineNum, MemoryLocation, MemoryLocationId,
+        PositionId, SourceInfoResult, SourceInfoTable, VariableAssignmentId,
     },
 };
 use calyx_utils::{self, CalyxResult, Id, PosString, float};
 use calyx_utils::{FileIdx, GPosIdx, GlobalPositionTable};
+use itertools::Itertools;
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest_consume::{Error, Parser, match_nodes};
 use std::io::Read;
@@ -387,7 +388,7 @@ impl CalyxParser {
         }
     }
 
-    fn char(input: Node) -> ParseResult<&str> {
+    fn char(input: Node<'_>) -> ParseResult<&str> {
         Ok(input.as_str())
     }
 
@@ -424,7 +425,7 @@ impl CalyxParser {
         ))
     }
 
-    fn block_char(input: Node) -> ParseResult<&str> {
+    fn block_char(input: Node<'_>) -> ParseResult<&str> {
         Ok(input.as_str())
     }
 
@@ -1502,30 +1503,149 @@ impl CalyxParser {
 
     fn position_entry(
         input: Node,
-    ) -> ParseResult<(PositionId, MetadataFileId, LineNum)> {
+    ) -> ParseResult<(PositionId, MetadataFileId, LineNum, Option<LineNum>)>
+    {
         Ok(match_nodes!(input.into_children();
+        [bitwidth(pos_num), bitwidth(file_num), bitwidth(line_no), bitwidth(end_line)] => {
+                let pos_num = pos_num.try_into().expect("position ids must fit in a u32");
+                let file_num = file_num.try_into().expect("file ids must fit in a u32");
+                let line_no = line_no.try_into().expect("line numbers must fit in a u32");
+                let end_line = end_line.try_into().expect("line numbers must fit in a u32");
+                (PositionId::new(pos_num), MetadataFileId::new(file_num), LineNum::new(line_no), Some(LineNum::new(end_line)))},
+
             [bitwidth(pos_num), bitwidth(file_num), bitwidth(line_no)] => {
                 let pos_num = pos_num.try_into().expect("position ids must fit in a u32");
                 let file_num = file_num.try_into().expect("file ids must fit in a u32");
                 let line_no = line_no.try_into().expect("line numbers must fit in a u32");
-                (PositionId::new(pos_num), MetadataFileId::new(file_num), LineNum::new(line_no))}
+                (PositionId::new(pos_num), MetadataFileId::new(file_num), LineNum::new(line_no), None)}
         ))
     }
 
     fn position_table(
         input: Node,
     ) -> ParseResult<
-        impl IntoIterator<Item = (PositionId, MetadataFileId, LineNum)>,
+        impl IntoIterator<
+            Item = (PositionId, MetadataFileId, LineNum, Option<LineNum>),
+        >,
     > {
         Ok(match_nodes!(input.into_children();
                 [position_header(_), position_entry(e)..] => e))
+    }
+
+    fn memory_header(input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn memory_str(input: Node) -> ParseResult<String> {
+        Ok(match_nodes!(input.into_children();
+            [string_lit(s)] => s.to_string(),
+            [identifier(head), identifier(tail)..] => {
+                let tail_str = &tail.into_iter().join(".");
+                if tail_str.is_empty() {
+                    head.to_string()
+                } else {
+                    head.to_string() + "." + tail_str
+                }
+            },
+
+        ))
+    }
+
+    fn memory_loc(
+        input: Node,
+    ) -> ParseResult<(MemoryLocationId, MemoryLocation)> {
+        Ok(match_nodes!(input.into_children();
+            [bitwidth(id), memory_str(name), bitwidth(addrs).. ] =>{
+                  ((id as u32).into(), MemoryLocation {
+                    cell: name,
+                    address: addrs.map(|x|x as usize).collect()
+                })
+            },
+            [bitwidth(id), memory_str(name)]=>{
+                ((id as u32).into(), MemoryLocation {
+                    cell: name,
+                    address: vec![]
+                })
+            }
+        ))
+    }
+
+    fn memory_table(
+        input: Node,
+    ) -> ParseResult<impl IntoIterator<Item = (MemoryLocationId, MemoryLocation)>>
+    {
+        Ok(match_nodes!(input.into_children();
+            [memory_header(_), memory_loc(l)..] => l))
+    }
+
+    fn variable_header(input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn single_assignment(
+        input: Node,
+    ) -> ParseResult<(String, MemoryLocationId)> {
+        Ok(match_nodes!(input.into_children();
+            [identifier(i), bitwidth(b)] => (i.to_string(), b.try_into().expect("memory location ids must fit in u32"))
+        ))
+    }
+
+    fn assignment_set(
+        input: Node,
+    ) -> ParseResult<(
+        VariableAssignmentId,
+        impl IntoIterator<Item = (String, MemoryLocationId)>,
+    )> {
+        Ok(match_nodes!(input.into_children();
+            [bitwidth(id), single_assignment(assigns)..] => {
+                (id.try_into().expect("variable assignment id must fit in a u32"), assigns)
+            }
+        ))
+    }
+
+    fn variable_table(
+        input: Node,
+    ) -> ParseResult<
+        impl IntoIterator<
+            Item = (
+                VariableAssignmentId,
+                impl IntoIterator<Item = (String, MemoryLocationId)>,
+            ),
+        >,
+    > {
+        Ok(match_nodes!(input.into_children();
+            [variable_header(_), assignment_set(sets)..] => sets
+        ))
+    }
+
+    fn pos_state_header(input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn pos_state_entry(
+        input: Node,
+    ) -> ParseResult<(PositionId, VariableAssignmentId)> {
+        Ok(match_nodes!(input.into_children();
+        [bitwidth(pos), bitwidth(var)] => (pos.try_into().expect("pos id must fit into u32"), var.try_into().expect("variable assignment id must fit in u32"))
+        ))
+    }
+
+    fn pos_state_table(
+        input: Node,
+    ) -> ParseResult<impl IntoIterator<Item = (PositionId, VariableAssignmentId)>>
+    {
+        Ok(match_nodes!(input.into_children();
+            [pos_state_header(_), pos_state_entry(e)..] => e,
+        ))
     }
 
     fn source_info_table(
         input: Node,
     ) -> ParseResult<SourceInfoResult<SourceInfoTable>> {
         Ok(match_nodes!(input.into_children();
-            [file_table(f), position_table(p)] => SourceInfoTable::new(f, p)
+            [file_table(f), position_table(p)] => SourceInfoTable::new_minimal(f, p),
+            [file_table(f), position_table(p), memory_table(m), variable_table(v), pos_state_table(s)] => SourceInfoTable::new(f, p, m, v, s),
+
         ))
     }
 
@@ -1571,11 +1691,10 @@ impl CalyxParser {
             [imports(imports), externs_and_comps(mixed), extra_info(info), EOI(_)] => {
                 let (mut metadata, source_info_table) = info;
                 // remove empty metadata strings
-                if let Some(m) = &metadata {
-                    if m.is_empty() {
+                if let Some(m) = &metadata
+                    && m.is_empty() {
                         metadata = None;
                     }
-                }
 
                 let mut namespace =
                     ast::NamespaceDef {

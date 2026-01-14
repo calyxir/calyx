@@ -42,7 +42,7 @@ bad_num = @{ ASCII_DIGIT ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "'")* }
 
 comb = { "comb" }
 
-reference = { "ref" }
+reference = @{ "ref" ~ &WHITESPACE }
 
 static_word = { "static" }
 
@@ -304,21 +304,21 @@ transition_rule = {
 
 // transitions that can be either conditional or unconditional
 transition = {
-      state_idx 
-      | "{" 
+      state_idx
+      | "{"
       ~ (transition_rule ~ ",")+
       ~ "}"
 }
 
 state = {
-      state_idx ~ ":" ~ "{" 
+      state_idx ~ ":" ~ "{"
       ~ wire*
       ~ "}" ~ "=>" ~ transition ~ ","
 }
 
 fsm = {
-      "fsm" ~ name_with_attribute ~ "{" 
-      ~ state+ 
+      "fsm" ~ name_with_attribute ~ "{"
+      ~ state+
       ~ "}"
 }
 
@@ -436,14 +436,28 @@ file_table = {
 
 position_header = {^"POSITIONS"}
 
-position_entry = {bitwidth ~ ":" ~ bitwidth ~ bitwidth }
+position_entry = {bitwidth ~ ":" ~ bitwidth ~ bitwidth ~ (":" ~ bitwidth)?}
 
 position_table = {
     position_header ~ position_entry+
 }
 
+memory_header = { ^"memory_locations" }
+memory_str    = { string_lit | (identifier ~ ("." ~ identifier)*) }
+memory_loc    = { bitwidth ~ ":" ~ memory_str ~ ("[" ~ (bitwidth ~ ","?)+ ~ "]")? }
+memory_table  = { memory_header ~ memory_loc* }
+
+variable_header   = { ^"variable_assignments" }
+single_assignment = { identifier ~ ":" ~ bitwidth }
+assignment_set    = { bitwidth ~ ":" ~ "{" ~ single_assignment+ ~ "}" }
+variable_table    = { variable_header ~ assignment_set* }
+
+pos_state_header = { ^"position_state_map" }
+pos_state_entry  = { bitwidth ~ ":" ~ bitwidth }
+pos_state_table  = { pos_state_header ~ pos_state_entry* }
+
 source_info_table = {
- ^"sourceinfo" ~ "#{" ~ file_table ~ position_table ~ "}#"
+    ^"sourceinfo" ~ "#{" ~ file_table ~ position_table ~ (memory_table ~ variable_table ~ pos_state_table)? ~ "}#"
 }
 
 

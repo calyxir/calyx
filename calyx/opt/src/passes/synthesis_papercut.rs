@@ -80,13 +80,13 @@ impl Visitor for SynthesisPapercut {
             .iter()
             .filter_map(|cell| {
                 let cell = &cell.borrow();
-                if let Some(ref parent) = cell.type_name() {
-                    if self.memories.contains(parent) {
-                        let has_external =
-                            cell.get_attribute(ir::BoolAttr::External);
-                        if has_external.is_none() && !cell.is_reference() {
-                            return Some(cell.name());
-                        }
+                if let Some(ref parent) = cell.type_name()
+                    && self.memories.contains(parent)
+                {
+                    let has_external =
+                        cell.get_attribute(ir::BoolAttr::External);
+                    if has_external.is_none() && !cell.is_reference() {
+                        return Some(cell.name());
                     }
                 }
                 None

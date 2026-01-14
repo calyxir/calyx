@@ -11,7 +11,7 @@ use crate::{
     configuration::{LoggingConfig, RuntimeConfig},
     debugger::{
         self,
-        commands::{ParseNodes, ParsePath},
+        commands::{ParseNodes, ParsePath, PrintTarget},
     },
     errors::*,
     flatten::{
@@ -46,9 +46,9 @@ use baa::{BitVecOps, BitVecValue};
 use calyx_frontend::source_info::PositionId;
 use cider_idx::{IndexRef, maps::SecondaryMap};
 use delegate::delegate;
-use fxhash::{FxHashMap, FxHashSet};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 #[derive(Debug, Clone)]
 pub struct Environment<C: AsRef<Context> + Clone> {
@@ -83,6 +83,8 @@ pub struct Environment<C: AsRef<Context> + Clone> {
     /// Reverse map from ports to the cells they are attached to. Used to
     /// determine which primitives to re=evaluate
     ports_to_cells_map: SecondaryMap<GlobalPortIdx, GlobalCellIdx>,
+    /// reused scratchpad
+    changed_cells: FxHashSet<GlobalCellIdx>,
 }
 
 impl<C: AsRef<Context> + Clone> Environment<C> {
@@ -287,6 +289,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             ports_to_cells_map: SecondaryMap::new_with_default(0.into()),
             pinned_ports: PinnedPorts::new(),
             state_map: MemoryMap::new(),
+            changed_cells: FxHashSet::new(),
         };
 
         let ctx = ctx.as_ref();
@@ -311,17 +314,16 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         for (idx, ledger) in env.cells.iter() {
             if let CellLedger::Component(comp) = ledger {
                 let comp_info = &ctx.primary[comp.comp_id];
-                if !comp_info.is_comb() {
-                    if let Some(ctrl) = comp_info.as_standard().unwrap().control
-                    {
-                        env.pc.vec_mut().push(ProgramPointer::new_active(
-                            (comp.comp_id == root).then_some(root_thread),
-                            ControlPoint {
-                                comp: idx,
-                                control_node_idx: ctrl,
-                            },
-                        ))
-                    }
+                if !comp_info.is_comb()
+                    && let Some(ctrl) = comp_info.as_standard().unwrap().control
+                {
+                    env.pc.vec_mut().push(ProgramPointer::new_active(
+                        (comp.comp_id == root).then_some(root_thread),
+                        ControlPoint {
+                            comp: idx,
+                            control_node_idx: ctrl,
+                        },
+                    ))
                 }
             }
         }
@@ -1844,30 +1846,29 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
     fn check_transitive_reads(&mut self) -> Result<(), BoxedCiderError> {
         let mut clock_map = std::mem::take(&mut self.env.clocks);
         for cell in self.env.cells.values() {
-            if let Some(dyn_prim) = cell.as_primitive() {
-                if !dyn_prim.is_combinational() {
-                    let sig = dyn_prim.get_ports();
-                    for port in sig.iter_first() {
-                        if let Some(val) = self.env.ports[port].as_option() {
-                            if val.propagate_clocks()
-                                && (val.transitive_clocks().is_some())
-                            {
-                                // For non-combinational cells with
-                                // transitive reads, we will check them at
-                                // the cycle boundary and attribute the read
-                                // to the continuous thread
-                                let (assign_idx, cell) =
-                                    val.winner().as_assign().unwrap();
-                                self.check_read(
-                                    ThreadMap::continuous_thread(),
-                                    port,
-                                    &mut clock_map,
-                                    ReadSource::Assignment(assign_idx),
-                                    cell,
-                                )
-                                .map_err(|e| e.prettify_message(&self.env))?
-                            }
-                        }
+            if let Some(dyn_prim) = cell.as_primitive()
+                && !dyn_prim.is_combinational()
+            {
+                let sig = dyn_prim.get_ports();
+                for port in sig.iter_first() {
+                    if let Some(val) = self.env.ports[port].as_option()
+                        && val.propagate_clocks()
+                        && (val.transitive_clocks().is_some())
+                    {
+                        // For non-combinational cells with
+                        // transitive reads, we will check them at
+                        // the cycle boundary and attribute the read
+                        // to the continuous thread
+                        let (assign_idx, cell) =
+                            val.winner().as_assign().unwrap();
+                        self.check_read(
+                            ThreadMap::continuous_thread(),
+                            port,
+                            &mut clock_map,
+                            ReadSource::Assignment(assign_idx),
+                            cell,
+                        )
+                        .map_err(|e| e.prettify_message(&self.env))?
                     }
                 }
             }
@@ -2369,7 +2370,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             info!(self.env.logger, "Started combinational convergence");
         }
 
-        let mut changed_cells: FxHashSet<GlobalCellIdx> = FxHashSet::new();
+        let mut changed_cells = std::mem::take(&mut self.env.changed_cells);
 
         self.run_primitive_comb_path(self.env.cells.range().into_iter())?;
         let mut rerun_all_primitives = false;
@@ -2416,15 +2417,15 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                             let dest = self
                                 .get_global_port_idx(&assign.dst, *active_cell);
 
-                            if let Some(done) = done {
-                                if dest != done {
-                                    let done_val = &self.env.ports[done];
+                            if let Some(done) = done
+                                && dest != done
+                            {
+                                let done_val = &self.env.ports[done];
 
-                                    if done_val.as_bool().unwrap_or(true) {
-                                        // skip this assignment when we are done or
-                                        // or the done signal is undefined
-                                        continue;
-                                    }
+                                if done_val.as_bool().unwrap_or(true) {
+                                    // skip this assignment when we are done or
+                                    // or the done signal is undefined
+                                    continue;
                                 }
                             }
 
@@ -2613,6 +2614,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             info!(self.env.logger, "Finished combinational convergence");
         }
 
+        changed_cells.clear();
+        self.env.changed_cells = changed_cells;
+
         Ok(())
     }
 
@@ -2789,40 +2793,34 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         .primary
                         .guard_read_map
                         .get(assign.guard)
+                        && self.env.ports[dest].is_def()
                     {
-                        if self.env.ports[dest].is_def() {
-                            for port in read_ports {
-                                let port = self
-                                    .get_global_port_idx(port, *active_cell);
-                                if let Some(clock) =
-                                    self.env.ports[port].clocks()
-                                {
-                                    set_extension.insert(clock);
-                                }
-                                if let Some(clocks) =
-                                    self.env.ports[port].transitive_clocks()
-                                {
-                                    set_extension
-                                        .extend(clocks.iter().copied());
-                                }
+                        for port in read_ports {
+                            let port =
+                                self.get_global_port_idx(port, *active_cell);
+                            if let Some(clock) = self.env.ports[port].clocks() {
+                                set_extension.insert(clock);
                             }
-                            if !set_extension.is_empty() {
-                                self.env.ports[dest]
-                                    .as_option_mut()
-                                    .unwrap()
-                                    .add_transitive_clocks(
-                                        set_extension.drain(),
-                                    );
+                            if let Some(clocks) =
+                                self.env.ports[port].transitive_clocks()
+                            {
+                                set_extension.extend(clocks.iter().copied());
                             }
-
-                            // this is necessary for ports which were implicitly
-                            // assigned zero and is redundant for other ports
-                            // which will already have propagate_clocks set
+                        }
+                        if !set_extension.is_empty() {
                             self.env.ports[dest]
                                 .as_option_mut()
                                 .unwrap()
-                                .set_propagate_clocks(true);
+                                .add_transitive_clocks(set_extension.drain());
                         }
+
+                        // this is necessary for ports which were implicitly
+                        // assigned zero and is redundant for other ports
+                        // which will already have propagate_clocks set
+                        self.env.ports[dest]
+                            .as_option_mut()
+                            .unwrap()
+                            .set_propagate_clocks(true);
                     }
                 }
             }
@@ -2920,17 +2918,16 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
                         for port in signature.iter_first() {
                             let val = &self.env.ports[port];
-                            if let Some(val) = val.as_option() {
-                                if val.propagate_clocks()
-                                    && (val.clocks().is_some()
-                                        || val.transitive_clocks().is_some())
-                                {
-                                    if let Some(clocks) = val.clocks() {
-                                        working_set.push(*clocks);
-                                    }
-                                    working_set
-                                        .extend(val.iter_transitive_clocks());
+                            if let Some(val) = val.as_option()
+                                && val.propagate_clocks()
+                                && (val.clocks().is_some()
+                                    || val.transitive_clocks().is_some())
+                            {
+                                if let Some(clocks) = val.clocks() {
+                                    working_set.push(*clocks);
                                 }
+                                working_set
+                                    .extend(val.iter_transitive_clocks());
                             }
                         }
 
@@ -3063,12 +3060,11 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         go: Option<GlobalPortIdx>,
     ) -> Option<ThreadIdx> {
         thread.or_else(|| {
-            if let Some(go_idx) = go {
-                if let Some(go_thread) =
+            if let Some(go_idx) = go
+                && let Some(go_thread) =
                     self.env.ports[go_idx].as_option().and_then(|a| a.thread())
-                {
-                    return Some(go_thread);
-                }
+            {
+                return Some(go_thread);
             }
             comp_go.and_then(|comp_go| {
                 self.env.ports[comp_go].as_option().and_then(|x| x.thread())
@@ -3187,12 +3183,13 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         &self,
         cell_idx: GlobalCellIdx,
         print_code: PrintCode,
-        name: Option<&str>,
+        name: Option<impl AsRef<str>>,
     ) -> String {
         let mut buf = String::new();
 
         if let Some(name_override) = name {
-            writeln!(buf, "{}:", name_override.stylize_name()).unwrap();
+            writeln!(buf, "{}:", name_override.as_ref().stylize_name())
+                .unwrap();
         } else {
             writeln!(buf, "{}:", self.get_full_name(cell_idx).stylize_name())
                 .unwrap();
@@ -3210,27 +3207,25 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         buf
     }
 
+    /// return a string containing formatted data for the given target, assuming
+    /// there is internal state to inspect and that the target does not contain
+    /// an invalid address
     pub fn format_cell_state(
         &self,
         cell_idx: GlobalCellIdx,
         print_code: PrintCode,
-        name: Option<&str>,
+        target: &PrintTarget,
     ) -> Option<String> {
         let cell = self.env.cells[cell_idx].unwrap_primitive();
-        let serializer = cell.serializer()?;
-        let mut output = String::new();
+        let state = cell
+            .serializer()?
+            .serialize(print_code, &self.env.state_map);
 
-        let state = serializer.serialize(Some(print_code), &self.env.state_map);
-
-        if let Some(name_override) = name {
-            write!(output, "{name_override}: ").unwrap();
+        if let Some(addr) = target.address() {
+            state.format_address(addr)
         } else {
-            write!(output, "{}: ", self.get_full_name(cell_idx)).unwrap();
+            Some(format!("{state}"))
         }
-
-        writeln!(output, "{state}").unwrap();
-
-        Some(output)
     }
 }
 

@@ -352,12 +352,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c76a5792e44e4abe34d3abf15636779261d45a7450612059293d1d2cfc63422"
 
 [[package]]
-name = "byteorder"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
-
-[[package]]
 name = "bytes"
 version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -508,7 +502,7 @@ dependencies = [
  "serde",
  "serde_json",
  "string-interner",
- "symbol_table 0.3.0",
+ "symbol_table",
 ]
 
 [[package]]
@@ -635,8 +629,8 @@ dependencies = [
  "delegate",
  "fraction",
  "fst-writer",
- "fxhash",
  "itertools 0.11.0",
+ "mimalloc",
  "num-bigint",
  "num-traits",
  "owo-colors 4.2.2",
@@ -646,6 +640,7 @@ dependencies = [
  "petgraph",
  "proptest",
  "rand 0.9.2",
+ "rustc-hash",
  "rustyline",
  "serde",
  "serde_json",
@@ -696,8 +691,8 @@ name = "cider-idx"
 version = "0.1.0"
 dependencies = [
  "ahash 0.8.12",
- "fxhash",
  "proptest",
+ "rustc-hash",
  "serde",
  "smallvec",
 ]
@@ -879,10 +874,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "cranelift-entity"
-version = "0.103.0"
+name = "cranelift-bitset"
+version = "0.125.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44e3ee532fc4776c69bcedf7e62f9632cbb3f35776fa9a525cdade3195baa3f7"
+checksum = "ac0790c83cfdab95709c5d0105fd888221e3af9049a7d7ec376ec901ab4e4dba"
+
+[[package]]
+name = "cranelift-entity"
+version = "0.125.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "981b56af777f9a34ea6dcce93255125776d391410c2a68b75bed5941b714fa15"
+dependencies = [
+ "cranelift-bitset",
+]
 
 [[package]]
 name = "criterion"
@@ -1186,24 +1190,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
-name = "egg"
-version = "0.9.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96beaf9d35dbc4686bc86a4ecb851fd6a406f0bf32d9f646b1225a5c5cf5b5d7"
-dependencies = [
- "env_logger",
- "fxhash",
- "hashbrown 0.12.3",
- "indexmap 1.9.3",
- "instant",
- "log",
- "smallvec",
- "symbol_table 0.2.0",
- "symbolic_expressions",
- "thiserror 1.0.69",
-]
-
-[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1353,6 +1339,7 @@ version = "0.0.2"
 dependencies = [
  "anyhow",
  "argh",
+ "camino",
  "figment",
  "fud-core",
  "include_dir",
@@ -1371,7 +1358,6 @@ dependencies = [
  "ariadne",
  "camino",
  "cranelift-entity",
- "egg",
  "env_logger",
  "figment",
  "insta",
@@ -1465,15 +1451,6 @@ dependencies = [
  "pin-project-lite",
  "pin-utils",
  "slab",
-]
-
-[[package]]
-name = "fxhash"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c31b6d751ae2c7f11320402d34e41349dd1016f8d5d45e48c4312bc8625af50c"
-dependencies = [
- "byteorder",
 ]
 
 [[package]]
@@ -1922,6 +1899,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "libmimalloc-sys"
+version = "0.1.44"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "667f4fec20f29dfc6bc7357c582d91796c169ad7e2fce709468aefeb2c099870"
+dependencies = [
+ "cc",
+ "libc",
+]
+
+[[package]]
 name = "libredox"
 version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2004,6 +1991,15 @@ name = "memchr"
 version = "2.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32a282da65faaf38286cf3be983213fcf1d2e2a58700e808f83f4ea9a4804bc0"
+
+[[package]]
+name = "mimalloc"
+version = "0.1.48"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1ee66a4b64c74f4ef288bcbb9192ad9c3feaad75193129ac8509af543894fd8"
+dependencies = [
+ "libmimalloc-sys",
+]
 
 [[package]]
 name = "minimal-lexical"
@@ -3420,16 +3416,6 @@ dependencies = [
 
 [[package]]
 name = "symbol_table"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32bf088d1d7df2b2b6711b06da3471bc86677383c57b27251e18c56df8deac14"
-dependencies = [
- "ahash 0.7.8",
- "hashbrown 0.12.3",
-]
-
-[[package]]
-name = "symbol_table"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "828f672b631c220bf6ea8a1d3b82c7d0fc998e5ba8373383d8604bc1e2a6245a"
@@ -3438,12 +3424,6 @@ dependencies = [
  "hashbrown 0.12.3",
  "serde",
 ]
-
-[[package]]
-name = "symbolic_expressions"
-version = "5.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c68d531d83ec6c531150584c42a4290911964d5f0d79132b193b67252a23b71"
 
 [[package]]
 name = "syn"

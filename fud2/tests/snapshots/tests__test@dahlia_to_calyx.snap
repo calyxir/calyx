@@ -6,10 +6,12 @@ build-tool = fud2
 rule get-rsrc
   command = $build-tool get-rsrc $out
 
+parent-map = parent-map.json
 dahlia-exe = /test/bin/dahlia
+dahlia-args = 
 rule dahlia-to-calyx
-  command = $dahlia-exe -b calyx --lower -l error $in > $out
+  command = $dahlia-exe -b calyx --lower -l error $dahlia-args $in > $out
 
-build _to_stdout_calyx.futil: dahlia-to-calyx _from_stdin_dahlia.fuse
+build calyx_1.futil: dahlia-to-calyx dahlia_0.fuse
 
-default _to_stdout_calyx.futil
+default calyx_1.futil

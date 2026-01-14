@@ -29,13 +29,21 @@ fn sign_extend_vec(mut vec: Vec<u8>, width: u32, signed: bool) -> Vec<u8> {
                 ));
                 vec.push(
                     0b1111_1111
-                        >> (if width % 8 == 0 { 0 } else { 8 - width % 8 }),
+                        >> (if width.is_multiple_of(8) {
+                            0
+                        } else {
+                            8 - width % 8
+                        }),
                 );
             }
             std::cmp::Ordering::Equal => {
                 // chopping off the upper bits
                 let mask = 0b1111_1111u8
-                    >> (if width % 8 == 0 { 0 } else { 8 - width % 8 });
+                    >> (if width.is_multiple_of(8) {
+                        0
+                    } else {
+                        8 - width % 8
+                    });
                 *vec.last_mut().unwrap() &= mask;
             }
             std::cmp::Ordering::Greater => unreachable!(),
@@ -315,7 +323,7 @@ fn format_data(declaration: &MemoryDeclaration, data: &[u8]) -> ParseVec {
             }
         });
     // sanity check
-    assert!(data.len() % (width.div_ceil(8) as usize) == 0);
+    assert!(data.len().is_multiple_of(width.div_ceil(8) as usize));
 
     match &declaration.dimensions {
         Dimensions::D1(_) => chunk_stream.collect_vec().into(),
@@ -437,6 +445,11 @@ mod tests {
 
     prop_compose! {
         fn arb_format_info_bitnum()(width in 1_u32..=128, signed in any::<bool>()) -> crate::json_data::FormatInfo {
+            let width = if signed && width == 1 {
+                width + 1
+            } else {
+                width
+            };
             crate::json_data::FormatInfo {
                 width: Some(width),
                 is_signed: signed,
@@ -449,6 +462,11 @@ mod tests {
 
     prop_compose! {
         fn arb_format_info_fixed()(int_width in 1_u32..=128, frac_width in 1_u32..=128, signed in any::<bool>()) -> crate::json_data::FormatInfo {
+            let int_width = if signed && int_width == 1 {
+                int_width + 1
+            } else {
+                int_width
+            };
             crate::json_data::FormatInfo {
                 width: None,
                 is_signed: signed,
@@ -480,7 +498,7 @@ mod tests {
         fn arb_bigint(width: u32, signed: bool)(mut data in prop::collection::vec(any::<u8>(), width.div_ceil(8) as usize)) -> BigInt {
             let last = data.last_mut().unwrap();
             let mask = 0b1111_1111u8
-                >> (if width % 8 == 0 { 0 } else { 8 - width % 8 });
+                >> (if width.is_multiple_of(8) { 0 } else { 8 - width % 8 });
             *last &= mask;
 
             if signed {

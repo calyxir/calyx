@@ -1,0 +1,65 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+    cells {
+        // Input memories
+        @external a = comb_mem_d1(32, 10, 4);
+        @external b = comb_mem_d2(32, 1, 10, 4, 4);
+        @external c = comb_mem_d3(32, 1, 1, 10, 4, 4, 4);
+        @external d = comb_mem_d4(32, 1, 1, 1, 10, 4, 4, 4, 4);
+
+        @external e = comb_mem_d1(32, 2, 4);
+        @external f = comb_mem_d2(32, 2, 2, 4, 4);
+        @external g = comb_mem_d3(32, 2, 2, 2, 4, 4, 4);
+        @external h = comb_mem_d4(32, 2, 2, 2, 2, 4, 4, 4, 4);
+
+    }
+
+
+
+    wires {
+        group write_a {
+            a.write_en = 1'd1;
+            a.addr0 = 4'd2;
+            a.write_data = 32'd5;
+            write_a[done] = a.done;
+        }
+
+        group write_b {
+            b.write_en = 1'd1;
+            b.addr0 = 4'd0;
+            b.addr1 = 4'd2;
+            b.write_data = 32'd5;
+            write_b[done] = b.done;
+        }
+
+        group write_c {
+            c.write_en = 1'd1;
+            c.addr0 = 4'd0;
+            c.addr1 = 4'd0;
+            c.addr2 = 4'd2;
+            c.write_data = 32'd5;
+            write_c[done] = c.done;
+        }
+
+        group write_d {
+            d.write_en = 1'd1;
+            d.addr0 = 4'd0;
+            d.addr1 = 4'd0;
+            d.addr2 = 4'd0;
+            d.addr3 = 4'd2;
+            d.write_data = 32'd5;
+            write_d[done] = d.done;
+        }
+    }
+
+    control {
+        seq {
+            write_a;
+            write_b;
+            write_c;
+            write_d;
+        }
+    }
+}

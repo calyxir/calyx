@@ -12,7 +12,7 @@ description = "Library for building declarative build tools"
 
 [dependencies]
 argh.workspace = true
-cranelift-entity = "0.103.0"
+cranelift-entity = "0.125.4"
 serde.workspace = true
 serde_json.workspace = true
 figment = { version = "0.10.12", features = ["toml"] }
@@ -26,7 +26,6 @@ once_cell = "1.19.0"
 ariadne = "0.4.1"
 itertools.workspace = true
 rand = "0.8.5"
-egg = { version = "0.9.5", optional = true }
 toml_edit = { version = "0.22.20", features = ["serde"] }
 libc = "0.2.174"
 rustsat = { version = "0.7.3", optional = true }
@@ -37,5 +36,4 @@ rand_chacha = "0.3.1"
 insta = "1.43.1"
 
 [features]
-egg_planner = ["dep:egg"]
 sat_planner = ["dep:rustsat", "dep:rustsat-minisat"]

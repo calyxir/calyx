@@ -27,21 +27,21 @@ component main<"pos"={1}>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done don
       reg3.write_en = 1'd1;
       done = reg3.done;
     }
-    comb group cond {
+    comb group cond<"pos"={6}> {
       lt.left = 32'd5;
       lt.right = 32'd9;
     }
   }
   control {
-    @pos{6} par {
-      @pos{7} seq {
-        @pos{8} g1;
-        @pos{9} g2;
+    @pos{7} par {
+      @pos{8} seq {
+        @pos{9} g1;
+        @pos{10} g2;
       }
-      @pos{10} if lt.out with cond {
-        @pos{11} g3;
+      @pos{11} if lt.out with cond {
+        @pos{12} g3;
       } else {
-        @pos{12} g4;
+        @pos{13} g4;
       }
     }
   }
@@ -50,16 +50,17 @@ sourceinfo #{
 FILES
   1: tests/passes/metadata-table-gen.futil
 POSITIONS
-  1: 1 5
-  2: 1 14
-  3: 1 19
-  4: 1 24
-  5: 1 29
-  6: 1 40
-  7: 1 41
-  8: 1 42
-  9: 1 43
-  10: 1 45
-  11: 1 46
-  12: 1 48
+  1: 1 5:53
+  2: 1 14:18
+  3: 1 19:23
+  4: 1 24:28
+  5: 1 29:33
+  6: 1 34:37
+  7: 1 40:50
+  8: 1 41:44
+  9: 1 42:42
+  10: 1 43:43
+  11: 1 45:49
+  12: 1 46:46
+  13: 1 48:48
 }#

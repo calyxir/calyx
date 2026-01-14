@@ -45,9 +45,11 @@ use rustsat::{
     types::{Assignment, Lit, TernaryVal},
 };
 
+use crate::exec::plan::op_list_converter::prog_from_op_list;
+
 use super::{
     super::{OpRef, Operation, State, StateRef},
-    FindPlan, PlannerType,
+    FindPlan,
     planner::Step,
 };
 
@@ -236,24 +238,20 @@ pub struct SatPlanner {}
 impl FindPlan for SatPlanner {
     fn find_plan(
         &self,
-        start: &[StateRef],
-        end: &[StateRef],
-        through: &[OpRef],
+        req: &super::Request,
         ops: &PrimaryMap<OpRef, Operation>,
-        _states: &PrimaryMap<StateRef, State>,
-    ) -> Option<Vec<Step>> {
+        states: &PrimaryMap<StateRef, State>,
+    ) -> Option<crate::flang::Plan> {
         let mut planner = Planner::from_ops(ops);
-        planner
-            .solve(start, end, through)
+        let op_list = planner
+            .solve(req.start_states, req.end_states, req.through)
             .map(|a| planner.assignment_to_plan(a))
             // The SAT encoding does not allow input states to be used as is unless there is no op
             // which can make them. Therefore, if the plan is empty, the only way to create a valid
             // plan is to not apply any ops. This is interpreted as no plan existing so the planner
             // should return `None`.
-            .take_if(|plan| !plan.is_empty())
-    }
+            .take_if(|plan| !plan.is_empty());
 
-    fn ty(&self) -> PlannerType {
-        PlannerType::Sat
+        op_list.map(|l| prog_from_op_list(&l, req, ops, states))
     }
 }

@@ -25,12 +25,14 @@ impl Metadata {
 
     pub fn add_control_node<A: GetAttributes>(&mut self, node: &mut A) {
         let attr = node.get_mut_attributes();
-        let temp = attr.copy_span();
-        let (f, (line, _)) = temp.get_line_num();
+        let node_pos = attr.copy_span();
+        let (f, (line, endline)) = node_pos.get_line_num();
         let fnum = self.file_ids.get(f).unwrap();
-        let pos = self
-            .src_table
-            .push_position(*fnum, LineNum::new(line as u32));
+        let pos = self.src_table.push_position(
+            *fnum,
+            LineNum::new(line as u32),
+            Some(LineNum::new(endline as u32)),
+        );
         attr.insert_set(calyx_frontend::SetAttr::Pos, pos.value());
     }
 }
@@ -77,7 +79,7 @@ impl Visitor for Metadata {
         // components have attributes !!
         // check if file exists for component definition
         let binding = comp.attributes.copy_span();
-        let (file, (line, _)) = binding.get_line_num();
+        let (file, (line, endline)) = binding.get_line_num();
 
         // add file to source table (if not already in)
         if !self.file_ids.contains_key(file) {
@@ -87,9 +89,11 @@ impl Visitor for Metadata {
 
         // add source position of the component itself
         let component_file_id = self.file_ids.get(file).unwrap();
-        let component_pos = self
-            .src_table
-            .push_position(*component_file_id, LineNum::new(line as u32));
+        let component_pos = self.src_table.push_position(
+            *component_file_id,
+            LineNum::new(line as u32),
+            Some(LineNum::new(endline as u32)),
+        );
         comp.attributes
             .insert_set(calyx_frontend::SetAttr::Pos, component_pos.value());
 
@@ -98,11 +102,45 @@ impl Visitor for Metadata {
             let mut grp = rrcgrp.borrow_mut();
             let attr = &mut grp.attributes;
             let pos_data = attr.copy_span();
-            let (f, (line_start, _line_end)) = pos_data.get_line_num();
+            let (f, (line_start, line_end)) = pos_data.get_line_num();
             let fid = self.file_ids.get(f).unwrap(); // this def should be in file_ids
-            let pos = self
-                .src_table
-                .push_position(*fid, LineNum::new(line_start as u32));
+            let pos = self.src_table.push_position(
+                *fid,
+                LineNum::new(line_start as u32),
+                Some(LineNum::new(line_end as u32)),
+            );
+            // add tag to group attributes
+            attr.insert_set(calyx_frontend::SetAttr::Pos, pos.value());
+        }
+
+        // visit all comb groups in context
+        for rrc_comb_group in comp.comb_groups.iter() {
+            let mut grp = rrc_comb_group.borrow_mut();
+            let attr = &mut grp.attributes;
+            let pos_data = attr.copy_span();
+            let (f, (line_start, line_end)) = pos_data.get_line_num();
+            let fid = self.file_ids.get(f).unwrap(); // this def should be in file_ids
+            let pos = self.src_table.push_position(
+                *fid,
+                LineNum::new(line_start as u32),
+                Some(LineNum::new(line_end as u32)),
+            );
+            // add tag to group attributes
+            attr.insert_set(calyx_frontend::SetAttr::Pos, pos.value());
+        }
+
+        // visit all static groups in context
+        for rrc_static_group in comp.static_groups.iter() {
+            let mut grp = rrc_static_group.borrow_mut();
+            let attr = &mut grp.attributes;
+            let pos_data = attr.copy_span();
+            let (f, (line_start, line_end)) = pos_data.get_line_num();
+            let fid = self.file_ids.get(f).unwrap(); // this def should be in file_ids
+            let pos = self.src_table.push_position(
+                *fid,
+                LineNum::new(line_start as u32),
+                Some(LineNum::new(line_end as u32)),
+            );
             // add tag to group attributes
             attr.insert_set(calyx_frontend::SetAttr::Pos, pos.value());
         }
