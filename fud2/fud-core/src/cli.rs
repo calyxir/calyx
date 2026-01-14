@@ -289,6 +289,20 @@ fn get_request<T: CliExt>(
         _ => ".".into(),
     });
 
+    // Special case the json planner to skip input sanitization. The json files are just scripts to run.
+    if matches!(args.planner, Planner::FromJson) {
+        return Ok(Request {
+            start_states: vec![],
+            end_states: vec![],
+            start_files: vec![],
+            end_files: vec![],
+            through: vec![],
+            workdir,
+            timing_csv: args.timing_csv.clone(),
+            planner: Box::new(plan::JsonPlanner {}),
+        });
+    }
+
     // Find all the operations to route through.
     let through: Result<Vec<_>, _> = args
         .through
