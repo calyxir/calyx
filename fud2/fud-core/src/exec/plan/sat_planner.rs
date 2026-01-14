@@ -53,19 +53,60 @@ use super::{
     planner::Step,
 };
 
-/// Builder for the big boolean expression checked by the planner.
-struct DepClauses<'a> {
+#[derive(Default, Clone)]
+struct LitMap {
     /// A map from boolean variables to the state they represent.
     state_of_lit: HashMap<Lit, StateRef>,
 
     /// A map from a state to the boolean variable representing it.
     lit_of_state: HashMap<StateRef, Lit>,
 
-    /// A map from boolean variables to the op they represent.
-    op_of_lit: HashMap<Lit, OpRef>,
-
     /// A map from an op to the boolean variable representing it.
     lit_of_op: HashMap<OpRef, Lit>,
+}
+
+impl LitMap {
+    pub fn state_lit_or_make(
+        &mut self,
+        s: StateRef,
+        instance: &mut SatInstance,
+    ) -> Lit {
+        if !self.lit_of_state.contains_key(&s) {
+            let lit = instance.new_lit();
+            self.lit_of_state.insert(s, lit);
+            self.state_of_lit.insert(lit, s);
+            lit
+        } else {
+            self.lit_of_state[&s]
+        }
+    }
+
+    pub fn op_lit_or_make(
+        &mut self,
+        o: OpRef,
+        instance: &mut SatInstance,
+    ) -> Lit {
+        if !self.lit_of_op.contains_key(&o) {
+            let lit = instance.new_lit();
+            self.lit_of_op.insert(o, lit);
+            lit
+        } else {
+            self.lit_of_op[&o]
+        }
+    }
+
+    pub fn state_lit(&self, s: StateRef) -> Lit {
+        self.lit_of_state[&s]
+    }
+
+    pub fn op_lit(&self, o: OpRef) -> Lit {
+        self.lit_of_op[&o]
+    }
+}
+
+/// Builder for the big boolean expression checked by the planner.
+struct DepClauses<'a> {
+    lit_map: LitMap,
 
     /// A map from a variable representing a state to that variables representing that variable's
     /// dependencies.
@@ -78,10 +119,7 @@ struct DepClauses<'a> {
 impl<'a> DepClauses<'a> {
     pub fn from_ops(ops: &'a PrimaryMap<OpRef, Operation>) -> Self {
         DepClauses {
-            state_of_lit: HashMap::new(),
-            lit_of_state: HashMap::new(),
-            op_of_lit: HashMap::new(),
-            lit_of_op: HashMap::new(),
+            lit_map: LitMap::default(),
             ops,
             made_from: HashMap::new(),
             instance: SatInstance::new(),
@@ -90,26 +128,12 @@ impl<'a> DepClauses<'a> {
 
     /// Returns the variable representing a state, creating one if it doesn't already exist.
     pub fn state_lit(&mut self, s: StateRef) -> Lit {
-        if !self.lit_of_state.contains_key(&s) {
-            let lit = self.instance.new_lit();
-            self.lit_of_state.insert(s, lit);
-            self.state_of_lit.insert(lit, s);
-            lit
-        } else {
-            self.lit_of_state[&s]
-        }
+        self.lit_map.state_lit_or_make(s, &mut self.instance)
     }
 
     /// Returns the variable representing an op, creating one if it doesn't already exist.
     pub fn op_lit(&mut self, o: OpRef) -> Lit {
-        if !self.lit_of_op.contains_key(&o) {
-            let lit = self.instance.new_lit();
-            self.lit_of_op.insert(o, lit);
-            self.op_of_lit.insert(lit, o);
-            lit
-        } else {
-            self.lit_of_op[&o]
-        }
+        self.lit_map.op_lit_or_make(o, &mut self.instance)
     }
 
     /// Adds a dependency to the boolean expression for which `state_id` depends on the inputs of
@@ -127,26 +151,28 @@ impl<'a> DepClauses<'a> {
     /// Returns a `SatInstance` representing a request using deps previously added to `self` and
     /// `inputs`, `outputs`, and `through`.
     pub fn instance(
-        &mut self,
+        &self,
         inputs: &[StateRef],
         outputs: &[StateRef],
         through: &[OpRef],
-    ) -> SatInstance {
+    ) -> (SatInstance, LitMap) {
         let mut out_instance = self.instance.clone();
+        let mut out_map = self.lit_map.clone();
+        let mut made_from = self.made_from.clone();
 
         // Require outputs to be created.
         for &output in outputs {
-            let lo = self.state_lit(output);
+            let lo = out_map.state_lit_or_make(output, &mut out_instance);
             out_instance.add_unit(lo);
         }
 
         // Mark inputs ones with no deps as things which can never be taken. If there are deps,
         // make sure whenever if that state is constructed, some ops is used to actually create it.
-        for (&lit, state_id) in &self.state_of_lit {
+        for (&lit, state_id) in &out_map.state_of_lit {
             // The case `outputs.contains(state_id)` must exist because an output must be
             // constructed even if it is already present as an input.
             if !inputs.contains(state_id) || outputs.contains(state_id) {
-                let ops_making_lit = self.made_from.entry(lit).or_default();
+                let ops_making_lit = made_from.entry(lit).or_default();
                 if !ops_making_lit.is_empty() {
                     out_instance.add_lit_impl_clause(lit, &ops_making_lit[..]);
                 } else {
@@ -158,19 +184,46 @@ impl<'a> DepClauses<'a> {
 
         // Make sure all the ops in through are taken.
         for &op in through {
-            out_instance.add_unit(self.op_lit(op));
+            let lit = out_map.op_lit_or_make(op, &mut out_instance);
+            out_instance.add_unit(lit);
         }
-        out_instance
+
+        (out_instance, out_map)
     }
 }
 
-struct Planner<'a> {
-    ops: &'a PrimaryMap<OpRef, Operation>,
-    dep_clauses: DepClauses<'a>,
+fn assignment_to_plan(
+    a: &Assignment,
+    ops: &PrimaryMap<OpRef, Operation>,
+    lit_map: &LitMap,
+) -> Vec<Step> {
+    ops.iter()
+        .filter_map(|(op_ref, op)| {
+            let op_taken =
+                matches!(a[lit_map.op_lit(op_ref).var()], TernaryVal::True);
+            if op_taken {
+                let mut used_states = op.output.clone();
+                used_states.retain(|s| {
+                    matches!(a[lit_map.state_lit(*s).var()], TernaryVal::True)
+                });
+                Some((op_ref, used_states))
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
-impl<'a> Planner<'a> {
-    pub fn from_ops(ops: &'a PrimaryMap<OpRef, Operation>) -> Self {
+#[derive(Debug)]
+pub struct SatPlanner {}
+
+impl FindPlan for SatPlanner {
+    fn find_plan(
+        &self,
+        req: &super::Request,
+        ops: &PrimaryMap<OpRef, Operation>,
+        states: &PrimaryMap<StateRef, State>,
+    ) -> Option<crate::flang::Plan> {
         let deps = ops.iter().fold(
             SecondaryMap::new(),
             |acc: SecondaryMap<StateRef, Vec<_>>, (op_ref, op)| {
@@ -188,64 +241,20 @@ impl<'a> Planner<'a> {
             }
         }
 
-        Self { ops, dep_clauses }
-    }
-
-    fn solve(
-        &mut self,
-        inputs: &[StateRef],
-        outputs: &[StateRef],
-        through: &[OpRef],
-    ) -> Option<Assignment> {
-        let instance = self.dep_clauses.instance(inputs, outputs, through);
+        let (instance, lit_map) =
+            dep_clauses.instance(req.start_states, req.end_states, req.through);
         let mut solver = rustsat_minisat::core::Minisat::default();
         solver.add_cnf(instance.into_cnf().0).unwrap();
-        match solver.solve().unwrap() {
-            SolverResult::Sat => Some(solver.full_solution().unwrap()),
+        let assignments = match solver.solve().unwrap() {
+            SolverResult::Sat => {
+                Some((solver.full_solution().unwrap(), lit_map))
+            }
             SolverResult::Unsat => None,
             SolverResult::Interrupted => None,
-        }
-    }
+        };
 
-    fn assignment_to_plan(mut self, a: Assignment) -> Vec<Step> {
-        self.ops
-            .iter()
-            .filter_map(|(op_ref, op)| {
-                let op_taken = matches!(
-                    a[self.dep_clauses.op_lit(op_ref).var()],
-                    TernaryVal::True
-                );
-                if op_taken {
-                    let mut used_states = op.output.clone();
-                    used_states.retain(|s| {
-                        matches!(
-                            a[self.dep_clauses.state_lit(*s).var()],
-                            TernaryVal::True
-                        )
-                    });
-                    Some((op_ref, used_states))
-                } else {
-                    None
-                }
-            })
-            .collect()
-    }
-}
-
-#[derive(Debug)]
-pub struct SatPlanner {}
-
-impl FindPlan for SatPlanner {
-    fn find_plan(
-        &self,
-        req: &super::Request,
-        ops: &PrimaryMap<OpRef, Operation>,
-        states: &PrimaryMap<StateRef, State>,
-    ) -> Option<crate::flang::Plan> {
-        let mut planner = Planner::from_ops(ops);
-        let op_list = planner
-            .solve(req.start_states, req.end_states, req.through)
-            .map(|a| planner.assignment_to_plan(a))
+        let op_list = assignments
+            .map(|(a, m)| assignment_to_plan(&a, ops, &m))
             // The SAT encoding does not allow input states to be used as is unless there is no op
             // which can make them. Therefore, if the plan is empty, the only way to create a valid
             // plan is to not apply any ops. This is interpreted as no plan existing so the planner
