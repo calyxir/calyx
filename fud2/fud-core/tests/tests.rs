@@ -11,7 +11,17 @@ use rand::SeedableRng;
 
 mod graph_gen;
 
-const MULTI_PLANNERS: [&dyn FindPlan; 1] = [&EnumeratePlanner {}];
+#[cfg(feature = "sat_planner")]
+use fud_core::exec::plan::SatPlanner;
+
+fn all_planners() -> impl Iterator<Item = Box<dyn FindPlan>> {
+    #[allow(unused_mut)]
+    let mut out: Vec<Box<dyn FindPlan>> = vec![Box::new(EnumeratePlanner {})];
+    #[cfg(feature = "sat_planner")]
+    out.push(Box::new(SatPlanner {}));
+
+    out.into_iter()
+}
 
 macro_rules! make_test {
     (
@@ -117,7 +127,7 @@ macro_rules! make_test {
 
 #[test]
 fn find_plan_simple_graph_test() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         make_test! {
             ----------
@@ -149,7 +159,7 @@ fn find_plan_simple_graph_test() {
 
 #[test]
 fn find_plan_multi_op_graph() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         make_test! {
             ----------
@@ -175,7 +185,7 @@ fn find_plan_multi_op_graph() {
 
 #[test]
 fn find_plan_multi_path_graph() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         make_test! {
             ----------
@@ -229,7 +239,7 @@ fn find_plan_multi_path_graph() {
 
 #[test]
 fn find_plan_only_state_graph() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         make_test! {
             ----------
@@ -252,7 +262,7 @@ fn find_plan_only_state_graph() {
 
 #[test]
 fn find_plan_self_loop() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         make_test! {
             ----------
@@ -276,7 +286,7 @@ fn find_plan_self_loop() {
 
 #[test]
 fn find_plan_cycle_graph() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         make_test! {
             ----------
@@ -319,7 +329,7 @@ fn find_plan_cycle_graph() {
 
 #[test]
 fn find_plan_nontrivial_cycle() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         make_test! {
             ----------
@@ -347,7 +357,7 @@ fn find_plan_nontrivial_cycle() {
 
 #[test]
 fn op_creating_two_states() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         make_test! {
             ----------
@@ -373,7 +383,7 @@ fn op_creating_two_states() {
 
 #[test]
 fn op_compressing_two_states() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         make_test! {
             ----------
@@ -399,7 +409,7 @@ fn op_compressing_two_states() {
 
 #[test]
 fn op_creating_two_states_not_initial_and_final() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         make_test! {
             ----------
@@ -430,7 +440,7 @@ fn op_creating_two_states_not_initial_and_final() {
 
 #[test]
 fn op_compressing_two_states_not_initial_and_final() {
-    for path_finder in MULTI_PLANNERS {
+    for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");
         make_test! {
             ----------
@@ -460,6 +470,31 @@ fn op_compressing_two_states_not_initial_and_final() {
 }
 
 #[test]
+fn state_which_is_both_input_and_output_but_still_constructable() {
+    for path_finder in all_planners() {
+        println!("testing planner: {path_finder:?}");
+        make_test! {
+            ----------
+            config
+            ----------
+            states: s0;
+            ops: t0 : s0 => s0;
+            ----------
+            tests
+            ----------
+            planner: path_finder;
+            inputs: s0;
+            outputs: s0;
+            throughs:;
+            found ir: yes;
+            expected ir:
+                s0 = t0(s0);
+
+        }
+    }
+}
+
+#[test]
 fn correctness_fuzzing() {
     const LAYERS: u64 = 5;
     const STATES_PER_LAYER: u64 = 100;
@@ -469,7 +504,7 @@ fn correctness_fuzzing() {
     const RANDOM_SEED: u64 = 0xDEADBEEF;
     const NUM_TESTS: u64 = 50;
 
-    for planner in MULTI_PLANNERS {
+    for planner in all_planners() {
         let rng = rand_chacha::ChaChaRng::seed_from_u64(RANDOM_SEED);
         let seeds = (0..NUM_TESTS).map(|_| rng.get_stream());
         for seed in seeds {
@@ -481,7 +516,7 @@ fn correctness_fuzzing() {
                 MAX_REQUIRED_OPS,
                 seed,
             );
-            match test.eval(planner) {
+            match test.eval(planner.as_ref()) {
                 graph_gen::PlannerTestResult::FoundValidPlan
                 | graph_gen::PlannerTestResult::NoPlanFound => (),
                 graph_gen::PlannerTestResult::FoundInvalidPlan => panic!(

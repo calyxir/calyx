@@ -12,7 +12,7 @@ use super::planner::Request;
 /// used. It turned out this wasn't enough information and planners also need to assign file paths
 /// to these states, otherwise if an op which took in two files of the same state, it wouldn't know
 /// which file to use for which arg of the op. This function converts from one of these lists of
-/// ops to a `PlanResp`, assigning filenames to each state.
+/// ops to a `Plan`, assigning filenames to each state.
 ///
 /// This conversion makes the assumption that there is only one input or output file for a given
 /// state. This is required as otherwise, as described above, the function would have no way to

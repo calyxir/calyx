@@ -59,6 +59,8 @@ enum Planner {
     Legacy,
     Enumerate,
     FromJson,
+    #[cfg(feature = "sat_planner")]
+    Sat,
 }
 
 impl FromStr for Planner {
@@ -69,6 +71,8 @@ impl FromStr for Planner {
             "legacy" => Ok(Planner::Legacy),
             "enumerate" => Ok(Planner::Enumerate),
             "json" => Ok(Planner::FromJson),
+            #[cfg(feature = "sat_planner")]
+            "sat" => Ok(Planner::Sat),
             _ => Err("unknown planner".to_string()),
         }
     }
@@ -80,6 +84,8 @@ impl Display for Planner {
             Planner::Legacy => write!(f, "legacy"),
             Planner::Enumerate => write!(f, "enumerate"),
             Planner::FromJson => write!(f, "json"),
+            #[cfg(feature = "sat_planner")]
+            Planner::Sat => write!(f, "sat"),
         }
     }
 }
@@ -304,6 +310,8 @@ fn get_request<T: CliExt>(
             Planner::Legacy => Box::new(plan::LegacyPlanner {}),
             Planner::Enumerate => Box::new(plan::EnumeratePlanner {}),
             Planner::FromJson => Box::new(plan::JsonPlanner {}),
+            #[cfg(feature = "sat_planner")]
+            Planner::Sat => Box::new(plan::SatPlanner {}),
         },
         timing_csv: args.timing_csv.clone(),
     })
