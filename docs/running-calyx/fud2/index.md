@@ -104,6 +104,7 @@ Here are some options you might need:
   - `plan`: Print a brief description of the plan, i.e., the sequence of operations that the build would run.
   - `dot`: Print a [GraphViz][] depiction of the plan. Try `fud2 -m dot | dot -Tpdf > graph.pdf` and take a look.
   - `cmds`: Print the commands Ninja would run when executing the plan, but do not execute them.
+  - `emit-json`: Prints a `json` representation of a build to stdout. If saved to a file, this build script can be run using `fud2 --planner json < build.json` 
 
 There are also some subcommands for doing things other than building stuff:
 
@@ -210,3 +211,14 @@ That is, it defines two Ninja variables and one Ninja rule—the one that our bu
 We *could* have designed FudCore without a separation between setups and operations, so this rule would get declared right next to the `build` command above.
 But that would end up duplicating a lot of setup code that really only needs to appear once.
 So that's why setups exist: to share a single stanza of Ninja scaffolding code between multiple operations.
+
+### Planners
+
+Planners are the part of FudCore which figures out which ops need to run. Given a list of input files, output states, and required ops, the planner returns a list of ops annotated with each op's input and output files. This list of ops is what gets lowered to Ninja. FudCore provides multiple planners, each having different behavior. The planner to use can be specified with the `--planner` argument. The current supported list is:
+
+- `legacy`: This planner assumes ops only have a singular input and output state. It additionally assume the user only provides a single input and wants a single output. It then finds the shortest path of ops from the input state to the output state.
+- `enumerate`: Given a list of input and output states, this planner enumerates over all subsets of ops until finding a set of ops which brings the input states to the output states.
+- `sat`: This planner encodes the relation between ops, the inputs, and the desired outputs into a SAT instance and then uses [rustsat's](https://github.com/chrjabs/rustsat) minisat backend to solve this, finding a set of ops. The encoding is documented [here](https://github.com/calyxir/calyx/blob/main/fud2/fud-core/src/exec/plan/sat_planner.rs).
+- `json`: This planner parses build scripts emitted by `--mode emit-json` from stdin. It then runs this script, ignoring user supplied inputs and outputs.
+
+All of these planners face ambiguity when assigning filenames to states. For example, if there is file `f1.state1` and `f2.state1` and an op taking a file in state1, the planners do not know which file to provide to the op. Currently this ambiguity is resolved arbitrarily and cannot be controlled by the user. This can cause problems. [#2612](https://github.com/calyxir/calyx/issues/2612) is the relevant issue.
