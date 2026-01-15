@@ -2,7 +2,9 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
 use calyx_ir::{self as ir, RRC};
+use calyx_utils::Id;
 use itertools::Itertools;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 /// A data structure to track rewrites of ports with added functionality to declare
@@ -47,6 +49,7 @@ impl WireRewriter {
         &mut self,
         wire: RRC<ir::Cell>,
         dst: RRC<ir::Port>,
+        removed_rewrites_id: &mut HashSet<Id>,
     ) {
         let wire_in = wire.borrow().get("in");
         log::debug!(
@@ -54,17 +57,20 @@ impl WireRewriter {
             wire_in.borrow().canonical(),
             dst.borrow().canonical(),
         );
-        let old_v = self.insert(Rc::clone(&wire_in), dst);
+        if !removed_rewrites_id.contains(&wire.borrow().name()) {
+            let old_v = self.insert(Rc::clone(&wire_in), dst);
 
-        // If the insertion process found an old key, we have something like:
-        // ```
-        // x.in = wire.out;
-        // y.in = wire.out;
-        // ```
-        // This means that `wire` is being used to forward values to many components and a
-        // simple inlining will not work.
-        if old_v.is_some() {
-            self.remove(wire_in);
+            // If the insertion process found an old key, we have something like:
+            // ```
+            // x.in = wire.out;
+            // y.in = wire.out;
+            // ```
+            // This means that `wire` is being used to forward values to many components and a
+            // simple inlining will not work.
+            if old_v.is_some() {
+                removed_rewrites_id.insert(wire.borrow().name());
+                self.remove(wire_in);
+            }
         }
 
         // No forwading generated because the wire is used in dst position
@@ -318,6 +324,7 @@ impl Visitor for CombProp {
         _comps: &[ir::Component],
     ) -> VisResult {
         let mut rewrites = WireRewriter::default();
+        let mut removed_rewrited_id: HashSet<Id> = HashSet::new();
 
         for assign in &mut comp.continuous_assignments {
             // Cannot add rewrites for conditional statements
@@ -338,6 +345,7 @@ impl Visitor for CombProp {
                 rewrites.insert_dst_rewrite(
                     src.cell_parent(),
                     Rc::clone(&assign.dst),
+                    &mut removed_rewrited_id,
                 );
             }
         }
