@@ -1,4 +1,4 @@
-//! An internal representation of fud2 plans expressed with flang.
+//! The internal representation of fud2 plans. This IR is named flang (or fud2-lang).
 
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::{PrimaryMap, entity_impl};
@@ -40,7 +40,8 @@ impl Step {
     }
 }
 
-/// The assignment lists of a flang program.
+/// The step lists of a build. This struct is also called flang (or fud2-lang) in some comments because you can think
+/// of this list of steps as a really simple programming language.
 #[derive(Default, Debug, PartialEq)]
 pub struct Plan {
     paths: PrimaryMap<PathRef, Utf8PathBuf>,
