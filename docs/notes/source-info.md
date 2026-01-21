@@ -6,6 +6,15 @@
   - [Memory Locations](#memory-locations)
   - [Variable Assignments](#variable-assignments)
   - [Position-State Map](#position-state-map)
+- [Proposed Type Extension](#proposed-type-extension)
+  - [Goal](#goal)
+  - [Type Primitives](#type-primitives)
+  - [Composite Structures](#composite-structures)
+    - [Struct Family](#struct-family)
+    - [Enum Family](#enum-family)
+  - [Type Table](#type-table)
+  - [Adjustments to the Variable Table](#adjustments-to-the-variable-table)
+    - [Slices and regions (?)](#slices-and-regions-)
 
 Notes on the metadata/source info table construction.
 
@@ -130,3 +139,109 @@ contain a mapping for all active variables. This table is a simple mapping:
         0: 0            // position zero uses collection zero
         2: 1            // position two uses collection one
 ```
+
+---
+
+# Proposed Type Extension
+
+## Goal
+We want to allow print commands for source variables that show more complex
+structure.
+```
+> print x
+
+x: {
+    int_field_name: 5,
+    bool_field: True,
+    tuple_field: (4, True, 32'b1111111...),
+    array_field: [ ... ]
+    struct_field: { ... },
+    enum_field: Variant(...)
+}
+```
+
+## Type Primitives
+We need some number of primitive types. My current list is:
+- Signed / Unsigned twos complement integers
+- Boolean
+- Bitstring / Unknown
+
+Eventually it would be good to have a way to provide custom formatting functions
+for unknown fields.
+
+## Composite Structures
+Broadly speaking there are two broad families of composite structures.
+
+### Struct Family
+This family consists of structures with named fields in a fixed order, namely:
+- structs (aka records)
+- tuples (names are just the offset, fields may be arbitrary types)
+- arrays (names are just the offset, fields share a type)
+
+Open question: should structs be able to have names?
+
+### Enum Family
+This family just consists of typed enums (i.e. they have a discriminant).
+Untyped enums (unions) are likely best handled by custom formatting functions.
+
+## Type Table
+Type information would be recorded in a type table. As with other tables, each
+type is given a unique identifying number. Theses numbers are used both for
+variable definitions and for composite type building.
+
+```
+TYPE
+    0: { uint, sint }                // tuple type
+    1: { bool; 15 }                  // array type
+    2: { coordinate: 0, bvec: 1 }    // struct type
+
+    // this syntax is extremely provisional
+    3: ENUM {
+        0: unknown,
+        1: 2
+    }
+```
+
+Types have canonical primitive type orderings based on the order in which things are
+defined. For composite structures, this ordering is defined recursively.
+```
+   0: { uint, sint }              // 0 is a uint, 1 is a sint
+   1: { bool; 15 }                // 0 through 14 are bools
+   2: { coordinate: 0, bvec: 1 }  // 0 uint, 1 sint, 2 through 16 bool
+```
+
+## Adjustments to the Variable Table
+With the new approach variables must specify a type and memory locations for
+each primitive. Additionally memory locations may have bits sliced out (used for
+packed structs).
+
+```
+VARIABLE_ASSIGNMENTS
+    0: {
+        x: ty 0, 1 2
+        y: ty 1, 3<0..15>       // the same as 3[0] 3[1] 3[2] ... 3[14]
+        z: ty 2, 4[0:4] 4[4:10] 4<10:25>
+    }
+```
+
+Not sure how to write out enum stuff yet
+
+### Slices and regions (?)
+Slices take a portion of a single memory location and use it for a single
+primitive location. In this example a single memory location is sliced into two
+segments which form the unit and sint of the tuple struct.
+```
+z: ty 2, 4[0:4] 4[4:10] ...
+```
+Regions / expansions are a shorthand for filling each primitive location with
+one element (either a bit or memory slot) of the given memory location
+```
+  z: ty 2, ... 4<10:25>
+```
+This could be written instead as
+```
+```
+  z: ty 2, ... 4[10] 4[11] 4[12] .. 4[24]
+when the memory location points to a single value (rather than a memory) the
+expansion will reference bits, when it points to a memory these will each be a
+single slot.
