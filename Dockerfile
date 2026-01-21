@@ -30,6 +30,28 @@ RUN uv pip install numpy==1.26.4 prettytable wheel hypothesis pytest \
     git+https://github.com/cocotb/cocotb-bus.git cocotbext-axi \
     vcdvcd
 
+# Add the Calyx source code from the build context
+WORKDIR /home
+ADD . calyx
+# Build the compiler
+WORKDIR /home/calyx
+RUN cargo build --workspace && \
+    cargo install vcdump && \
+    cargo install runt --version 0.4.1
+
+# Install fud
+WORKDIR /home/calyx
+RUN uv pip install ./fud
+RUN mkdir -p /root/.config
+
+# Link fud2
+WORKDIR /home/calyx
+RUN ln -s /home/calyx/target/debug/fud2 /bin/
+# AYAKA: try running fud2 env init?
+RUN printf "dahlia = \"/home/dahlia/fuse\"\n" >> ~/.config/fud2.toml
+RUN printf "[calyx]\nbase = \"/home/calyx\"\n" >> ~/.config/fud2.toml
+RUN fud2 env init
+
 # Install Verilator
 WORKDIR /home
 ## TODO(rachit): Don't hardcode the version here
@@ -66,26 +88,6 @@ WORKDIR /home/dahlia
 RUN git fetch --all && git checkout 9ec9a58
 RUN sbt "; getHeaders; assembly"
 
-# Add the Calyx source code from the build context
-WORKDIR /home
-ADD . calyx
-# Build the compiler
-WORKDIR /home/calyx
-RUN cargo build --workspace && \
-    cargo install vcdump && \
-    cargo install runt --version 0.4.1
-
-# Install fud
-WORKDIR /home/calyx
-RUN uv pip install ./fud
-RUN mkdir -p /root/.config
-
-# Link fud2
-WORKDIR /home/calyx
-RUN ln -s /home/calyx/target/debug/fud2 /bin/
-RUN printf "dahlia = \"/home/dahlia/fuse\"\n" >> ~/.config/fud2.toml
-RUN printf "[calyx]\nbase = \"/home/calyx\"\n" >> ~/.config/fud2.toml
-
 # Setup fud
 RUN fud config --create global.root /home/calyx && \
     fud config stages.dahlia.exec '/home/dahlia/fuse' && \
@@ -95,14 +97,16 @@ RUN fud config --create global.root /home/calyx && \
     fud register mrxl -p '/home/calyx/frontends/mrxl/fud/mrxl.py' && \
     fud register icarus-verilog -p '/home/calyx/fud/icarus/icarus.py'
 
-# Install MrXL
-WORKDIR /home/calyx
-RUN uv pip install ./frontends/mrxl
+# AYAKA: attempt to remove unneeded installation
+# # Install MrXL
+# WORKDIR /home/calyx
+# RUN uv pip install ./frontends/mrxl
 
+# AYAKA: attempt to remove
 # Install calyx-py. We do this separately from the other `uv pip install`s to
 # ensure that it gets installed in non-editable mode, which can affect its
 # stacktrace-walking magic that dictates source position generation.
-RUN uv pip install ./calyx-py
+# RUN uv pip install ./calyx-py
 
 # Install Firtool
 WORKDIR /home
