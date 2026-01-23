@@ -2,12 +2,13 @@ import os
 
 from profiler.visuals import flame, timeline
 from profiler.classes.primitive_metadata import PrimitiveMetadata
-from profiler.classes.adl import AdlMap, Adl, SourceLoc
+from profiler.classes.adl import AdlMap, Adl, DahliaAdlMap, SourceLoc
 from profiler.classes.tracedata import FlameMapMode, TraceData, PTrace, CycleTrace
 from .classes.stack_element import StackElement, StackElementType
 
 
 def create_dahlia_trace(tracedata: TraceData, adl_map: AdlMap):
+    # AYAKA TODO: incorporate block information so we can generate a nice Flame graph with nesting.
     calyx_trace: PTrace = tracedata.trace_with_control_groups
     dahlia_trace: PTrace = PTrace()
     groups_no_mapping: set[str] = set()
@@ -54,6 +55,8 @@ def create_and_write_adl_map(
 
     match adl_map.adl:
         case Adl.DAHLIA:
+            # add Dahlia-specific map info (block and statement hierarchy)
+            dahlia_map = DahliaAdlMap(adl_map, dahlia_parent_map)
             # We will create a Dahlia-specific trace
             dahlia_trace = create_dahlia_trace(tracedata, adl_map)
             flame.create_and_write_dahlia_flame_maps(
@@ -61,9 +64,8 @@ def create_and_write_adl_map(
             )
 
             timeline.compute_dahlia_protobuf_timeline(
-                adl_map,
+                dahlia_map,
                 dahlia_trace,
-                dahlia_parent_map,
                 out_dir,
                 tracedata.trace,
                 primitive_metadata,

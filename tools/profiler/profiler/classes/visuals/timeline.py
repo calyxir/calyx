@@ -372,11 +372,6 @@ class BlockInterval:
         self.active_children.remove(stmt_track_id)
 
 
-def block_name(line_contents: str):
-    block_prefix = "B"
-    return f"{block_prefix}{line_contents}"
-
-
 class DahliaProtoTimeline:
     """
     A class creating a Perfetto timeline in the program structure of

@@ -1,12 +1,10 @@
 import os
-from functools import reduce
-import json
 
 from perfetto.protos.perfetto.trace.perfetto_trace_pb2 import (
     TrackEvent,
 )
 
-from profiler.classes.adl import AdlMap
+from profiler.classes.adl import DahliaAdlMap
 from profiler.classes.cell_metadata import CellMetadata
 from profiler.classes.primitive_metadata import PrimitiveMetadata
 from profiler.classes.tracedata import CycleTrace, TraceData, StackElementType, PTrace
@@ -14,7 +12,6 @@ from profiler.classes.visuals.timeline import (
     CalyxProtoTimeline,
     DahliaProtoTimeline,
     BlockInterval,
-    block_name,
 )
 
 
@@ -137,106 +134,17 @@ def compute_calyx_protobuf_timeline(
     calyx_proto.emit(out_path)
 
 
-def _read_json_parent_map(parent_map_file):
-    """
-    Helper function for _process_dahlia_parent_map()
-    JSON is annoying and requires string keys. This function returns a map obtained from parent_map_file, but with int keys instead.
-    """
-    m = json.load(open(parent_map_file))
-    return {int(k): m[k] for k in m}
-
-
-def _process_dahlia_parent_map(adl_map: AdlMap, dahlia_block_map: str | None):
-    """
-    Helper function for compute_dahlia_protobuf_timeline()
-    """
-    statement_to_block_ancestors: dict[str, list[str]] = {}
-    if dahlia_block_map is None:
-        # return default dictionary (every line has zero block ancestors) and set.
-        print(
-            "dahlia_parent_map was not given; somewhat inconvenient timeline view will be generated"
-        )
-        return {
-            adl_map.adl_linum_map[linum]: [] for linum in adl_map.adl_linum_map
-        }, set()
-
-    json_parent_map: dict[int, list[int]] = _read_json_parent_map(dahlia_block_map)
-
-    # need to have a parent block version of each one
-    all_block_linums: set[int] = reduce(
-        (lambda l1, l2: set(l1).union(set(l2))), json_parent_map.values()
-    )
-
-    linum_to_block = {
-        linum: block_name(adl_map.adl_linum_map[linum]) for linum in all_block_linums
-    }
-
-    # figure out child-parent mappings.
-    for linum in sorted(json_parent_map, key=(lambda x: len(json_parent_map[x]))):
-        line_contents = adl_map.adl_linum_map[linum]
-
-        # identify the immediate ancestor trackids
-        if linum in all_block_linums and len(json_parent_map[linum]) == 0:
-            # this line is a parent line with no parents of its own,
-            # the parent is the block version of this line.
-            block_track_id = block_name(line_contents)
-            statement_to_block_ancestors[line_contents] = [block_track_id]
-            # block version also gets added?
-            statement_to_block_ancestors[block_track_id] = []
-
-        elif linum in all_block_linums:
-            # this line is a parent line that itself has parents
-            block_track_id = block_name(line_contents)
-            ancestor_list = list(
-                map((lambda p: linum_to_block[p]), json_parent_map[linum])
-            )
-
-            # this line's parent is the block version of this line.
-            statement_to_block_ancestors[line_contents] = [
-                block_track_id
-            ] + ancestor_list
-
-            # the block version of this line's ancestors are the block version of the actual ancestors of this line.
-            statement_to_block_ancestors[block_track_id] = ancestor_list
-
-        elif len(json_parent_map[linum]) > 0:
-            # this line is a "normal" line with ancestors.
-            # use block version of the actual ancestors.
-            ancestor_list = list(
-                map(
-                    (lambda p: block_name(adl_map.adl_linum_map[p])),
-                    json_parent_map[linum],
-                )
-            )
-
-            statement_to_block_ancestors[line_contents] = ancestor_list
-
-        else:
-            # otherwise is a "normal" line with NO parents.
-            statement_to_block_ancestors[line_contents] = []
-
-    return statement_to_block_ancestors, set(linum_to_block.values())
-
-
 def compute_dahlia_protobuf_timeline(
-    adl_map: AdlMap,
+    dahlia_map: DahliaAdlMap,
     dahlia_trace: PTrace,
-    dahlia_parent_map: str | None,
     out_dir: str,
     calyx_trace: PTrace,
     primitive_metadata: PrimitiveMetadata,
 ):
     dahlia_proto: DahliaProtoTimeline = DahliaProtoTimeline(primitive_metadata)
-    # statement --> [b1, b2, ...] where b1 is the immediate parent
-    stmt_to_block_ancestors: dict[str, list[str]]
-    # names of all blocks
-    blocks: set[str]
-    # figure out child-ancestor relationships
-    stmt_to_block_ancestors, blocks = _process_dahlia_parent_map(
-        adl_map, dahlia_parent_map
-    )
+
     # construct blocks with this knowledge
-    dahlia_proto.create_tracks(stmt_to_block_ancestors, blocks)
+    dahlia_proto.create_tracks(dahlia_map.stmt_to_block_ancestors, dahlia_map.blocks)
 
     currently_active_statements: set[str] = set()
     # if a block is not in the dictionary, it means it;s not currently active.
@@ -259,7 +167,7 @@ def compute_dahlia_protobuf_timeline(
                 done_statement, i, TrackEvent.TYPE_SLICE_END
             )
             # for each block of the stmt, signal that the stmt has ended
-            for block in stmt_to_block_ancestors[done_statement]:
+            for block in dahlia_map.stmt_to_block_ancestors[done_statement]:
                 block_interval = currently_active_blocks[block]
                 block_interval.stmt_end(i, done_statement)
                 if block_interval.num_active_children() == 0:
@@ -273,7 +181,7 @@ def compute_dahlia_protobuf_timeline(
                 started_statement, i, TrackEvent.TYPE_SLICE_BEGIN
             )
             # for each block of the stmt, signal that the stmt has begun
-            for block in stmt_to_block_ancestors[started_statement]:
+            for block in dahlia_map.stmt_to_block_ancestors[started_statement]:
                 if block not in currently_active_blocks:
                     # create new interval and record a start event to the timeline.
                     block_interval = BlockInterval(i)
