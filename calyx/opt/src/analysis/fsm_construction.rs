@@ -60,9 +60,11 @@ impl StaticSchedule<'_, '_> {
 
         // instantiate a local counter register
         let width = bits_needed_for(group_latency);
-        let counter =
-            self.builder
-                .add_primitive("group_counter", "std_reg", &[width]);
+        let counter = self.builder.add_primitive(
+            format!("group_counter_{}", self.state),
+            "std_reg",
+            &[width],
+        );
 
         // transform all assignments in the static group to read
         // from the local counter
