@@ -13,6 +13,7 @@
     - [Struct Family](#struct-family)
     - [Enum Family](#enum-family)
   - [Type Table](#type-table)
+  - [Layout Functions](#layout-functions)
   - [Adjustments to the Variable Table](#adjustments-to-the-variable-table)
     - [Slices and regions (?)](#slices-and-regions-)
 
@@ -163,8 +164,15 @@ x: {
 ## Type Primitives
 We need some number of primitive types. My current list is:
 - Signed / Unsigned twos complement integers
+  - Written as `iX` and `uX` where `X` is replaced with a positive integer
+    representing the width of the value
 - Boolean
-- Bitstring / Unknown
+  - Written as `bool`. Assumed to be a single bit
+- Bitstring (or unknown)
+  - Written as `bX` where `X` is replaced with a positive integer representing
+    the width of the value
+
+
 
 Eventually it would be good to have a way to provide custom formatting functions
 for unknown fields.
@@ -174,8 +182,9 @@ Broadly speaking there are two broad families of composite structures.
 
 ### Struct Family
 This family consists of structures with named fields in a fixed order, namely:
-- structs (aka records)
-- tuples (names are just the offset, fields may be arbitrary types)
+- structs
+- tuples (names are just the offset, fields may be arbitrary types). Currently
+  these are implemented as structs and not given special syntax
 - arrays (names are just the offset, fields share a type)
 
 Open question: should structs be able to have names?
@@ -191,13 +200,13 @@ variable definitions and for composite type building.
 
 ```
 TYPE
-    0: { uint, sint }                // tuple type
+    0: { 0: u4, 1: i6 }              // "tuple" type
     1: { bool; 15 }                  // array type
     2: { coordinate: 0, bvec: 1 }    // struct type
 
     // this syntax is extremely provisional
     3: ENUM {
-        0: unknown,
+        0: b15,
         1: 2
     }
 ```
@@ -205,28 +214,43 @@ TYPE
 Types have canonical primitive type orderings based on the order in which things are
 defined. For composite structures, this ordering is defined recursively.
 ```
-   0: { uint, sint }              // 0 is a uint, 1 is a sint
+   0: { 0: u4, 1: i6 }            // 0 is a uint, 1 is a sint
    1: { bool; 15 }                // 0 through 14 are bools
    2: { coordinate: 0, bvec: 1 }  // 0 uint, 1 sint, 2 through 16 bool
 ```
 
+
+## Layout Functions
+Layout functions are functions associated with a concrete type which when given
+some number of memory locations return/describe a well-formed instance of that
+type.
+
+Currently these functions cannot be written manually. There are two builtin
+functions:
+- `packed`: Takes 1 memory location as input which must contain at least the
+  same number of bits as the type. Fields are assumed to be packed into a single
+  value in the order they are defined.
+- `split`: Takes N memory locations as input, where N is the number of locations
+  used in the type.
+
 ## Adjustments to the Variable Table
-With the new approach variables must specify a type and memory locations for
-each primitive. Additionally memory locations may have bits sliced out (used for
-packed structs).
+With the new approach variables must specify a type, layout function, and
+arguments to be passed to that layout function.
 
 ```
 VARIABLE_ASSIGNMENTS
     0: {
-        x: ty 0, 1 2
-        y: ty 1, 3<0..15>       // the same as 3[0] 3[1] 3[2] ... 3[14]
-        z: ty 2, 4[0:4] 4[4:10] 4<10:25>
+        x: ty 0, split 1 2
+        y: ty 1, packed 3
+        z: ty 2, packed 4
     }
 ```
 
-Not sure how to write out enum stuff yet
+---
 
 ### Slices and regions (?)
+NOTE: not currently applicable but likely to be used later for the layout DSL.
+
 Slices take a portion of a single memory location and use it for a single
 primitive location. In this example a single memory location is sliced into two
 segments which form the unit and sint of the tuple struct.
@@ -240,8 +264,9 @@ one element (either a bit or memory slot) of the given memory location
 ```
 This could be written instead as
 ```
-```
   z: ty 2, ... 4[10] 4[11] 4[12] .. 4[24]
+```
+
 when the memory location points to a single value (rather than a memory) the
 expansion will reference bits, when it points to a memory these will each be a
 single slot.
