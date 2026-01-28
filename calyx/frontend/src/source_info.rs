@@ -467,70 +467,101 @@ impl SourceInfoTable {
         &self,
         mut f: W,
     ) -> Result<(), std::io::Error> {
-        writeln!(f, "{} #{{", Self::HEADER)?;
+        Self::write_header(&mut f)?;
 
-        // write file table
-        writeln!(f, "FILES")?;
-        for (file, path) in self.file_map.iter().sorted_by_key(|(k, _)| **k) {
-            writeln!(f, "  {file}: {}", path.display())?;
-        }
+        // mandatory entries
+        self.write_file_table(&mut f)?;
+        self.write_pos_table(&mut f)?;
 
-        // write the position table
-        writeln!(f, "POSITIONS")?;
-        for (
-            position,
-            SourceLocation {
-                line,
-                file,
-                end_line,
-            },
-        ) in self.position_map.iter().sorted_by_key(|(k, _)| **k)
-        {
-            let endlinestr = if let Some(line) = end_line {
-                format!(":{line}")
-            } else {
-                String::new()
-            };
-            writeln!(f, "  {position}: {file} {line}{endlinestr}")?;
-        }
+        // optional entries
         if !(self.mem_location_map.is_empty()
             && self.variable_assignment_map.is_empty()
             && self.position_state_map.is_empty())
         {
-            // write the position table
-            writeln!(f, "MEMORY_LOCATIONS")?;
-            for (loc, MemoryLocation { cell, address }) in
-                self.mem_location_map.iter().sorted_by_key(|(k, _)| **k)
-            {
-                write!(f, "  {loc}: {cell}")?;
-                if !address.is_empty() {
-                    write!(f, "[{}]", address.iter().join(","))?;
-                }
-                writeln!(f)?;
-            }
-
-            writeln!(f, "VARIABLE_ASSIGNMENTS")?;
-            for (id, map) in self
-                .variable_assignment_map
-                .iter()
-                .sorted_by_key(|(k, _)| **k)
-            {
-                writeln!(f, "  {id}: {{")?;
-                for (var, loc) in map.iter().sorted() {
-                    writeln!(f, "    {var}: {loc}")?;
-                }
-                writeln!(f, "  }}")?;
-            }
-
-            writeln!(f, "POSITION_STATE_MAP")?;
-            for (pos, var) in
-                self.position_state_map.iter().sorted_by_key(|(k, _)| **k)
-            {
-                writeln!(f, "  {pos}: {var}")?;
-            }
+            self.write_memory_table(&mut f)?;
+            self.write_var_assigns(&mut f)?;
+            self.write_pos_state_table(&mut f)?;
         }
 
-        writeln!(f, "}}#")
+        Self::write_footer(&mut f)
+    }
+
+    fn write_pos_state_table<W: std::io::Write>(
+        &self,
+        f: &mut W,
+    ) -> Result<(), std::io::Error> {
+        writeln!(f, "POSITION_STATE_MAP")?;
+
+        for (pos, var) in
+            self.position_state_map.iter().sorted_by_key(|(k, _)| **k)
+        {
+            writeln!(f, "  {pos}: {var}")?;
+        }
+        Ok(())
+    }
+
+    fn write_var_assigns<W: std::io::Write>(
+        &self,
+        f: &mut W,
+    ) -> Result<(), std::io::Error> {
+        writeln!(f, "VARIABLE_ASSIGNMENTS")?;
+
+        for (id, map) in self
+            .variable_assignment_map
+            .iter()
+            .sorted_by_key(|(k, _)| **k)
+        {
+            writeln!(f, "  {id}: {{")?;
+            for (var, loc) in map.iter().sorted() {
+                writeln!(f, "    {var}: {loc}")?;
+            }
+            writeln!(f, "  }}")?;
+        }
+        Ok(())
+    }
+
+    fn write_pos_table<W: std::io::Write>(
+        &self,
+        f: &mut W,
+    ) -> Result<(), std::io::Error> {
+        writeln!(f, "POSITIONS")?;
+        for (position, source_loc) in
+            self.position_map.iter().sorted_by_key(|(k, _)| **k)
+        {
+            write!(f, "  {position}:  ")?;
+            source_loc.serialize(f)?;
+            writeln!(f)?;
+        }
+        Ok(())
+    }
+
+    fn write_memory_table<W: std::io::Write>(
+        &self,
+        f: &mut W,
+    ) -> Result<(), std::io::Error> {
+        writeln!(f, "MEMORY_LOCATIONS")?;
+
+        for (loc, MemoryLocation { cell, address }) in
+            self.mem_location_map.iter().sorted_by_key(|(k, _)| **k)
+        {
+            write!(f, "  {loc}: {cell}")?;
+            if !address.is_empty() {
+                write!(f, "[{}]", address.iter().join(","))?;
+            }
+            writeln!(f)?;
+        }
+        Ok(())
+    }
+
+    fn write_file_table<W: std::io::Write>(
+        &self,
+        f: &mut W,
+    ) -> Result<(), std::io::Error> {
+        writeln!(f, "FILES")?;
+        for (file, path) in self.file_map.iter().sorted_by_key(|(k, _)| **k) {
+            writeln!(f, "  {file}: {}", path.display())?;
+        }
+        Ok(())
     }
 
     /// Attempt to lookup the line that a given position points to. Returns an error in
@@ -570,6 +601,18 @@ impl SourceInfoTable {
 
         Ok(String::from(line))
     }
+
+    fn write_header<W: std::io::Write>(
+        f: &mut W,
+    ) -> Result<(), std::io::Error> {
+        writeln!(f, "{} #{{", SourceInfoTable::HEADER)
+    }
+
+    fn write_footer<W: std::io::Write>(
+        f: &mut W,
+    ) -> Result<(), std::io::Error> {
+        writeln!(f, "}}#")
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -585,6 +628,18 @@ impl SourceLocation {
             line,
             file,
             end_line,
+        }
+    }
+
+    /// Write out the source location string
+    pub fn serialize(
+        &self,
+        out: &mut impl std::io::Write,
+    ) -> Result<(), std::io::Error> {
+        if let Some(endline) = self.end_line {
+            write!(out, "{} {}:{}", self.file, self.line, endline)
+        } else {
+            write!(out, "{} {}", self.file, self.line)
         }
     }
 }
