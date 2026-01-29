@@ -110,11 +110,6 @@ class DahliaAdlMap(AdlMap):
     # names of all blocks
     blocks: set[str]
 
-    @staticmethod
-    def block_name(line_contents: str):
-        block_prefix = "B"
-        return f"{block_prefix}{line_contents}"
-
     def __init__(self, adl_map: AdlMap, dahlia_block_map: str | None):
         # copy the original ADL map bit? Maybe this will be unnecessary
         self.component_map = adl_map.component_map
@@ -126,6 +121,11 @@ class DahliaAdlMap(AdlMap):
         self.stmt_to_block_ancestors, self.blocks = self._process_dahlia_parent_map(
             dahlia_block_map
         )
+
+    @staticmethod
+    def block_name(line_contents: str):
+        block_prefix = "B"
+        return f"{block_prefix}{line_contents}"
 
     @staticmethod
     def _read_json_parent_map(parent_map_file):
