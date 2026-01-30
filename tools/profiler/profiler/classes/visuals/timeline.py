@@ -11,6 +11,7 @@ from profiler.classes.primitive_metadata import PrimitiveMetadata
 from profiler.classes.errors import ProfilerException
 from profiler.classes.tracedata import TraceData
 from profiler.classes.cell_metadata import CellMetadata
+from profiler.classes.adl import DahliaAdlMap
 
 
 @dataclass
@@ -395,8 +396,14 @@ class DahliaProtoTimeline:
             self.primitive_name_to_type.update(p_map)
 
     def create_tracks(
-        self, statements_to_block_ancestors: dict[str, list[str]], blocks: set[str]
+        self,
+        dahlia_map: DahliaAdlMap,
     ):
+        statements_to_block_ancestors: dict[str, list[str]] = (
+            dahlia_map.stmt_to_block_ancestors
+        )
+        blocks: set[str] = dahlia_map.blocks
+
         # create tracks for each block
         # list needs to be sorted because Protobuf will error out if we assign a nonexistent parent
         for block in sorted(
@@ -434,7 +441,7 @@ class DahliaProtoTimeline:
         self, primitive: str, timestamp: int, event_type: TrackEvent.Type
     ):
         """
-        Registers an
+        Registers an event on the `Calyx Primitives` collection (showing when primitives were active.)
         """
         # currently assumes that there are no duplicate cell names, which is quite dangerous. Need to fix
         primitive_type = self.primitive_name_to_type[primitive]

@@ -76,7 +76,7 @@ class FlameTrace:
                 flame_out.write(f"{stack} {flame_map[stack]}\n")
 
 
-def create_and_write_calyx_flame_maps(
+def create_and_write_flame_maps(
     trace: PTrace,
     out_dir: str,
     flame_out: str,
@@ -93,35 +93,6 @@ def create_and_write_calyx_flame_maps(
     flametrace: FlameTrace = FlameTrace(string_trace)
     flametrace.write_flame_maps(
         out_dir, flame_out, scaled_flame_out_file=scaled_flame_out
-    )
-
-
-def create_and_write_dahlia_flame_maps(
-    tracedata: TraceData, adl_mapping_file: str, out_dir: str
-):
-    calyx_trace: PTrace = tracedata.trace_with_control_groups
-    adl_map = AdlMap(adl_mapping_file)
-    dahlia_string_trace: list[set[str]] = []
-    # create string version with Dahlia constructs
-    for i in calyx_trace:
-        i_string_set = set()
-        # find leaf groups (there could be some in parallel)
-        leaf_groups: set = calyx_trace[i].find_leaf_groups()
-        group_map = adl_map.group_map.get("main")
-        for group in leaf_groups:
-            if group not in group_map:
-                entry = f"CALYX: '{group}'"
-            else:
-                group_sourceloc: SourceLoc = group_map[group]
-                entry = group_sourceloc.adl_str()
-            i_string_set.add(entry)
-        dahlia_string_trace.append(i_string_set)
-
-    flametrace: FlameTrace = FlameTrace(dahlia_string_trace)
-    adl_flat_flame_file = os.path.join(out_dir, "adl-flat-flame.folded")
-    adl_scaled_flame_file = os.path.join(out_dir, "adl-scaled-flame.folded")
-    flametrace.write_flame_maps(
-        out_dir, adl_flat_flame_file, scaled_flame_out_file=adl_scaled_flame_file
     )
 
 

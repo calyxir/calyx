@@ -20,28 +20,39 @@ def create_dahlia_trace(tracedata: TraceData, dahlia_map: DahliaAdlMap):
         group_map = dahlia_map.group_map.get("main")
         # Dahlia StackElements that are active this cycle
         dahlia_stacks: list[list[StackElement]] = []
-        # contents of stack elements that are active on a "thread"
-        # will use `map` to convert each element into a StackElement
-        raw_stack_items: list[str]
+        # (Avoid duplicate stacks being recorded on the same cycle)
+        covered_entries: set[str] = set()
         for group in leaf_groups:
+            # contents of stack elements that are active on a "thread"
+            # will use `map` to convert each element into a StackElement
+            raw_stack_items: list[str] = []
             if group not in group_map:
                 groups_no_mapping.add(group)
                 raw_stack_items = f"CALYX: '{group}'"
             else:
                 group_sourceloc: SourceLoc = group_map[group]
                 entry = dahlia_map.adl_linum_map[group_sourceloc.linenum]
+                # skip adding a Dahlia entry to stack if it already exists for this cycle so we don't get duplicates.
+                if entry in covered_entries:
+                    continue
+                else:
+                    covered_entries.add(entry)
                 raw_stack_items = (
-                    dahlia_map.stmt_to_block_ancestors[entry]
+                    # copying to avoid mutating stmt_to_block_ancestors directly.
+                    list(dahlia_map.stmt_to_block_ancestors[entry])
                     if entry in dahlia_map.stmt_to_block_ancestors
                     else []
                 )
                 raw_stack_items.append(entry)
-            dahlia_group = StackElement(
-                entry, StackElementType.ADL_LINE, sourceloc=group_sourceloc
+            # print(f"RAW STACK ITEMS: {raw_stack_items}")
+            stack_elements = list(
+                map(
+                    lambda content: StackElement(content, StackElementType.ADL_LINE),
+                    raw_stack_items,
+                )
             )
-            # grab any ancestors and create stack
 
-            dahlia_stacks.append([dahlia_group])
+            dahlia_stacks.append(stack_elements)
         dahlia_trace.add_cycle(i, CycleTrace(dahlia_stacks))
     print(f"\tGroups without ADL mapping: {groups_no_mapping}")
     return dahlia_trace
@@ -69,36 +80,36 @@ def create_and_write_adl_map(
         case Adl.DAHLIA:
             # add Dahlia-specific map info (block and statement hierarchy)
             dahlia_map = DahliaAdlMap(adl_map, dahlia_parent_map)
-            print(dahlia_map.stmt_to_block_ancestors)
             # We will create a Dahlia-specific trace
-            dahlia_trace = create_dahlia_trace(tracedata, dahlia_map)
-            print("DAHLIA TRACE!!!!!")
-            for d in dahlia_trace.trace:
-                print(d)
-            # flame.create_and_write_dahlia_flame_maps(
-            #     tracedata, adl_mapping_file, out_dir
-            # )
+            dahlia_trace: PTrace = create_dahlia_trace(tracedata, dahlia_map)
+            flame.create_and_write_flame_maps(
+                dahlia_trace,
+                out_dir,
+                adl_flat_flame_file,
+                scaled_flame_out=adl_scaled_flame_file,
+                mode=FlameMapMode.ADL,
+            )
 
-            # timeline.compute_dahlia_protobuf_timeline(
-            #     dahlia_map,
-            #     dahlia_trace,
-            #     out_dir,
-            #     tracedata.trace,
-            #     primitive_metadata,
-            # )
+            timeline.compute_dahlia_protobuf_timeline(
+                dahlia_map,
+                dahlia_trace,
+                out_dir,
+                tracedata.trace,
+                primitive_metadata,
+            )
 
         case Adl.PY:
             # for Calyx-py we can suffice with just using Calyx PTraces
             adl_added_trace = tracedata.add_sourceloc_info(adl_map)
 
-            flame.create_and_write_calyx_flame_maps(
+            flame.create_and_write_flame_maps(
                 adl_added_trace,
                 out_dir,
                 adl_flat_flame_file,
                 scaled_flame_out=adl_scaled_flame_file,
                 mode=FlameMapMode.ADL,
             )
-            flame.create_and_write_calyx_flame_maps(
+            flame.create_and_write_flame_maps(
                 adl_added_trace,
                 out_dir,
                 mixed_flat_flame_file,
