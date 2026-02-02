@@ -1,4 +1,4 @@
-// -b firrtl -p external-to-ref -p all
+// -b firrtl -p external-to-ref -x external-to-ref:activate=true -p all
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 
