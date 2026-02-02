@@ -647,6 +647,64 @@ impl SourceLocation {
         }
     }
 }
+
+#[derive(Debug, Clone, Hash)]
+pub enum PrimitiveType {
+    Uint(u32),
+    Sint(u32),
+    Bool,
+    Bitfield(u32),
+}
+
+impl PrimitiveType {
+    pub fn type_size(&self) -> usize {
+        match self {
+            PrimitiveType::Uint(width) => *width as usize,
+            PrimitiveType::Sint(width) => *width as usize,
+            PrimitiveType::Bool => 1_usize,
+            PrimitiveType::Bitfield(width) => *width as usize,
+        }
+    }
+}
+
+pub enum FieldType {
+    Primitive(PrimitiveType),
+    Composite(TypeId),
+}
+
+impl FieldType {
+    pub fn type_size(&self, type_map: &HashMap<TypeId, SourceType>) -> usize {
+        match self {
+            FieldType::Primitive(primitive_type) => primitive_type.type_size(),
+            FieldType::Composite(type_id) => {
+                type_map[type_id].type_size(type_map)
+            }
+        }
+    }
+}
+
+pub enum SourceType {
+    Array { ty: FieldType, length: u32 },
+    Struct { fields: Vec<(String, FieldType)> },
+}
+
+impl SourceType {
+    pub fn type_size(&self, type_map: &HashMap<TypeId, SourceType>) -> usize {
+        match self {
+            SourceType::Array { ty, length } => {
+                ty.type_size(type_map) * (*length as usize)
+            }
+            SourceType::Struct { fields } => fields
+                .iter()
+                .fold(0, |acc, (_, ty)| acc + ty.type_size(type_map)),
+        }
+    }
+}
+
+/// ID for types from the source language
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct TypeId(Word);
+
 #[derive(Error)]
 pub enum SourceInfoTableError {
     /// A fatal error representing a malformed table
