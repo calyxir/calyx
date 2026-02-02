@@ -385,11 +385,13 @@ class DahliaProtoTimeline:
     main_function_name = "main"
     primitive_collection_name = "Calyx Primitives"
 
-    def __init__(self, primitive_metadata: PrimitiveMetadata):
+    def __init__(self, primitive_metadata: PrimitiveMetadata, dahlia_map: DahliaAdlMap):
         self.proto = ProtoTimelineWrapper()
         self.primitive_name_to_type = {}
         self.proto.add_collection(self.main_function_name)
         self.proto.add_collection(self.primitive_collection_name)
+
+        self.create_tracks(dahlia_map)
 
         # FIXME: hella defunct way of creating a lookup for primitives
         for _, p_map in primitive_metadata.p_map.items():
@@ -399,6 +401,10 @@ class DahliaProtoTimeline:
         self,
         dahlia_map: DahliaAdlMap,
     ):
+        """
+        Adds tracks for statements and blocks to the timeline based on statement and block ancestor information
+        given by dahlia_map.
+        """
         statements_to_block_ancestors: dict[str, list[str]] = (
             dahlia_map.stmt_to_block_ancestors
         )
