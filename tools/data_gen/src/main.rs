@@ -97,20 +97,21 @@ fn main() -> CalyxResult<()> {
     Ok(())
 }
 
-// generates random of size usize
-fn gen_random_int_vec(d0: usize) -> Vec<u64> {
+// generates random of size usize with values bounded by bit width
+fn gen_random_int_vec(d0: usize, width: u64) -> Vec<u64> {
     let mut rng = rand::rng();
-    (0..d0).map(|_| rng.random_range(0..100)).collect()
+    let max_val = (1u64 << width) - 1; // 2^width - 1
+    (0..d0).map(|_| rng.random_range(0..=max_val)).collect()
 }
 
-fn gen_random_2d_int(d0: usize, d1: usize) -> Vec<Vec<u64>> {
-    (0..d0).map(|_| gen_random_int_vec(d1)).collect()
+fn gen_random_2d_int(d0: usize, d1: usize, width: u64) -> Vec<Vec<u64>> {
+    (0..d0).map(|_| gen_random_int_vec(d1, width)).collect()
 }
 
 // generates random 3d vec of size usize
-fn gen_random_3d_int(d0: usize, d1: usize, d2: usize) -> Vec<Vec<Vec<u64>>> {
+fn gen_random_3d_int(d0: usize, d1: usize, d2: usize, width: u64) -> Vec<Vec<Vec<u64>>> {
     (0..d0)
-        .map(|_| (0..d1).map(|_| gen_random_int_vec(d2)).collect())
+        .map(|_| (0..d1).map(|_| gen_random_int_vec(d2, width)).collect())
         .collect()
 }
 
@@ -119,11 +120,12 @@ fn gen_random_4d_int(
     d1: usize,
     d2: usize,
     d3: usize,
+    width: u64,
 ) -> Vec<Vec<Vec<Vec<u64>>>> {
     (0..d0)
         .map(|_| {
             (0..d1)
-                .map(|_| (0..d2).map(|_| gen_random_int_vec(d3)).collect())
+                .map(|_| (0..d2).map(|_| gen_random_int_vec(d3, width)).collect())
                 .collect()
         })
         .collect()
@@ -162,27 +164,26 @@ fn gen_random_4d(
         })
         .collect()
 }
-
 //generates a json value associated with sizes_vec and width
 fn gen_comp(sizes_vec: &[usize], width: u64, rand: bool) -> serde_json::Value {
     let data = match *sizes_vec {
         [d0] => serde_json::to_value(if rand {
-            gen_random_int_vec(d0)
+            gen_random_int_vec(d0, width)
         } else {
             vec![0_u64; d0]
         }),
         [d0, d1] => serde_json::to_value(if rand {
-            gen_random_2d_int(d0, d1)
+            gen_random_2d_int(d0, d1, width)
         } else {
             vec![vec![0_u64; d1]; d0]
         }),
         [d0, d1, d2] => serde_json::to_value(if rand {
-            gen_random_3d_int(d0, d1, d2)
+            gen_random_3d_int(d0, d1, d2, width)
         } else {
             vec![vec![vec![0_u64; d2]; d1]; d0]
         }),
         [d0, d1, d2, d3] => serde_json::to_value(if rand {
-            gen_random_4d_int(d0, d1, d2, d3)
+            gen_random_4d_int(d0, d1, d2, d3, width)
         } else {
             vec![vec![vec![vec![0_u64; d3]; d2]; d1]; d0]
         }),
@@ -197,7 +198,7 @@ fn gen_comp(sizes_vec: &[usize], width: u64, rand: bool) -> serde_json::Value {
             "width": width,
         }
     })
-}
+}   
 
 // generates a fix<32,16> json value associated with sizes_vec and width
 fn gen_comp_float(
