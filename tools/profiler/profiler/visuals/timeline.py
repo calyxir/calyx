@@ -142,6 +142,8 @@ def compute_dahlia_protobuf_timeline(
     primitive_metadata: PrimitiveMetadata,
 ):
     """
+    Creates and emits a Protobuf timeline for Dahlia traces.
+
     NOTE: Perfetto is finnicky and will not show events in a parent track if events in the child track are
     registered first. We assume that all blocks have a "B" prefix and all statements have a "L" prefix, and
     sort statements/blocks in currently_active before adding Perfetto begin/end statements.

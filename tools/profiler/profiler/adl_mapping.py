@@ -8,7 +8,6 @@ from .classes.stack_element import StackElement, StackElementType
 
 
 def create_dahlia_trace(tracedata: TraceData, dahlia_map: DahliaAdlMap):
-    # AYAKA TODO: incorporate block information so we can generate a nice Flame graph with nesting.
     calyx_trace: PTrace = tracedata.trace_with_control_groups
     dahlia_trace: PTrace = PTrace()
     groups_no_mapping: set[str] = set()
@@ -44,7 +43,6 @@ def create_dahlia_trace(tracedata: TraceData, dahlia_map: DahliaAdlMap):
                     else []
                 )
                 raw_stack_items.append(entry)
-            # print(f"RAW STACK ITEMS: {raw_stack_items}")
             stack_elements = list(
                 map(
                     lambda content: StackElement(content, StackElementType.ADL_LINE),
