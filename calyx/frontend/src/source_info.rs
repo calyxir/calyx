@@ -372,11 +372,11 @@ impl SourceInfoTable {
             if let Some(first_path) = file_map.insert(file, path) {
                 let inserted_path = &file_map[&file];
                 if &first_path != inserted_path {
-                    return Err(SourceInfoTableError::DuplicateFiles {
-                        id1: file,
-                        path1: first_path,
-                        path2: inserted_path.clone(),
-                    });
+                    return Err(SourceInfoTableError::InvalidTable(format!(
+                        "File id {file} is defined multiple times:\n   1. {}\n   2. {}\n",
+                        first_path.display(),
+                        inserted_path.display()
+                    )));
                 }
             }
         }
@@ -386,27 +386,34 @@ impl SourceInfoTable {
             if let Some(first_pos) = position_map.insert(pos, source) {
                 let inserted_position = &position_map[&pos];
                 if inserted_position != &first_pos {
-                    return Err(SourceInfoTableError::DuplicatePositions {
-                        pos,
-                        s1: first_pos,
-                        s2: position_map[&pos].clone(),
-                    });
+                    return Err(SourceInfoTableError::InvalidTable(format!(
+                        "Duplicate positions found in the metadata table. Position {pos} is defined multiple times:\n   1. file {}, line {}\n   2. file {}, line {}\n",
+                        first_pos.file,
+                        first_pos.line,
+                        inserted_position.file,
+                        inserted_position.line
+                    )));
                 }
             }
         }
 
         for (id, loc) in locations {
             if memory_location_map.insert(id, loc).is_some() {
-                // duplictate entry error
-                return Err(SourceInfoTableError::DuplicateMemoryIdentifiers {
-                    id,
-                });
+                return Err(SourceInfoTableError::InvalidTable(format!(
+                    "Multiple definitions for memory location {id}"
+                )));
             }
         }
 
         for (assign_label, assigns) in vars {
             let mut mapping = HashMap::new();
             for (name, location) in assigns {
+                if !memory_location_map.contains_key(&location) {
+                    // unknown memory location
+                    return Err(SourceInfoTableError::InvalidTable(format!(
+                        "Memory location {location} is referenced but never defined"
+                    )));
+                }
                 // this is to avoid copying the string in all cases since we
                 // would only need it when emitting the error. Clippy doesn't
                 // like this for good reasons and while I suspect it may be
@@ -414,43 +421,31 @@ impl SourceInfoTable {
                 // just suppressing the warning and writing this very long
                 // comment about it instead.
                 #[allow(clippy::map_entry)]
-                if !memory_location_map.contains_key(&location) {
-                    // unknown memory location
-                    return Err(SourceInfoTableError::UnknownMemoryId {
-                        id: location,
-                    });
-                } else if mapping.contains_key(&name) {
-                    // duplicate entries
-                    return Err(
-                        SourceInfoTableError::DuplicateVariableAssignments {
-                            id: assign_label,
-                            var: name,
-                        },
-                    );
+                if mapping.contains_key(&name) {
+                    return Err(SourceInfoTableError::InvalidTable(format!(
+                        "In variable mapping {assign_label} the variable '{name}' has multiple definitions"
+                    )));
                 } else {
                     mapping.insert(name, location);
                 }
             }
             if variable_map.insert(assign_label, mapping).is_some() {
-                // duplicate entries
-                return Err(SourceInfoTableError::DuplicateVariableMappings {
-                    id: assign_label,
-                });
+                return Err(SourceInfoTableError::InvalidTable(format!(
+                    "Duplicate definitions for variable mapping associated with position {assign_label}"
+                )));
             };
         }
 
         for (pos_id, var_id) in states {
             if !variable_map.contains_key(&var_id) {
-                // unknown var
-                return Err(SourceInfoTableError::UnknownVariableMapping {
-                    id: var_id,
-                });
+                return Err(SourceInfoTableError::InvalidTable(format!(
+                    "Variable mapping {var_id} is referenced but never defined"
+                )));
             }
             if state_map.insert(pos_id, var_id).is_some() {
-                // duplicate
-                return Err(SourceInfoTableError::DuplicatePosStateMappings {
-                    id: pos_id,
-                });
+                return Err(SourceInfoTableError::InvalidTable(format!(
+                    "Multiple variable maps have been assigned to position {pos_id}"
+                )));
             }
         }
 
@@ -645,48 +640,8 @@ impl SourceLocation {
 }
 #[derive(Error)]
 pub enum SourceInfoTableError {
-    #[error("Duplicate positions found in the metadata table. Position {pos} is defined multiple times:
-    1. file {}, line {}
-    2. file {}, line {}\n", s1.file, s1.line, s2.file, s2.line)]
-    DuplicatePositions {
-        pos: PositionId,
-        s1: SourceLocation,
-        s2: SourceLocation,
-    },
-
-    #[error("Duplicate files found in the metadata table. File id {id1} is defined multiple times:
-         1. {path1}
-         2. {path2}\n")]
-    DuplicateFiles {
-        id1: FileId,
-        path1: PathBuf,
-        path2: PathBuf,
-    },
-
-    #[error("Duplicate definitions for memory location {id}")]
-    DuplicateMemoryIdentifiers { id: MemoryLocationId },
-
-    #[error("Memory location {id} is referenced but never defined")]
-    UnknownMemoryId { id: MemoryLocationId },
-
-    #[error("Variable mapping {id} is referenced but never defined")]
-    UnknownVariableMapping { id: VariableAssignmentId },
-
-    #[error("Duplicate definitions for variable mapping {id}")]
-    DuplicateVariableMappings { id: VariableAssignmentId },
-
-    #[error(
-        "Duplicate definitions for variable mapping associated with position {id}"
-    )]
-    DuplicatePosStateMappings { id: PositionId },
-
-    #[error(
-        "In variable mapping {id} the variable '{var}' has multiple definitions"
-    )]
-    DuplicateVariableAssignments {
-        id: VariableAssignmentId,
-        var: String,
-    },
+    #[error("Source Info is malformed: {0}")]
+    InvalidTable(String),
 }
 
 /// Any error that can emerge while attempting to pull the actual line of text that a
@@ -713,13 +668,7 @@ pub type SourceInfoResult<T> = Result<T, SourceInfoTableError>;
 mod tests {
     use std::path::PathBuf;
 
-    use crate::{
-        parser::CalyxParser,
-        source_info::{
-            FileId, LineNum, MemoryLocationId, PositionId,
-            SourceInfoTableError, VariableAssignmentId,
-        },
-    };
+    use crate::{parser::CalyxParser, source_info::LineNum};
 
     use super::SourceInfoTable;
 
@@ -790,13 +739,6 @@ mod tests {
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
-        let err = metadata.unwrap_err();
-        assert!(matches!(
-            &err,
-            SourceInfoTableError::UnknownMemoryId {
-                id: MemoryLocationId(1)
-            }
-        ));
     }
 
     #[test]
@@ -827,14 +769,6 @@ mod tests {
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
-        let err = metadata.unwrap_err();
-
-        assert!(matches!(
-            &err,
-            SourceInfoTableError::UnknownVariableMapping {
-                id: VariableAssignmentId(2)
-            }
-        ));
     }
 
     #[test]
@@ -868,13 +802,6 @@ mod tests {
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
-        let err = metadata.unwrap_err();
-        assert!(matches!(
-            &err,
-            SourceInfoTableError::DuplicateVariableMappings {
-                id: VariableAssignmentId(1)
-            }
-        ));
     }
 
     #[test]
@@ -906,14 +833,6 @@ mod tests {
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
-        let err = metadata.unwrap_err();
-        assert!(matches!(
-            &err,
-            SourceInfoTableError::DuplicateVariableAssignments {
-                id: VariableAssignmentId(1),
-                var
-            } if var == "q"
-        ));
     }
 
     #[test]
@@ -944,13 +863,6 @@ mod tests {
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
-        let err = metadata.unwrap_err();
-        assert!(matches!(
-            &err,
-            SourceInfoTableError::DuplicateMemoryIdentifiers {
-                id: MemoryLocationId(1)
-            }
-        ));
     }
 
     #[test]
@@ -981,13 +893,6 @@ mod tests {
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
-        let err = metadata.unwrap_err();
-        assert!(matches!(
-            &err,
-            SourceInfoTableError::DuplicatePosStateMappings {
-                id: PositionId(0)
-            }
-        ));
     }
 
     #[test]
@@ -1003,15 +908,7 @@ mod tests {
                 2: 0 2
         }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
-
         assert!(metadata.is_err());
-        let err = metadata.unwrap_err();
-        assert!(matches!(&err, SourceInfoTableError::DuplicateFiles { .. }));
-        if let SourceInfoTableError::DuplicateFiles { id1, .. } = &err {
-            assert_eq!(id1, &FileId::new(0))
-        } else {
-            unreachable!()
-        }
     }
 
     #[test]
@@ -1029,16 +926,6 @@ mod tests {
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
 
         assert!(metadata.is_err());
-        let err = metadata.unwrap_err();
-        assert!(matches!(
-            &err,
-            SourceInfoTableError::DuplicatePositions { .. }
-        ));
-        if let SourceInfoTableError::DuplicatePositions { pos, .. } = err {
-            assert_eq!(pos, PositionId::new(0))
-        } else {
-            unreachable!()
-        }
     }
 
     #[test]
