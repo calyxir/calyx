@@ -565,33 +565,42 @@ impl SourceInfoTable {
     pub fn get_position_string(
         &self,
         pos: PositionId,
-    ) -> Result<String, SourceLookupError<'_>> {
+    ) -> Result<String, SourceInfoTableError> {
         let Some(src_loc) = self.get_position(pos) else {
-            return Err(SourceLookupError::MissingPosition(pos));
+            return Err(SourceInfoTableError::LookupFailure(format!(
+                "position {pos} does not exist"
+            )));
         };
         // this will panic if the file doesn't exist but that would imply the table has
         // incorrect information in it
         let file_path = self.lookup_file_path(src_loc.file);
 
         let Ok(mut file) = File::open(file_path) else {
-            return Err(SourceLookupError::MissingFile(file_path));
+            return Err(SourceInfoTableError::LookupFailure(format!(
+                "unable to open file '{}'",
+                file_path.display()
+            )));
         };
 
         let mut file_contents = String::new();
 
         match file.read_to_string(&mut file_contents) {
             Ok(_) => {}
-            Err(_) => {
-                return Err(SourceLookupError::MissingFile(file_path));
+            Err(e) => {
+                return Err(SourceInfoTableError::LookupFailure(format!(
+                    "read of file '{}' failed with error {e}",
+                    file_path.display()
+                )));
             }
         }
 
         let Some(line) = file_contents.lines().nth(src_loc.line.as_usize() - 1)
         else {
-            return Err(SourceLookupError::MissingLine {
-                file: file_path,
-                line: src_loc.line.as_usize(),
-            });
+            return Err(SourceInfoTableError::LookupFailure(format!(
+                "file '{}' does not contain a line {}",
+                file_path.display(),
+                src_loc.line.as_usize()
+            )));
         };
 
         Ok(String::from(line))
@@ -640,20 +649,12 @@ impl SourceLocation {
 }
 #[derive(Error)]
 pub enum SourceInfoTableError {
+    /// A fatal error representing a malformed table
     #[error("Source Info is malformed: {0}")]
     InvalidTable(String),
-}
-
-/// Any error that can emerge while attempting to pull the actual line of text that a
-/// source line points to
-#[derive(Error, Debug)]
-pub enum SourceLookupError<'a> {
-    #[error("unable to open file {0}")]
-    MissingFile(&'a PathBuf),
-    #[error("file {file} does not have a line {line}")]
-    MissingLine { file: &'a PathBuf, line: usize },
-    #[error("position id {0} does not exist")]
-    MissingPosition(PositionId),
+    /// A non-fatal error representing a failed lookup
+    #[error("Source lookup failed: {0}")]
+    LookupFailure(String),
 }
 
 impl std::fmt::Debug for SourceInfoTableError {
@@ -666,11 +667,9 @@ pub type SourceInfoResult<T> = Result<T, SourceInfoTableError>;
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
-    use crate::{parser::CalyxParser, source_info::LineNum};
-
     use super::SourceInfoTable;
+    use crate::{parser::CalyxParser, source_info::LineNum};
+    use std::path::PathBuf;
 
     #[test]
     fn test_parse_metadata() {
