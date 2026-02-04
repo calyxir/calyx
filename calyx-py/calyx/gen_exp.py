@@ -205,8 +205,8 @@ def divide_and_conquer_sums(comp: ComponentBuilder, degree: int):
         register_indices = [
             (lhs, rhs)
             for lhs, rhs in zip(
-                list(filter(lambda x: (x % 2 != 0), indices)),
-                list(filter(lambda x: (x % 2 == 0), indices)),
+                list(filter(lambda x: x % 2 != 0, indices)),
+                list(filter(lambda x: x % 2 == 0, indices)),
             )
         ]
         for i, (lhs, rhs) in enumerate(register_indices):
