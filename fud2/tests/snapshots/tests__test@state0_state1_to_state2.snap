@@ -9,9 +9,9 @@ rule get-rsrc
 rule t1_rule_1
   command = echo owo
 build _t1_rule_1.fake $o0: t1_rule_1 $i0 $i1
-  i0 = _from_stdin_state0
-  i1 = _from_stdin_state1
-  o0 = _to_stdout_state2
+  i0 = state0_0
+  i1 = state1_0
+  o0 = state2_1
 
 
-default _to_stdout_state2
+default state2_1

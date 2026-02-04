@@ -54,22 +54,22 @@ component main<"pos"={1}>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done don
       b_reg.in = 32'd4;
       bUG0[done] = b_reg.done;
     }
-    comb group cond {
+    comb group cond<"pos"={6}> {
       lt.left = a_reg.out;
       lt.right = 32'd8;
     }
-    comb group condUG {
+    comb group condUG<"pos"={6}> {
       lt.left = a_reg.out;
       lt.right = 32'd8;
     }
   }
   control {
-    @pos{6} seq {
+    @pos{7} seq {
       aUG;
       bUG;
-      @pos{9} par {
-        @pos{10} while lt.out with condUG {
-          @pos{11} seq {
+      @pos{10} par {
+        @pos{11} while lt.out with condUG {
+          @pos{12} seq {
             dUG;
             eUG;
           }
@@ -88,15 +88,16 @@ POSITIONS
   3: 1 26:30
   4: 1 32:36
   5: 1 38:42
-  6: 1 46:58
-  7: 1 47:47
-  8: 1 48:48
-  9: 1 49:57
-  10: 1 50:55
-  11: 1 51:54
-  12: 1 52:52
-  13: 1 53:53
-  14: 1 56:56
+  6: 1 15:18
+  7: 1 46:58
+  8: 1 47:47
+  9: 1 48:48
+  10: 1 49:57
+  11: 1 50:55
+  12: 1 51:54
+  13: 1 52:52
+  14: 1 53:53
+  15: 1 56:56
 }#
 ---STDERR---
 {
@@ -111,16 +112,16 @@ POSITIONS
     },
     "control_pos": {
       "main.-": [
-        6
+        7
       ],
       "main.-2-": [
-        9
-      ],
-      "main.-2-0-": [
         10
       ],
-      "main.-2-0-b-": [
+      "main.-2-0-": [
         11
+      ],
+      "main.-2-0-b-": [
+        12
       ]
     }
   }

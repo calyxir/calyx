@@ -14,7 +14,7 @@ categories = ["build-tool"]
 description = "Compiler driver for the Calyx infrastructure"
 
 [dependencies]
-fud-core = { path = "fud-core", version = "0.0.2" }
+fud-core = { path = "fud-core", version = "0.0.2", features = ["sat_planner"] }
 anyhow.workspace = true
 manifest-dir-macros = "0.1"
 include_dir = "0.7"
@@ -33,3 +33,4 @@ path = "src/main.rs"
 insta = "1.36.0"
 itertools.workspace = true
 figment = { version = "0.10.12", features = ["toml"] }
+camino = "1.1.6"

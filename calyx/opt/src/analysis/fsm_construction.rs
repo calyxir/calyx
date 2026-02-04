@@ -228,10 +228,9 @@ impl StaticSchedule<'_, '_> {
                         // if it doesn't already have it
                         if let ir::Transition::Conditional(trans) =
                             &mut transition
+                            && !(trans.last_mut().unwrap().0.is_true())
                         {
-                            if !(trans.last_mut().unwrap().0.is_true()) {
-                                trans.push((ir::Guard::True, state))
-                            }
+                            trans.push((ir::Guard::True, state))
                         }
                         transition
                     }

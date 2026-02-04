@@ -140,10 +140,10 @@ trait LibraryHandlerTrait {
 
         for p in &library_paths {
             // Must have the library extension (.v or .sv).
-            if morty::has_libext(p) {
-                if let Some(m) = morty::lib_module(p) {
-                    library_files.insert(m, p.to_owned());
-                }
+            if morty::has_libext(p)
+                && let Some(m) = morty::lib_module(p)
+            {
+                library_files.insert(m, p.to_owned());
             }
         }
 
@@ -635,14 +635,13 @@ fn emit_component<F: io::Write>(
         for (dst, asgns) in &grouped_asgns {
             emit_assignment_flat(dst, asgns, f)?;
 
-            if enable_verification {
-                if let Some(check) =
+            if enable_verification
+                && let Some(check) =
                     emit_guard_disjoint_check(dst, asgns, &pool, true)
-                {
-                    writeln!(f, "always_ff @(posedge clk) begin")?;
-                    writeln!(f, "  {check}")?;
-                    writeln!(f, "end")?;
-                }
+            {
+                writeln!(f, "always_ff @(posedge clk) begin")?;
+                writeln!(f, "  {check}")?;
+                writeln!(f, "end")?;
             }
         }
     } else {
@@ -655,12 +654,11 @@ fn emit_component<F: io::Write>(
                 v::Stmt::new_parallel(emit_assignment(dst, &asgns, &pool));
             writeln!(f, "{stmt}")?;
 
-            if enable_verification {
-                if let Some(check) =
+            if enable_verification
+                && let Some(check) =
                     emit_guard_disjoint_check(dst, &asgns, &pool, false)
-                {
-                    checks.add_seq(check);
-                }
+            {
+                checks.add_seq(check);
             }
         }
 

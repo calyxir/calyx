@@ -314,7 +314,7 @@ impl Context {
     }
 
     /// Create a new printer for the given context
-    pub fn printer(&self) -> Printer {
+    pub fn printer(&self) -> Printer<'_> {
         Printer::new(self)
     }
 

@@ -59,6 +59,8 @@ enum Planner {
     Legacy,
     Enumerate,
     FromJson,
+    #[cfg(feature = "sat_planner")]
+    Sat,
 }
 
 impl FromStr for Planner {
@@ -69,6 +71,8 @@ impl FromStr for Planner {
             "legacy" => Ok(Planner::Legacy),
             "enumerate" => Ok(Planner::Enumerate),
             "json" => Ok(Planner::FromJson),
+            #[cfg(feature = "sat_planner")]
+            "sat" => Ok(Planner::Sat),
             _ => Err("unknown planner".to_string()),
         }
     }
@@ -80,6 +84,8 @@ impl Display for Planner {
             Planner::Legacy => write!(f, "legacy"),
             Planner::Enumerate => write!(f, "enumerate"),
             Planner::FromJson => write!(f, "json"),
+            #[cfg(feature = "sat_planner")]
+            Planner::Sat => write!(f, "sat"),
         }
     }
 }
@@ -166,7 +172,7 @@ pub struct FudArgs<T: CliExt> {
     #[argh(option)]
     to: Vec<String>,
 
-    /// execution mode (run, plan, emit, gen, dot, json-plan)
+    /// execution mode (run, plan, emit, gen, dot, emit-json)
     #[argh(option, short = 'm', default = "Mode::Run")]
     mode: Mode,
 
@@ -283,6 +289,20 @@ fn get_request<T: CliExt>(
         _ => ".".into(),
     });
 
+    // Special case the json planner to skip input sanitization. The json files are just scripts to run.
+    if matches!(args.planner, Planner::FromJson) {
+        return Ok(Request {
+            start_states: vec![],
+            end_states: vec![],
+            start_files: vec![],
+            end_files: vec![],
+            through: vec![],
+            workdir,
+            timing_csv: args.timing_csv.clone(),
+            planner: Box::new(plan::JsonPlanner {}),
+        });
+    }
+
     // Find all the operations to route through.
     let through: Result<Vec<_>, _> = args
         .through
@@ -304,6 +324,8 @@ fn get_request<T: CliExt>(
             Planner::Legacy => Box::new(plan::LegacyPlanner {}),
             Planner::Enumerate => Box::new(plan::EnumeratePlanner {}),
             Planner::FromJson => Box::new(plan::JsonPlanner {}),
+            #[cfg(feature = "sat_planner")]
+            Planner::Sat => Box::new(plan::SatPlanner {}),
         },
         timing_csv: args.timing_csv.clone(),
     })
@@ -332,12 +354,12 @@ fn get_resource(driver: &Driver, cmd: GetResource) -> anyhow::Result<()> {
     let to_path = cmd.output.as_deref().unwrap_or(&cmd.filename);
 
     // Try extracting embedded resource data.
-    if let Some(rsrc_files) = &driver.rsrc_files {
-        if let Some(data) = rsrc_files.get(cmd.filename.as_str()) {
-            log::info!("extracting {} to {}", cmd.filename, to_path);
-            std::fs::write(to_path, data)?;
-            return Ok(());
-        }
+    if let Some(rsrc_files) = &driver.rsrc_files
+        && let Some(data) = rsrc_files.get(cmd.filename.as_str())
+    {
+        log::info!("extracting {} to {}", cmd.filename, to_path);
+        std::fs::write(to_path, data)?;
+        return Ok(());
     }
 
     // Try copying a resource file from the resource directory.
@@ -489,7 +511,7 @@ fn cli_ext<T: CliExt>(
     })?;
 
     // Configure.
-    let mut run = Run::new(driver, plan, config.clone());
+    let mut run = Run::new(driver, plan, req.workdir, config.clone());
 
     // Override some global config options.
     if let Some(keep) = args.keep {
