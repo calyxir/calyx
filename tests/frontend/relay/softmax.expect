@@ -393,7 +393,7 @@ component exp<"pos"={5}>(x: 32) -> (out: 32) {
       exponent_value.in = mult_pipe1.out;
       negate[done] = exponent_value.done;
     }
-    comb group is_negative {
+    comb group is_negative<"pos"={5}> {
       lt.left = x;
       lt.right = 32'd0;
     }
@@ -655,7 +655,7 @@ component fp_pow<"pos"={5}>(base: 32, integer_exp: 32) -> (out: 32) {
       count.in = count_incr_1_1.out;
       count_incr_1_1_group[done] = count.done;
     }
-    comb group lt_2_group {
+    comb group lt_2_group<"pos"={5}> {
       lt_2.left = count.out;
       lt_2.right = integer_exp;
     }

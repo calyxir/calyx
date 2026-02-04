@@ -1,4 +1,6 @@
-//! The AST types used to represent plan files and ways to traverse them
+//! The AST types used to represent plan files and ways to traverse them. This is primarily used
+//! serialization and deserialization of the AST. A more efficient and ergonomic representation of
+//! flang is in `Ir` which is manipulated by the internals of the program.
 
 use camino::Utf8PathBuf;
 
@@ -111,7 +113,8 @@ impl<V: Visitor> Visitable<V> for Assignment {
     }
 }
 
-/// A list of assignments making up a program.
+/// A list of assignments making up a program. This creates a straightforward AST used for
+/// serialization and deserialization.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AssignmentList {
     pub assigns: Vec<Assignment>,
@@ -124,4 +127,24 @@ impl<V: Visitor> Visitable<V> for AssignmentList {
         }
         V::Result::output()
     }
+}
+
+/// The assignment list making up the program combined with a header specifying which files are
+/// inputs and outputs and which of those inputs and outputs should be written to/read from stdio.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Prog {
+    /// The input files to be read from stdin.
+    pub stdins: Vec<Utf8PathBuf>,
+
+    /// The input files to be written to stdout.
+    pub stdouts: Vec<Utf8PathBuf>,
+
+    /// The input files.
+    pub inputs: Vec<Utf8PathBuf>,
+
+    /// The output files.
+    pub outputs: Vec<Utf8PathBuf>,
+
+    /// The flang AST.
+    pub ast: AssignmentList,
 }

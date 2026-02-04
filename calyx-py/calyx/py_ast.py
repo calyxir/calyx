@@ -72,6 +72,13 @@ class PosTable:
             if not frame.filename.startswith(library_path):
                 user = frame
                 break
+            # workaround for "source" files that live in this directory (e.g. gen_exp.py)
+            # TODO: we should not be hardcoding the files that "don't count" as source files
+            if library_path == FILEINFO_BASE_PATH and os.path.basename(
+                frame.filename
+            ) not in ["py_ast.py", "builder.py"]:
+                user = frame
+                break
         if user is None:
             return None
 
@@ -492,10 +499,14 @@ class Group(Structure):
 class CombGroup(Structure):
     id: CompVar
     connections: list[Connect]
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
+        attribute_annotation = (
+            f"<{GroupAttribute('pos', self.loc).doc()}>" if self.loc is not None else ""
+        )
         return block(
-            f"comb group {self.id.doc()}",
+            f"comb group {self.id.doc()}{attribute_annotation}",
             [c.doc() for c in self.connections],
         )
 
@@ -505,10 +516,14 @@ class StaticGroup(Structure):
     id: CompVar
     connections: list[Connect]
     latency: int
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
+        attribute_annotation = (
+            f"<{GroupAttribute('pos', self.loc).doc()}>" if self.loc is not None else ""
+        )
         return block(
-            f"static<{self.latency}> group {self.id.doc()}",
+            f"static<{self.latency}> group {self.id.doc()}{attribute_annotation}",
             [c.doc() for c in self.connections],
         )
 

@@ -264,10 +264,9 @@ impl InferenceAnalysis {
                 // A constant writes to a cell: to be added to the graph, the cell needs to be a "done" port.
                 if let (Some(d_name), ir::CellType::Constant { .. }) =
                     (dst_cell.type_name(), &src_cell.prototype)
+                    && let Some(ports) = self.latency_data.get(&d_name)
                 {
-                    if let Some(ports) = self.latency_data.get(&d_name) {
-                        return ports.is_go(&dst.name);
-                    }
+                    return ports.is_go(&dst.name);
                 }
 
                 false
@@ -467,12 +466,10 @@ impl InferenceAnalysis {
                 let cell = cr.borrow();
                 if let Some(ports) =
                     cell.type_name().and_then(|c| self.latency_data.get(&c))
-                {
-                    if let Some(latency) =
+                    && let Some(latency) =
                         ports.get_latency(&port.borrow().name)
-                    {
-                        latency_sum += latency;
-                    }
+                {
+                    latency_sum += latency;
                 }
             }
         }

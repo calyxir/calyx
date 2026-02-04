@@ -73,14 +73,17 @@ def create_and_write_adl_map(
             # for Calyx-py we can suffice with just using Calyx PTraces
             adl_added_trace = tracedata.add_sourceloc_info(adl_map)
 
-            adl_flat_map, adl_scaled_map = flame.create_flame_maps(
-                adl_added_trace, FlameMapMode.ADL
+            flame.create_and_write_calyx_flame_maps(
+                adl_added_trace,
+                out_dir,
+                adl_flat_flame_file,
+                scaled_flame_out=adl_scaled_flame_file,
+                mode=FlameMapMode.ADL,
             )
-            flame.write_flame_map(adl_flat_map, adl_flat_flame_file)
-            flame.write_flame_map(adl_scaled_map, adl_scaled_flame_file)
-
-            mixed_flat_map, mixed_scaled_map = flame.create_flame_maps(
-                adl_added_trace, FlameMapMode.MIXED
+            flame.create_and_write_calyx_flame_maps(
+                adl_added_trace,
+                out_dir,
+                mixed_flat_flame_file,
+                scaled_flame_out=mixed_scaled_flame_file,
+                mode=FlameMapMode.MIXED,
             )
-            flame.write_flame_map(mixed_flat_map, mixed_flat_flame_file)
-            flame.write_flame_map(mixed_scaled_map, mixed_scaled_flame_file)

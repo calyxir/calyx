@@ -6,6 +6,7 @@ mod hole_inliner;
 mod metadata_table_gen;
 mod par_to_seq;
 mod register_unsharing;
+mod simplify_if_comb;
 mod sync;
 
 pub use discover_external::DiscoverExternal;
@@ -16,5 +17,6 @@ pub use hole_inliner::HoleInliner;
 pub use metadata_table_gen::Metadata;
 pub use par_to_seq::ParToSeq;
 pub use register_unsharing::RegisterUnsharing;
+pub use simplify_if_comb::SimplifyIfComb;
 pub use sync::CompileSync;
 pub use sync::CompileSyncWithoutSyncReg;

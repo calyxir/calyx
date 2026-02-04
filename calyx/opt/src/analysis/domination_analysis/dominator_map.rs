@@ -601,7 +601,7 @@ impl DominatorMap {
     pub fn get_static_control(
         id: u64,
         sc: &ir::StaticControl,
-    ) -> Option<GenericControl> {
+    ) -> Option<GenericControl<'_>> {
         if matches!(sc, ir::StaticControl::Empty(_)) {
             return None;
         }
@@ -664,7 +664,7 @@ impl DominatorMap {
 
     /// Given a control c and an id, finds the control statement within c that
     /// has id, if it exists. If it doesn't, return None.
-    pub fn get_control(id: u64, c: &ir::Control) -> Option<GenericControl> {
+    pub fn get_control(id: u64, c: &ir::Control) -> Option<GenericControl<'_>> {
         if matches!(c, ir::Control::Empty(_)) {
             return None;
         }

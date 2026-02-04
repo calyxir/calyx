@@ -15,7 +15,7 @@ use crate::passes::{
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
     FSMAnnotator, FSMBuilder, HoleInliner, Metadata, ParToSeq,
-    RegisterUnsharing,
+    RegisterUnsharing, SimplifyIfComb,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -86,6 +86,7 @@ impl PassManager {
         pm.register_pass::<RemoveIds>()?;
         pm.register_pass::<ExternalToRef>()?;
         pm.register_pass::<ConstantPortProp>()?;
+        pm.register_pass::<SimplifyIfComb>()?;
 
         // instrumentation pass to collect profiling information
         pm.register_pass::<ProfilerInstrumentation>()?;
