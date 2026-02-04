@@ -1,0 +1,47 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main(@go go: 1) -> (@done done: 1) {
+  cells {
+    @external(1) mem = comb_mem_d1(32, 1, 1);
+    slice = std_bit_slice(32, 2, 12, 11);
+    cat = std_cat(21, 11, 32);
+    reg_1 = std_reg(11);
+    result = std_reg(32);
+  }
+
+  wires {
+    group slice_group {
+      slice.in = 32'b1111000111;
+      reg_1.in = slice.out;
+      reg_1.write_en = 1'b1;
+
+      slice_group[done] = reg_1.done;
+    }
+
+    group cat_group {
+      cat.left = 21'd1;
+      cat.right = reg_1.out;
+      result.in = cat.out;
+      result.write_en = 1'b1;
+
+      cat_group[done] = result.done;
+    }
+
+    group write {
+      mem.addr0 = 1'b0;
+      mem.write_en = 1'b1;
+      mem.write_data = result.out;
+      write[done] = mem.done;
+    }
+  }
+
+  control {
+    seq {
+      slice_group;
+      cat_group;
+      write;
+    }
+  }
+
+}

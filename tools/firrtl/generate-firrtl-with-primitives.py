@@ -33,7 +33,10 @@ def generate_replacement_map(inst):
         replacement_map["W_SHIFTED_ONE"] = width << 1
         replacement_map["HIGH"] = width - 1
         replacement_map["LOW"] = 0
-
+    elif inst["name"] == "std_cat":
+        replacement_map["OUT_WIDTH"] = (
+            replacement_map["LEFT_WIDTH"] + replacement_map["RIGHT_WIDTH"]
+        )
     return replacement_map
 
 
