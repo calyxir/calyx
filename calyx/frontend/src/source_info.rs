@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fmt::Display,
     fs::File,
     io::Read,
@@ -174,6 +174,8 @@ pub struct SourceInfoTable {
     /// collects the mapping from positions representing a point in the control
     /// program to the set of variable assignments for that position
     position_state_map: HashMap<PositionId, VariableAssignmentId>,
+    /// stores information about the source information used by the program
+    type_table: HashMap<TypeId, SourceType>,
 }
 
 impl SourceInfoTable {
@@ -311,6 +313,7 @@ impl SourceInfoTable {
             mem_location_map: HashMap::new(),
             variable_assignment_map: HashMap::new(),
             position_state_map: HashMap::new(),
+            type_table: HashMap::new(),
         }
     }
 
@@ -330,8 +333,9 @@ impl SourceInfoTable {
             VariableAssignmentId,
             Vec<(String, MemoryLocationId)>,
         )> = vec![];
+        let types: Vec<(TypeId, SourceType)> = vec![];
 
-        Self::new(files, positions, loc, variable_assigns, states)
+        Self::new(files, positions, loc, variable_assigns, states, types)
     }
 
     // this is awful
@@ -348,12 +352,14 @@ impl SourceInfoTable {
             ),
         >,
         states: impl IntoIterator<Item = (PositionId, VariableAssignmentId)>,
+        types: impl IntoIterator<Item = (TypeId, SourceType)>,
     ) -> SourceInfoResult<Self> {
         let files = files.into_iter();
         let positions = positions.into_iter();
         let locations = locations.into_iter();
         let vars = variable_assigns.into_iter();
         let states = states.into_iter();
+        let types = types.into_iter();
 
         let mut file_map = HashMap::with_capacity(
             files.size_hint().1.unwrap_or(files.size_hint().0),
@@ -367,6 +373,7 @@ impl SourceInfoTable {
 
         let mut variable_map = HashMap::new();
         let mut state_map = HashMap::new();
+        let mut type_map = HashMap::new();
 
         for (file, path) in files {
             if let Some(first_path) = file_map.insert(file, path) {
@@ -449,12 +456,33 @@ impl SourceInfoTable {
             }
         }
 
+        let mut types_referenced: HashSet<TypeId> = HashSet::new();
+
+        for (id, source_type) in types {
+            types_referenced.extend(source_type.types_referenced());
+
+            if type_map.insert(id, source_type).is_some() {
+                return Err(SourceInfoTableError::InvalidTable(format!(
+                    "multiple definitions for type id {id}"
+                )));
+            }
+        }
+
+        for ty in types_referenced {
+            if !type_map.contains_key(&ty) {
+                return Err(SourceInfoTableError::InvalidTable(format!(
+                    "type id {ty} is referenced but never defined"
+                )));
+            }
+        }
+
         Ok(SourceInfoTable {
             file_map,
             position_map,
             mem_location_map: memory_location_map,
             variable_assignment_map: variable_map,
             position_state_map: state_map,
+            type_table: type_map,
         })
     }
 
@@ -471,11 +499,13 @@ impl SourceInfoTable {
         // optional entries
         if !(self.mem_location_map.is_empty()
             && self.variable_assignment_map.is_empty()
-            && self.position_state_map.is_empty())
+            && self.position_state_map.is_empty()
+            && self.type_table.is_empty())
         {
             self.write_memory_table(&mut f)?;
             self.write_var_assigns(&mut f)?;
             self.write_pos_state_table(&mut f)?;
+            self.write_type_table(&mut f)?;
         }
 
         Self::write_footer(&mut f)
@@ -555,6 +585,35 @@ impl SourceInfoTable {
         writeln!(f, "FILES")?;
         for (file, path) in self.file_map.iter().sorted_by_key(|(k, _)| **k) {
             writeln!(f, "  {file}: {}", path.display())?;
+        }
+        Ok(())
+    }
+
+    fn write_type_table<W: std::io::Write>(
+        &self,
+        f: &mut W,
+    ) -> Result<(), std::io::Error> {
+        writeln!(f, "TYPES")?;
+        for (id, source_type) in
+            self.type_table.iter().sorted_by_key(|(k, _)| **k)
+        {
+            write!(f, "    {id}: {{ ",)?;
+            match source_type {
+                SourceType::Array { ty, length } => {
+                    write!(f, "{ty}; {length}")?;
+                }
+                SourceType::Struct { fields } => {
+                    if let Some((name, ty)) = fields.first() {
+                        write!(f, " {name}: {ty}")?;
+                    }
+
+                    for (name, ty) in fields.iter().skip(1) {
+                        write!(f, ", {name}: {ty}")?;
+                    }
+                }
+            }
+
+            writeln!(f, " }}")?;
         }
         Ok(())
     }
@@ -648,12 +707,23 @@ impl SourceLocation {
     }
 }
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum PrimitiveType {
     Uint(u32),
     Sint(u32),
     Bool,
     Bitfield(u32),
+}
+
+impl Display for PrimitiveType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PrimitiveType::Uint(x) => write!(f, "u{x}"),
+            PrimitiveType::Sint(x) => write!(f, "i{x}"),
+            PrimitiveType::Bool => write!(f, "bool"),
+            PrimitiveType::Bitfield(x) => write!(f, "b{x}"),
+        }
+    }
 }
 
 impl PrimitiveType {
@@ -667,9 +737,19 @@ impl PrimitiveType {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FieldType {
     Primitive(PrimitiveType),
     Composite(TypeId),
+}
+
+impl Display for FieldType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FieldType::Primitive(primitive_type) => primitive_type.fmt(f),
+            FieldType::Composite(type_id) => type_id.fmt(f),
+        }
+    }
 }
 
 impl FieldType {
@@ -683,8 +763,12 @@ impl FieldType {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SourceType {
     Array { ty: FieldType, length: u32 },
+    // TODO griffin: we should replace the string with a newtype that remembers
+    // if the parse came from a string literal, since the serialization is going
+    // to be a pain otherwise
     Struct { fields: Vec<(String, FieldType)> },
 }
 
@@ -699,11 +783,45 @@ impl SourceType {
                 .fold(0, |acc, (_, ty)| acc + ty.type_size(type_map)),
         }
     }
+
+    pub fn types_referenced(&self) -> Vec<TypeId> {
+        match self {
+            SourceType::Array { ty, .. } => {
+                if let FieldType::Composite(id) = ty {
+                    vec![*id]
+                } else {
+                    vec![]
+                }
+            }
+            SourceType::Struct { fields } => fields
+                .iter()
+                .filter_map(|(_, ty)| {
+                    if let FieldType::Composite(id) = ty {
+                        Some(*id)
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+        }
+    }
 }
 
 /// ID for types from the source language
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct TypeId(Word);
+
+impl TypeId {
+    pub fn new(v: Word) -> Self {
+        Self(v)
+    }
+}
+
+impl Display for TypeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> core::fmt::Result {
+        <Word as Display>::fmt(&self.0, f)
+    }
+}
 
 #[derive(Error)]
 pub enum SourceInfoTableError {
@@ -756,6 +874,11 @@ mod tests {
     POSITION_STATE_MAP
         0: 0
         2: 1
+    TYPES
+        0: { 0: u4, 1: i6 }
+        1: { bool; 15 }
+        2: { coordinate: 0, bvec: 1 }
+
 }#"#;
 
         let metadata = CalyxParser::parse_source_info_table(input_str)
@@ -767,6 +890,17 @@ mod tests {
         let pos = metadata.lookup_position(1.into());
         assert_eq!(pos.file, 0.into());
         assert_eq!(pos.line, LineNum::new(1));
+
+        let mut serialized_str = vec![];
+        metadata.serialize(&mut serialized_str).unwrap();
+        let serialized_str = String::from_utf8(serialized_str).unwrap();
+
+        let parsed_metadata =
+            CalyxParser::parse_source_info_table(&serialized_str)
+                .unwrap()
+                .unwrap();
+
+        assert_eq!(metadata, parsed_metadata)
     }
 
     #[test]

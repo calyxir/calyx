@@ -11,8 +11,9 @@ use crate::{
     attribute::SetAttribute,
     attributes::ParseAttributeWrapper,
     source_info::{
-        FileId as MetadataFileId, LineNum, MemoryLocation, MemoryLocationId,
-        PositionId, SourceInfoResult, SourceInfoTable, VariableAssignmentId,
+        FieldType, FileId as MetadataFileId, LineNum, MemoryLocation,
+        MemoryLocationId, PositionId, PrimitiveType, SourceInfoResult,
+        SourceInfoTable, SourceType, TypeId, VariableAssignmentId,
     },
 };
 use calyx_utils::{self, CalyxResult, Id, PosString, float};
@@ -1639,12 +1640,94 @@ impl CalyxParser {
         ))
     }
 
+    fn type_header(input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn type_primitive_uint(input: Node) -> ParseResult<PrimitiveType> {
+        Ok(match_nodes!(input.into_children();
+                [bitwidth(w)] => PrimitiveType::Uint(w.try_into().expect("type bitwidth must fit into u32"))
+        ))
+    }
+
+    fn type_primitive_sint(input: Node) -> ParseResult<PrimitiveType> {
+        Ok(match_nodes!(input.into_children();
+                [bitwidth(w)] => PrimitiveType::Sint(w.try_into().expect("type bitwidth must fit into u32"))
+        ))
+    }
+
+    fn type_primitive_bitfield(input: Node) -> ParseResult<PrimitiveType> {
+        Ok(match_nodes!(input.into_children();
+                [bitwidth(w)] => PrimitiveType::Bitfield(w.try_into().expect("type bitwidth must fit into u32"))
+        ))
+    }
+
+    fn type_primitive_bool(input: Node) -> ParseResult<PrimitiveType> {
+        Ok(PrimitiveType::Bool)
+    }
+
+    fn type_primitive(input: Node) -> ParseResult<PrimitiveType> {
+        Ok(match_nodes!(input.into_children();
+            [type_primitive_uint(u)] => u,
+            [type_primitive_sint(s)] => s,
+            [type_primitive_bitfield(b)] => b,
+            [type_primitive_bool(b)] => b
+        ))
+    }
+
+    fn type_field(input: Node) -> ParseResult<FieldType> {
+        Ok(match_nodes!(input.into_children();
+                [type_primitive(p)] => FieldType::Primitive(p),
+                [bitwidth(b)] => FieldType::Composite(TypeId::new(b.try_into().expect("type id must fit into u32")))
+        ))
+    }
+
+    fn type_entry_array(input: Node) -> ParseResult<(FieldType, u32)> {
+        Ok(match_nodes!(input.into_children();
+            [type_field(f), bitwidth(b)] => (f, b.try_into().expect("source array size must fit in u32"))
+        ))
+    }
+
+    fn type_entry_struct_field_name(input: Node) -> ParseResult<String> {
+        Ok(match_nodes!(input.into_children();
+           [string_lit(s)] => s.to_string(),
+           [identifier(i)] => i.to_string(),
+           [bitwidth(b)] => b.to_string()
+        ))
+    }
+
+    fn type_entry_struct(input: Node) -> ParseResult<(String, FieldType)> {
+        Ok(match_nodes!(input.into_children();
+           [type_entry_struct_field_name(name), type_field(f)] => (name, f)
+        ))
+    }
+
+    fn type_entry(input: Node) -> ParseResult<(TypeId, SourceType)> {
+        Ok(match_nodes!(input.into_children();
+           [bitwidth(id), type_entry_array((f, l))] => (TypeId::new(id.try_into().expect("type id must fit into u32")), SourceType::Array { ty: f, length: l}),
+           [bitwidth(id), type_entry_struct(st)] => (TypeId::new(id.try_into().expect("type id must fit into u32")), SourceType::Struct { fields: vec![st] }),
+           [bitwidth(id), type_entry_struct(st), type_entry_struct(rest)..] => {
+                let mut arr = vec!(st);
+                arr.extend(rest);
+                (TypeId::new(id.try_into().expect("type id must fit into u32")), SourceType::Struct { fields: arr })
+           }
+        ))
+    }
+
+    fn type_table(
+        input: Node,
+    ) -> ParseResult<impl IntoIterator<Item = (TypeId, SourceType)>> {
+        Ok(match_nodes!(input.into_children();
+           [type_header(_), type_entry(entries)..] => entries
+        ))
+    }
+
     fn source_info_table(
         input: Node,
     ) -> ParseResult<SourceInfoResult<SourceInfoTable>> {
         Ok(match_nodes!(input.into_children();
             [file_table(f), position_table(p)] => SourceInfoTable::new_minimal(f, p),
-            [file_table(f), position_table(p), memory_table(m), variable_table(v), pos_state_table(s)] => SourceInfoTable::new(f, p, m, v, s),
+            [file_table(f), position_table(p), memory_table(m), variable_table(v), pos_state_table(s), type_table(ty)] => SourceInfoTable::new(f, p, m, v, s, ty),
 
         ))
     }
