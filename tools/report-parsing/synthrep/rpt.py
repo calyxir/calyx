@@ -21,9 +21,9 @@ class RPTParser:
         """
         indexed = filter(lambda ie: ie[1] != "\n" and ie[1] != "", enumerate(elems))
         cleaned = map(
-            lambda ie: ie[1].rstrip("\n ")
-            if ie[0] == preserve_index
-            else ie[1].strip(),
+            lambda ie: (
+                ie[1].rstrip("\n ") if ie[0] == preserve_index else ie[1].strip()
+            ),
             indexed,
         )
         return list(cleaned)
