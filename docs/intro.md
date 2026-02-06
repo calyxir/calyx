@@ -124,7 +124,7 @@ And put this in the resulting TOML file:
 
 ```toml
 [calyx]
-base = "<path to Calyx repository>"
+base = "<absolute path to Calyx repository>"
 ```
 
 Finally, use this to set up fud2's Python environment:
