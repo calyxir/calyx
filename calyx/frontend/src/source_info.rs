@@ -170,7 +170,7 @@ pub struct SourceInfoTable {
     mem_location_map: HashMap<MemoryLocationId, MemoryLocation>,
     /// assigns ids to collections of variable -> location mappings
     variable_assignment_map:
-        HashMap<VariableAssignmentId, HashMap<String, MemoryLocationId>>,
+        HashMap<VariableAssignmentId, HashMap<VariableName, MemoryLocationId>>,
     /// collects the mapping from positions representing a point in the control
     /// program to the set of variable assignments for that position
     position_state_map: HashMap<PositionId, VariableAssignmentId>,
@@ -292,7 +292,7 @@ impl SourceInfoTable {
     pub fn get_variable_mapping(
         &self,
         pos: PositionId,
-    ) -> Option<&HashMap<String, MemoryLocationId>> {
+    ) -> Option<&HashMap<VariableName, MemoryLocationId>> {
         self.position_state_map
             .get(&pos)
             .and_then(|x| self.variable_assignment_map.get(x))
@@ -331,7 +331,7 @@ impl SourceInfoTable {
         let states: Vec<(PositionId, VariableAssignmentId)> = vec![];
         let variable_assigns: Vec<(
             VariableAssignmentId,
-            Vec<(String, MemoryLocationId)>,
+            Vec<(VariableName, MemoryLocationId)>,
         )> = vec![];
         let types: Vec<(TypeId, SourceType)> = vec![];
 
@@ -348,7 +348,7 @@ impl SourceInfoTable {
         variable_assigns: impl IntoIterator<
             Item = (
                 VariableAssignmentId,
-                impl IntoIterator<Item = (String, MemoryLocationId)>,
+                impl IntoIterator<Item = (VariableName, MemoryLocationId)>,
             ),
         >,
         states: impl IntoIterator<Item = (PositionId, VariableAssignmentId)>,
@@ -765,11 +765,13 @@ impl FieldType {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SourceType {
-    Array { ty: FieldType, length: u32 },
-    // TODO griffin: we should replace the string with a newtype that remembers
-    // if the parse came from a string literal, since the serialization is going
-    // to be a pain otherwise
-    Struct { fields: Vec<(String, FieldType)> },
+    Array {
+        ty: FieldType,
+        length: u32,
+    },
+    Struct {
+        fields: Vec<(VariableName, FieldType)>,
+    },
 }
 
 impl SourceType {
@@ -820,6 +822,66 @@ impl TypeId {
 impl Display for TypeId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> core::fmt::Result {
         <Word as Display>::fmt(&self.0, f)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+/// A thin wrapper over a String for names used by the source info table
+pub struct VariableName {
+    name: String,
+    /// a bool tracking whether or not this name came from a string literal for
+    /// purposes of serialization
+    name_is_literal: bool,
+}
+
+impl Display for VariableName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.name_is_literal {
+            write!(f, "\"{}\"", self.name)
+        } else {
+            self.name.fmt(f)
+        }
+    }
+}
+
+impl VariableName {
+    pub fn new(name: String, name_is_literal: bool) -> Self {
+        Self {
+            name,
+            name_is_literal,
+        }
+    }
+
+    pub fn new_non_literal(name: String) -> Self {
+        Self {
+            name,
+            name_is_literal: false,
+        }
+    }
+
+    pub fn new_literal(name: String) -> Self {
+        Self {
+            name,
+            name_is_literal: true,
+        }
+    }
+
+    pub fn into_string(self) -> String {
+        self.name
+    }
+
+    /// flips the name_is_literal bool. should only be used when searching for
+    /// a value in a hashmap
+    pub fn flip_is_literal(&mut self) {
+        self.name_is_literal = !self.name_is_literal
+    }
+
+    pub fn set_is_literal(&mut self) {
+        self.name_is_literal = true
+    }
+
+    pub fn unset_is_literal(&mut self) {
+        self.name_is_literal = false
     }
 }
 
@@ -927,6 +989,7 @@ mod tests {
     POSITION_STATE_MAP
         0: 0
         2: 1
+    TYPES
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
@@ -957,6 +1020,7 @@ mod tests {
     POSITION_STATE_MAP
         0: 0
         2: 2
+    TYPES
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
@@ -990,6 +1054,7 @@ mod tests {
     POSITION_STATE_MAP
         0: 0
         2: 1
+    TYPES
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
@@ -1021,6 +1086,7 @@ mod tests {
     POSITION_STATE_MAP
         0: 0
         2: 1
+    TYPES
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
@@ -1051,6 +1117,7 @@ mod tests {
     POSITION_STATE_MAP
         0: 0
         2: 1
+    TYPES
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
@@ -1081,6 +1148,7 @@ mod tests {
     POSITION_STATE_MAP
         0: 0
         0: 1
+    TYPES
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());

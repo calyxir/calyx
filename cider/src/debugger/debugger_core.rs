@@ -33,6 +33,7 @@ use crate::{
 
 use std::{collections::HashSet, num::NonZeroU32, path::PathBuf, rc::Rc};
 
+use calyx_ir::source_info::VariableName;
 use itertools::Itertools;
 use std::path::Path as FilePath;
 use thiserror::Error;
@@ -560,10 +561,23 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             .collect();
 
         for target in targets {
-            let Some(mem_loc) =
-                variable_maps.iter().find_map(|map| map.get(&target))
-            else {
-                return Err(VarPrintError::UndefinedSourceVar(target));
+            let mut target = VariableName::new_non_literal(target);
+            let Some(mem_loc) = variable_maps.iter().find_map(|map| {
+                // TODO griffin: I don't really like this approach but there
+                // doesn't seem to be a better option without doing some real
+                // sketchy stuff in the parser. And even then, it could be the
+                // case that the target was given as a string literal even when
+                // it doesn't need to be parsed as such and we should probably
+                // return the correct thing even when that happens
+                map.get(&target).or_else(|| {
+                    target.flip_is_literal();
+                    map.get(&target)
+                })
+            }) else {
+                target.set_is_literal();
+                return Err(VarPrintError::UndefinedSourceVar(
+                    target.to_string(),
+                ));
             };
 
             let calyx_target = source_info.get_memory_location(mem_loc);

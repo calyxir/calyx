@@ -14,6 +14,7 @@ use crate::{
         FieldType, FileId as MetadataFileId, LineNum, MemoryLocation,
         MemoryLocationId, PositionId, PrimitiveType, SourceInfoResult,
         SourceInfoTable, SourceType, TypeId, VariableAssignmentId,
+        VariableName,
     },
 };
 use calyx_utils::{self, CalyxResult, Id, PosString, float};
@@ -1579,15 +1580,22 @@ impl CalyxParser {
             [memory_header(_), memory_loc(l)..] => l))
     }
 
+    fn variable_name(input: Node) -> ParseResult<VariableName> {
+        Ok(match_nodes!(input.into_children();
+           [string_lit(s)] => VariableName::new_literal(s.to_string()),
+           [identifier(i)] => VariableName::new_non_literal(i.to_string())
+        ))
+    }
+
     fn variable_header(input: Node) -> ParseResult<()> {
         Ok(())
     }
 
     fn single_assignment(
         input: Node,
-    ) -> ParseResult<(String, MemoryLocationId)> {
+    ) -> ParseResult<(VariableName, MemoryLocationId)> {
         Ok(match_nodes!(input.into_children();
-            [identifier(i), bitwidth(b)] => (i.to_string(), b.try_into().expect("memory location ids must fit in u32"))
+            [variable_name(name), bitwidth(b)] => (name, b.try_into().expect("memory location ids must fit in u32"))
         ))
     }
 
@@ -1595,7 +1603,7 @@ impl CalyxParser {
         input: Node,
     ) -> ParseResult<(
         VariableAssignmentId,
-        impl IntoIterator<Item = (String, MemoryLocationId)>,
+        impl IntoIterator<Item = (VariableName, MemoryLocationId)>,
     )> {
         Ok(match_nodes!(input.into_children();
             [bitwidth(id), single_assignment(assigns)..] => {
@@ -1610,7 +1618,7 @@ impl CalyxParser {
         impl IntoIterator<
             Item = (
                 VariableAssignmentId,
-                impl IntoIterator<Item = (String, MemoryLocationId)>,
+                impl IntoIterator<Item = (VariableName, MemoryLocationId)>,
             ),
         >,
     > {
@@ -1688,15 +1696,17 @@ impl CalyxParser {
         ))
     }
 
-    fn type_entry_struct_field_name(input: Node) -> ParseResult<String> {
+    fn type_entry_struct_field_name(input: Node) -> ParseResult<VariableName> {
         Ok(match_nodes!(input.into_children();
-           [string_lit(s)] => s.to_string(),
-           [identifier(i)] => i.to_string(),
-           [bitwidth(b)] => b.to_string()
+           [string_lit(s)] => VariableName::new_literal( s.to_string()),
+           [identifier(i)] => VariableName::new_non_literal(i.to_string()),
+           [bitwidth(b)] => VariableName::new_non_literal(b.to_string())
         ))
     }
 
-    fn type_entry_struct(input: Node) -> ParseResult<(String, FieldType)> {
+    fn type_entry_struct(
+        input: Node,
+    ) -> ParseResult<(VariableName, FieldType)> {
         Ok(match_nodes!(input.into_children();
            [type_entry_struct_field_name(name), type_field(f)] => (name, f)
         ))

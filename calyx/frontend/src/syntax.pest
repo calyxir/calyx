@@ -447,8 +447,10 @@ memory_str    = { string_lit | (identifier ~ ("." ~ identifier)*) }
 memory_loc    = { bitwidth ~ ":" ~ memory_str ~ ("[" ~ (bitwidth ~ ","?)+ ~ "]")? }
 memory_table  = { memory_header ~ memory_loc* }
 
+variable_name = { string_lit | identifier }
+
 variable_header   = { ^"variable_assignments" }
-single_assignment = { identifier ~ ":" ~ bitwidth }
+single_assignment = { variable_name ~ ":" ~ bitwidth }
 assignment_set    = { bitwidth ~ ":" ~ "{" ~ single_assignment+ ~ "}" }
 variable_table    = { variable_header ~ assignment_set* }
 
