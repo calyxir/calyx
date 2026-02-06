@@ -761,6 +761,16 @@ impl FieldType {
             }
         }
     }
+
+    /// Return the number of primitive types that must be mapped for this type
+    pub fn entry_count(&self, type_map: &HashMap<TypeId, SourceType>) -> usize {
+        match self {
+            FieldType::Primitive(_) => 1,
+            FieldType::Composite(type_id) => {
+                type_map[type_id].entry_count(type_map)
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -805,6 +815,19 @@ impl SourceType {
                     }
                 })
                 .collect(),
+        }
+    }
+
+    /// Return the number of primitive types that must be mapped for this type
+    pub fn entry_count(&self, type_map: &HashMap<TypeId, SourceType>) -> usize {
+        match self {
+            SourceType::Array { ty, length } => {
+                let entries_per_field = ty.entry_count(type_map);
+                entries_per_field * (*length as usize)
+            }
+            SourceType::Struct { fields } => fields
+                .iter()
+                .fold(0, |acc, (_, ty)| acc + ty.entry_count(type_map)),
         }
     }
 }
@@ -883,6 +906,46 @@ impl VariableName {
     pub fn unset_is_literal(&mut self) {
         self.name_is_literal = false
     }
+}
+
+#[derive(Debug, Clone)]
+pub enum LayoutFunction {
+    /// Standard layout function which maps all fields into a single memory
+    /// slot / register. This function must be given exactly a single argument
+    Packed,
+    /// Standard layout function which maps each entry in the variable structure
+    /// to a distinct register / memory location. Must take N arguments where N
+    /// is the number of entries for the type.
+    Split,
+}
+
+#[derive(Debug, Clone)]
+pub struct VariableLayout {
+    pub type_info: FieldType,
+    pub layout_fn: LayoutFunction,
+    pub layout_args: Box<[MemoryLocationId]>,
+}
+
+impl VariableLayout {
+    pub fn new(
+        type_info: FieldType,
+        layout_fn: LayoutFunction,
+        layout_args: impl IntoIterator<Item = MemoryLocationId>,
+    ) -> Self {
+        Self {
+            type_info,
+            layout_fn,
+            layout_args: layout_args.into_iter().collect(),
+        }
+    }
+}
+
+pub enum VariableDefinition {
+    /// There is no associated type information with this variable. This is for
+    /// definitions of the form `name: MEMORY_LOCATION`
+    Untyped(MemoryLocationId),
+    /// The metadata defines a type for this source variable
+    Typed(VariableLayout),
 }
 
 #[derive(Error)]
