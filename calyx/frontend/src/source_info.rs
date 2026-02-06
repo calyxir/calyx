@@ -169,8 +169,10 @@ pub struct SourceInfoTable {
     /// assigns ids to locations in memories and registers
     mem_location_map: HashMap<MemoryLocationId, MemoryLocation>,
     /// assigns ids to collections of variable -> location mappings
-    variable_assignment_map:
-        HashMap<VariableAssignmentId, HashMap<VariableName, MemoryLocationId>>,
+    variable_assignment_map: HashMap<
+        VariableAssignmentId,
+        HashMap<VariableName, VariableDefinition>,
+    >,
     /// collects the mapping from positions representing a point in the control
     /// program to the set of variable assignments for that position
     position_state_map: HashMap<PositionId, VariableAssignmentId>,
@@ -292,7 +294,7 @@ impl SourceInfoTable {
     pub fn get_variable_mapping(
         &self,
         pos: PositionId,
-    ) -> Option<&HashMap<VariableName, MemoryLocationId>> {
+    ) -> Option<&HashMap<VariableName, VariableDefinition>> {
         self.position_state_map
             .get(&pos)
             .and_then(|x| self.variable_assignment_map.get(x))
@@ -331,7 +333,7 @@ impl SourceInfoTable {
         let states: Vec<(PositionId, VariableAssignmentId)> = vec![];
         let variable_assigns: Vec<(
             VariableAssignmentId,
-            Vec<(VariableName, MemoryLocationId)>,
+            Vec<(VariableName, VariableDefinition)>,
         )> = vec![];
         let types: Vec<(TypeId, SourceType)> = vec![];
 
@@ -348,7 +350,7 @@ impl SourceInfoTable {
         variable_assigns: impl IntoIterator<
             Item = (
                 VariableAssignmentId,
-                impl IntoIterator<Item = (VariableName, MemoryLocationId)>,
+                impl IntoIterator<Item = (VariableName, VariableDefinition)>,
             ),
         >,
         states: impl IntoIterator<Item = (PositionId, VariableAssignmentId)>,
@@ -412,15 +414,26 @@ impl SourceInfoTable {
             }
         }
 
+        let mut types_referenced: HashSet<TypeId> = HashSet::new();
+
         for (assign_label, assigns) in vars {
             let mut mapping = HashMap::new();
             for (name, location) in assigns {
-                if !memory_location_map.contains_key(&location) {
-                    // unknown memory location
-                    return Err(SourceInfoTableError::InvalidTable(format!(
-                        "Memory location {location} is referenced but never defined"
-                    )));
+                for loc in location.referenced_memory_locations() {
+                    if !memory_location_map.contains_key(&loc) {
+                        // unknown memory location
+                        return Err(SourceInfoTableError::InvalidTable(
+                            format!(
+                                "Memory location {loc} is referenced but never defined"
+                            ),
+                        ));
+                    }
                 }
+
+                if let Some(ty) = location.referenced_type() {
+                    types_referenced.insert(ty);
+                }
+
                 // this is to avoid copying the string in all cases since we
                 // would only need it when emitting the error. Clippy doesn't
                 // like this for good reasons and while I suspect it may be
@@ -455,8 +468,6 @@ impl SourceInfoTable {
                 )));
             }
         }
-
-        let mut types_referenced: HashSet<TypeId> = HashSet::new();
 
         for (id, source_type) in types {
             types_referenced.extend(source_type.types_referenced());
@@ -537,8 +548,25 @@ impl SourceInfoTable {
             .sorted_by_key(|(k, _)| **k)
         {
             writeln!(f, "  {id}: {{")?;
-            for (var, loc) in map.iter().sorted() {
-                writeln!(f, "    {var}: {loc}")?;
+            for (var, loc) in map.iter().sorted_by_key(|(v, _)| *v) {
+                write!(f, "    {var}:")?;
+                match loc {
+                    VariableDefinition::Untyped(memory_location_id) => {
+                        writeln!(f, " {memory_location_id}")?;
+                    }
+                    VariableDefinition::Typed(variable_layout) => {
+                        write!(
+                            f,
+                            " ty {}, {}",
+                            variable_layout.type_info,
+                            variable_layout.layout_fn
+                        )?;
+                        for loc in variable_layout.layout_args.iter() {
+                            write!(f, " {loc}")?;
+                        }
+                        writeln!(f)?;
+                    }
+                }
             }
             writeln!(f, "  }}")?;
         }
@@ -604,7 +632,7 @@ impl SourceInfoTable {
                 }
                 SourceType::Struct { fields } => {
                     if let Some((name, ty)) = fields.first() {
-                        write!(f, " {name}: {ty}")?;
+                        write!(f, "{name}: {ty}")?;
                     }
 
                     for (name, ty) in fields.iter().skip(1) {
@@ -908,7 +936,7 @@ impl VariableName {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LayoutFunction {
     /// Standard layout function which maps all fields into a single memory
     /// slot / register. This function must be given exactly a single argument
@@ -919,7 +947,16 @@ pub enum LayoutFunction {
     Split,
 }
 
-#[derive(Debug, Clone)]
+impl Display for LayoutFunction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LayoutFunction::Packed => write!(f, "packed"),
+            LayoutFunction::Split => write!(f, "split"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VariableLayout {
     pub type_info: FieldType,
     pub layout_fn: LayoutFunction,
@@ -940,12 +977,38 @@ impl VariableLayout {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VariableDefinition {
     /// There is no associated type information with this variable. This is for
     /// definitions of the form `name: MEMORY_LOCATION`
     Untyped(MemoryLocationId),
     /// The metadata defines a type for this source variable
     Typed(VariableLayout),
+}
+
+impl VariableDefinition {
+    pub fn referenced_memory_locations(
+        &self,
+    ) -> Box<dyn Iterator<Item = MemoryLocationId> + '_> {
+        match self {
+            VariableDefinition::Untyped(memory_location_id) => {
+                Box::new(std::iter::once(*memory_location_id))
+            }
+            VariableDefinition::Typed(variable_layout) => {
+                Box::new(variable_layout.layout_args.iter().copied())
+            }
+        }
+    }
+
+    pub fn referenced_type(&self) -> Option<TypeId> {
+        if let Self::Typed(var_layout) = self
+            && let FieldType::Composite(ty) = var_layout.type_info
+        {
+            Some(ty)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Error)]
@@ -987,14 +1050,16 @@ mod tests {
         0: main.reg1
         1: main.reg2
         2: main.mem1 [1,4]
+        3: main.mem1 [0,1]
+        4: main.mem1 [0,2]
     VARIABLE_ASSIGNMENTS
         0: {
             x: 0
             y: 1
-            z: 2
+            z: ty 2, split 2 3 4
         }
         1: {
-            q: 0
+            q: ty 0, packed 1
         }
     POSITION_STATE_MAP
         0: 0
@@ -1019,7 +1084,7 @@ mod tests {
         let mut serialized_str = vec![];
         metadata.serialize(&mut serialized_str).unwrap();
         let serialized_str = String::from_utf8(serialized_str).unwrap();
-
+        eprintln!("{}", &serialized_str);
         let parsed_metadata =
             CalyxParser::parse_source_info_table(&serialized_str)
                 .unwrap()
@@ -1248,6 +1313,38 @@ mod tests {
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
 
         assert!(metadata.is_err());
+    }
+
+    #[test]
+    fn test_unknown_type() {
+        let input_str = r#"sourceinfo #{
+    FILES
+        0: test.calyx
+    POSITIONS
+        0: 0 5
+        1: 0 1
+        2: 0 2
+    MEMORY_LOCATIONS
+        0: main.reg1
+        1: main.reg2
+        2: main.mem1 [1,4]
+    VARIABLE_ASSIGNMENTS
+        0: {
+            x: ty 2, packed 0
+            y: 1
+            z: 2
+        }
+        1: {
+            q: 0
+        }
+    POSITION_STATE_MAP
+        0: 0
+        1: 1
+    TYPES
+}#"#;
+        let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
+        assert!(metadata.is_err());
+        eprintln!("{}", metadata.unwrap_err());
     }
 
     #[test]

@@ -11,10 +11,10 @@ use crate::{
     attribute::SetAttribute,
     attributes::ParseAttributeWrapper,
     source_info::{
-        FieldType, FileId as MetadataFileId, LineNum, MemoryLocation,
-        MemoryLocationId, PositionId, PrimitiveType, SourceInfoResult,
-        SourceInfoTable, SourceType, TypeId, VariableAssignmentId,
-        VariableName,
+        FieldType, FileId as MetadataFileId, LayoutFunction, LineNum,
+        MemoryLocation, MemoryLocationId, PositionId, PrimitiveType,
+        SourceInfoResult, SourceInfoTable, SourceType, TypeId,
+        VariableAssignmentId, VariableDefinition, VariableLayout, VariableName,
     },
 };
 use calyx_utils::{self, CalyxResult, Id, PosString, float};
@@ -1587,15 +1587,38 @@ impl CalyxParser {
         ))
     }
 
+    fn layout_function_packed(input: Node) -> ParseResult<LayoutFunction> {
+        Ok(LayoutFunction::Packed)
+    }
+
+    fn layout_function_split(input: Node) -> ParseResult<LayoutFunction> {
+        Ok(LayoutFunction::Split)
+    }
+
+    fn layout_function(input: Node) -> ParseResult<LayoutFunction> {
+        Ok(match_nodes!(input.into_children();
+           [layout_function_packed(f)] => f,
+           [layout_function_split(f)] => f
+        ))
+    }
+
+    fn variable_layout(input: Node) -> ParseResult<VariableLayout> {
+        Ok(match_nodes!(input.into_children();
+           [type_field(ty), layout_function(f), bitwidth(args)..] => VariableLayout::new(ty, f, args.map(|x| {let x:u32 = x.try_into().expect("memory location must fit into u32"); x.into()}))
+        ))
+    }
+
     fn variable_header(input: Node) -> ParseResult<()> {
         Ok(())
     }
 
     fn single_assignment(
         input: Node,
-    ) -> ParseResult<(VariableName, MemoryLocationId)> {
+    ) -> ParseResult<(VariableName, VariableDefinition)> {
         Ok(match_nodes!(input.into_children();
-            [variable_name(name), bitwidth(b)] => (name, b.try_into().expect("memory location ids must fit in u32"))
+            [variable_name(name), variable_layout(layout)] => (name, VariableDefinition::Typed(layout)),
+            [variable_name(name), bitwidth(b)] => (name, VariableDefinition::Untyped(b.try_into().expect("memory location ids must fit in u32")))
+
         ))
     }
 
@@ -1603,7 +1626,7 @@ impl CalyxParser {
         input: Node,
     ) -> ParseResult<(
         VariableAssignmentId,
-        impl IntoIterator<Item = (VariableName, MemoryLocationId)>,
+        impl IntoIterator<Item = (VariableName, VariableDefinition)>,
     )> {
         Ok(match_nodes!(input.into_children();
             [bitwidth(id), single_assignment(assigns)..] => {
@@ -1618,7 +1641,7 @@ impl CalyxParser {
         impl IntoIterator<
             Item = (
                 VariableAssignmentId,
-                impl IntoIterator<Item = (VariableName, MemoryLocationId)>,
+                impl IntoIterator<Item = (VariableName, VariableDefinition)>,
             ),
         >,
     > {
