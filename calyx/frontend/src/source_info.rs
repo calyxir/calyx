@@ -523,7 +523,7 @@ impl SourceInfoTable {
         for (position, source_loc) in
             self.position_map.iter().sorted_by_key(|(k, _)| **k)
         {
-            write!(f, "  {position}:  ")?;
+            write!(f, "  {position}: ")?;
             source_loc.serialize(f)?;
             writeln!(f)?;
         }
@@ -650,10 +650,10 @@ impl SourceLocation {
 #[derive(Error)]
 pub enum SourceInfoTableError {
     /// A fatal error representing a malformed table
-    #[error("Source Info is malformed: {0}")]
+    #[error("source info is malformed. {0}")]
     InvalidTable(String),
     /// A non-fatal error representing a failed lookup
-    #[error("Source lookup failed: {0}")]
+    #[error("source lookup failed. {0}")]
     LookupFailure(String),
 }
 
