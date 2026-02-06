@@ -3,7 +3,7 @@
 ==== Cider: The Calyx Interpreter and Debugger ====
 (../debugger/file1: 1) this file exists to help test source line printing in cider
 (../debugger/file2: 3) Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-Error: file ../debugger/file2 does not have a line 17
+Error: source lookup failed. file '../debugger/file2' does not contain a line 17
 (../debugger/file1: 1) this file exists to help test source line printing in cider
 (../debugger/file1: 5) why are you looking down here
 (../debugger/file1: 1) this file exists to help test source line printing in cider
