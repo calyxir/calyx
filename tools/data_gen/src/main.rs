@@ -273,7 +273,7 @@ fn gen_comp(sizes_vec: &[usize], width: u64, rand: bool) -> serde_json::Value {
         "format": {
             "numeric_type": "bitnum",
             "is_signed": false,
-            "width": std::cmp::max(width, actual_width),
+            "width": width.max(actual_width),
         }
     })
 }
