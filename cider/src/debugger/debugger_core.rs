@@ -33,7 +33,7 @@ use crate::{
 
 use std::{collections::HashSet, num::NonZeroU32, path::PathBuf, rc::Rc};
 
-use calyx_ir::source_info::VariableName;
+use calyx_ir::source_info::{VariableDefinition, VariableName};
 use itertools::Itertools;
 use std::path::Path as FilePath;
 use thiserror::Error;
@@ -562,7 +562,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
         for target in targets {
             let mut target = VariableName::new_non_literal(target);
-            let Some(mem_loc) = variable_maps.iter().find_map(|map| {
+            let Some(var_def) = variable_maps.iter().find_map(|map| {
                 // TODO griffin: I don't really like this approach but there
                 // doesn't seem to be a better option without doing some real
                 // sketchy stuff in the parser. And even then, it could be the
@@ -580,31 +580,41 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 ));
             };
 
-            let calyx_target = source_info.get_memory_location(mem_loc);
+            match var_def {
+                VariableDefinition::Untyped(memory_location_id) => {
+                    let calyx_target =
+                        source_info.get_memory_location(memory_location_id);
 
-            let name_split: Vec<String> =
-                calyx_target.cell.split('.').map(|x| x.into()).collect();
+                    let name_split: Vec<String> = calyx_target
+                        .cell
+                        .split('.')
+                        .map(|x| x.into())
+                        .collect();
 
-            let path = self.interpreter.traverse_name_vec(&name_split)?;
+                    let path =
+                        self.interpreter.traverse_name_vec(&name_split)?;
 
-            let calyx_target = PrintTarget::new(
-                path,
-                (!calyx_target.address.is_empty())
-                    .then(|| calyx_target.address.clone()),
-            );
+                    let calyx_target = PrintTarget::new(
+                        path,
+                        (!calyx_target.address.is_empty())
+                            .then(|| calyx_target.address.clone()),
+                    );
 
-            self.print_from_path(
-                &calyx_target,
-                &code,
-                PrintMode::State,
-                Some(format!(
-                    "{} ({})",
-                    target.stylize_name(),
-                    calyx_target
-                        .as_string(self.interpreter.env())
-                        .stylize_port_name()
-                )),
-            )?;
+                    self.print_from_path(
+                        &calyx_target,
+                        &code,
+                        PrintMode::State,
+                        Some(format!(
+                            "{} ({})",
+                            target.stylize_name(),
+                            calyx_target
+                                .as_string(self.interpreter.env())
+                                .stylize_port_name()
+                        )),
+                    )?;
+                }
+                VariableDefinition::Typed(_) => todo!(),
+            }
         }
         Ok(())
     }

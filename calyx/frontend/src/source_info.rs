@@ -1009,6 +1009,24 @@ impl VariableDefinition {
             None
         }
     }
+
+    #[must_use]
+    pub fn as_typed(&self) -> Option<&VariableLayout> {
+        if let Self::Typed(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    #[must_use]
+    pub fn as_untyped(&self) -> Option<&MemoryLocationId> {
+        if let Self::Untyped(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Error)]
