@@ -1,0 +1,123 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+    cells {
+      r1 = std_reg(2);
+      r2 = std_reg(2);
+      r3 = std_reg(2);
+      r4 = std_reg(2);
+      r5 = std_reg(2);
+      r6 = std_reg(2);
+      add1 = std_add(2);
+      add2 = std_add(2);
+      add3 = std_add(2);
+      add4 = std_add(2);
+      add5 = std_add(2);
+      add6 = std_add(2);
+
+      sum1 = std_reg(2);
+      summer1 = std_add(2);
+      sum2 = std_reg(2);
+      summer2 = std_add(2);
+      sum3 = std_reg(2);
+      summer3 = std_add(2);
+
+      @external m = comb_mem_d1(2, 3, 2);
+    }
+    wires {
+        static<1> group add_1 {
+            add1.left = 2'd0;
+            add1.right = 2'd1;
+            r1.write_en = 1'd1;
+            r1.in = add1.out;
+        }
+        static<1> group add_2 {
+            add2.left = 2'd0;
+            add2.right = 2'd1;
+            r2.write_en = 1'd1;
+            r2.in = add2.out;
+        }
+        static<1> group add_3 {
+            add3.left = 2'd0;
+            add3.right = 2'd1;
+            r3.write_en = 1'd1;
+            r3.in = add3.out;
+        }
+        static<1> group add_4 {
+            add4.left = 2'd0;
+            add4.right = 2'd1;
+            r4.write_en = 1'd1;
+            r4.in = add4.out;
+        }
+        static<1> group add_5 {
+            add5.left = 2'd0;
+            add5.right = 2'd1;
+            r5.write_en = 1'd1;
+            r5.in = add5.out;
+        }
+        static<1> group add_6 {
+            add6.left = 2'd0;
+            add6.right = 2'd1;
+            r6.write_en = 1'd1;
+            r6.in = add6.out;
+        }
+
+        static<4> group sum_1 {
+            summer1.left = r1.out;
+            summer1.right = r2.out;
+            sum1.write_en = 1'd1;
+            sum1.in = summer1.out;
+        }
+        static<4> group sum_2 {
+            summer2.left = r3.out;
+            summer2.right = r4.out;
+            sum2.write_en = 1'd1;
+            sum2.in = summer2.out;
+        }
+        static<4> group sum_3 {
+            summer3.left = r5.out;
+            summer3.right = r6.out;
+            sum3.write_en = 1'd1;
+            sum3.in = summer3.out;
+        }
+        static<4> group write_1 {
+            m.write_en = 1'd1;
+            m.write_data = sum1.out;
+            m.addr0 = 2'd0;
+        }
+        static<4> group write_2 {
+            m.write_en = 1'd1;
+            m.write_data = sum2.out;
+            m.addr0 = 2'd1;
+        }
+        static<4> group write_3 {
+            m.write_en = 1'd1;
+            m.write_data = sum3.out;
+            m.addr0 = 2'd2;
+        }
+    }
+    control {
+      static seq {
+        static repeat 10 {
+          static seq {
+            add_1;
+            static repeat 100 {
+              static seq {
+                add_2; add_3; add_4; add_5;
+                static repeat 100 {
+                  add_6;
+                }
+              }
+            }
+          }
+        }
+        sum_1;
+        sum_2;
+        sum_3;
+        write_1;
+        write_2;
+        write_3;
+      }
+    }
+}

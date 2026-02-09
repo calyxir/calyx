@@ -1,0 +1,14 @@
+{
+  "m": {
+    "data": [
+      69,
+      2,
+      60
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 7
+    }
+  }
+}
