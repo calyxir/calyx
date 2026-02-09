@@ -5,7 +5,6 @@ use calyx_ir::utils::GetMemInfo;
 use calyx_utils::CalyxResult;
 use rand::Rng;
 use serde_json::{Map, Value, json};
-use std::cmp;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -274,7 +273,7 @@ fn gen_comp(sizes_vec: &[usize], width: u64, rand: bool) -> serde_json::Value {
         "format": {
             "numeric_type": "bitnum",
             "is_signed": false,
-            "width": max(width, actual_width),
+            "width": std::cmp::max(width, actual_width),
         }
     })
 }
