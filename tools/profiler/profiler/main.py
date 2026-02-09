@@ -117,7 +117,7 @@ def create_visuals(
     stats.write_par_stats(tracedata, out_dir)
     print(f"End writing stats: {datetime.now()}")
 
-    flame.create_and_write_calyx_flame_maps(
+    flame.create_and_write_flame_maps(
         tracedata.trace_with_control_groups, out_dir, flame_out
     )
     print(f"End writing flame graphs: {datetime.now()}")
