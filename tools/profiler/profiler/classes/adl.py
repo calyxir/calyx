@@ -105,6 +105,14 @@ class AdlMap:
 
 @dataclass
 class DahliaAdlMap(AdlMap):
+    """
+    An AdlMap for Dahlia containing extra metadata for processing
+    Dahlia traces. Specifically, this class contains a set of all
+    blocks (for loops, while loops, and if condtionals), and a map
+    from statements to their block ancestors (blocks that are active)
+    when the statement is active.
+    """
+
     # statement --> [b1, b2, ...] where b1 is the immediate parent
     stmt_to_block_ancestors: dict[str, list[str]]
     # names of all blocks
