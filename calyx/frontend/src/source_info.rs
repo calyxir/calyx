@@ -431,7 +431,7 @@ impl SourceInfoTable {
             }
             if variable_map.insert(assign_label, mapping).is_some() {
                 return Err(SourceInfoTableError::InvalidTable(format!(
-                    "Duplicate definitions for variable mapping associated with position {assign_label}"
+                    "Duplicate definitions for variable mapping {assign_label}"
                 )));
             };
         }
