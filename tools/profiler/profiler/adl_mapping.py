@@ -38,7 +38,9 @@ def create_dahlia_trace(tracedata: TraceData, dahlia_map: DahliaAdlMap):
                     covered_entries.add(entry)
                 raw_stack_items = (
                     # copying to avoid mutating stmt_to_block_ancestors directly.
-                    list(dahlia_map.stmt_to_block_ancestors[entry])
+                    # we need to reverse the list since the stmt_to_block_ancestors's lists
+                    # have the direct parent of the statement at the beginning of the list.
+                    list(reversed(dahlia_map.stmt_to_block_ancestors[entry]))
                     if entry in dahlia_map.stmt_to_block_ancestors
                     else []
                 )
