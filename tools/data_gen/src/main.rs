@@ -5,6 +5,7 @@ use calyx_ir::utils::GetMemInfo;
 use calyx_utils::CalyxResult;
 use rand::Rng;
 use serde_json::{Map, Value, json};
+use std::cmp;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -97,15 +98,24 @@ fn main() -> CalyxResult<()> {
     Ok(())
 }
 
-// generates random of size usize with values bounded by bit width
-fn gen_random_int_vec(d0: usize, width: u64) -> Vec<u64> {
+// generates random of size usize and returns (data, max_value)
+fn gen_random_int_vec(d0: usize) -> (Vec<u64>, u64) {
     let mut rng = rand::rng();
-    let max_val = (1u64 << width) - 1; // 2^width - 1
-    (0..d0).map(|_| rng.random_range(0..=max_val)).collect()
+    let data: Vec<u64> = (0..d0).map(|_| rng.random_range(0..100)).collect();
+    let max_val = data.iter().max().copied().unwrap_or(0);
+    (data, max_val)
 }
 
-fn gen_random_2d_int(d0: usize, d1: usize, width: u64) -> Vec<Vec<u64>> {
-    (0..d0).map(|_| gen_random_int_vec(d1, width)).collect()
+fn gen_random_2d_int(d0: usize, d1: usize) -> (Vec<Vec<u64>>, u64) {
+    let mut max_val = 0;
+    let data: Vec<Vec<u64>> = (0..d0)
+        .map(|_| {
+            let (vec, vec_max) = gen_random_int_vec(d1);
+            max_val = max_val.max(vec_max);
+            vec
+        })
+        .collect();
+    (data, max_val)
 }
 
 // generates random 3d vec of size usize
@@ -113,11 +123,20 @@ fn gen_random_3d_int(
     d0: usize,
     d1: usize,
     d2: usize,
-    width: u64,
-) -> Vec<Vec<Vec<u64>>> {
-    (0..d0)
-        .map(|_| (0..d1).map(|_| gen_random_int_vec(d2, width)).collect())
-        .collect()
+) -> (Vec<Vec<Vec<u64>>>, u64) {
+    let mut max_val = 0;
+    let data: Vec<Vec<Vec<u64>>> = (0..d0)
+        .map(|_| {
+            (0..d1)
+                .map(|_| {
+                    let (vec, vec_max) = gen_random_int_vec(d2);
+                    max_val = max_val.max(vec_max);
+                    vec
+                })
+                .collect()
+        })
+        .collect();
+    (data, max_val)
 }
 
 fn gen_random_4d_int(
@@ -125,17 +144,24 @@ fn gen_random_4d_int(
     d1: usize,
     d2: usize,
     d3: usize,
-    width: u64,
-) -> Vec<Vec<Vec<Vec<u64>>>> {
-    (0..d0)
+) -> (Vec<Vec<Vec<Vec<u64>>>>, u64) {
+    let mut max_val = 0;
+    let data: Vec<Vec<Vec<Vec<u64>>>> = (0..d0)
         .map(|_| {
             (0..d1)
                 .map(|_| {
-                    (0..d2).map(|_| gen_random_int_vec(d3, width)).collect()
+                    (0..d2)
+                        .map(|_| {
+                            let (vec, vec_max) = gen_random_int_vec(d3);
+                            max_val = max_val.max(vec_max);
+                            vec
+                        })
+                        .collect()
                 })
                 .collect()
         })
-        .collect()
+        .collect();
+    (data, max_val)
 }
 
 // generates random of size usize
@@ -171,38 +197,84 @@ fn gen_random_4d(
         })
         .collect()
 }
+
 //generates a json value associated with sizes_vec and width
 fn gen_comp(sizes_vec: &[usize], width: u64, rand: bool) -> serde_json::Value {
-    let data = match *sizes_vec {
-        [d0] => serde_json::to_value(if rand {
-            gen_random_int_vec(d0, width)
-        } else {
-            vec![0_u64; d0]
-        }),
-        [d0, d1] => serde_json::to_value(if rand {
-            gen_random_2d_int(d0, d1, width)
-        } else {
-            vec![vec![0_u64; d1]; d0]
-        }),
-        [d0, d1, d2] => serde_json::to_value(if rand {
-            gen_random_3d_int(d0, d1, d2, width)
-        } else {
-            vec![vec![vec![0_u64; d2]; d1]; d0]
-        }),
-        [d0, d1, d2, d3] => serde_json::to_value(if rand {
-            gen_random_4d_int(d0, d1, d2, d3, width)
-        } else {
-            vec![vec![vec![vec![0_u64; d3]; d2]; d1]; d0]
-        }),
+    let (data_result, actual_width) = match *sizes_vec {
+        [d0] => {
+            if rand {
+                let (data, max_val) = gen_random_int_vec(d0);
+                let w = if max_val == 0 {
+                    1
+                } else {
+                    64 - max_val.leading_zeros() as u64
+                };
+                (serde_json::to_value(data), w)
+            } else {
+                (serde_json::to_value(vec![0_u64; d0]), width)
+            }
+        }
+        [d0, d1] => {
+            if rand {
+                let (data, max_val) = gen_random_2d_int(d0, d1);
+                let w = if max_val == 0 {
+                    1
+                } else {
+                    64 - max_val.leading_zeros() as u64
+                };
+                (serde_json::to_value(data), w)
+            } else {
+                (serde_json::to_value(vec![vec![0_u64; d1]; d0]), width)
+            }
+        }
+        [d0, d1, d2] => {
+            if rand {
+                let (data, max_val) = gen_random_3d_int(d0, d1, d2);
+                let w = if max_val == 0 {
+                    1
+                } else {
+                    64 - max_val.leading_zeros() as u64
+                };
+                (serde_json::to_value(data), w)
+            } else {
+                (
+                    serde_json::to_value(vec![vec![vec![0_u64; d2]; d1]; d0]),
+                    width,
+                )
+            }
+        }
+        [d0, d1, d2, d3] => {
+            if rand {
+                let (data, max_val) = gen_random_4d_int(d0, d1, d2, d3);
+                let w = if max_val == 0 {
+                    1
+                } else {
+                    64 - max_val.leading_zeros() as u64
+                };
+                (serde_json::to_value(data), w)
+            } else {
+                (
+                    serde_json::to_value(vec![
+                        vec![
+                            vec![vec![0_u64; d3]; d2];
+                            d1
+                        ];
+                        d0
+                    ]),
+                    width,
+                )
+            }
+        }
         _ => panic!("Sizes Vec is not 1-4 dimensional"),
-    }
-    .unwrap_or_else(|_| panic!("could not unwrap data to put into json"));
+    };
+    let data = data_result
+        .unwrap_or_else(|_| panic!("could not unwrap data to put into json"));
     json!({
         "data": data,
         "format": {
             "numeric_type": "bitnum",
             "is_signed": false,
-            "width": width,
+            "width": max(width, actual_width),
         }
     })
 }
