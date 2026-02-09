@@ -456,9 +456,8 @@ variable_table    = { variable_header ~ assignment_set* }
 
 layout_function_packed = { ^"packed" }
 layout_function_split = { ^"split" }
-layout_function = { layout_function_packed | layout_function_split }
 
-variable_layout = { ^"ty" ~ type_field ~ "," ~ layout_function ~ bitwidth+ }
+variable_layout = { ^"ty" ~ type_field ~ "," ~ ((layout_function_split ~ bitwidth+) | (layout_function_packed ~ bitwidth)) }
 
 
 pos_state_header = { ^"position_state_map" }

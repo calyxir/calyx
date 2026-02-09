@@ -1595,16 +1595,13 @@ impl CalyxParser {
         Ok(LayoutFunction::Split)
     }
 
-    fn layout_function(input: Node) -> ParseResult<LayoutFunction> {
-        Ok(match_nodes!(input.into_children();
-           [layout_function_packed(f)] => f,
-           [layout_function_split(f)] => f
-        ))
-    }
-
     fn variable_layout(input: Node) -> ParseResult<VariableLayout> {
         Ok(match_nodes!(input.into_children();
-           [type_field(ty), layout_function(f), bitwidth(args)..] => VariableLayout::new(ty, f, args.map(|x| {let x:u32 = x.try_into().expect("memory location must fit into u32"); x.into()}))
+           [type_field(ty), layout_function_split(f), bitwidth(args)..] => VariableLayout::new(ty, f, args.map(|x| {let x:u32 = x.try_into().expect("memory location must fit into u32"); x.into()})),
+           [type_field(ty), layout_function_packed(f), bitwidth(width) ] => {
+            let arg: u32 = width.try_into().expect("memory location must fit into a u32");
+            VariableLayout::new(ty, f, std::iter::once(arg.into()))
+           }
         ))
     }
 

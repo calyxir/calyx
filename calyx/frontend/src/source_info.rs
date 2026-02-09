@@ -487,6 +487,24 @@ impl SourceInfoTable {
             }
         }
 
+        // need to validate the number of arguments to the split layout function
+        for (name, def) in variable_map.iter().flat_map(|(_, v)| v.iter()) {
+            if let VariableDefinition::Typed(VariableLayout {
+                type_info,
+                layout_fn: LayoutFunction::Split,
+                layout_args,
+            }) = def
+            {
+                let expected_count = type_info.entry_count(&type_map);
+                if expected_count != layout_args.len() {
+                    return Err(SourceInfoTableError::InvalidTable(format!(
+                        "Variable '{name}' of type '{type_info}' was given {} arguments to the split layout function when {expected_count} were required.",
+                        layout_args.len()
+                    )));
+                }
+            }
+        }
+
         Ok(SourceInfoTable {
             file_map,
             position_map,
@@ -1073,8 +1091,8 @@ mod tests {
     VARIABLE_ASSIGNMENTS
         0: {
             x: 0
-            y: 1
-            z: ty 2, split 2 3 4
+            y: ty 1, packed 1
+            z: ty 0, split 2 3
         }
         1: {
             q: ty 0, packed 1
