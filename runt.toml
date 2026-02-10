@@ -100,7 +100,7 @@ cmd = """
 
 [[tests]]
 name = "Template Tests"
-paths = ["tests/firrtl/templates/*.futil"]
+paths = ["tests/firrtl/primitive-templates/*.futil"]
 cmd = """
  fud2 {} -q --to dat -s sim.data={}.data --through firrtl-with-primitives
 """
