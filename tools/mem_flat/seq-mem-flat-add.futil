@@ -1,0 +1,204 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/binary_operators.futil";
+import "primitives/memories/seq.futil";
+
+comb component d4_flat_3x2x1x4(@write_together(1) addr0: 2, @write_together(1) addr1: 2, @write_together(1) addr2: 1, @write_together(1) addr3: 3) -> (addr_o: 5) {
+  cells {
+    pad0 = std_pad(2, 5);
+    pad1 = std_pad(2, 5);
+    pad2 = std_pad(1, 5);
+    pad3 = std_pad(3, 5);
+    mul2 = std_const_mult(5, 4);
+    mul1 = std_const_mult(5, 4);
+    mul0 = std_const_mult(5, 8);
+    int_addr_i1 = std_add(5);
+    int_addr_i2 = std_add(5);
+    int_addr = std_add(5);
+  }
+  wires {
+    pad0.in = addr0;
+    pad1.in = addr1;
+    pad2.in = addr2;
+    pad3.in = addr3;
+    mul2.in = pad2.out;
+    mul1.in = pad1.out;
+    mul0.in = pad0.out;
+    int_addr_i1.left = pad3.out;
+    int_addr_i1.right = mul0.out;
+    int_addr_i2.left = mul1.out;
+    int_addr_i2.right = mul2.out;
+    int_addr.left = int_addr_i1.out;
+    int_addr.right = int_addr_i2.out;
+    addr_o = int_addr.out;
+  }
+}
+
+component main() -> () {
+  cells {
+    in1_wrap = d4_flat_3x2x1x4();
+    in2_wrap = d4_flat_3x2x1x4();
+    out_wrap = d4_flat_3x2x1x4();
+    @external in1 = seq_mem_d1(32, 24, 5);
+    @external in2 = seq_mem_d1(32, 24, 5);
+    @external out = seq_mem_d1(32, 24, 5);
+
+    // Compute primitives
+    add = std_add(32);
+    in1_reg = std_reg(32);
+    in2_reg = std_reg(32);
+    in3_reg = std_reg(32);
+    in4_reg = std_reg(32);
+
+    // Counter
+    i = std_reg(2);
+    j = std_reg(2);
+    k = std_reg(1);
+    l = std_reg(3);
+
+    lt = std_lt(2);
+    lt2 = std_lt(2);
+    lt3 = std_lt(1);
+    lt4 = std_lt(3);
+
+
+    add_i = std_add(2);
+    add_j = std_add(2);
+    add_k = std_add(1);
+    add_l = std_add(3);
+  }
+  wires {
+    group init_i{
+      i.write_en = 1'd1;
+      i.in = 2'd0;
+      init_i[done] = i.done;
+    }
+    group init_j{
+      j.write_en = 1'd1;
+      j.in = 2'd0;
+      init_j[done] = j.done;
+    }
+    group init_k{
+      k.write_en = 1'd1;
+      k.in = 1'd0;
+      init_k[done] = k.done;
+    }
+    group init_l{
+      l.write_en = 1'd1;
+      l.in = 3'd0;
+      init_l[done] = l.done;
+    }
+    comb group i_lt {
+      lt.left = i.out;
+      lt.right = 2'd3;
+    }
+    comb group j_lt {
+      lt2.left = j.out;
+      lt2.right = 2'd2;
+    }
+    comb group k_lt {
+      lt3.left = k.out;
+      lt3.right = 1'd1;
+    }
+    comb group l_lt {
+      lt4.left = l.out;
+      lt4.right = 3'd4;
+    }
+    group read_in1 {
+      in1_wrap.addr0 = i.out;
+      in1_wrap.addr1 = j.out;
+      in1_wrap.addr2 = k.out;
+      in1_wrap.addr3 = l.out;
+      in1.addr0 = in1_wrap.addr_o;
+      in1.content_en = 1'd1;
+      in1_reg.write_en = in1.done;
+      in1_reg.in = in1.read_data;
+      read_in1[done] = in1_reg.done;
+    }
+    group read_in2 {
+      in2_wrap.addr0 = i.out;
+      in2_wrap.addr1 = j.out;
+      in2_wrap.addr2 = k.out;
+      in2_wrap.addr3 = l.out;
+      in2.content_en = 1'd1;
+      in2.addr0 = in2_wrap.addr_o;
+      in2_reg.write_en = in2.done;
+      in2_reg.in = in2.read_data;
+      read_in2[done] = in2_reg.done;
+    }
+    group update_val {
+      add.left = in1_reg.out;
+      add.right = in2_reg.out;
+      out_wrap.addr0 = i.out;
+      out_wrap.addr1 = j.out;
+      out_wrap.addr2 = k.out;
+      out_wrap.addr3 = l.out;
+      out.content_en = 1'd1;
+      out.addr0 = out_wrap.addr_o;
+      out.write_en = 1'd1;
+      out.write_data = add.out;
+      update_val[done] = out.done;
+    }
+    group incr_i {
+      add_i.left = i.out;
+      add_i.right = 2'd1;
+      i.write_en = 1'd1;
+      i.in = add_i.out;
+      incr_i[done] = i.done;
+    }
+    group incr_j {
+      add_j.left = j.out;
+      add_j.right = 2'd1;
+      j.write_en = 1'd1;
+      j.in = add_j.out;
+      incr_j[done] = j.done;
+    }
+    group incr_k {
+      add_k.left = k.out;
+      add_k.right = 1'd1;
+      k.write_en = 1'd1;
+      k.in = add_k.out;
+      incr_k[done] = k.done;
+    }
+    group incr_l {
+      add_l.left = l.out;
+      add_l.right = 3'd1;
+      l.write_en = 1'd1;
+      l.in = add_l.out;
+      incr_l[done] = l.done;
+    }
+  }
+  control {
+    seq {
+      init_i;
+      while lt.out with i_lt {
+        seq{
+          init_j;
+          while lt2.out with j_lt{
+            seq{
+              init_k;
+              while lt3.out with k_lt{
+                seq{
+                  init_l;
+                  while lt4.out with l_lt{
+                    seq{
+                      par{
+                        read_in1;
+                        read_in2;
+                      }
+                      update_val;
+                      incr_l;
+                    }
+                  }
+                  incr_k;
+                }
+              }
+              incr_j;
+            }
+          }
+          incr_i;
+        }
+      }
+    }
+  }
+}
