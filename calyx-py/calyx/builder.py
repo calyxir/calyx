@@ -472,6 +472,64 @@ class ComponentBuilder:
             is_ref,
         )
 
+    def seq_mem_d3(
+        self,
+        name: str,
+        bitwidth: int,
+        len0: int,
+        len1: int,
+        len2: int,
+        idx_size0: int,
+        idx_size1: int,
+        idx_size2: int,
+        is_external: bool = False,
+        is_ref: bool = False,
+    ) -> CellBuilder:
+        """Generate a SeqMemD3 cell."""
+        self.prog.import_("primitives/memories/seq.futil")
+        return self.cell(
+            name,
+            ast.Stdlib.seq_mem_d3(
+                bitwidth, len0, len1, len2, idx_size0, idx_size1, idx_size2
+            ),
+            is_external,
+            is_ref,
+        )
+
+    def seq_mem_d4(
+        self,
+        name: str,
+        bitwidth: int,
+        len0: int,
+        len1: int,
+        len2: int,
+        len3: int,
+        idx_size0: int,
+        idx_size1: int,
+        idx_size2: int,
+        idx_size3: int,
+        is_external: bool = False,
+        is_ref: bool = False,
+    ) -> CellBuilder:
+        """Generate a SeqMemD4 cell."""
+        self.prog.import_("primitives/memories/seq.futil")
+        return self.cell(
+            name,
+            ast.Stdlib.seq_mem_d4(
+                bitwidth,
+                len0,
+                len1,
+                len2,
+                len3,
+                idx_size0,
+                idx_size1,
+                idx_size2,
+                idx_size3,
+            ),
+            is_external,
+            is_ref,
+        )
+
     def binary(
         self,
         operation: str,
