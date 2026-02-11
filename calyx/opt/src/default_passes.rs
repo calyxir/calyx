@@ -44,6 +44,7 @@ impl PassManager {
         pm.register_pass::<StaticPromotion>()?;
         pm.register_pass::<SimplifyStaticGuards>()?;
         pm.register_pass::<DataPathInfer>()?;
+        pm.register_pass::<ExternalToRef>()?;
 
         // Compilation passes
         pm.register_pass::<StaticInliner>()?;
@@ -84,7 +85,6 @@ impl PassManager {
         pm.register_pass::<LowerGuards>()?;
         pm.register_pass::<HoleInliner>()?;
         pm.register_pass::<RemoveIds>()?;
-        pm.register_pass::<ExternalToRef>()?;
         pm.register_pass::<ConstantPortProp>()?;
         pm.register_pass::<SimplifyIfComb>()?;
 
@@ -117,6 +117,7 @@ impl PassManager {
                 CompileInvoke,   // creates dead comb groups
                 StaticInference,
                 StaticPromotion,
+                ExternalToRef,
                 CompileRepeat,
                 DeadGroupRemoval, // Since previous passes potentially create dead groups
                 CollapseControl,
@@ -141,6 +142,7 @@ impl PassManager {
                 CompileInvoke,
                 StaticInference,
                 StaticPromotion,
+                ExternalToRef,
                 DeadGroupRemoval,
                 CollapseControl,
                 StaticRepeatFSMAllocation,
@@ -170,6 +172,7 @@ impl PassManager {
                 CompileInvoke,
                 StaticInference,
                 StaticPromotion,
+                ExternalToRef,
                 DeadGroupRemoval,
                 CollapseControl,
                 FSMAnnotator,
@@ -199,6 +202,7 @@ impl PassManager {
                 CompileInvoke,
                 StaticInference,
                 StaticPromotion,
+                ExternalToRef,
                 DeadGroupRemoval,
                 CollapseControl,
                 FSMAnnotator,
@@ -277,6 +281,7 @@ impl PassManager {
                 CompileInvoke,   // creates dead comb groups
                 StaticInference,
                 StaticPromotion,
+                ExternalToRef,
                 CompileRepeat,
                 DeadGroupRemoval, // Since previous passes potentially create dead groups
                 CollapseControl,
