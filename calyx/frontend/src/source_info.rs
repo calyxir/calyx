@@ -169,10 +169,7 @@ pub struct SourceInfoTable {
     /// assigns ids to locations in memories and registers
     mem_location_map: HashMap<MemoryLocationId, MemoryLocation>,
     /// assigns ids to collections of variable -> location mappings
-    variable_assignment_map: HashMap<
-        VariableAssignmentId,
-        HashMap<VariableName, VariableDefinition>,
-    >,
+    variable_assignment_map: VariableMap,
     /// collects the mapping from positions representing a point in the control
     /// program to the set of variable assignments for that position
     position_state_map: HashMap<PositionId, VariableAssignmentId>,
@@ -294,7 +291,7 @@ impl SourceInfoTable {
     pub fn get_variable_mapping(
         &self,
         pos: PositionId,
-    ) -> Option<&HashMap<VariableName, VariableDefinition>> {
+    ) -> Option<&HashMap<String, VariableDefinition>> {
         self.position_state_map
             .get(&pos)
             .and_then(|x| self.variable_assignment_map.get(x))
@@ -313,7 +310,7 @@ impl SourceInfoTable {
             file_map: HashMap::new(),
             position_map: HashMap::new(),
             mem_location_map: HashMap::new(),
-            variable_assignment_map: HashMap::new(),
+            variable_assignment_map: VariableMap::default(),
             position_state_map: HashMap::new(),
             type_table: HashMap::new(),
         }
@@ -331,9 +328,10 @@ impl SourceInfoTable {
         // all empty
         let loc: Vec<(MemoryLocationId, MemoryLocation)> = vec![];
         let states: Vec<(PositionId, VariableAssignmentId)> = vec![];
+        #[allow(clippy::type_complexity)]
         let variable_assigns: Vec<(
             VariableAssignmentId,
-            Vec<(VariableName, VariableDefinition)>,
+            Vec<(VariableName<String>, VariableDefinition)>,
         )> = vec![];
         let types: Vec<(TypeId, SourceType)> = vec![];
 
@@ -350,7 +348,7 @@ impl SourceInfoTable {
         variable_assigns: impl IntoIterator<
             Item = (
                 VariableAssignmentId,
-                impl IntoIterator<Item = (VariableName, VariableDefinition)>,
+                impl IntoIterator<Item = (VariableName<String>, VariableDefinition)>,
             ),
         >,
         states: impl IntoIterator<Item = (PositionId, VariableAssignmentId)>,
@@ -359,7 +357,6 @@ impl SourceInfoTable {
         let files = files.into_iter();
         let positions = positions.into_iter();
         let locations = locations.into_iter();
-        let vars = variable_assigns.into_iter();
         let states = states.into_iter();
         let types = types.into_iter();
 
@@ -373,7 +370,6 @@ impl SourceInfoTable {
         let mut memory_location_map: HashMap<MemoryLocationId, MemoryLocation> =
             HashMap::new();
 
-        let mut variable_map = HashMap::new();
         let mut state_map = HashMap::new();
         let mut type_map = HashMap::new();
 
@@ -416,45 +412,11 @@ impl SourceInfoTable {
 
         let mut types_referenced: HashSet<TypeId> = HashSet::new();
 
-        for (assign_label, assigns) in vars {
-            let mut mapping = HashMap::new();
-            for (name, location) in assigns {
-                for loc in location.referenced_memory_locations() {
-                    if !memory_location_map.contains_key(&loc) {
-                        // unknown memory location
-                        return Err(SourceInfoTableError::InvalidTable(
-                            format!(
-                                "Memory location {loc} is referenced but never defined"
-                            ),
-                        ));
-                    }
-                }
-
-                if let Some(ty) = location.referenced_type() {
-                    types_referenced.insert(ty);
-                }
-
-                // this is to avoid copying the string in all cases since we
-                // would only need it when emitting the error. Clippy doesn't
-                // like this for good reasons and while I suspect it may be
-                // possible using the entry api, I think this is clearer so I'm
-                // just suppressing the warning and writing this very long
-                // comment about it instead.
-                #[allow(clippy::map_entry)]
-                if mapping.contains_key(&name) {
-                    return Err(SourceInfoTableError::InvalidTable(format!(
-                        "In variable mapping {assign_label} the variable '{name}' has multiple definitions"
-                    )));
-                } else {
-                    mapping.insert(name, location);
-                }
-            }
-            if variable_map.insert(assign_label, mapping).is_some() {
-                return Err(SourceInfoTableError::InvalidTable(format!(
-                    "Duplicate definitions for variable mapping {assign_label}"
-                )));
-            };
-        }
+        let variable_map = VariableMap::build(
+            variable_assigns,
+            &memory_location_map,
+            &mut types_referenced,
+        )?;
 
         for (pos_id, var_id) in states {
             if !variable_map.contains_key(&var_id) {
@@ -488,7 +450,7 @@ impl SourceInfoTable {
         }
 
         // need to validate the number of arguments to the split layout function
-        for (name, def) in variable_map.iter().flat_map(|(_, v)| v.iter()) {
+        for (name, def) in variable_map.iter().flat_map(|(_, v)| v) {
             if let VariableDefinition::Typed(VariableLayout {
                 type_info,
                 layout_fn: LayoutFunction::Split,
@@ -562,11 +524,11 @@ impl SourceInfoTable {
 
         for (id, map) in self
             .variable_assignment_map
-            .iter()
+            .iter_serialize()
             .sorted_by_key(|(k, _)| **k)
         {
             writeln!(f, "  {id}: {{")?;
-            for (var, loc) in map.iter().sorted_by_key(|(v, _)| *v) {
+            for (var, loc) in map.sorted_by_key(|(v, _)| *v) {
                 write!(f, "    {var}:")?;
                 match loc {
                     VariableDefinition::Untyped(memory_location_id) => {
@@ -826,7 +788,7 @@ pub enum SourceType {
         length: u32,
     },
     Struct {
-        fields: Vec<(VariableName, FieldType)>,
+        fields: Vec<(VariableName<String>, FieldType)>,
     },
 }
 
@@ -894,49 +856,53 @@ impl Display for TypeId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Copy)]
 /// A thin wrapper over a String for names used by the source info table
-pub struct VariableName {
-    name: String,
+pub struct VariableName<S: AsRef<str>> {
+    name: S,
     /// a bool tracking whether or not this name came from a string literal for
     /// purposes of serialization
     name_is_literal: bool,
 }
 
-impl Display for VariableName {
+impl<S: AsRef<str>> Display for VariableName<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.name_is_literal {
-            write!(f, "\"{}\"", self.name)
+            write!(f, "\"{}\"", self.name.as_ref())
         } else {
-            self.name.fmt(f)
+            self.name.as_ref().fmt(f)
         }
     }
 }
 
-impl VariableName {
-    pub fn new(name: String, name_is_literal: bool) -> Self {
+impl<S: AsRef<str>> VariableName<S> {
+    pub fn new(name: S, name_is_literal: bool) -> Self {
         Self {
             name,
             name_is_literal,
         }
     }
 
-    pub fn new_non_literal(name: String) -> Self {
+    pub fn new_non_literal(name: S) -> Self {
         Self {
             name,
             name_is_literal: false,
         }
     }
 
-    pub fn new_literal(name: String) -> Self {
+    pub fn new_literal(name: S) -> Self {
         Self {
             name,
             name_is_literal: true,
         }
     }
 
-    pub fn into_string(self) -> String {
+    pub fn into_inner(self) -> S {
         self.name
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.name.as_ref()
     }
 
     /// flips the name_is_literal bool. should only be used when searching for
@@ -951,6 +917,136 @@ impl VariableName {
 
     pub fn unset_is_literal(&mut self) {
         self.name_is_literal = false
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct VariableMap {
+    data: HashMap<VariableAssignmentId, HashMap<String, VariableDefinition>>,
+    /// This is a somewhat silly structure but preserves the literals on
+    /// printing even if the same string is written as a literal in one
+    /// assignment collection and normally in another. However, within a single
+    /// assignment collection, it is not possible to have both a literal and
+    /// standard declaration of the same name.
+    is_literal: HashMap<VariableAssignmentId, HashMap<String, bool>>,
+}
+
+impl VariableMap {
+    pub fn build(
+        stream: impl IntoIterator<
+            Item = (
+                VariableAssignmentId,
+                impl IntoIterator<Item = (VariableName<String>, VariableDefinition)>,
+            ),
+        >,
+        memory_location_map: &HashMap<MemoryLocationId, MemoryLocation>,
+        types_referenced: &mut HashSet<TypeId>,
+    ) -> SourceInfoResult<Self> {
+        let mut variable_map = HashMap::new();
+        let mut literal_map = HashMap::new();
+
+        for (assign_label, assigns) in stream {
+            let mut data_mapping = HashMap::new();
+            let mut literal_mapping = HashMap::new();
+            for (name, location) in assigns {
+                let VariableName {
+                    name,
+                    name_is_literal,
+                } = name;
+
+                for loc in location.referenced_memory_locations() {
+                    if !memory_location_map.contains_key(&loc) {
+                        // unknown memory location
+                        return Err(SourceInfoTableError::InvalidTable(
+                            format!(
+                                "Memory location {loc} is referenced but never defined"
+                            ),
+                        ));
+                    }
+                }
+
+                if let Some(ty) = location.referenced_type() {
+                    types_referenced.insert(ty);
+                }
+
+                // this is to avoid copying the string in all cases since we
+                // would only need it when emitting the error. Clippy doesn't
+                // like this for good reasons and while I suspect it may be
+                // possible using the entry api, I think this is clearer so I'm
+                // just suppressing the warning and writing this very long
+                // comment about it instead.
+                #[allow(clippy::map_entry)]
+                if data_mapping.contains_key(&name) {
+                    return Err(SourceInfoTableError::InvalidTable(format!(
+                        "In variable mapping {assign_label} the variable '{name}' has multiple definitions"
+                    )));
+                } else {
+                    literal_mapping.insert(name.clone(), name_is_literal);
+                    data_mapping.insert(name, location);
+                }
+            }
+            if variable_map.insert(assign_label, data_mapping).is_some() {
+                return Err(SourceInfoTableError::InvalidTable(format!(
+                    "Duplicate definitions for variable mapping associated with position {assign_label}"
+                )));
+            };
+            literal_map.insert(assign_label, literal_mapping);
+        }
+
+        Ok(Self {
+            data: variable_map,
+            is_literal: literal_map,
+        })
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
+    pub fn iter_serialize(
+        &self,
+    ) -> impl Iterator<
+        Item = (
+            &VariableAssignmentId,
+            impl Iterator<Item = (VariableName<&str>, &VariableDefinition)> + '_,
+        ),
+    > {
+        self.data.iter().map(|(id, data)| {
+            (
+                id,
+                data.iter().map(|(name, dec)| {
+                    (
+                        VariableName::new(
+                            name.as_str(),
+                            self.is_literal[id][name],
+                        ),
+                        dec,
+                    )
+                }),
+            )
+        })
+    }
+
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<
+        Item = (
+            &VariableAssignmentId,
+            impl Iterator<Item = (&String, &VariableDefinition)>,
+        ),
+    > {
+        self.data.iter().map(|(k, v)| (k, v.iter()))
+    }
+
+    pub fn contains_key(&self, key: &VariableAssignmentId) -> bool {
+        self.data.contains_key(key)
+    }
+
+    pub fn get(
+        &self,
+        k: &VariableAssignmentId,
+    ) -> Option<&HashMap<String, VariableDefinition>> {
+        self.data.get(k)
     }
 }
 
@@ -1093,6 +1189,7 @@ mod tests {
             x: 0
             y: ty 1, packed 1
             z: ty 0, split 2 3
+            "q": ty 2, packed 4
         }
         1: {
             q: ty 0, packed 1
@@ -1103,7 +1200,7 @@ mod tests {
     TYPES
         0: { 0: u4, 1: i6 }
         1: { bool; 15 }
-        2: { coordinate: 0, bvec: 1 }
+        2: { coordinate: 0, "bvec": 1 }
 
 }#"#;
 
