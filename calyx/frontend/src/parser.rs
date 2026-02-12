@@ -1580,7 +1580,7 @@ impl CalyxParser {
             [memory_header(_), memory_loc(l)..] => l))
     }
 
-    fn variable_name(input: Node) -> ParseResult<VariableName> {
+    fn variable_name(input: Node) -> ParseResult<VariableName<String>> {
         Ok(match_nodes!(input.into_children();
            [string_lit(s)] => VariableName::new_literal(s.to_string()),
            [identifier(i)] => VariableName::new_non_literal(i.to_string())
@@ -1611,7 +1611,7 @@ impl CalyxParser {
 
     fn single_assignment(
         input: Node,
-    ) -> ParseResult<(VariableName, VariableDefinition)> {
+    ) -> ParseResult<(VariableName<String>, VariableDefinition)> {
         Ok(match_nodes!(input.into_children();
             [variable_name(name), variable_layout(layout)] => (name, VariableDefinition::Typed(layout)),
             [variable_name(name), bitwidth(b)] => (name, VariableDefinition::Untyped(b.try_into().expect("memory location ids must fit in u32")))
@@ -1623,7 +1623,7 @@ impl CalyxParser {
         input: Node,
     ) -> ParseResult<(
         VariableAssignmentId,
-        impl IntoIterator<Item = (VariableName, VariableDefinition)>,
+        impl IntoIterator<Item = (VariableName<String>, VariableDefinition)>,
     )> {
         Ok(match_nodes!(input.into_children();
             [bitwidth(id), single_assignment(assigns)..] => {
@@ -1638,7 +1638,7 @@ impl CalyxParser {
         impl IntoIterator<
             Item = (
                 VariableAssignmentId,
-                impl IntoIterator<Item = (VariableName, VariableDefinition)>,
+                impl IntoIterator<Item = (VariableName<String>, VariableDefinition)>,
             ),
         >,
     > {
@@ -1716,7 +1716,9 @@ impl CalyxParser {
         ))
     }
 
-    fn type_entry_struct_field_name(input: Node) -> ParseResult<VariableName> {
+    fn type_entry_struct_field_name(
+        input: Node,
+    ) -> ParseResult<VariableName<String>> {
         Ok(match_nodes!(input.into_children();
            [string_lit(s)] => VariableName::new_literal( s.to_string()),
            [identifier(i)] => VariableName::new_non_literal(i.to_string()),
@@ -1726,7 +1728,7 @@ impl CalyxParser {
 
     fn type_entry_struct(
         input: Node,
-    ) -> ParseResult<(VariableName, FieldType)> {
+    ) -> ParseResult<(VariableName<String>, FieldType)> {
         Ok(match_nodes!(input.into_children();
            [type_entry_struct_field_name(name), type_field(f)] => (name, f)
         ))
