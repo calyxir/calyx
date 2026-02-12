@@ -1,0 +1,75 @@
+// -p med-fsm -x tdcc:infer-fsms
+
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    lt = std_lt(32);
+    a = std_reg(32);
+    b = std_reg(32);
+    c = std_reg(32);
+    d = std_reg(32);
+    e = std_reg(32);
+    f = std_reg(32);
+    g = std_reg(32);
+    h = std_reg(32);
+    i = std_reg(32);
+    j = std_reg(32);
+  }
+  wires {
+    static<4> group A {
+      a.write_en = 1'd1;
+      a.in = 32'd2;
+    }
+    static<4> group B {
+      b.write_en = 1'd1;
+      b.in = 32'd2;
+    }
+    static<4> group C {
+      c.write_en = 1'd1;
+      c.in = 32'd2;
+    }
+    static<1> group D {
+      d.write_en = 1'd1;
+      d.in = 32'd2;
+    }
+    static<4> group E {
+      e.write_en = 1'd1;
+      e.in = 32'd2;
+    }
+    static<4> group F {
+      f.write_en = 1'd1;
+      f.in = 32'd2;
+    }
+    static<2> group G {
+      g.write_en = 1'd1;
+      g.in = 32'd2;
+    }
+    static<2> group H {
+      h.write_en = 1'd1;
+      h.in = 32'd2;
+    }
+    static<1> group I {
+      i.write_en = 1'd1;
+      i.in = 32'd2;
+    }
+    static<1> group J {
+      j.write_en = 1'd1;
+      j.in = 32'd2;
+    }
+  }
+  control {
+    static par {
+      static seq { A; B; C;}
+      static seq {
+        D;
+        static par{
+            static seq { E; F;}
+            static seq { G; H;}
+        }
+        D;
+      }
+      static repeat 4 {static seq{ I; J;}}
+    }
+  }
+}

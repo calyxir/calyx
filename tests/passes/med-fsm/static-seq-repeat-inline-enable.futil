@@ -6,28 +6,32 @@ component main() -> () {
   cells {
     a = std_reg(2);
     b = std_reg(2);
+    c = std_reg(2);
   }
   wires {
     static<1> group A {
       a.in = 2'd0;
       a.write_en = %0 ? 1'd1;
     }
-    static<1> group B {
+    static<2> group B {
       b.in = 2'd1;
       b.write_en = %0 ? 1'd1;
+      c.in = 2'd3;
+      c.write_en = %1 ? 1'd1;
     }
   }
 
   control {
-    static seq { 
-      A;
-      static seq {
-        A;
-        B;
-        A;
-        B;
-      } 
-      A;
+    static seq {
+        static repeat 1000000 {
+          static seq {
+            A; // 0
+            B; // 1 2
+            A; // 3
+            B; // 4 5
+          }
+        }
+      B; // 6 7
     }
   }
 }

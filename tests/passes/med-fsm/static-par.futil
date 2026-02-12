@@ -1,4 +1,5 @@
-// -p med-fsm
+// -p med-fsm -x tdcc:infer-fsms
+
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 
@@ -7,6 +8,7 @@ component main() -> () {
     a = std_reg(2);
     b = std_reg(2);
   }
+
   wires {
     static<1> group A {
       a.in = 2'd0;
@@ -19,15 +21,9 @@ component main() -> () {
   }
 
   control {
-    static seq { 
+    static par {
       A;
-      static seq {
-        A;
-        B;
-        A;
-        B;
-      } 
-      A;
+      B;
     }
   }
 }

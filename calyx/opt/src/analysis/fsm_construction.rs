@@ -173,6 +173,122 @@ impl StaticSchedule<'_, '_> {
         );
     }
 
+    /// Builds counter logic and transitions for a repeat loop.
+    ///
+    /// Creates a counter register that tracks iterations, increment logic that runs
+    /// on the last state of the loop body, and conditional transitions for looping back
+    /// or exiting based on the counter value.
+    ///
+    /// # Arguments
+    /// * `loop_start_state` - The first state of the loop body
+    /// * `loop_end_state` - The last state of the loop body
+    /// * `num_repeats` - Number of times to repeat the loop
+    /// * `guard` - Guard condition for the loop
+    ///
+    /// # Returns
+    /// The exit guard that signals when the loop is complete
+    pub fn build_repeat_loop(
+        &mut self,
+        loop_start_state: u64,
+        loop_end_state: u64,
+        num_repeats: u64,
+        guard: ir::Guard<ir::Nothing>,
+    ) -> ir::Guard<ir::Nothing> {
+        // Create a counter to track iterations
+        let counter_width = bits_needed_for(num_repeats);
+        let counter = self.builder.add_primitive(
+            format!("repeat_counter_{loop_start_state}"),
+            "std_reg",
+            &[counter_width],
+        );
+        counter
+            .borrow_mut()
+            .add_attribute(ir::BoolAttr::FSMControl, 1);
+
+        let signal_on = self.builder.add_constant(1, 1);
+        let counter_max =
+            self.builder.add_constant(num_repeats - 1, counter_width);
+
+        // Increment counter on the last state of the loop body
+        let incr = self.builder.add_primitive(
+            format!("repeat_incr_{loop_start_state}"),
+            "std_add",
+            &[counter_width],
+        );
+        incr.borrow_mut().add_attribute(ir::BoolAttr::FSMControl, 1);
+
+        let one = self.builder.add_constant(1, counter_width);
+
+        // Assignments to increment the counter
+        let incr_assigns = vec![
+            self.builder.build_assignment(
+                incr.borrow().get("left"),
+                counter.borrow().get("out"),
+                ir::Guard::True,
+            ),
+            self.builder.build_assignment(
+                incr.borrow().get("right"),
+                one.borrow().get("out"),
+                ir::Guard::True,
+            ),
+            self.builder.build_assignment(
+                counter.borrow().get("in"),
+                incr.borrow().get("out"),
+                ir::Guard::True,
+            ),
+            self.builder.build_assignment(
+                counter.borrow().get("write_en"),
+                signal_on.borrow().get("out"),
+                ir::Guard::True,
+            ),
+        ];
+
+        // Add increment assignments to the last state of the body
+        self.state2assigns
+            .entry(loop_end_state)
+            .and_modify(|assigns| assigns.extend(incr_assigns.clone()))
+            .or_insert(incr_assigns);
+
+        // Create guard: counter < num_repeats - 1 (loop condition)
+        let lt = self.builder.add_primitive(
+            format!("repeat_lt_{loop_start_state}"),
+            "std_lt",
+            &[counter_width],
+        );
+        lt.borrow_mut().add_attribute(ir::BoolAttr::FSMControl, 1);
+
+        let loop_cond_assigns = vec![
+            self.builder.build_assignment(
+                lt.borrow().get("left"),
+                counter.borrow().get("out"),
+                ir::Guard::True,
+            ),
+            self.builder.build_assignment(
+                lt.borrow().get("right"),
+                counter_max.borrow().get("out"),
+                ir::Guard::True,
+            ),
+        ];
+
+        // These assignments should be continuous
+        self.builder.add_continuous_assignments(loop_cond_assigns);
+
+        // Create the loop-back transition: if counter < max, go back to loop start
+        let loop_back_guard = ir::Guard::port(lt.borrow().get("out"));
+        let loop_back_transition =
+            IncompleteTransition::new(loop_end_state, loop_back_guard.clone());
+
+        // Register the back edge
+        self.register_transitions(
+            loop_start_state,
+            &mut vec![loop_back_transition],
+            guard,
+        );
+
+        // Exit condition: counter >= max
+        ir::Guard::Not(Box::new(loop_back_guard))
+    }
+
     pub fn build_fsm_pieces(&mut self, fsm: ir::RRC<ir::FSM>) -> FSMPieces {
         let signal_on = self.builder.add_constant(1, 1);
         (0..self.state)
