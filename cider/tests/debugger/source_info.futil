@@ -53,15 +53,15 @@ sourceinfo #{
         2: main.r3
     VARIABLE_ASSIGNMENTS
         0: {
-            x: 0
-            y: 1
-            z: 2
+            x: ty b32, packed 0
+            y: ty b32, packed 1
+            z: ty b32, packed 2
         }
         1: {
-            x: 2
+            x: ty b32, packed 2
         }
         2: {
-            a: 0
+            a: ty b32, packed 0
         }
     POSITION_STATE_MAP
         0: 0

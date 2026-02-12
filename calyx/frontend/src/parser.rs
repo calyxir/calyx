@@ -14,7 +14,7 @@ use crate::{
         FieldType, FileId as MetadataFileId, LayoutFunction, LineNum,
         MemoryLocation, MemoryLocationId, PositionId, PrimitiveType,
         SourceInfoResult, SourceInfoTable, SourceType, TypeId,
-        VariableAssignmentId, VariableDefinition, VariableLayout, VariableName,
+        VariableAssignmentId, VariableLayout, VariableName,
     },
 };
 use calyx_utils::{self, CalyxResult, Id, PosString, float};
@@ -1611,10 +1611,9 @@ impl CalyxParser {
 
     fn single_assignment(
         input: Node,
-    ) -> ParseResult<(VariableName<String>, VariableDefinition)> {
+    ) -> ParseResult<(VariableName<String>, VariableLayout)> {
         Ok(match_nodes!(input.into_children();
-            [variable_name(name), variable_layout(layout)] => (name, VariableDefinition::Typed(layout)),
-            [variable_name(name), bitwidth(b)] => (name, VariableDefinition::Untyped(b.try_into().expect("memory location ids must fit in u32")))
+            [variable_name(name), variable_layout(layout)] => (name, layout),
 
         ))
     }
@@ -1623,7 +1622,7 @@ impl CalyxParser {
         input: Node,
     ) -> ParseResult<(
         VariableAssignmentId,
-        impl IntoIterator<Item = (VariableName<String>, VariableDefinition)>,
+        impl IntoIterator<Item = (VariableName<String>, VariableLayout)>,
     )> {
         Ok(match_nodes!(input.into_children();
             [bitwidth(id), single_assignment(assigns)..] => {
@@ -1638,7 +1637,7 @@ impl CalyxParser {
         impl IntoIterator<
             Item = (
                 VariableAssignmentId,
-                impl IntoIterator<Item = (VariableName<String>, VariableDefinition)>,
+                impl IntoIterator<Item = (VariableName<String>, VariableLayout)>,
             ),
         >,
     > {

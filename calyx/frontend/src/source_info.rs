@@ -291,7 +291,7 @@ impl SourceInfoTable {
     pub fn get_variable_mapping(
         &self,
         pos: PositionId,
-    ) -> Option<&HashMap<String, VariableDefinition>> {
+    ) -> Option<&HashMap<String, VariableLayout>> {
         self.position_state_map
             .get(&pos)
             .and_then(|x| self.variable_assignment_map.get(x))
@@ -331,7 +331,7 @@ impl SourceInfoTable {
         #[allow(clippy::type_complexity)]
         let variable_assigns: Vec<(
             VariableAssignmentId,
-            Vec<(VariableName<String>, VariableDefinition)>,
+            Vec<(VariableName<String>, VariableLayout)>,
         )> = vec![];
         let types: Vec<(TypeId, SourceType)> = vec![];
 
@@ -348,7 +348,7 @@ impl SourceInfoTable {
         variable_assigns: impl IntoIterator<
             Item = (
                 VariableAssignmentId,
-                impl IntoIterator<Item = (VariableName<String>, VariableDefinition)>,
+                impl IntoIterator<Item = (VariableName<String>, VariableLayout)>,
             ),
         >,
         states: impl IntoIterator<Item = (PositionId, VariableAssignmentId)>,
@@ -451,11 +451,11 @@ impl SourceInfoTable {
 
         // need to validate the number of arguments to the split layout function
         for (name, def) in variable_map.iter().flat_map(|(_, v)| v) {
-            if let VariableDefinition::Typed(VariableLayout {
+            if let VariableLayout {
                 type_info,
                 layout_fn: LayoutFunction::Split,
                 layout_args,
-            }) = def
+            } = def
             {
                 let expected_count = type_info.entry_count(&type_map);
                 if expected_count != layout_args.len() {
@@ -528,25 +528,17 @@ impl SourceInfoTable {
             .sorted_by_key(|(k, _)| **k)
         {
             writeln!(f, "  {id}: {{")?;
-            for (var, loc) in map.sorted_by_key(|(v, _)| *v) {
+            for (var, variable_layout) in map.sorted_by_key(|(v, _)| *v) {
                 write!(f, "    {var}:")?;
-                match loc {
-                    VariableDefinition::Untyped(memory_location_id) => {
-                        writeln!(f, " {memory_location_id}")?;
-                    }
-                    VariableDefinition::Typed(variable_layout) => {
-                        write!(
-                            f,
-                            " ty {}, {}",
-                            variable_layout.type_info,
-                            variable_layout.layout_fn
-                        )?;
-                        for loc in variable_layout.layout_args.iter() {
-                            write!(f, " {loc}")?;
-                        }
-                        writeln!(f)?;
-                    }
+                write!(
+                    f,
+                    " ty {}, {}",
+                    variable_layout.type_info, variable_layout.layout_fn
+                )?;
+                for loc in variable_layout.layout_args.iter() {
+                    write!(f, " {loc}")?;
                 }
+                writeln!(f)?;
             }
             writeln!(f, "  }}")?;
         }
@@ -922,7 +914,7 @@ impl<S: AsRef<str>> VariableName<S> {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct VariableMap {
-    data: HashMap<VariableAssignmentId, HashMap<String, VariableDefinition>>,
+    data: HashMap<VariableAssignmentId, HashMap<String, VariableLayout>>,
     /// This is a somewhat silly structure but preserves the literals on
     /// printing even if the same string is written as a literal in one
     /// assignment collection and normally in another. However, within a single
@@ -936,7 +928,7 @@ impl VariableMap {
         stream: impl IntoIterator<
             Item = (
                 VariableAssignmentId,
-                impl IntoIterator<Item = (VariableName<String>, VariableDefinition)>,
+                impl IntoIterator<Item = (VariableName<String>, VariableLayout)>,
             ),
         >,
         memory_location_map: &HashMap<MemoryLocationId, MemoryLocation>,
@@ -954,8 +946,8 @@ impl VariableMap {
                     name_is_literal,
                 } = name;
 
-                for loc in location.referenced_memory_locations() {
-                    if !memory_location_map.contains_key(&loc) {
+                for loc in location.layout_args.iter() {
+                    if !memory_location_map.contains_key(loc) {
                         // unknown memory location
                         return Err(SourceInfoTableError::InvalidTable(
                             format!(
@@ -1008,7 +1000,7 @@ impl VariableMap {
     ) -> impl Iterator<
         Item = (
             &VariableAssignmentId,
-            impl Iterator<Item = (VariableName<&str>, &VariableDefinition)> + '_,
+            impl Iterator<Item = (VariableName<&str>, &VariableLayout)> + '_,
         ),
     > {
         self.data.iter().map(|(id, data)| {
@@ -1032,7 +1024,7 @@ impl VariableMap {
     ) -> impl Iterator<
         Item = (
             &VariableAssignmentId,
-            impl Iterator<Item = (&String, &VariableDefinition)>,
+            impl Iterator<Item = (&String, &VariableLayout)>,
         ),
     > {
         self.data.iter().map(|(k, v)| (k, v.iter()))
@@ -1045,7 +1037,7 @@ impl VariableMap {
     pub fn get(
         &self,
         k: &VariableAssignmentId,
-    ) -> Option<&HashMap<String, VariableDefinition>> {
+    ) -> Option<&HashMap<String, VariableLayout>> {
         self.data.get(k)
     }
 }
@@ -1089,54 +1081,10 @@ impl VariableLayout {
             layout_args: layout_args.into_iter().collect(),
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum VariableDefinition {
-    /// There is no associated type information with this variable. This is for
-    /// definitions of the form `name: MEMORY_LOCATION`
-    Untyped(MemoryLocationId),
-    /// The metadata defines a type for this source variable
-    Typed(VariableLayout),
-}
-
-impl VariableDefinition {
-    pub fn referenced_memory_locations(
-        &self,
-    ) -> Box<dyn Iterator<Item = MemoryLocationId> + '_> {
-        match self {
-            VariableDefinition::Untyped(memory_location_id) => {
-                Box::new(std::iter::once(*memory_location_id))
-            }
-            VariableDefinition::Typed(variable_layout) => {
-                Box::new(variable_layout.layout_args.iter().copied())
-            }
-        }
-    }
 
     pub fn referenced_type(&self) -> Option<TypeId> {
-        if let Self::Typed(var_layout) = self
-            && let FieldType::Composite(ty) = var_layout.type_info
-        {
-            Some(ty)
-        } else {
-            None
-        }
-    }
-
-    #[must_use]
-    pub fn as_typed(&self) -> Option<&VariableLayout> {
-        if let Self::Typed(v) = self {
-            Some(v)
-        } else {
-            None
-        }
-    }
-
-    #[must_use]
-    pub fn as_untyped(&self) -> Option<&MemoryLocationId> {
-        if let Self::Untyped(v) = self {
-            Some(v)
+        if let FieldType::Composite(c) = self.type_info {
+            Some(c)
         } else {
             None
         }
@@ -1186,7 +1134,7 @@ mod tests {
         4: main.mem1 [0,2]
     VARIABLE_ASSIGNMENTS
         0: {
-            x: 0
+            x: ty b12, packed 0
             y: ty 1, packed 1
             z: ty 0, split 2 3
             "q": ty 2, packed 4
@@ -1240,12 +1188,12 @@ mod tests {
         2: main.mem1 [1,4]
     VARIABLE_ASSIGNMENTS
         0: {
-            x: 0
-            y: 1
-            z: 2
+            x: ty b10, packed 0
+            y: ty b10, packed 1
+            z: ty b10, packed 2
         }
         1: {
-            q: 0
+            q: ty b14, packed 0
         }
     POSITION_STATE_MAP
         0: 0
@@ -1254,6 +1202,7 @@ mod tests {
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
+        eprintln!("{}", metadata.unwrap_err());
     }
 
     #[test]
@@ -1271,12 +1220,12 @@ mod tests {
         2: main.mem1 [1,4]
     VARIABLE_ASSIGNMENTS
         0: {
-            x: 0
-            y: 1
-            z: 2
+            x: ty b10, packed 0
+            y: ty b10, packed 1
+            z: ty b10, packed 2
         }
         1: {
-            q: 0
+            q: ty b14, packed 0
         }
     POSITION_STATE_MAP
         0: 0
@@ -1285,6 +1234,7 @@ mod tests {
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
+        eprintln!("{}", metadata.unwrap_err());
     }
 
     #[test]
@@ -1302,15 +1252,15 @@ mod tests {
         2: main.mem1 [1,4]
     VARIABLE_ASSIGNMENTS
         0: {
-            x: 0
-            y: 1
-            z: 2
+            x: ty b10, packed 0
+            y: ty b10, packed 1
+            z: ty b10, packed 2
         }
         1: {
-            q: 0
+            q: ty b14, packed 0
         }
         1: {
-            a: 0
+            a: ty i15, packed 0
         }
     POSITION_STATE_MAP
         0: 0
@@ -1319,6 +1269,7 @@ mod tests {
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
+        eprintln!("{}", metadata.unwrap_err());
     }
 
     #[test]
@@ -1336,13 +1287,14 @@ mod tests {
         2: main.mem1 [1,4]
     VARIABLE_ASSIGNMENTS
         0: {
-            x: 0
-            y: 1
-            z: 2
+            x: ty b10, packed 0
+            y: ty b10, packed 1
+            z: ty b10, packed 2
         }
         1: {
-            q: 0
-            q: 1
+            q: ty b14, packed 0
+            q: ty b10, packed 1
+
         }
     POSITION_STATE_MAP
         0: 0
@@ -1351,6 +1303,7 @@ mod tests {
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
+        eprintln!("{}", metadata.unwrap_err());
     }
 
     #[test]
@@ -1367,13 +1320,13 @@ mod tests {
         1: main.reg2
         1: main.mem1 [1,4]
     VARIABLE_ASSIGNMENTS
-        0: {
-            x: 0
-            y: 1
-            z: 2
+       0: {
+            x: ty b10, packed 0
+            y: ty b10, packed 1
+            z: ty b10, packed 2
         }
         1: {
-            q: 0
+            q: ty b14, packed 0
         }
     POSITION_STATE_MAP
         0: 0
@@ -1382,6 +1335,7 @@ mod tests {
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
+        eprintln!("{}", metadata.unwrap_err());
     }
 
     #[test]
@@ -1398,13 +1352,13 @@ mod tests {
         1: main.reg2
         2: main.mem1 [1,4]
     VARIABLE_ASSIGNMENTS
-        0: {
-            x: 0
-            y: 1
-            z: 2
+          0: {
+            x: ty b10, packed 0
+            y: ty b10, packed 1
+            z: ty b10, packed 2
         }
         1: {
-            q: 0
+            q: ty b14, packed 0
         }
     POSITION_STATE_MAP
         0: 0
@@ -1413,6 +1367,7 @@ mod tests {
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
+        eprintln!("{}", metadata.unwrap_err());
     }
 
     #[test]
@@ -1429,6 +1384,7 @@ mod tests {
         }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
+        eprintln!("{}", metadata.unwrap_err());
     }
 
     #[test]
@@ -1446,6 +1402,7 @@ mod tests {
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
 
         assert!(metadata.is_err());
+        eprintln!("{}", metadata.unwrap_err());
     }
 
     #[test]
@@ -1464,11 +1421,11 @@ mod tests {
     VARIABLE_ASSIGNMENTS
         0: {
             x: ty 2, packed 0
-            y: 1
-            z: 2
+            y: ty b12, packed 1
+            z: ty b12, packed 2
         }
         1: {
-            q: 0
+            q: ty b10, packed 0
         }
     POSITION_STATE_MAP
         0: 0

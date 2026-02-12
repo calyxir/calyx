@@ -33,7 +33,6 @@ use crate::{
 
 use std::{collections::HashSet, num::NonZeroU32, path::PathBuf, rc::Rc};
 
-use calyx_ir::source_info::VariableDefinition;
 use itertools::Itertools;
 use std::path::Path as FilePath;
 use thiserror::Error;
@@ -569,41 +568,33 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 ));
             };
 
-            match var_def {
-                VariableDefinition::Untyped(memory_location_id) => {
-                    let calyx_target =
-                        source_info.get_memory_location(memory_location_id);
+            // this is silly but preserves the limited existing behavior
+            // TODO griffin: actually use the format information
+            let calyx_target =
+                source_info.get_memory_location(&var_def.layout_args[0]);
 
-                    let name_split: Vec<String> = calyx_target
-                        .cell
-                        .split('.')
-                        .map(|x| x.into())
-                        .collect();
+            let name_split: Vec<String> =
+                calyx_target.cell.split('.').map(|x| x.into()).collect();
 
-                    let path =
-                        self.interpreter.traverse_name_vec(&name_split)?;
+            let path = self.interpreter.traverse_name_vec(&name_split)?;
+            let calyx_target = PrintTarget::new(
+                path,
+                (!calyx_target.address.is_empty())
+                    .then(|| calyx_target.address.clone()),
+            );
 
-                    let calyx_target = PrintTarget::new(
-                        path,
-                        (!calyx_target.address.is_empty())
-                            .then(|| calyx_target.address.clone()),
-                    );
-
-                    self.print_from_path(
-                        &calyx_target,
-                        &code,
-                        PrintMode::State,
-                        Some(format!(
-                            "{} ({})",
-                            target.stylize_name(),
-                            calyx_target
-                                .as_string(self.interpreter.env())
-                                .stylize_port_name()
-                        )),
-                    )?;
-                }
-                VariableDefinition::Typed(_) => todo!(),
-            }
+            self.print_from_path(
+                &calyx_target,
+                &code,
+                PrintMode::State,
+                Some(format!(
+                    "{} ({})",
+                    target.stylize_name(),
+                    calyx_target
+                        .as_string(self.interpreter.env())
+                        .stylize_port_name()
+                )),
+            )?;
         }
         Ok(())
     }
@@ -836,7 +827,11 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                         // the memory addressing comes up elsewhere in a similar way
                         return Ok(());
                     } else {
-                        println!("{}","Target cell has no internal state, printing port information instead".stylize_warning());
+                        println!(
+                            "{}",
+                            "Target cell has no internal state, printing port information instead"
+                                .stylize_warning()
+                        );
                     }
                 }
 

@@ -450,7 +450,7 @@ memory_table  = { memory_header ~ memory_loc* }
 variable_name = { string_lit | identifier }
 
 variable_header   = { ^"variable_assignments" }
-single_assignment = { variable_name ~ ":" ~ (variable_layout | bitwidth) }
+single_assignment = { variable_name ~ ":" ~ variable_layout }
 assignment_set    = { bitwidth ~ ":" ~ "{" ~ single_assignment+ ~ "}" }
 variable_table    = { variable_header ~ assignment_set* }
 
