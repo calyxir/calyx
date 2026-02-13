@@ -12,26 +12,18 @@ RUN sbt "; getHeaders; assembly"
 # --- STAGE 2: Icarus ---
 FROM debian:trixie AS icarus-install
 
-RUN     apt-get update -y && \
+RUN apt-get update -y && \
     apt-get install -y jq python3-dev make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake autoconf gperf clang git
 # Install Icarus Verilog
 WORKDIR /home
 RUN git clone --depth 1 --branch v12_0 https://github.com/steveicarus/iverilog
 WORKDIR /home/iverilog
-RUN sh autoconf.sh && ./configure && make && make install
+RUN sh autoconf.sh && ./configure && make
 
-# Use the official rust image as a parent image.
-FROM rust:1.90
-# Used to make runt cocotb tests happy
-ENV LANG=C.UTF-8
-
-# Connect to the Calyx repository.
-LABEL org.opencontainers.image.source https://github.com/calyxir/calyx
-
-# Install apt dependencies
+# --- STAGE 3: TVM ---
+FROM debian:trixie AS tvm-install
 RUN apt-get update -y && \
-    apt-get install -y jq python3-dev make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake autoconf gperf clang
-
+    apt-get install -y jq python3-dev make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake autoconf gperf clang git
 # Install TVM
 ## NOTE(griffin): I can't find a way to shove this install into it's own image
 WORKDIR /home
@@ -46,6 +38,19 @@ WORKDIR /home/tvm/build
 RUN cp ../cmake/config.cmake . && \
     cmake -G Ninja .. && ninja
 
+# Use the official rust image as a parent image.
+FROM rust:1.90 AS calyx
+# Used to make runt cocotb tests happy
+ENV LANG=C.UTF-8
+
+# Connect to the Calyx repository.
+LABEL org.opencontainers.image.source https://github.com/calyxir/calyx
+
+# Install apt dependencies
+RUN apt-get update -y && \
+    apt-get install -y jq python3-dev make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake autoconf gperf clang
+
+
 # Install Firtool
 WORKDIR /home
 RUN curl -L https://github.com/llvm/circt/releases/download/firtool-1.75.0/firrtl-bin-linux-x64.tar.gz | tar -xz \
@@ -53,9 +58,13 @@ RUN curl -L https://github.com/llvm/circt/releases/download/firtool-1.75.0/firrt
 
 COPY --from=verilator/verilator:v5.016 /usr/local/bin/verilator /bin/
 COPY --from=dahlia-install /home/dahlia/fuse /home/dahlia/fuse
-COPY --from=icarus-install /usr/local/bin/iverilog /bin/
+COPY --from=icarus-install /home/iverilog /home/iverilog
+COPY --from=tvm-install /home/tvm /home/tvm
 
+WORKDIR /home/iverilog
+RUN make install
 
+WORKDIR /home
 RUN cargo install vcdump && \
     cargo install runt --version 0.4.1
 
