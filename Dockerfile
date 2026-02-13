@@ -56,7 +56,7 @@ WORKDIR /home
 RUN curl -L https://github.com/llvm/circt/releases/download/firtool-1.75.0/firrtl-bin-linux-x64.tar.gz | tar -xz \
     && chmod +x /home/firtool-1.75.0/bin/firtool
 
-COPY --from=verilator/verilator:v5.016 /usr/local/bin/verilator /bin/
+COPY --from=verilator/verilator:v5.016 /usr/local/bin/verilator /usr/local/bin/verilator_bin /bin/
 COPY --from=dahlia-install /home/dahlia/fuse /home/dahlia/fuse
 COPY --from=icarus-install /home/iverilog /home/iverilog
 COPY --from=tvm-install /home/tvm /home/tvm
