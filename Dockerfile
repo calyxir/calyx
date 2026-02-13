@@ -127,7 +127,7 @@ RUN fud config --create global.root /home/calyx && \
     fud register mrxl -p '/home/calyx/frontends/mrxl/fud/mrxl.py' && \
     fud register icarus-verilog -p '/home/calyx/fud/icarus/icarus.py'
 
-RUN uv pip install numpy==1.26.4 cocotb==1.6.2 \
+RUN uv pip install numpy==1.26.4 cocotb==1.6.2 pytest \
     git+https://github.com/cocotb/cocotb-bus.git cocotbext-axi
 
 WORKDIR /home/calyx
