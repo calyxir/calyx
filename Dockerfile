@@ -38,6 +38,17 @@ WORKDIR /home/tvm/build
 RUN cp ../cmake/config.cmake . && \
     cmake -G Ninja .. && ninja
 
+# --- STAGE 4: Verilator ---
+FROM debian:trixie AS verilator-install
+RUN apt-get update -y && \
+    apt-get install -y jq python3-dev make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake autoconf gperf clang git
+# Install Verilator
+WORKDIR /home
+## TODO(rachit): Don't hardcode the version here
+RUN git clone --depth 1 --branch v5.002 https://github.com/verilator/verilator
+WORKDIR /home/verilator
+RUN autoconf && ./configure && make
+
 # Use the official rust image as a parent image.
 FROM rust:1.90 AS calyx
 # Used to make runt cocotb tests happy
@@ -56,12 +67,15 @@ WORKDIR /home
 RUN curl -L https://github.com/llvm/circt/releases/download/firtool-1.75.0/firrtl-bin-linux-x64.tar.gz | tar -xz \
     && chmod +x /home/firtool-1.75.0/bin/firtool
 
-COPY --from=verilator/verilator:v5.016 /usr/local/bin/verilator /usr/local/bin/verilator_bin /bin/
+COPY --from=verilator-install /home/verilator/ /home/verilator
 COPY --from=dahlia-install /home/dahlia/fuse /home/dahlia/fuse
 COPY --from=icarus-install /home/iverilog /home/iverilog
 COPY --from=tvm-install /home/tvm /home/tvm
 
 WORKDIR /home/iverilog
+RUN make install
+
+WORKDIR /home/verilator
 RUN make install
 
 WORKDIR /home
