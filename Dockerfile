@@ -44,7 +44,7 @@ FROM rust:1.90 AS calyx
 ENV LANG=C.UTF-8
 
 # Connect to the Calyx repository.
-LABEL org.opencontainers.image.source https://github.com/calyxir/calyx
+LABEL org.opencontainers.image.source=https://github.com/calyxir/calyx
 
 # Install apt dependencies
 RUN apt-get update -y && \
@@ -92,7 +92,7 @@ RUN printf "[firrtl]\nfirtool = \"/home/firtool-1.75.0/bin/firtool\"\n" >> ~/.co
 
 RUN fud2 env init
 # NOTE(griffin): Hardcoding this is not ideal but I currently don't have any better ideas
-ENV VIRTUAL_ENV /root/.local/share/fud2/venv
+ENV VIRTUAL_ENV=/root/.local/share/fud2/venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 WORKDIR /home/tvm/python
 RUN uv pip install antlr4-python3-runtime==4.7.2 .
