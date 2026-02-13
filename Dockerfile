@@ -15,6 +15,7 @@ FROM debian:trixie AS icarus-install
 RUN apt-get update -y && \
     apt-get install -y jq python3-dev make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake autoconf gperf clang git
 # Install Icarus Verilog
+# NOTE(griffin): The final install happens later
 WORKDIR /home
 RUN git clone --depth 1 --branch v12_0 https://github.com/steveicarus/iverilog
 WORKDIR /home/iverilog
@@ -39,6 +40,7 @@ RUN cp ../cmake/config.cmake . && \
     cmake -G Ninja .. && ninja
 
 # --- STAGE 4: Verilator ---
+# NOTE(griffin): The final install happens later
 FROM debian:trixie AS verilator-install
 RUN apt-get update -y && \
     apt-get install -y jq python3-dev make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake autoconf gperf clang git
@@ -49,6 +51,8 @@ RUN git clone --depth 1 --branch v5.002 https://github.com/verilator/verilator
 WORKDIR /home/verilator
 RUN autoconf && ./configure && make
 
+
+# --- STAGE 5: Calyx ---
 # Use the official rust image as a parent image.
 FROM rust:1.90 AS calyx
 # Used to make runt cocotb tests happy
@@ -72,6 +76,8 @@ COPY --from=dahlia-install /home/dahlia/fuse /home/dahlia/fuse
 COPY --from=icarus-install /home/iverilog /home/iverilog
 COPY --from=tvm-install /home/tvm /home/tvm
 
+# Do the final install for these two in the main image even though the rest is
+# built in a different stage
 WORKDIR /home/iverilog
 RUN make install
 
@@ -97,24 +103,20 @@ RUN cargo build --workspace
 WORKDIR /home/calyx
 RUN ln -s /home/calyx/target/debug/fud2 /bin/
 
-
-# AYAKA: try running fud2 env init?
+# Prepare the fud2 config
 RUN mkdir ~/.config
 RUN printf "dahlia = \"/home/dahlia/fuse\"\n" >> ~/.config/fud2.toml
 RUN printf "[calyx]\nbase = \"/home/calyx\"\n" >> ~/.config/fud2.toml
 RUN printf "[firrtl]\nfirtool = \"/home/firtool-1.75.0/bin/firtool\"\n" >> ~/.config/fud2.toml
 
 RUN fud2 env init
-# NOTE(griffin): Hardcoding this is not ideal but I currently don't have any better ideas
+# NOTE(griffin): Hardcoding this is not ideal but I currently don't have any
+# better ideas. This env var is important to make sure everything lands in the
+# right spot
 ENV VIRTUAL_ENV=/root/.local/share/fud2/venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 WORKDIR /home/tvm/python
 RUN uv pip install antlr4-python3-runtime==4.7.2 .
-
-# Install fud
-WORKDIR /home/calyx
-RUN uv pip install ./fud
-RUN mkdir -p /root/.config
 
 # Setup fud
 RUN fud config --create global.root /home/calyx && \
@@ -128,13 +130,4 @@ RUN fud config --create global.root /home/calyx && \
 RUN uv pip install numpy==1.26.4 cocotb==1.6.2 \
     git+https://github.com/cocotb/cocotb-bus.git cocotbext-axi
 
-# AYAKA: attempt to remove unneeded installation
-# # Install MrXL
-# WORKDIR /home/calyx
-# RUN uv pip install ./frontends/mrxl
-
-# AYAKA: attempt to remove
-# Install calyx-py. We do this separately from the other `uv pip install`s to
-# ensure that it gets installed in non-editable mode, which can affect its
-# stacktrace-walking magic that dictates source position generation.
-# RUN uv pip install ./calyx-py
+WORKDIR /home/calyx
