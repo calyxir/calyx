@@ -179,13 +179,13 @@ jobs:
     - name: Install Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1
 
-    - name: Install calyx-py, MrXL, and queues
-      working-directory: /home/calyx
-      run: fud2 env init
-        # AYAKA: try to use fud2 env init here
-        # uv pip install -e ./frontends/mrxl
-        # uv pip install -e ./frontends/queues
-        # uv pip install ./calyx-py
+    # - name: Install calyx-py, MrXL, and queues
+    #   working-directory: /home/calyx
+    #   run: fud2 env init
+    #     # AYAKA: try to use fud2 env init here
+    #     # uv pip install -e ./frontends/mrxl
+    #     # uv pip install -e ./frontends/queues
+    #     # uv pip install ./calyx-py
 
     - name: Generate queue .data and .expect files
       working-directory: /home/calyx
