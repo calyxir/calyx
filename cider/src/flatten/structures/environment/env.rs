@@ -2110,6 +2110,11 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         parent_clock.sync(child_clock);
                     }
 
+                    #[cfg(feature = "data-race-stats")]
+                    {
+                        crate::flatten::structures::stats::incr_join_count();
+                    }
+
                     *node_thread = par_entry.original_thread();
                     self.env.clocks[parent_clock].increment(&parent);
                 }
@@ -2122,6 +2127,11 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 return node.mutate_into_next(self.env.ctx.as_ref());
             }
 
+            #[cfg(feature = "data-race-stats")]
+            {
+                crate::flatten::structures::stats::incr_fork_count();
+            }
+
             par_map.insert(
                 node.clone(),
                 ParEntry::new(par.stms().len().try_into().expect(
@@ -2129,10 +2139,16 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 ), *node_thread)
                 ,
             );
+
             new_nodes.extend(par.stms().iter().map(|x| {
                 let thread = if self.conf.check_data_race {
                     let thread =
                         thread.expect("par nodes should have a thread");
+
+                    #[cfg(feature = "data-race-stats")]
+                    {
+                        crate::flatten::structures::stats::incr_thread_spawn();
+                    }
 
                     let new_thread_idx: ThreadIdx = if self.conf.disable_memo {
                         self.env
@@ -3287,6 +3303,13 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
     /// Evaluate the entire program
     pub fn run_program(&mut self) -> CiderResult<()> {
+        #[cfg(feature = "data-race-stats")]
+        {
+            crate::flatten::structures::stats::clear_stats();
+            crate::flatten::structures::stats::incr_thread_spawn();
+            crate::flatten::structures::stats::incr_thread_spawn();
+        }
+
         if self.base.conf.debug_logging {
             info!(self.base.env().logger, "Starting program execution");
         }
@@ -3296,6 +3319,14 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 if self.base.conf.debug_logging {
                     info!(self.base.env().logger, "Finished program execution");
                 }
+
+                #[cfg(feature = "data-race-stats")]
+                {
+                    if self.base.conf.check_data_race {
+                        self.report_stats();
+                    }
+                }
+
                 Ok(())
             }
             Err(e) => {
@@ -3306,9 +3337,35 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                         e.stylize_error()
                     );
                 }
+
+                #[cfg(feature = "data-race-stats")]
+                {
+                    if self.base.conf.check_data_race {
+                        self.report_stats();
+                    }
+                }
                 Err(e)
             }
         }
+    }
+
+    #[cfg(feature = "data-race-stats")]
+    fn report_stats(&self) {
+        let stats = crate::flatten::structures::stats::get_stats();
+        eprintln!("Data Race Detection Statistics");
+        eprintln!(
+            "   Tracked variables: {}",
+            self.env().state_map.get_clocked_count()
+        );
+        eprintln!("   Total spawned threads: {}", stats.thread_spawn_count);
+        eprintln!(
+            "   Total ThreadIDs allocated: {}",
+            self.env.thread_map.thread_count()
+        );
+        eprintln!("   Reads checked: {}", stats.read_count);
+        eprintln!("   Writes checked: {}", stats.write_count);
+        eprintln!("   Fork count: {}", stats.fork_count);
+        eprintln!("   Join count: {}", stats.join_count);
     }
 }
 

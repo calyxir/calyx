@@ -745,6 +745,11 @@ impl ClockPair {
         (thread, reading_clock): ThreadClockPair,
         clock_map: &mut ClockMap,
     ) -> Result<(), ReadError> {
+        #[cfg(feature = "data-race-stats")]
+        {
+            crate::flatten::structures::stats::incr_read_count();
+        }
+
         if clock_map[reading_clock] >= clock_map[self.write_clock] {
             let v = clock_map[reading_clock][thread];
             clock_map[self.read_clock].set_thread_clock(thread, v);
@@ -797,6 +802,11 @@ impl ClockPair {
         writing_clock: ClockIdx,
         clock_map: &mut ClockMap,
     ) -> Result<(), WriteError> {
+        #[cfg(feature = "data-race-stats")]
+        {
+            crate::flatten::structures::stats::incr_write_count();
+        }
+
         if clock_map[writing_clock] >= clock_map[self.write_clock]
             && clock_map[writing_clock] >= clock_map[self.read_clock]
         {
