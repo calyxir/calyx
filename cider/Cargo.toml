@@ -9,6 +9,9 @@ rust-version.workspace = true
 name = "cider"
 path = "src/main.rs"
 
+[features]
+data-race-stats = []
+
 [dependencies]
 smallvec = { workspace = true, features = ["union", "const_generics"] }
 serde = { workspace = true, features = ["derive", "rc"] }
