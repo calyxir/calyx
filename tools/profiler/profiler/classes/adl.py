@@ -102,6 +102,17 @@ class AdlMap:
             )
         return sourceloc
 
+    @property
+    def adl_string(self):
+        """
+        Returns the name of the ADL in lower case.
+        """
+        match self.adl:
+            case Adl.DAHLIA:
+                return "dahlia"
+            case Adl.PY:
+                return "py"
+
 
 @dataclass
 class DahliaAdlMap(AdlMap):
