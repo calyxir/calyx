@@ -1,6 +1,5 @@
 use std::{
     cmp::{Ordering, max},
-    collections::HashMap,
     hash::Hash,
     num::NonZeroU32,
     ops::{Index, IndexMut},
@@ -19,13 +18,13 @@ use crate::flatten::{
     text_utils::Color,
 };
 
-use ahash::{HashMapExt, HashSetExt};
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use baa::BitVecValue;
 use cider_idx::{
     impl_index_nonzero,
     maps::{IndexedMap, SecondarySparseMap},
 };
-use rustc_hash::{FxHashMap, FxHashSet};
+
 use thiserror::Error;
 
 use super::Environment;
@@ -489,8 +488,7 @@ where
     I: Hash + Eq + Clone + Ord,
     C: Ord + Clone + Counter,
 {
-    // TODO: maybe use `ahash` instead
-    map: FxHashMap<I, C>,
+    map: HashMap<I, C>,
 }
 
 impl<I, C> std::ops::Index<&I> for VectorClock<I, C>
@@ -557,7 +555,7 @@ where
 {
     pub fn new() -> Self {
         Self {
-            map: FxHashMap::new(),
+            map: HashMap::new(),
         }
     }
 
@@ -945,7 +943,7 @@ pub enum TransitiveSet<const N: usize> {
         data: [Option<ClockPair>; N],
         available_spots: usize,
     },
-    Hash(FxHashSet<ClockPair>),
+    Hash(HashSet<ClockPair>),
 }
 
 impl<const N: usize> Extend<ClockPair> for TransitiveSet<N> {
@@ -979,7 +977,7 @@ impl<const N: usize> TransitiveSet<N> {
                     data[index] = Some(item)
                 } else {
                     // need to spill over into a hashset
-                    let mut set = FxHashSet::with_capacity(N + 1);
+                    let mut set = HashSet::with_capacity(N + 1);
                     set.extend(data.iter().map(|x| x.as_ref().unwrap()));
                     set.insert(item);
                     *self = Self::Hash(set);

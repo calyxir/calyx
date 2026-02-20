@@ -48,7 +48,6 @@ use cider_idx::{IndexRef, maps::SecondaryMap};
 use delegate::delegate;
 use itertools::Itertools;
 use owo_colors::OwoColorize;
-use rustc_hash::{FxHashMap, FxHashSet};
 
 #[derive(Debug, Clone)]
 pub struct Environment<C: AsRef<Context> + Clone> {
@@ -73,7 +72,7 @@ pub struct Environment<C: AsRef<Context> + Clone> {
     /// A map containing all the control ports in the program and the width of
     /// the port. Should probably be replaced with a bitset and some extra logic
     /// to lookup widths
-    control_ports: FxHashMap<GlobalPortIdx, u32>,
+    control_ports: HashMap<GlobalPortIdx, u32>,
     /// The immutable context. This is retained for ease of use.
     /// This value should have a cheap clone implementation, such as &Context
     /// or RC<Context>.
@@ -84,7 +83,7 @@ pub struct Environment<C: AsRef<Context> + Clone> {
     /// determine which primitives to re=evaluate
     ports_to_cells_map: SecondaryMap<GlobalPortIdx, GlobalCellIdx>,
     /// reused scratchpad
-    changed_cells: FxHashSet<GlobalCellIdx>,
+    changed_cells: HashSet<GlobalCellIdx>,
 }
 
 impl<C: AsRef<Context> + Clone> Environment<C> {
@@ -284,12 +283,12 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             clocks,
             thread_map: ThreadMap::new(root_clock, continuous_clock),
             memory_header: None,
-            control_ports: FxHashMap::new(),
+            control_ports: HashMap::new(),
             logger: initialize_logger(logging_conf),
             ports_to_cells_map: SecondaryMap::new_with_default(0.into()),
             pinned_ports: PinnedPorts::new(),
             state_map: MemoryMap::new(),
-            changed_cells: FxHashSet::new(),
+            changed_cells: HashSet::new(),
         };
 
         let ctx = ctx.as_ref();
