@@ -61,19 +61,19 @@ cider-dap = { path = "cider/dap", version = "0.1.0" }
 # External crates
 # When adding a new dependency, do not pin the minor version, i.e., use `0.1`
 # instead of `0.1.0`
-itertools = "0.11"
+itertools = "0.14"
 atty = "0.2"
 log = "0.4"
-string-interner = "0.14.0"
+string-interner = "0.19"
 lazy_static = "1"
 linked-hash-map = "0.5"
 smallvec = { version = "1", features = ["const_generics"] }
-rand = "0.9"
+rand = "0.10"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_sexpr = "0.1.0"
 serde_with = "3"
-thiserror = "1.0"
+thiserror = "2"
 pest = "2"
 pest_derive = "2"
 pest_consume = "1"
@@ -83,7 +83,7 @@ slog = "2.7"
 slog-term = "2.8"
 slog-async = "2.7"
 ahash = "0.8"
-baa = { version = "0.16.0", features = ["bigint", "serde1", "fraction1"] }
+baa = { version = "0.17", features = ["bigint", "serde1", "fraction1"] }
 
 [workspace.dependencies.petgraph]
 version = "0.6"
@@ -91,8 +91,8 @@ default-features = false
 features = ["matrix_graph"]
 
 [workspace.dependencies.env_logger]
-version = "0.9.0"
-features = ["termcolor", "atty"]
+version = "0.11.0"
+features = ["color", "auto-color"]
 default-features = false
 
 

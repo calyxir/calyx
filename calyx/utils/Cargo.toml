@@ -22,5 +22,5 @@ atty.workspace = true
 string-interner.workspace = true
 itertools.workspace = true
 petgraph.workspace = true
-symbol_table = { version = "0.3", features = ["global"] }
+symbol_table = { version = "0.5", features = ["global"] }
 boxcar = "0.2.7"

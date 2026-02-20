@@ -2,7 +2,7 @@ use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
 use crate::{flang::Plan, run, script, utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::PrimaryMap;
-use rand::distributions::{Alphanumeric, DistString};
+use rand::distr::{Alphanumeric, SampleString};
 use std::{collections::HashMap, error::Error, ffi::OsStr, fmt::Display};
 
 type FileData = HashMap<&'static str, &'static [u8]>;
@@ -83,8 +83,7 @@ impl Driver {
     /// want to avoid collisions.
     pub fn fresh_workdir(&self) -> Utf8PathBuf {
         loop {
-            let rand_suffix =
-                Alphanumeric.sample_string(&mut rand::thread_rng(), 8);
+            let rand_suffix = Alphanumeric.sample_string(&mut rand::rng(), 8);
             let path: Utf8PathBuf =
                 format!(".{}-{}", &self.name, rand_suffix).into();
             if !path.exists() {
