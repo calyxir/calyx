@@ -80,7 +80,7 @@ pub struct Environment<C: AsRef<Context> + Clone> {
     memory_header: Option<Vec<MemoryDeclaration>>,
     logger: Logger,
     /// Reverse map from ports to the cells they are attached to. Used to
-    /// determine which primitives to re=evaluate
+    /// determine which primitives to re-evaluate
     ports_to_cells_map: SecondaryMap<GlobalPortIdx, GlobalCellIdx>,
     /// reused scratchpad
     changed_cells: HashSet<GlobalCellIdx>,
@@ -2556,8 +2556,10 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 self.run_primitive_comb_path(
                     self.env.cells.range().into_iter(),
                 )?
-            } else {
+            } else if !changed_cells.is_empty() {
                 self.run_primitive_comb_path(changed_cells.drain())?
+            } else {
+                false
             };
 
             has_changed |= changed;
@@ -2917,47 +2919,47 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
         let mut changed = UpdateStatus::Unchanged;
 
-        let mut working_set = vec![];
-        for cell in cells_to_run {
-            let cell = &mut self.env.cells[cell];
+        for cell_idx in cells_to_run {
+            let cell = &mut self.env.cells[cell_idx];
             match cell {
                 CellLedger::Primitive { cell_dyn } => {
                     let result = cell_dyn
                         .exec_comb(&mut self.env.ports, &self.env.state_map)?;
 
                     changed |= result;
+                    let signature = cell_dyn.get_ports();
 
-                    if self.conf.check_data_race && cell_dyn.is_combinational()
+                    if self.conf.check_data_race
+                        && cell_dyn.is_combinational()
+                        && signature.iter_second().len() == 1
                     {
-                        let signature = cell_dyn.get_ports();
+                        let output_port =
+                            signature.iter_second().next().unwrap();
 
-                        for port in signature.iter_first() {
-                            let val = &self.env.ports[port];
-                            if let Some(val) = val.as_option()
-                                && val.propagate_clocks()
-                                && (val.clocks().is_some()
-                                    || val.transitive_clocks().is_some())
-                            {
-                                if let Some(clocks) = val.clocks() {
-                                    working_set.push(*clocks);
+                        if let Some(mut out_v) =
+                            self.env.ports[output_port].take()
+                        {
+                            for port in signature.iter_first() {
+                                if let Some(in_v) =
+                                    &self.env.ports[port].as_option()
+                                    && in_v.propagate_clocks()
+                                    && (in_v.clocks().is_some()
+                                        || in_v.transitive_clocks().is_some())
+                                {
+                                    if let Some(c) = in_v.clocks() {
+                                        out_v.add_transitive_clock(*c);
+                                    }
+
+                                    if let Some(clocks) =
+                                        in_v.transitive_clocks()
+                                    {
+                                        out_v.add_transitive_clocks(
+                                            clocks.iter().copied(),
+                                        );
+                                    }
                                 }
-                                working_set
-                                    .extend(val.iter_transitive_clocks());
                             }
-                        }
-
-                        if signature.iter_second().len() == 1 {
-                            let port = signature.iter_second().next().unwrap();
-                            let val = &mut self.env.ports[port];
-                            if let Some(val) = val.as_option_mut()
-                                && !working_set.is_empty()
-                            {
-                                val.add_transitive_clocks(
-                                    working_set.drain(..),
-                                );
-                            }
-                        } else {
-                            todo!("comb primitive with multiple outputs")
+                            self.env.ports[output_port] = out_v.into();
                         }
                     }
                 }
