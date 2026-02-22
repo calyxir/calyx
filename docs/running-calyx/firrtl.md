@@ -70,7 +70,7 @@ Both examples will yield
 }
 ```
 
-### Adding System Verilog Primitives for `firrtl`
+### Adding SystemVerilog Primitives for `firrtl`
 
 To add primitives to `firrtl`, you would add the SystemVerilog implementation of the primitive to the file, `fud2/rsrc/primitives-for-firrtl.sv`
 
