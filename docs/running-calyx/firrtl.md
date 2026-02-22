@@ -70,11 +70,11 @@ Both examples will yield
 }
 ```
 
-### Adding Primitives for `firrtl`
+### Adding System Verilog Primitives for `firrtl`
 
 To add primitives to `firrtl`, you would add the SystemVerilog implementation of the primitive to the file, `fud2/rsrc/primitives-for-firrtl.sv`
 
-### Adding Primitives for `firrtl-with-primitives`
+### Adding Firrtl Primitives for `firrtl-with-primitives`
 
 1.  **Create a Template:** Add a `.fir` file to `tools/firrtl/templates/`. The filename should match the primitive name (e.g., `std_add.fir`).
 2.  **Define the Interface:** The template must define a `module` whose ports (names and widths) match the [Calyx primitive library](https://docs.calyxir.org/libraries/core.html).
