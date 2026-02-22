@@ -3,4 +3,4 @@
         input right : UInt<WIDTH>
         output out : UInt<WIDTH>
 
-        out <= sub(left, right)
+        connect out, sub(left, right)

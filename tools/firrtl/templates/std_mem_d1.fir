@@ -17,18 +17,18 @@
             read-under-write => undefined
 
         ; read from memory
-        internal_mem.internal_read.addr <= add0
-        internal_mem.internal_read.en <= UInt(1)
-        internal_mem.internal_read.clk <= clk
-        read_data <= internal_mem.internal_read.data
+        connect internal_mem.internal_read.addr, add0
+        connect internal_mem.internal_read.en, UInt(1)
+        connect internal_mem.internal_read.clk, clk
+        connect read_data, internal_mem.internal_read.data
 
         ; write to memory
-        internal_mem.internal_write.addr <= add0
-        internal_mem.internal_write.en <= write_en
-        internal_mem.internal_write.clk <= clk
-        internal_mem.internal_write.data <= write_data
-        internal_mem.internal_write.mask <= UInt(1) ; unclear
+        connect internal_mem.internal_write.addr, add0
+        connect internal_mem.internal_write.en, write_en
+        connect internal_mem.internal_write.clk, clk
+        connect internal_mem.internal_write.data, write_data
+        connect internal_mem.internal_write.mask, UInt(1) ; unclear
         when eq(write_en, UInt(1)):
-            done <= UInt(1)
+            connect done, UInt(1)
         else:
-            done <= UInt(0)
+            connect done, UInt(0)

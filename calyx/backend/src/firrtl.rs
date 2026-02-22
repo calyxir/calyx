@@ -36,6 +36,7 @@ impl Backend for FirrtlBackend {
 
     fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
         let out = &mut file.get_write();
+        writeln!(out, "FIRRTL version 4.0.0")?;
         writeln!(out, "circuit {}:", ctx.entrypoint)?;
         if ctx.bc.emit_primitive_extmodules {
             emit_extmodules(ctx, out)?;
@@ -85,7 +86,7 @@ fn emit_component<F: io::Write>(
 ) -> io::Result<()> {
     let mut dst_set: HashSet<ir::Canonical> = HashSet::new();
 
-    writeln!(f, "{}module {}:", SPACING, comp.name)?;
+    writeln!(f, "{}public module {}:", SPACING, comp.name)?;
 
     // Inputs and Outputs
     let sig = comp.signature.borrow();
@@ -322,7 +323,7 @@ fn write_invalid_initialization<F: io::Write>(
     if port.borrow().attributes.has(ir::BoolAttr::Control) {
         writeln!(
             f,
-            "{}{} <= UInt(0) {}",
+            "{}connect {}, UInt(0) {}",
             SPACING.repeat(2),
             dst_string,
             default_initialization_str
@@ -330,12 +331,12 @@ fn write_invalid_initialization<F: io::Write>(
     } else {
         writeln!(
             f,
-            "{}{} is invalid {}",
+            "{}invalidate {} {}",
             SPACING.repeat(2),
             dst_string,
             default_initialization_str
         )?;
-        writeln!(f, "{}{} <= UInt(0)", SPACING.repeat(2), dst_string)
+        writeln!(f, "{}connect {}, UInt(0)", SPACING.repeat(2), dst_string)
     }
 }
 
@@ -351,7 +352,7 @@ fn write_assignment<F: io::Write>(
     let src_string = get_port_string(&source_port, false);
     writeln!(
         f,
-        "{}{} <= {}",
+        "{}connect {}, {}",
         SPACING.repeat(num_indent),
         dest_string,
         src_string
