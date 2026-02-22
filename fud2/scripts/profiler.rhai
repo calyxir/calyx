@@ -21,8 +21,8 @@ fn profiling_setup(e) {
     // series of passes after validation and instrumentation
     e.config_var_or("passes", "profiler.compilation-passes", "-p pre-opt -p compile -p post-opt -p lower"); // set passes="-p compile-sync -p simplify-with-control -p compile-invoke -p compile -p lower" to run without optimizations
 
-    // eDSL python file arguments
-    e.config_var_or("edsl-args", "profiler.edsl-args", "");
+    // py python file arguments
+    e.config_var_or("py-args", "profiler.py-args", "");
 
     // rules for preprocessing
 
@@ -38,8 +38,8 @@ fn profiling_setup(e) {
     // Standalone Verilog testbench. copied from testbench
     e.rsrc("tb.sv");
 
-    // ---- eDSL to Calyx to flame graph.
-    e.rule("edsl-to-calyx", "python3 $in $edsl-args > $out");
+    // ---- py to Calyx to flame graph.
+    e.rule("py-to-calyx", "python3 $in $py-args > $out");
 
     e.var_("metadata-mapping-json", "metadata-map.json");
     e.config_var_or("fileinfo_emitter", "fileinfo_emitter", "$calyx-base/target/debug/fileinfo_emitter");
@@ -65,10 +65,10 @@ fn profiler_synth_setup(e) {
 }
 
 // TODO: merge with calyx_to_flamegraph
-fn edsl_to_flamegraph(e, input, output) {
+fn py_to_profiled(e, input, output) {
     // create calyx file
     let calyx = "calyx.futil";
-    e.build_cmd([calyx], "edsl-to-calyx", [input], []);
+    e.build_cmd([calyx], "py-to-calyx", [input], []);
 
     let metadata_calyx = "metadata-calyx.futil";
     e.build_cmd([metadata_calyx], "calyx-pass", [calyx], []);
@@ -237,7 +237,7 @@ op("calyx-py-profiler",
     [c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
     cp::calyx_py,
     flamegraph,
-    |e, input, output| edsl_to_flamegraph(e, input, output)
+    |e, input, output| py_to_profiled(e, input, output)
 );
 
 op("dahlia-profiler",
