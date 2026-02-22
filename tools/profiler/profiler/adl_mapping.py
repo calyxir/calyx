@@ -70,11 +70,12 @@ def create_and_write_adl_map(
     """
     print(f"Creating ADL visuals from adl_map: {adl_mapping_file}")
 
-    adl_flat_flame_file = os.path.join(out_dir, "adl-flat-flame.folded")
-    adl_scaled_flame_file = os.path.join(out_dir, "adl-scaled-flame.folded")
+    adl_map = AdlMap(adl_mapping_file)
+    adl_name = adl_map.adl_string
+    adl_flat_flame_file = os.path.join(out_dir, f"{adl_name}-flat-flame.folded")
+    adl_scaled_flame_file = os.path.join(out_dir, f"{adl_name}-scaled-flame.folded")
     mixed_flat_flame_file = os.path.join(out_dir, "mixed-flat-flame.folded")
     mixed_scaled_flame_file = os.path.join(out_dir, "mixed-scaled-flame.folded")
-    adl_map = AdlMap(adl_mapping_file)
 
     match adl_map.adl:
         case Adl.DAHLIA:
