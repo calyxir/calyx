@@ -1317,6 +1317,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "fsm_to_dot"
+version = "0.1.0"
+dependencies = [
+ "argh",
+ "calyx-frontend",
+ "calyx-ir",
+ "calyx-opt",
+ "calyx-utils",
+ "petgraph",
+]
+
+[[package]]
 name = "fst-writer"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"

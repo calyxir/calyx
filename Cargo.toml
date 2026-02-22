@@ -27,6 +27,7 @@ members = [
     "tools/yxi",
     "tools/calyx-writer",
     "tools/data_gen",
+    "tools/fsm_to_dot",
     "calyx-lsp",
 
     # Playground crate
@@ -88,7 +89,7 @@ baa = { version = "0.16.0", features = ["bigint", "serde1", "fraction1"] }
 [workspace.dependencies.petgraph]
 version = "0.6"
 default-features = false
-features = ["matrix_graph"]
+features = ["matrix_graph", "graphmap"]
 
 [workspace.dependencies.env_logger]
 version = "0.9.0"
