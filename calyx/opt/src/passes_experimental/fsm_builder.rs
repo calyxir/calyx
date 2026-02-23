@@ -305,6 +305,39 @@ impl StaticSchedule<'_, '_> {
                         .collect(),
                         None,
                     )
+                } else if is_inline(sif) {
+                    // @NUM_STATES(n) @INLINE
+                    // This handles cyclic ifs with multiple states
+                    // Register incoming transitions
+                    self.register_transitions(
+                        self.state,
+                        &mut transitions_to_curr,
+                        guard.clone(),
+                    );
+
+                    // Build both branches and collect their exit transitions
+                    let true_guard =
+                        guard.clone().and(ir::Guard::port(sif.port.clone()));
+                    let false_guard = guard
+                        .clone()
+                        .and(ir::Guard::not(ir::Guard::port(sif.port.clone())));
+
+                    let (true_exits, _) = self.build_abstract(
+                        &sif.tbranch,
+                        true_guard,
+                        vec![],
+                        looped_once_guard.clone(),
+                    );
+
+                    let (false_exits, _) = self.build_abstract(
+                        &sif.fbranch,
+                        false_guard,
+                        vec![],
+                        looped_once_guard,
+                    );
+
+                    // Combine exit transitions from both branches
+                    (true_exits.into_iter().chain(false_exits).collect(), None)
                 } else if is_offload(sif) {
                     // @NUM_STATES(1) @OFFLOAD
                     // Offloads are handled by the finish_static_if function.
