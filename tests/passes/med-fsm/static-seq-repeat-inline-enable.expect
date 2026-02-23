@@ -6,8 +6,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @data b = std_reg(2);
     @data c = std_reg(2);
     @generated @fsm_control repeat_counter_0 = std_reg(20);
-    @generated @fsm_control repeat_incr_0 = std_add(20);
-    @generated @fsm_control repeat_lt_0 = std_lt(20);
+    @generated const999999_20_ = std_wire(20);
+    @generated @fsm_control repeat_adder_0 = std_add(20);
     @generated fsm_0 = std_wire(1);
     @generated fsm_1 = std_wire(1);
     @generated fsm_2 = std_wire(1);
@@ -44,8 +44,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       5 : {
         fsm_5.in = 1'd1;
       } => {
-        repeat_lt_0.out -> 0,
-        !repeat_lt_0.out -> 6,
+        repeat_counter_0.out != const999999_20_.out -> 0,
+        repeat_counter_0.out == const999999_20_.out -> 6,
         default -> 5,
       },
       6 : {
@@ -55,17 +55,17 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
         fsm_7.in = 1'd1;
       } => 0,
     }
+    const999999_20_.in = fsm_5.out ? 20'd999999;
     b.write_en = fsm_0.out | fsm_1.out | fsm_3.out | fsm_4.out | fsm_6.out ? 1'd1;
     b.in = fsm_1.out | fsm_2.out | fsm_4.out | fsm_5.out | fsm_6.out | fsm_7.out ? 2'd1;
     b.in = fsm_0.out | fsm_3.out ? 2'd0;
-    repeat_incr_0.left = fsm_5.out ? repeat_counter_0.out;
-    repeat_incr_0.right = fsm_5.out ? 20'd1;
     repeat_counter_0.write_en = fsm_5.out ? 1'd1;
-    repeat_counter_0.in = fsm_5.out ? repeat_incr_0.out;
+    repeat_counter_0.in = repeat_counter_0.out == const999999_20_.out & fsm_5.out ? 20'd0;
+    repeat_counter_0.in = repeat_counter_0.out != const999999_20_.out & fsm_5.out ? repeat_adder_0.out;
     c.write_en = fsm_2.out | fsm_5.out | fsm_7.out ? 1'd1;
     c.in = fsm_1.out | fsm_2.out | fsm_4.out | fsm_5.out | fsm_6.out | fsm_7.out ? 2'd3;
-    repeat_lt_0.left = repeat_counter_0.out;
-    repeat_lt_0.right = 20'd999999;
+    repeat_adder_0.left = fsm_5.out ? repeat_counter_0.out;
+    repeat_adder_0.right = fsm_5.out ? 20'd1;
   }
   control {
     fsm;

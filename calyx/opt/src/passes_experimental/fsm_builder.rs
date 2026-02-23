@@ -616,12 +616,12 @@ impl Visitor for FSMBuilder {
     /// into the parent FSM by `build_abstract`.
     fn finish_static_repeat(
         &mut self,
-        s: &mut calyx_ir::StaticRepeat,
+        srep: &mut calyx_ir::StaticRepeat,
         comp: &mut calyx_ir::Component,
         sigs: &calyx_ir::LibrarySignatures,
         _comps: &[calyx_ir::Component],
     ) -> crate::traversal::VisResult {
-        if is_offload(s) {
+        if is_offload(srep) {
             let non_promoted_static_component = comp.is_static()
                 && !(comp
                     .attributes
@@ -629,13 +629,13 @@ impl Visitor for FSMBuilder {
 
             let mut builder = ir::Builder::new(comp, sigs);
             let signal_on = builder.add_constant(1, 1);
-            let repeat_group = builder.add_static_group("repeat", s.latency);
+            let repeat_group = builder.add_static_group("repeat", srep.latency);
             let mut sch_generator = StaticSchedule::from(&mut builder);
 
             let trigger_fsm = {
                 // This FSM implements the schedule for the body of the repeat
                 let fsm = sch_generator.fsm_build(
-                    &s.body,
+                    &srep.body,
                     Component {
                         non_promoted_static_component: Some(
                             non_promoted_static_component,
@@ -654,7 +654,7 @@ impl Visitor for FSMBuilder {
                 // number of times.
                 trigger_thread
                     .guard
-                    .add_interval(ir::StaticTiming::new((0, s.latency)));
+                    .add_interval(ir::StaticTiming::new((0, srep.latency)));
                 trigger_thread
             };
 
@@ -664,6 +664,8 @@ impl Visitor for FSMBuilder {
                 attributes: ir::Attributes::default(),
             });
             enable.get_mut_attributes().insert(INLINE, 1);
+            enable.get_mut_attributes().insert(NUM_STATES, srep.latency);
+
             Ok(Action::static_change(enable))
         } else {
             Ok(Action::Continue)
@@ -677,12 +679,12 @@ impl Visitor for FSMBuilder {
     /// later be integrated into the parent FSM by `build_abstract`.
     fn finish_static_if(
         &mut self,
-        s: &mut calyx_ir::StaticIf,
+        sif: &mut calyx_ir::StaticIf,
         comp: &mut calyx_ir::Component,
         sigs: &calyx_ir::LibrarySignatures,
         _comps: &[calyx_ir::Component],
     ) -> crate::traversal::VisResult {
-        if is_offload(s) {
+        if is_offload(sif) {
             let non_promoted_static_component = comp.is_static()
                 && !(comp
                     .attributes
@@ -694,7 +696,7 @@ impl Visitor for FSMBuilder {
             // generate FSM for true branch
             let mut sch_constructor_true = StaticSchedule::from(&mut builder);
             let true_branch_fsm = sch_constructor_true.fsm_build(
-                &s.tbranch,
+                &sif.tbranch,
                 Component {
                     non_promoted_static_component: Some(
                         non_promoted_static_component,
@@ -704,9 +706,9 @@ impl Visitor for FSMBuilder {
             );
 
             // group to active each FSM conditionally
-            let if_group = builder.add_static_group("if", s.latency);
+            let if_group = builder.add_static_group("if", sif.latency);
             let true_guard: ir::Guard<ir::StaticTiming> =
-                ir::Guard::port(ir::RRC::clone(&s.port));
+                ir::Guard::port(ir::RRC::clone(&sif.port));
             let false_guard = ir::Guard::not(true_guard.clone());
 
             // assignments to active each FSM
@@ -716,15 +718,15 @@ impl Visitor for FSMBuilder {
                     signal_on.borrow().get("out"),
                     true_guard,
                 ),
-                s.tbranch.get_latency(),
+                sif.tbranch.get_latency(),
             )];
 
             // generate FSM and start condition for false branch if branch not empty
-            if !(matches!(&*s.fbranch, ir::StaticControl::Empty(_))) {
+            if !(matches!(&*sif.fbranch, ir::StaticControl::Empty(_))) {
                 let mut sch_constructor_false =
                     StaticSchedule::from(&mut builder);
                 let false_branch_fsm = sch_constructor_false.fsm_build(
-                    &s.fbranch,
+                    &sif.fbranch,
                     Component {
                         non_promoted_static_component: Some(
                             non_promoted_static_component,
@@ -738,7 +740,7 @@ impl Visitor for FSMBuilder {
                         signal_on.borrow().get("out"),
                         false_guard,
                     ),
-                    s.fbranch.get_latency(),
+                    sif.fbranch.get_latency(),
                 ));
             }
 
@@ -765,6 +767,8 @@ impl Visitor for FSMBuilder {
             });
 
             enable.get_mut_attributes().insert(INLINE, 1);
+            enable.get_mut_attributes().insert(NUM_STATES, sif.latency);
+
             Ok(Action::static_change(enable))
         } else {
             Ok(Action::Continue)
@@ -824,6 +828,7 @@ impl Visitor for FSMBuilder {
                 attributes: ir::Attributes::default(),
             });
             enable.get_mut_attributes().insert(INLINE, 1);
+            enable.get_mut_attributes().insert(NUM_STATES, spar.latency);
 
             Ok(Action::static_change(enable))
         } else {

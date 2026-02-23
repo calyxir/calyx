@@ -1,0 +1,184 @@
+extern "/home/cys36/.calyx/primitives/memories/comb.sv" {
+  primitive comb_mem_d1[WIDTH, SIZE, IDX_SIZE](@read_together addr0: IDX_SIZE, @write_together @data write_data: WIDTH, @write_together @interval @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@read_together read_data: WIDTH, @done done: 1);
+  primitive comb_mem_d2[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE](@read_together @write_together(2) addr0: D0_IDX_SIZE, @read_together @write_together(2) addr1: D1_IDX_SIZE, @write_together @data write_data: WIDTH, @write_together @interval @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@read_together read_data: WIDTH, @done done: 1);
+  primitive comb_mem_d3[WIDTH, D0_SIZE, D1_SIZE, D2_SIZE, D0_IDX_SIZE, D1_IDX_SIZE, D2_IDX_SIZE](@read_together @write_together(2) addr0: D0_IDX_SIZE, @read_together @write_together(2) addr1: D1_IDX_SIZE, @read_together @write_together(2) addr2: D2_IDX_SIZE, @write_together @data write_data: WIDTH, @write_together @interval @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@read_together read_data: WIDTH, @done done: 1);
+  primitive comb_mem_d4[WIDTH, D0_SIZE, D1_SIZE, D2_SIZE, D3_SIZE, D0_IDX_SIZE, D1_IDX_SIZE, D2_IDX_SIZE, D3_IDX_SIZE](@read_together @write_together(2) addr0: D0_IDX_SIZE, @read_together @write_together(2) addr1: D1_IDX_SIZE, @read_together @write_together(2) addr2: D2_IDX_SIZE, @read_together @write_together(2) addr3: D3_IDX_SIZE, @write_together @data write_data: WIDTH, @write_together @interval @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@read_together read_data: WIDTH, @done done: 1);
+}
+extern "/home/cys36/.calyx/primitives/core.sv" {
+  comb primitive std_slice<"share"=1>[IN_WIDTH, OUT_WIDTH](@data in: IN_WIDTH) -> (out: OUT_WIDTH);
+  comb primitive std_pad<"share"=1>[IN_WIDTH, OUT_WIDTH](@data in: IN_WIDTH) -> (out: OUT_WIDTH);
+  comb primitive std_cat<"share"=1>[LEFT_WIDTH, RIGHT_WIDTH, OUT_WIDTH](@data left: LEFT_WIDTH, @data right: RIGHT_WIDTH) -> (out: OUT_WIDTH);
+  comb primitive std_bit_slice<"share"=1>[IN_WIDTH, START_IDX, END_IDX, OUT_WIDTH](@data in: IN_WIDTH) -> (out: OUT_WIDTH);
+  comb primitive std_not<"share"=1>[WIDTH](@data in: WIDTH) -> (out: WIDTH);
+  comb primitive std_and<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_or<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_xor<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_sub<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_gt<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_lt<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_eq<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_neq<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_ge<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_le<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_rsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_mux<"share"=1>[WIDTH](@data cond: 1, @data tru: WIDTH, @data fal: WIDTH) -> (out: WIDTH);
+  primitive std_skid_buffer<"share"=1>[WIDTH](@data in: WIDTH, i_valid: 1, i_ready: 1, @clk clk: 1, @reset reset: 1) -> (@stable out: WIDTH, o_valid: 1, o_ready: 1);
+  primitive std_bypass_reg<"share"=1>[WIDTH](@data in: WIDTH, @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@stable out: WIDTH, @done done: 1);
+}
+primitive undef<"share"=1>[WIDTH]() -> (out: WIDTH) {
+  assign out = 'x;
+}
+comb primitive std_const<"share"=1>[WIDTH, VALUE]() -> (out: WIDTH) {
+  assign out = VALUE;
+}
+comb primitive std_wire<"share"=1>[WIDTH](@data in: WIDTH) -> (out: WIDTH) {
+  assign out = in;
+}
+comb primitive std_add<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH) {
+  assign out = left + right;
+}
+comb primitive std_lsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH) {
+  assign out = left << right;
+}
+primitive std_reg<"state_share"=1>[WIDTH](@write_together @data in: WIDTH, @write_together @interval @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@stable out: WIDTH, @done done: 1) {
+  always_ff @(posedge clk) begin
+    if (reset) begin
+       out <= 0;
+       done <= 0;
+    end else if (write_en) begin
+      out <= in;
+      done <= 1'd1;
+    end else done <= 1'd0;
+  end
+}
+primitive init_one_reg<"state_share"=1>[WIDTH](@write_together @data in: WIDTH, @write_together @interval @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@stable out: WIDTH, @done done: 1) {
+  always_ff @(posedge clk) begin
+    if (reset) begin
+       out <= 1;
+       done <= 0;
+    end else if (write_en) begin
+      out <= in;
+      done <= 1'd1;
+    end else done <= 1'd0;
+  end
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r1 = std_reg(2);
+    r2 = std_reg(2);
+    r3 = std_reg(2);
+    r4 = std_reg(2);
+    r5 = std_reg(2);
+    r6 = std_reg(2);
+    add1 = std_add(2);
+    add2 = std_add(2);
+    add3 = std_add(2);
+    add4 = std_add(2);
+    add5 = std_add(2);
+    add6 = std_add(2);
+    sum1 = std_reg(2);
+    summer1 = std_add(2);
+    sum2 = std_reg(2);
+    summer2 = std_add(2);
+    sum3 = std_reg(2);
+    summer3 = std_add(2);
+    @external m = comb_mem_d1(2, 3, 2);
+  }
+  wires {
+    static<1> group add_1 {
+      add1.left = 2'd0;
+      add1.right = 2'd1;
+      r1.write_en = 1'd1;
+      r1.in = add1.out;
+    }
+    static<1> group add_2 {
+      add2.left = 2'd0;
+      add2.right = 2'd1;
+      r2.write_en = 1'd1;
+      r2.in = add2.out;
+    }
+    static<1> group add_3 {
+      add3.left = 2'd0;
+      add3.right = 2'd1;
+      r3.write_en = 1'd1;
+      r3.in = add3.out;
+    }
+    static<1> group add_4 {
+      add4.left = 2'd0;
+      add4.right = 2'd1;
+      r4.write_en = 1'd1;
+      r4.in = add4.out;
+    }
+    static<1> group add_5 {
+      add5.left = 2'd0;
+      add5.right = 2'd1;
+      r5.write_en = 1'd1;
+      r5.in = add5.out;
+    }
+    static<1> group add_6 {
+      add6.left = 2'd0;
+      add6.right = 2'd1;
+      r6.write_en = 1'd1;
+      r6.in = add6.out;
+    }
+    static<4> group sum_1 {
+      summer1.left = r1.out;
+      summer1.right = r2.out;
+      sum1.write_en = 1'd1;
+      sum1.in = summer1.out;
+    }
+    static<4> group sum_2 {
+      summer2.left = r3.out;
+      summer2.right = r4.out;
+      sum2.write_en = 1'd1;
+      sum2.in = summer2.out;
+    }
+    static<4> group sum_3 {
+      summer3.left = r5.out;
+      summer3.right = r6.out;
+      sum3.write_en = 1'd1;
+      sum3.in = summer3.out;
+    }
+    static<4> group write_1 {
+      m.write_en = 1'd1;
+      m.write_data = sum1.out;
+      m.addr0 = 2'd0;
+    }
+    static<4> group write_2 {
+      m.write_en = 1'd1;
+      m.write_data = sum2.out;
+      m.addr0 = 2'd1;
+    }
+    static<4> group write_3 {
+      m.write_en = 1'd1;
+      m.write_data = sum3.out;
+      m.addr0 = 2'd2;
+    }
+  }
+  control {
+    @NUM_STATES(129) @INLINE static<104034> seq  {
+      @NUM_STATES(105) @INLINE static repeat 10 {
+        @NUM_STATES(105) @INLINE static<10401> seq  {
+          @NUM_STATES @INLINE @ACYCLIC add_1;
+          @NUM_STATES(104) @INLINE static repeat 100 {
+            @NUM_STATES(104) @INLINE @ACYCLIC static<104> seq  {
+              @NUM_STATES @INLINE @ACYCLIC add_2;
+              @NUM_STATES @INLINE @ACYCLIC add_3;
+              @NUM_STATES @INLINE @ACYCLIC add_4;
+              @NUM_STATES @INLINE @ACYCLIC add_5;
+              @NUM_STATES(100) @UNROLL @ACYCLIC static repeat 100 {
+                @NUM_STATES @INLINE @ACYCLIC add_6;
+              }
+            }
+          }
+        }
+      }
+      @NUM_STATES(4) @INLINE @ACYCLIC sum_1;
+      @NUM_STATES(4) @INLINE @ACYCLIC sum_2;
+      @NUM_STATES(4) @INLINE @ACYCLIC sum_3;
+      @NUM_STATES(4) @INLINE @ACYCLIC write_1;
+      @NUM_STATES(4) @INLINE @ACYCLIC write_2;
+      @NUM_STATES(4) @INLINE @ACYCLIC write_3;
+    }
+  }
+}

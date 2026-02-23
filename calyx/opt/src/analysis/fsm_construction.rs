@@ -206,77 +206,62 @@ impl StaticSchedule<'_, '_> {
             .add_attribute(ir::BoolAttr::FSMControl, 1);
 
         let signal_on = self.builder.add_constant(1, 1);
+
+        // Final state constant: num_repeats - 1
         let counter_max =
             self.builder.add_constant(num_repeats - 1, counter_width);
 
-        // Increment counter on the last state of the loop body
-        let incr = self.builder.add_primitive(
-            format!("repeat_incr_{loop_start_state}"),
+        // Wire for comparing against final state
+        let final_state_wire: ir::RRC<ir::Cell> = self.builder.add_primitive(
+            format!("const{}_{}_", num_repeats - 1, counter_width),
+            "std_wire",
+            &[counter_width],
+        );
+
+        // Guard representing if counter is at final state
+        let final_state_guard = ir::Guard::CompOp(
+            ir::PortComp::Eq,
+            counter.borrow().get("out"),
+            final_state_wire.borrow().get("out"),
+        );
+        let not_final_state_guard = final_state_guard.clone().not();
+
+        // Build increment logic
+        let adder = self.builder.add_primitive(
+            format!("repeat_adder_{loop_start_state}"),
             "std_add",
             &[counter_width],
         );
-        incr.borrow_mut().add_attribute(ir::BoolAttr::FSMControl, 1);
+        adder
+            .borrow_mut()
+            .add_attribute(ir::BoolAttr::FSMControl, 1);
 
-        let one = self.builder.add_constant(1, counter_width);
+        let const_one = self.builder.add_constant(1, counter_width);
+        let const_zero = self.builder.add_constant(0, counter_width);
 
-        // Assignments to increment the counter
-        let incr_assigns = vec![
-            self.builder.build_assignment(
-                incr.borrow().get("left"),
-                counter.borrow().get("out"),
-                ir::Guard::True,
-            ),
-            self.builder.build_assignment(
-                incr.borrow().get("right"),
-                one.borrow().get("out"),
-                ir::Guard::True,
-            ),
-            self.builder.build_assignment(
-                counter.borrow().get("in"),
-                incr.borrow().get("out"),
-                ir::Guard::True,
-            ),
-            self.builder.build_assignment(
-                counter.borrow().get("write_en"),
-                signal_on.borrow().get("out"),
-                ir::Guard::True,
-            ),
-        ];
+        // Assignments to increment/reset the counter on the last state of the loop body
+        let counter_assigns = build_assignments!(self.builder;
+            final_state_wire["in"] = ? counter_max["out"];
+            adder["left"] = ? counter["out"];
+            adder["right"] = ? const_one["out"];
+            counter["write_en"] = ? signal_on["out"];
+            counter["in"] = final_state_guard ? const_zero["out"];
+            counter["in"] = not_final_state_guard ? adder["out"];
+        );
 
-        // Add increment assignments to the last state of the body
+        // Add counter increment/reset assignments to the last state of the body
         self.state2assigns
             .entry(loop_end_state)
-            .and_modify(|assigns| assigns.extend(incr_assigns.clone()))
-            .or_insert(incr_assigns);
+            .and_modify(|assigns| assigns.extend(counter_assigns.to_vec()))
+            .or_insert(counter_assigns.to_vec());
 
-        // Create guard: counter < num_repeats - 1 (loop condition)
-        let lt = self.builder.add_primitive(
-            format!("repeat_lt_{loop_start_state}"),
-            "std_lt",
-            &[counter_width],
-        );
-        lt.borrow_mut().add_attribute(ir::BoolAttr::FSMControl, 1);
+        // Exit condition: counter == max
+        let exit_guard = final_state_guard.clone();
 
-        let loop_cond_assigns = vec![
-            self.builder.build_assignment(
-                lt.borrow().get("left"),
-                counter.borrow().get("out"),
-                ir::Guard::True,
-            ),
-            self.builder.build_assignment(
-                lt.borrow().get("right"),
-                counter_max.borrow().get("out"),
-                ir::Guard::True,
-            ),
-        ];
-
-        // These assignments should be continuous
-        self.builder.add_continuous_assignments(loop_cond_assigns);
-
-        // Create the loop-back transition: if counter < max, go back to loop start
-        let loop_back_guard = ir::Guard::port(lt.borrow().get("out"));
+        // Create the loop-back transition: if counter != max, go back to loop start
+        let loop_back_guard = not_final_state_guard;
         let loop_back_transition =
-            IncompleteTransition::new(loop_end_state, loop_back_guard.clone());
+            IncompleteTransition::new(loop_end_state, loop_back_guard);
 
         // Register the back edge
         self.register_transitions(
@@ -285,8 +270,8 @@ impl StaticSchedule<'_, '_> {
             guard,
         );
 
-        // Exit condition: counter >= max
-        ir::Guard::Not(Box::new(loop_back_guard))
+        // Exit condition: counter == max
+        exit_guard
     }
 
     pub fn build_fsm_pieces(&mut self, fsm: ir::RRC<ir::FSM>) -> FSMPieces {

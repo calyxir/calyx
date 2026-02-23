@@ -5,8 +5,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @data a = std_reg(2);
     @data b = std_reg(2);
     @generated @fsm_control repeat_counter_0 = std_reg(20);
-    @generated @fsm_control repeat_incr_0 = std_add(20);
-    @generated @fsm_control repeat_lt_0 = std_lt(20);
+    @generated const999999_20_ = std_wire(20);
+    @generated @fsm_control repeat_adder_0 = std_add(20);
     @generated fsm_0 = std_wire(1);
     @generated fsm_1 = std_wire(1);
     @generated fsm_2 = std_wire(1);
@@ -34,23 +34,23 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       3 : {
         fsm_3.in = 1'd1;
       } => {
-        repeat_lt_0.out -> 0,
-        !repeat_lt_0.out -> 4,
+        repeat_counter_0.out != const999999_20_.out -> 0,
+        repeat_counter_0.out == const999999_20_.out -> 4,
         default -> 3,
       },
       4 : {
         fsm_4.in = 1'd1;
       } => 0,
     }
-    repeat_incr_0.left = fsm_3.out ? repeat_counter_0.out;
-    repeat_incr_0.right = fsm_3.out ? 20'd1;
+    const999999_20_.in = fsm_3.out ? 20'd999999;
     a.write_en = fsm_0.out | fsm_1.out | fsm_2.out | fsm_3.out | fsm_4.out ? 1'd1;
     a.in = fsm_1.out | fsm_3.out | fsm_4.out ? 2'd1;
     a.in = fsm_0.out | fsm_2.out ? 2'd0;
     repeat_counter_0.write_en = fsm_3.out ? 1'd1;
-    repeat_counter_0.in = fsm_3.out ? repeat_incr_0.out;
-    repeat_lt_0.left = repeat_counter_0.out;
-    repeat_lt_0.right = 20'd999999;
+    repeat_counter_0.in = repeat_counter_0.out == const999999_20_.out & fsm_3.out ? 20'd0;
+    repeat_counter_0.in = repeat_counter_0.out != const999999_20_.out & fsm_3.out ? repeat_adder_0.out;
+    repeat_adder_0.left = fsm_3.out ? repeat_counter_0.out;
+    repeat_adder_0.right = fsm_3.out ? 20'd1;
   }
   control {
     fsm;

@@ -1,0 +1,669 @@
+extern "/home/cys36/.calyx/primitives/memories/comb.sv" {
+  primitive comb_mem_d1[WIDTH, SIZE, IDX_SIZE](@read_together addr0: IDX_SIZE, @write_together @data write_data: WIDTH, @write_together @interval @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@read_together read_data: WIDTH, @done done: 1);
+  primitive comb_mem_d2[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE](@read_together @write_together(2) addr0: D0_IDX_SIZE, @read_together @write_together(2) addr1: D1_IDX_SIZE, @write_together @data write_data: WIDTH, @write_together @interval @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@read_together read_data: WIDTH, @done done: 1);
+  primitive comb_mem_d3[WIDTH, D0_SIZE, D1_SIZE, D2_SIZE, D0_IDX_SIZE, D1_IDX_SIZE, D2_IDX_SIZE](@read_together @write_together(2) addr0: D0_IDX_SIZE, @read_together @write_together(2) addr1: D1_IDX_SIZE, @read_together @write_together(2) addr2: D2_IDX_SIZE, @write_together @data write_data: WIDTH, @write_together @interval @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@read_together read_data: WIDTH, @done done: 1);
+  primitive comb_mem_d4[WIDTH, D0_SIZE, D1_SIZE, D2_SIZE, D3_SIZE, D0_IDX_SIZE, D1_IDX_SIZE, D2_IDX_SIZE, D3_IDX_SIZE](@read_together @write_together(2) addr0: D0_IDX_SIZE, @read_together @write_together(2) addr1: D1_IDX_SIZE, @read_together @write_together(2) addr2: D2_IDX_SIZE, @read_together @write_together(2) addr3: D3_IDX_SIZE, @write_together @data write_data: WIDTH, @write_together @interval @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@read_together read_data: WIDTH, @done done: 1);
+}
+extern "/home/cys36/.calyx/primitives/core.sv" {
+  comb primitive std_slice<"share"=1>[IN_WIDTH, OUT_WIDTH](@data in: IN_WIDTH) -> (out: OUT_WIDTH);
+  comb primitive std_pad<"share"=1>[IN_WIDTH, OUT_WIDTH](@data in: IN_WIDTH) -> (out: OUT_WIDTH);
+  comb primitive std_cat<"share"=1>[LEFT_WIDTH, RIGHT_WIDTH, OUT_WIDTH](@data left: LEFT_WIDTH, @data right: RIGHT_WIDTH) -> (out: OUT_WIDTH);
+  comb primitive std_bit_slice<"share"=1>[IN_WIDTH, START_IDX, END_IDX, OUT_WIDTH](@data in: IN_WIDTH) -> (out: OUT_WIDTH);
+  comb primitive std_not<"share"=1>[WIDTH](@data in: WIDTH) -> (out: WIDTH);
+  comb primitive std_and<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_or<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_xor<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_sub<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_gt<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_lt<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_eq<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_neq<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_ge<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_le<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_rsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_mux<"share"=1>[WIDTH](@data cond: 1, @data tru: WIDTH, @data fal: WIDTH) -> (out: WIDTH);
+  primitive std_skid_buffer<"share"=1>[WIDTH](@data in: WIDTH, i_valid: 1, i_ready: 1, @clk clk: 1, @reset reset: 1) -> (@stable out: WIDTH, o_valid: 1, o_ready: 1);
+  primitive std_bypass_reg<"share"=1>[WIDTH](@data in: WIDTH, @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@stable out: WIDTH, @done done: 1);
+}
+primitive undef<"share"=1>[WIDTH]() -> (out: WIDTH) {
+  assign out = 'x;
+}
+comb primitive std_const<"share"=1>[WIDTH, VALUE]() -> (out: WIDTH) {
+  assign out = VALUE;
+}
+comb primitive std_wire<"share"=1>[WIDTH](@data in: WIDTH) -> (out: WIDTH) {
+  assign out = in;
+}
+comb primitive std_add<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH) {
+  assign out = left + right;
+}
+comb primitive std_lsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH) {
+  assign out = left << right;
+}
+primitive std_reg<"state_share"=1>[WIDTH](@write_together @data in: WIDTH, @write_together @interval @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@stable out: WIDTH, @done done: 1) {
+  always_ff @(posedge clk) begin
+    if (reset) begin
+       out <= 0;
+       done <= 0;
+    end else if (write_en) begin
+      out <= in;
+      done <= 1'd1;
+    end else done <= 1'd0;
+  end
+}
+primitive init_one_reg<"state_share"=1>[WIDTH](@write_together @data in: WIDTH, @write_together @interval @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@stable out: WIDTH, @done done: 1) {
+  always_ff @(posedge clk) begin
+    if (reset) begin
+       out <= 1;
+       done <= 0;
+    end else if (write_en) begin
+      out <= in;
+      done <= 1'd1;
+    end else done <= 1'd0;
+  end
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @data r1 = std_reg(2);
+    @data r2 = std_reg(2);
+    @data r3 = std_reg(2);
+    @data r4 = std_reg(2);
+    @data r5 = std_reg(2);
+    @data r6 = std_reg(2);
+    @data add1 = std_add(2);
+    @data add2 = std_add(2);
+    @data add3 = std_add(2);
+    @data add4 = std_add(2);
+    @data add5 = std_add(2);
+    @data add6 = std_add(2);
+    @data sum1 = std_reg(2);
+    @data summer1 = std_add(2);
+    @data sum2 = std_reg(2);
+    @data summer2 = std_add(2);
+    @data sum3 = std_reg(2);
+    @data summer3 = std_add(2);
+    @external @data m = comb_mem_d1(2, 3, 2);
+    @generated @fsm_control repeat_counter_1 = std_reg(7);
+    @generated const99_7_ = std_wire(7);
+    @generated @fsm_control repeat_adder_1 = std_add(7);
+    @generated @fsm_control repeat_counter_0 = std_reg(4);
+    @generated const9_4_ = std_wire(4);
+    @generated @fsm_control repeat_adder_0 = std_add(4);
+    @generated fsm_0 = std_wire(1);
+    @generated fsm_1 = std_wire(1);
+    @generated fsm_2 = std_wire(1);
+    @generated fsm_3 = std_wire(1);
+    @generated fsm_4 = std_wire(1);
+    @generated fsm_5 = std_wire(1);
+    @generated fsm_6 = std_wire(1);
+    @generated fsm_7 = std_wire(1);
+    @generated fsm_8 = std_wire(1);
+    @generated fsm_9 = std_wire(1);
+    @generated fsm_10 = std_wire(1);
+    @generated fsm_11 = std_wire(1);
+    @generated fsm_12 = std_wire(1);
+    @generated fsm_13 = std_wire(1);
+    @generated fsm_14 = std_wire(1);
+    @generated fsm_15 = std_wire(1);
+    @generated fsm_16 = std_wire(1);
+    @generated fsm_17 = std_wire(1);
+    @generated fsm_18 = std_wire(1);
+    @generated fsm_19 = std_wire(1);
+    @generated fsm_20 = std_wire(1);
+    @generated fsm_21 = std_wire(1);
+    @generated fsm_22 = std_wire(1);
+    @generated fsm_23 = std_wire(1);
+    @generated fsm_24 = std_wire(1);
+    @generated fsm_25 = std_wire(1);
+    @generated fsm_26 = std_wire(1);
+    @generated fsm_27 = std_wire(1);
+    @generated fsm_28 = std_wire(1);
+    @generated fsm_29 = std_wire(1);
+    @generated fsm_30 = std_wire(1);
+    @generated fsm_31 = std_wire(1);
+    @generated fsm_32 = std_wire(1);
+    @generated fsm_33 = std_wire(1);
+    @generated fsm_34 = std_wire(1);
+    @generated fsm_35 = std_wire(1);
+    @generated fsm_36 = std_wire(1);
+    @generated fsm_37 = std_wire(1);
+    @generated fsm_38 = std_wire(1);
+    @generated fsm_39 = std_wire(1);
+    @generated fsm_40 = std_wire(1);
+    @generated fsm_41 = std_wire(1);
+    @generated fsm_42 = std_wire(1);
+    @generated fsm_43 = std_wire(1);
+    @generated fsm_44 = std_wire(1);
+    @generated fsm_45 = std_wire(1);
+    @generated fsm_46 = std_wire(1);
+    @generated fsm_47 = std_wire(1);
+    @generated fsm_48 = std_wire(1);
+    @generated fsm_49 = std_wire(1);
+    @generated fsm_50 = std_wire(1);
+    @generated fsm_51 = std_wire(1);
+    @generated fsm_52 = std_wire(1);
+    @generated fsm_53 = std_wire(1);
+    @generated fsm_54 = std_wire(1);
+    @generated fsm_55 = std_wire(1);
+    @generated fsm_56 = std_wire(1);
+    @generated fsm_57 = std_wire(1);
+    @generated fsm_58 = std_wire(1);
+    @generated fsm_59 = std_wire(1);
+    @generated fsm_60 = std_wire(1);
+    @generated fsm_61 = std_wire(1);
+    @generated fsm_62 = std_wire(1);
+    @generated fsm_63 = std_wire(1);
+    @generated fsm_64 = std_wire(1);
+    @generated fsm_65 = std_wire(1);
+    @generated fsm_66 = std_wire(1);
+    @generated fsm_67 = std_wire(1);
+    @generated fsm_68 = std_wire(1);
+    @generated fsm_69 = std_wire(1);
+    @generated fsm_70 = std_wire(1);
+    @generated fsm_71 = std_wire(1);
+    @generated fsm_72 = std_wire(1);
+    @generated fsm_73 = std_wire(1);
+    @generated fsm_74 = std_wire(1);
+    @generated fsm_75 = std_wire(1);
+    @generated fsm_76 = std_wire(1);
+    @generated fsm_77 = std_wire(1);
+    @generated fsm_78 = std_wire(1);
+    @generated fsm_79 = std_wire(1);
+    @generated fsm_80 = std_wire(1);
+    @generated fsm_81 = std_wire(1);
+    @generated fsm_82 = std_wire(1);
+    @generated fsm_83 = std_wire(1);
+    @generated fsm_84 = std_wire(1);
+    @generated fsm_85 = std_wire(1);
+    @generated fsm_86 = std_wire(1);
+    @generated fsm_87 = std_wire(1);
+    @generated fsm_88 = std_wire(1);
+    @generated fsm_89 = std_wire(1);
+    @generated fsm_90 = std_wire(1);
+    @generated fsm_91 = std_wire(1);
+    @generated fsm_92 = std_wire(1);
+    @generated fsm_93 = std_wire(1);
+    @generated fsm_94 = std_wire(1);
+    @generated fsm_95 = std_wire(1);
+    @generated fsm_96 = std_wire(1);
+    @generated fsm_97 = std_wire(1);
+    @generated fsm_98 = std_wire(1);
+    @generated fsm_99 = std_wire(1);
+    @generated fsm_100 = std_wire(1);
+    @generated fsm_101 = std_wire(1);
+    @generated fsm_102 = std_wire(1);
+    @generated fsm_103 = std_wire(1);
+    @generated fsm_104 = std_wire(1);
+    @generated fsm_105 = std_wire(1);
+    @generated fsm_106 = std_wire(1);
+    @generated fsm_107 = std_wire(1);
+    @generated fsm_108 = std_wire(1);
+    @generated fsm_109 = std_wire(1);
+    @generated fsm_110 = std_wire(1);
+    @generated fsm_111 = std_wire(1);
+    @generated fsm_112 = std_wire(1);
+    @generated fsm_113 = std_wire(1);
+    @generated fsm_114 = std_wire(1);
+    @generated fsm_115 = std_wire(1);
+    @generated fsm_116 = std_wire(1);
+    @generated fsm_117 = std_wire(1);
+    @generated fsm_118 = std_wire(1);
+    @generated fsm_119 = std_wire(1);
+    @generated fsm_120 = std_wire(1);
+    @generated fsm_121 = std_wire(1);
+    @generated fsm_122 = std_wire(1);
+    @generated fsm_123 = std_wire(1);
+    @generated fsm_124 = std_wire(1);
+    @generated fsm_125 = std_wire(1);
+    @generated fsm_126 = std_wire(1);
+    @generated fsm_127 = std_wire(1);
+    @generated fsm_128 = std_wire(1);
+    @generated @fsm_control looped_once = std_reg(1);
+  }
+  wires {
+    fsm fsm {
+      0 : {
+        fsm_0.in = fsm[start] ? 1'd1;
+        looped_once.in = fsm[start] ? 1'd1;
+        looped_once.write_en = 1'd1;
+        fsm[done] = looped_once.out;
+      } => {
+        fsm[start] -> 1,
+        default -> 0,
+      },
+      1 : {
+        fsm_1.in = 1'd1;
+      } => 2,
+      2 : {
+        fsm_2.in = 1'd1;
+      } => 3,
+      3 : {
+        fsm_3.in = 1'd1;
+      } => 4,
+      4 : {
+        fsm_4.in = 1'd1;
+      } => 5,
+      5 : {
+        fsm_5.in = 1'd1;
+      } => 6,
+      6 : {
+        fsm_6.in = 1'd1;
+      } => 7,
+      7 : {
+        fsm_7.in = 1'd1;
+      } => 8,
+      8 : {
+        fsm_8.in = 1'd1;
+      } => 9,
+      9 : {
+        fsm_9.in = 1'd1;
+      } => 10,
+      10 : {
+        fsm_10.in = 1'd1;
+      } => 11,
+      11 : {
+        fsm_11.in = 1'd1;
+      } => 12,
+      12 : {
+        fsm_12.in = 1'd1;
+      } => 13,
+      13 : {
+        fsm_13.in = 1'd1;
+      } => 14,
+      14 : {
+        fsm_14.in = 1'd1;
+      } => 15,
+      15 : {
+        fsm_15.in = 1'd1;
+      } => 16,
+      16 : {
+        fsm_16.in = 1'd1;
+      } => 17,
+      17 : {
+        fsm_17.in = 1'd1;
+      } => 18,
+      18 : {
+        fsm_18.in = 1'd1;
+      } => 19,
+      19 : {
+        fsm_19.in = 1'd1;
+      } => 20,
+      20 : {
+        fsm_20.in = 1'd1;
+      } => 21,
+      21 : {
+        fsm_21.in = 1'd1;
+      } => 22,
+      22 : {
+        fsm_22.in = 1'd1;
+      } => 23,
+      23 : {
+        fsm_23.in = 1'd1;
+      } => 24,
+      24 : {
+        fsm_24.in = 1'd1;
+      } => 25,
+      25 : {
+        fsm_25.in = 1'd1;
+      } => 26,
+      26 : {
+        fsm_26.in = 1'd1;
+      } => 27,
+      27 : {
+        fsm_27.in = 1'd1;
+      } => 28,
+      28 : {
+        fsm_28.in = 1'd1;
+      } => 29,
+      29 : {
+        fsm_29.in = 1'd1;
+      } => 30,
+      30 : {
+        fsm_30.in = 1'd1;
+      } => 31,
+      31 : {
+        fsm_31.in = 1'd1;
+      } => 32,
+      32 : {
+        fsm_32.in = 1'd1;
+      } => 33,
+      33 : {
+        fsm_33.in = 1'd1;
+      } => 34,
+      34 : {
+        fsm_34.in = 1'd1;
+      } => 35,
+      35 : {
+        fsm_35.in = 1'd1;
+      } => 36,
+      36 : {
+        fsm_36.in = 1'd1;
+      } => 37,
+      37 : {
+        fsm_37.in = 1'd1;
+      } => 38,
+      38 : {
+        fsm_38.in = 1'd1;
+      } => 39,
+      39 : {
+        fsm_39.in = 1'd1;
+      } => 40,
+      40 : {
+        fsm_40.in = 1'd1;
+      } => 41,
+      41 : {
+        fsm_41.in = 1'd1;
+      } => 42,
+      42 : {
+        fsm_42.in = 1'd1;
+      } => 43,
+      43 : {
+        fsm_43.in = 1'd1;
+      } => 44,
+      44 : {
+        fsm_44.in = 1'd1;
+      } => 45,
+      45 : {
+        fsm_45.in = 1'd1;
+      } => 46,
+      46 : {
+        fsm_46.in = 1'd1;
+      } => 47,
+      47 : {
+        fsm_47.in = 1'd1;
+      } => 48,
+      48 : {
+        fsm_48.in = 1'd1;
+      } => 49,
+      49 : {
+        fsm_49.in = 1'd1;
+      } => 50,
+      50 : {
+        fsm_50.in = 1'd1;
+      } => 51,
+      51 : {
+        fsm_51.in = 1'd1;
+      } => 52,
+      52 : {
+        fsm_52.in = 1'd1;
+      } => 53,
+      53 : {
+        fsm_53.in = 1'd1;
+      } => 54,
+      54 : {
+        fsm_54.in = 1'd1;
+      } => 55,
+      55 : {
+        fsm_55.in = 1'd1;
+      } => 56,
+      56 : {
+        fsm_56.in = 1'd1;
+      } => 57,
+      57 : {
+        fsm_57.in = 1'd1;
+      } => 58,
+      58 : {
+        fsm_58.in = 1'd1;
+      } => 59,
+      59 : {
+        fsm_59.in = 1'd1;
+      } => 60,
+      60 : {
+        fsm_60.in = 1'd1;
+      } => 61,
+      61 : {
+        fsm_61.in = 1'd1;
+      } => 62,
+      62 : {
+        fsm_62.in = 1'd1;
+      } => 63,
+      63 : {
+        fsm_63.in = 1'd1;
+      } => 64,
+      64 : {
+        fsm_64.in = 1'd1;
+      } => 65,
+      65 : {
+        fsm_65.in = 1'd1;
+      } => 66,
+      66 : {
+        fsm_66.in = 1'd1;
+      } => 67,
+      67 : {
+        fsm_67.in = 1'd1;
+      } => 68,
+      68 : {
+        fsm_68.in = 1'd1;
+      } => 69,
+      69 : {
+        fsm_69.in = 1'd1;
+      } => 70,
+      70 : {
+        fsm_70.in = 1'd1;
+      } => 71,
+      71 : {
+        fsm_71.in = 1'd1;
+      } => 72,
+      72 : {
+        fsm_72.in = 1'd1;
+      } => 73,
+      73 : {
+        fsm_73.in = 1'd1;
+      } => 74,
+      74 : {
+        fsm_74.in = 1'd1;
+      } => 75,
+      75 : {
+        fsm_75.in = 1'd1;
+      } => 76,
+      76 : {
+        fsm_76.in = 1'd1;
+      } => 77,
+      77 : {
+        fsm_77.in = 1'd1;
+      } => 78,
+      78 : {
+        fsm_78.in = 1'd1;
+      } => 79,
+      79 : {
+        fsm_79.in = 1'd1;
+      } => 80,
+      80 : {
+        fsm_80.in = 1'd1;
+      } => 81,
+      81 : {
+        fsm_81.in = 1'd1;
+      } => 82,
+      82 : {
+        fsm_82.in = 1'd1;
+      } => 83,
+      83 : {
+        fsm_83.in = 1'd1;
+      } => 84,
+      84 : {
+        fsm_84.in = 1'd1;
+      } => 85,
+      85 : {
+        fsm_85.in = 1'd1;
+      } => 86,
+      86 : {
+        fsm_86.in = 1'd1;
+      } => 87,
+      87 : {
+        fsm_87.in = 1'd1;
+      } => 88,
+      88 : {
+        fsm_88.in = 1'd1;
+      } => 89,
+      89 : {
+        fsm_89.in = 1'd1;
+      } => 90,
+      90 : {
+        fsm_90.in = 1'd1;
+      } => 91,
+      91 : {
+        fsm_91.in = 1'd1;
+      } => 92,
+      92 : {
+        fsm_92.in = 1'd1;
+      } => 93,
+      93 : {
+        fsm_93.in = 1'd1;
+      } => 94,
+      94 : {
+        fsm_94.in = 1'd1;
+      } => 95,
+      95 : {
+        fsm_95.in = 1'd1;
+      } => 96,
+      96 : {
+        fsm_96.in = 1'd1;
+      } => 97,
+      97 : {
+        fsm_97.in = 1'd1;
+      } => 98,
+      98 : {
+        fsm_98.in = 1'd1;
+      } => 99,
+      99 : {
+        fsm_99.in = 1'd1;
+      } => 100,
+      100 : {
+        fsm_100.in = 1'd1;
+      } => 101,
+      101 : {
+        fsm_101.in = 1'd1;
+      } => 102,
+      102 : {
+        fsm_102.in = 1'd1;
+      } => 103,
+      103 : {
+        fsm_103.in = 1'd1;
+      } => 104,
+      104 : {
+        fsm_104.in = 1'd1;
+      } => {
+        repeat_counter_1.out != const99_7_.out -> 1,
+        repeat_counter_0.out != const9_4_.out -> 0,
+        repeat_counter_0.out == const9_4_.out -> 105,
+        default -> 104,
+      },
+      105 : {
+        fsm_105.in = 1'd1;
+      } => 106,
+      106 : {
+        fsm_106.in = 1'd1;
+      } => 107,
+      107 : {
+        fsm_107.in = 1'd1;
+      } => 108,
+      108 : {
+        fsm_108.in = 1'd1;
+      } => 109,
+      109 : {
+        fsm_109.in = 1'd1;
+      } => 110,
+      110 : {
+        fsm_110.in = 1'd1;
+      } => 111,
+      111 : {
+        fsm_111.in = 1'd1;
+      } => 112,
+      112 : {
+        fsm_112.in = 1'd1;
+      } => 113,
+      113 : {
+        fsm_113.in = 1'd1;
+      } => 114,
+      114 : {
+        fsm_114.in = 1'd1;
+      } => 115,
+      115 : {
+        fsm_115.in = 1'd1;
+      } => 116,
+      116 : {
+        fsm_116.in = 1'd1;
+      } => 117,
+      117 : {
+        fsm_117.in = 1'd1;
+      } => 118,
+      118 : {
+        fsm_118.in = 1'd1;
+      } => 119,
+      119 : {
+        fsm_119.in = 1'd1;
+      } => 120,
+      120 : {
+        fsm_120.in = 1'd1;
+      } => 121,
+      121 : {
+        fsm_121.in = 1'd1;
+      } => 122,
+      122 : {
+        fsm_122.in = 1'd1;
+      } => 123,
+      123 : {
+        fsm_123.in = 1'd1;
+      } => 124,
+      124 : {
+        fsm_124.in = 1'd1;
+      } => 125,
+      125 : {
+        fsm_125.in = 1'd1;
+      } => 126,
+      126 : {
+        fsm_126.in = 1'd1;
+      } => 127,
+      127 : {
+        fsm_127.in = 1'd1;
+      } => 128,
+      128 : {
+        fsm_128.in = 1'd1;
+      } => 0,
+    }
+    r5.write_en = fsm_4.out ? 1'd1;
+    r5.in = fsm_4.out ? add1.out;
+    add1.left = fsm_113.out | fsm_114.out | fsm_115.out | fsm_116.out ? r5.out;
+    add1.left = fsm_105.out | fsm_106.out | fsm_107.out | fsm_108.out ? r1.out;
+    add1.left = fsm_0.out | fsm_1.out | fsm_2.out | fsm_3.out | fsm_4.out | fsm_5.out | fsm_6.out | fsm_7.out | fsm_8.out | fsm_9.out | fsm_10.out | fsm_11.out | fsm_12.out | fsm_13.out | fsm_14.out | fsm_15.out | fsm_16.out | fsm_17.out | fsm_18.out | fsm_19.out | fsm_20.out | fsm_21.out | fsm_22.out | fsm_23.out | fsm_24.out | fsm_25.out | fsm_26.out | fsm_27.out | fsm_28.out | fsm_29.out | fsm_30.out | fsm_31.out | fsm_32.out | fsm_33.out | fsm_34.out | fsm_35.out | fsm_36.out | fsm_37.out | fsm_38.out | fsm_39.out | fsm_40.out | fsm_41.out | fsm_42.out | fsm_43.out | fsm_44.out | fsm_45.out | fsm_46.out | fsm_47.out | fsm_48.out | fsm_49.out | fsm_50.out | fsm_51.out | fsm_52.out | fsm_53.out | fsm_54.out | fsm_55.out | fsm_56.out | fsm_57.out | fsm_58.out | fsm_59.out | fsm_60.out | fsm_61.out | fsm_62.out | fsm_63.out | fsm_64.out | fsm_65.out | fsm_66.out | fsm_67.out | fsm_68.out | fsm_69.out | fsm_70.out | fsm_71.out | fsm_72.out | fsm_73.out | fsm_74.out | fsm_75.out | fsm_76.out | fsm_77.out | fsm_78.out | fsm_79.out | fsm_80.out | fsm_81.out | fsm_82.out | fsm_83.out | fsm_84.out | fsm_85.out | fsm_86.out | fsm_87.out | fsm_88.out | fsm_89.out | fsm_90.out | fsm_91.out | fsm_92.out | fsm_93.out | fsm_94.out | fsm_95.out | fsm_96.out | fsm_97.out | fsm_98.out | fsm_99.out | fsm_100.out | fsm_101.out | fsm_102.out | fsm_103.out | fsm_104.out ? 2'd0;
+    add1.left = fsm_109.out | fsm_110.out | fsm_111.out | fsm_112.out ? r3.out;
+    add1.right = fsm_0.out | fsm_1.out | fsm_2.out | fsm_3.out | fsm_4.out | fsm_5.out | fsm_6.out | fsm_7.out | fsm_8.out | fsm_9.out | fsm_10.out | fsm_11.out | fsm_12.out | fsm_13.out | fsm_14.out | fsm_15.out | fsm_16.out | fsm_17.out | fsm_18.out | fsm_19.out | fsm_20.out | fsm_21.out | fsm_22.out | fsm_23.out | fsm_24.out | fsm_25.out | fsm_26.out | fsm_27.out | fsm_28.out | fsm_29.out | fsm_30.out | fsm_31.out | fsm_32.out | fsm_33.out | fsm_34.out | fsm_35.out | fsm_36.out | fsm_37.out | fsm_38.out | fsm_39.out | fsm_40.out | fsm_41.out | fsm_42.out | fsm_43.out | fsm_44.out | fsm_45.out | fsm_46.out | fsm_47.out | fsm_48.out | fsm_49.out | fsm_50.out | fsm_51.out | fsm_52.out | fsm_53.out | fsm_54.out | fsm_55.out | fsm_56.out | fsm_57.out | fsm_58.out | fsm_59.out | fsm_60.out | fsm_61.out | fsm_62.out | fsm_63.out | fsm_64.out | fsm_65.out | fsm_66.out | fsm_67.out | fsm_68.out | fsm_69.out | fsm_70.out | fsm_71.out | fsm_72.out | fsm_73.out | fsm_74.out | fsm_75.out | fsm_76.out | fsm_77.out | fsm_78.out | fsm_79.out | fsm_80.out | fsm_81.out | fsm_82.out | fsm_83.out | fsm_84.out | fsm_85.out | fsm_86.out | fsm_87.out | fsm_88.out | fsm_89.out | fsm_90.out | fsm_91.out | fsm_92.out | fsm_93.out | fsm_94.out | fsm_95.out | fsm_96.out | fsm_97.out | fsm_98.out | fsm_99.out | fsm_100.out | fsm_101.out | fsm_102.out | fsm_103.out | fsm_104.out ? 2'd1;
+    add1.right = fsm_109.out | fsm_110.out | fsm_111.out | fsm_112.out ? r4.out;
+    add1.right = fsm_105.out | fsm_106.out | fsm_107.out | fsm_108.out ? r2.out;
+    add1.right = fsm_113.out | fsm_114.out | fsm_115.out | fsm_116.out ? r6.out;
+    sum1.write_en = fsm_105.out | fsm_106.out | fsm_107.out | fsm_108.out ? 1'd1;
+    sum1.in = fsm_105.out | fsm_106.out | fsm_107.out | fsm_108.out ? add1.out;
+    m.write_en = fsm_117.out | fsm_118.out | fsm_119.out | fsm_120.out | fsm_121.out | fsm_122.out | fsm_123.out | fsm_124.out | fsm_125.out | fsm_126.out | fsm_127.out | fsm_128.out ? 1'd1;
+    m.addr0 = fsm_121.out | fsm_122.out | fsm_123.out | fsm_124.out ? 2'd1;
+    m.addr0 = fsm_117.out | fsm_118.out | fsm_119.out | fsm_120.out ? 2'd0;
+    m.addr0 = fsm_125.out | fsm_126.out | fsm_127.out | fsm_128.out ? 2'd2;
+    m.write_data = fsm_117.out | fsm_118.out | fsm_119.out | fsm_120.out ? sum1.out;
+    m.write_data = fsm_121.out | fsm_122.out | fsm_123.out | fsm_124.out ? r1.out;
+    m.write_data = fsm_125.out | fsm_126.out | fsm_127.out | fsm_128.out ? r2.out;
+    const99_7_.in = fsm_104.out ? 7'd99;
+    r1.write_en = fsm_0.out | fsm_109.out | fsm_110.out | fsm_111.out | fsm_112.out ? 1'd1;
+    r1.in = fsm_0.out | fsm_109.out | fsm_110.out | fsm_111.out | fsm_112.out ? add1.out;
+    r4.write_en = fsm_3.out ? 1'd1;
+    r4.in = fsm_3.out ? add1.out;
+    r2.write_en = fsm_1.out | fsm_113.out | fsm_114.out | fsm_115.out | fsm_116.out ? 1'd1;
+    r2.in = fsm_1.out | fsm_113.out | fsm_114.out | fsm_115.out | fsm_116.out ? add1.out;
+    repeat_adder_1.left = fsm_104.out ? repeat_counter_1.out;
+    repeat_adder_1.right = fsm_104.out ? 7'd1;
+    repeat_counter_1.write_en = fsm_104.out ? 1'd1;
+    repeat_counter_1.in = repeat_counter_1.out != const99_7_.out & fsm_104.out ? repeat_adder_1.out;
+    repeat_counter_1.in = repeat_counter_1.out == const99_7_.out & fsm_104.out ? 7'd0;
+    repeat_counter_0.write_en = fsm_104.out ? 1'd1;
+    repeat_counter_0.in = repeat_counter_0.out == const9_4_.out & fsm_104.out ? 4'd0;
+    repeat_counter_0.in = repeat_counter_0.out != const9_4_.out & fsm_104.out ? repeat_adder_0.out;
+    const9_4_.in = fsm_104.out ? 4'd9;
+    r3.write_en = fsm_2.out ? 1'd1;
+    r3.in = fsm_2.out ? add1.out;
+    repeat_adder_0.left = fsm_104.out ? repeat_counter_0.out;
+    repeat_adder_0.right = fsm_104.out ? 4'd1;
+    r6.write_en = fsm_5.out | fsm_6.out | fsm_7.out | fsm_8.out | fsm_9.out | fsm_10.out | fsm_11.out | fsm_12.out | fsm_13.out | fsm_14.out | fsm_15.out | fsm_16.out | fsm_17.out | fsm_18.out | fsm_19.out | fsm_20.out | fsm_21.out | fsm_22.out | fsm_23.out | fsm_24.out | fsm_25.out | fsm_26.out | fsm_27.out | fsm_28.out | fsm_29.out | fsm_30.out | fsm_31.out | fsm_32.out | fsm_33.out | fsm_34.out | fsm_35.out | fsm_36.out | fsm_37.out | fsm_38.out | fsm_39.out | fsm_40.out | fsm_41.out | fsm_42.out | fsm_43.out | fsm_44.out | fsm_45.out | fsm_46.out | fsm_47.out | fsm_48.out | fsm_49.out | fsm_50.out | fsm_51.out | fsm_52.out | fsm_53.out | fsm_54.out | fsm_55.out | fsm_56.out | fsm_57.out | fsm_58.out | fsm_59.out | fsm_60.out | fsm_61.out | fsm_62.out | fsm_63.out | fsm_64.out | fsm_65.out | fsm_66.out | fsm_67.out | fsm_68.out | fsm_69.out | fsm_70.out | fsm_71.out | fsm_72.out | fsm_73.out | fsm_74.out | fsm_75.out | fsm_76.out | fsm_77.out | fsm_78.out | fsm_79.out | fsm_80.out | fsm_81.out | fsm_82.out | fsm_83.out | fsm_84.out | fsm_85.out | fsm_86.out | fsm_87.out | fsm_88.out | fsm_89.out | fsm_90.out | fsm_91.out | fsm_92.out | fsm_93.out | fsm_94.out | fsm_95.out | fsm_96.out | fsm_97.out | fsm_98.out | fsm_99.out | fsm_100.out | fsm_101.out | fsm_102.out | fsm_103.out | fsm_104.out ? 1'd1;
+    r6.in = fsm_5.out | fsm_6.out | fsm_7.out | fsm_8.out | fsm_9.out | fsm_10.out | fsm_11.out | fsm_12.out | fsm_13.out | fsm_14.out | fsm_15.out | fsm_16.out | fsm_17.out | fsm_18.out | fsm_19.out | fsm_20.out | fsm_21.out | fsm_22.out | fsm_23.out | fsm_24.out | fsm_25.out | fsm_26.out | fsm_27.out | fsm_28.out | fsm_29.out | fsm_30.out | fsm_31.out | fsm_32.out | fsm_33.out | fsm_34.out | fsm_35.out | fsm_36.out | fsm_37.out | fsm_38.out | fsm_39.out | fsm_40.out | fsm_41.out | fsm_42.out | fsm_43.out | fsm_44.out | fsm_45.out | fsm_46.out | fsm_47.out | fsm_48.out | fsm_49.out | fsm_50.out | fsm_51.out | fsm_52.out | fsm_53.out | fsm_54.out | fsm_55.out | fsm_56.out | fsm_57.out | fsm_58.out | fsm_59.out | fsm_60.out | fsm_61.out | fsm_62.out | fsm_63.out | fsm_64.out | fsm_65.out | fsm_66.out | fsm_67.out | fsm_68.out | fsm_69.out | fsm_70.out | fsm_71.out | fsm_72.out | fsm_73.out | fsm_74.out | fsm_75.out | fsm_76.out | fsm_77.out | fsm_78.out | fsm_79.out | fsm_80.out | fsm_81.out | fsm_82.out | fsm_83.out | fsm_84.out | fsm_85.out | fsm_86.out | fsm_87.out | fsm_88.out | fsm_89.out | fsm_90.out | fsm_91.out | fsm_92.out | fsm_93.out | fsm_94.out | fsm_95.out | fsm_96.out | fsm_97.out | fsm_98.out | fsm_99.out | fsm_100.out | fsm_101.out | fsm_102.out | fsm_103.out | fsm_104.out ? add1.out;
+  }
+  control {
+    fsm;
+  }
+}

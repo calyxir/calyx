@@ -99,15 +99,18 @@ component main() -> () {
     }
     control {
       static seq {
-        static repeat 1000 {
-              static seq {
-                add_2;
-              }
-            }
+        add_1;
+        add_2;
+        add_3;
+        add_4;
+        add_5;
+        add_6;
         sum_1;
         sum_2;
+        sum_3;
         write_1;
         write_2;
+        write_3;
       }
     }
 }
