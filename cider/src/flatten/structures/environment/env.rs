@@ -48,7 +48,6 @@ use cider_idx::{IndexRef, maps::SecondaryMap};
 use delegate::delegate;
 use itertools::Itertools;
 use owo_colors::OwoColorize;
-use rustc_hash::{FxHashMap, FxHashSet};
 
 #[derive(Debug, Clone)]
 pub struct Environment<C: AsRef<Context> + Clone> {
@@ -73,7 +72,7 @@ pub struct Environment<C: AsRef<Context> + Clone> {
     /// A map containing all the control ports in the program and the width of
     /// the port. Should probably be replaced with a bitset and some extra logic
     /// to lookup widths
-    control_ports: FxHashMap<GlobalPortIdx, u32>,
+    control_ports: HashMap<GlobalPortIdx, u32>,
     /// The immutable context. This is retained for ease of use.
     /// This value should have a cheap clone implementation, such as &Context
     /// or RC<Context>.
@@ -81,10 +80,10 @@ pub struct Environment<C: AsRef<Context> + Clone> {
     memory_header: Option<Vec<MemoryDeclaration>>,
     logger: Logger,
     /// Reverse map from ports to the cells they are attached to. Used to
-    /// determine which primitives to re=evaluate
+    /// determine which primitives to re-evaluate
     ports_to_cells_map: SecondaryMap<GlobalPortIdx, GlobalCellIdx>,
     /// reused scratchpad
-    changed_cells: FxHashSet<GlobalCellIdx>,
+    changed_cells: HashSet<GlobalCellIdx>,
 }
 
 impl<C: AsRef<Context> + Clone> Environment<C> {
@@ -284,12 +283,12 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             clocks,
             thread_map: ThreadMap::new(root_clock, continuous_clock),
             memory_header: None,
-            control_ports: FxHashMap::new(),
+            control_ports: HashMap::new(),
             logger: initialize_logger(logging_conf),
             ports_to_cells_map: SecondaryMap::new_with_default(0.into()),
             pinned_ports: PinnedPorts::new(),
             state_map: MemoryMap::new(),
-            changed_cells: FxHashSet::new(),
+            changed_cells: HashSet::new(),
         };
 
         let ctx = ctx.as_ref();
@@ -2111,6 +2110,11 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         parent_clock.sync(child_clock);
                     }
 
+                    #[cfg(feature = "data-race-stats")]
+                    {
+                        crate::flatten::structures::stats::incr_join_count();
+                    }
+
                     *node_thread = par_entry.original_thread();
                     self.env.clocks[parent_clock].increment(&parent);
                 }
@@ -2123,6 +2127,11 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 return node.mutate_into_next(self.env.ctx.as_ref());
             }
 
+            #[cfg(feature = "data-race-stats")]
+            {
+                crate::flatten::structures::stats::incr_fork_count();
+            }
+
             par_map.insert(
                 node.clone(),
                 ParEntry::new(par.stms().len().try_into().expect(
@@ -2130,10 +2139,16 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 ), *node_thread)
                 ,
             );
+
             new_nodes.extend(par.stms().iter().map(|x| {
                 let thread = if self.conf.check_data_race {
                     let thread =
                         thread.expect("par nodes should have a thread");
+
+                    #[cfg(feature = "data-race-stats")]
+                    {
+                        crate::flatten::structures::stats::incr_thread_spawn();
+                    }
 
                     let new_thread_idx: ThreadIdx = if self.conf.disable_memo {
                         self.env
@@ -2541,8 +2556,10 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 self.run_primitive_comb_path(
                     self.env.cells.range().into_iter(),
                 )?
-            } else {
+            } else if !changed_cells.is_empty() {
                 self.run_primitive_comb_path(changed_cells.drain())?
+            } else {
+                false
             };
 
             has_changed |= changed;
@@ -2902,47 +2919,47 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
         let mut changed = UpdateStatus::Unchanged;
 
-        let mut working_set = vec![];
-        for cell in cells_to_run {
-            let cell = &mut self.env.cells[cell];
+        for cell_idx in cells_to_run {
+            let cell = &mut self.env.cells[cell_idx];
             match cell {
                 CellLedger::Primitive { cell_dyn } => {
                     let result = cell_dyn
                         .exec_comb(&mut self.env.ports, &self.env.state_map)?;
 
                     changed |= result;
+                    let signature = cell_dyn.get_ports();
 
-                    if self.conf.check_data_race && cell_dyn.is_combinational()
+                    if self.conf.check_data_race
+                        && cell_dyn.is_combinational()
+                        && signature.iter_second().len() == 1
                     {
-                        let signature = cell_dyn.get_ports();
+                        let output_port =
+                            signature.iter_second().next().unwrap();
 
-                        for port in signature.iter_first() {
-                            let val = &self.env.ports[port];
-                            if let Some(val) = val.as_option()
-                                && val.propagate_clocks()
-                                && (val.clocks().is_some()
-                                    || val.transitive_clocks().is_some())
-                            {
-                                if let Some(clocks) = val.clocks() {
-                                    working_set.push(*clocks);
+                        if let Some(mut out_v) =
+                            self.env.ports[output_port].take()
+                        {
+                            for port in signature.iter_first() {
+                                if let Some(in_v) =
+                                    &self.env.ports[port].as_option()
+                                    && in_v.propagate_clocks()
+                                    && (in_v.clocks().is_some()
+                                        || in_v.transitive_clocks().is_some())
+                                {
+                                    if let Some(c) = in_v.clocks() {
+                                        out_v.add_transitive_clock(*c);
+                                    }
+
+                                    if let Some(clocks) =
+                                        in_v.transitive_clocks()
+                                    {
+                                        out_v.add_transitive_clocks(
+                                            clocks.iter().copied(),
+                                        );
+                                    }
                                 }
-                                working_set
-                                    .extend(val.iter_transitive_clocks());
                             }
-                        }
-
-                        if signature.iter_second().len() == 1 {
-                            let port = signature.iter_second().next().unwrap();
-                            let val = &mut self.env.ports[port];
-                            if let Some(val) = val.as_option_mut()
-                                && !working_set.is_empty()
-                            {
-                                val.add_transitive_clocks(
-                                    working_set.drain(..),
-                                );
-                            }
-                        } else {
-                            todo!("comb primitive with multiple outputs")
+                            self.env.ports[output_port] = out_v.into();
                         }
                     }
                 }
@@ -3288,6 +3305,13 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
     /// Evaluate the entire program
     pub fn run_program(&mut self) -> CiderResult<()> {
+        #[cfg(feature = "data-race-stats")]
+        {
+            crate::flatten::structures::stats::clear_stats();
+            crate::flatten::structures::stats::incr_thread_spawn();
+            crate::flatten::structures::stats::incr_thread_spawn();
+        }
+
         if self.base.conf.debug_logging {
             info!(self.base.env().logger, "Starting program execution");
         }
@@ -3297,6 +3321,14 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 if self.base.conf.debug_logging {
                     info!(self.base.env().logger, "Finished program execution");
                 }
+
+                #[cfg(feature = "data-race-stats")]
+                {
+                    if self.base.conf.check_data_race {
+                        self.report_stats();
+                    }
+                }
+
                 Ok(())
             }
             Err(e) => {
@@ -3307,9 +3339,35 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                         e.stylize_error()
                     );
                 }
+
+                #[cfg(feature = "data-race-stats")]
+                {
+                    if self.base.conf.check_data_race {
+                        self.report_stats();
+                    }
+                }
                 Err(e)
             }
         }
+    }
+
+    #[cfg(feature = "data-race-stats")]
+    fn report_stats(&self) {
+        let stats = crate::flatten::structures::stats::get_stats();
+        eprintln!("Data Race Detection Statistics");
+        eprintln!(
+            "   Tracked variables: {}",
+            self.env().state_map.get_clocked_count()
+        );
+        eprintln!("   Total spawned threads: {}", stats.thread_spawn_count);
+        eprintln!(
+            "   Total ThreadIDs allocated: {}",
+            self.env.thread_map.thread_count()
+        );
+        eprintln!("   Reads checked: {}", stats.read_count);
+        eprintln!("   Writes checked: {}", stats.write_count);
+        eprintln!("   Fork count: {}", stats.fork_count);
+        eprintln!("   Join count: {}", stats.join_count);
     }
 }
 

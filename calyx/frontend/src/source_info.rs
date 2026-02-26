@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fmt::Display,
     fs::File,
     io::Read,
@@ -169,11 +169,12 @@ pub struct SourceInfoTable {
     /// assigns ids to locations in memories and registers
     mem_location_map: HashMap<MemoryLocationId, MemoryLocation>,
     /// assigns ids to collections of variable -> location mappings
-    variable_assignment_map:
-        HashMap<VariableAssignmentId, HashMap<String, MemoryLocationId>>,
+    variable_assignment_map: VariableMap,
     /// collects the mapping from positions representing a point in the control
     /// program to the set of variable assignments for that position
     position_state_map: HashMap<PositionId, VariableAssignmentId>,
+    /// stores information about the source information used by the program
+    type_table: HashMap<TypeId, SourceType>,
 }
 
 impl SourceInfoTable {
@@ -290,7 +291,7 @@ impl SourceInfoTable {
     pub fn get_variable_mapping(
         &self,
         pos: PositionId,
-    ) -> Option<&HashMap<String, MemoryLocationId>> {
+    ) -> Option<&HashMap<String, VariableLayout>> {
         self.position_state_map
             .get(&pos)
             .and_then(|x| self.variable_assignment_map.get(x))
@@ -309,8 +310,9 @@ impl SourceInfoTable {
             file_map: HashMap::new(),
             position_map: HashMap::new(),
             mem_location_map: HashMap::new(),
-            variable_assignment_map: HashMap::new(),
+            variable_assignment_map: VariableMap::default(),
             position_state_map: HashMap::new(),
+            type_table: HashMap::new(),
         }
     }
 
@@ -326,12 +328,14 @@ impl SourceInfoTable {
         // all empty
         let loc: Vec<(MemoryLocationId, MemoryLocation)> = vec![];
         let states: Vec<(PositionId, VariableAssignmentId)> = vec![];
+        #[allow(clippy::type_complexity)]
         let variable_assigns: Vec<(
             VariableAssignmentId,
-            Vec<(String, MemoryLocationId)>,
+            Vec<(VariableName<String>, VariableLayout)>,
         )> = vec![];
+        let types: Vec<(TypeId, SourceType)> = vec![];
 
-        Self::new(files, positions, loc, variable_assigns, states)
+        Self::new(files, positions, loc, variable_assigns, states, types)
     }
 
     // this is awful
@@ -344,16 +348,17 @@ impl SourceInfoTable {
         variable_assigns: impl IntoIterator<
             Item = (
                 VariableAssignmentId,
-                impl IntoIterator<Item = (String, MemoryLocationId)>,
+                impl IntoIterator<Item = (VariableName<String>, VariableLayout)>,
             ),
         >,
         states: impl IntoIterator<Item = (PositionId, VariableAssignmentId)>,
+        types: impl IntoIterator<Item = (TypeId, SourceType)>,
     ) -> SourceInfoResult<Self> {
         let files = files.into_iter();
         let positions = positions.into_iter();
         let locations = locations.into_iter();
-        let vars = variable_assigns.into_iter();
         let states = states.into_iter();
+        let types = types.into_iter();
 
         let mut file_map = HashMap::with_capacity(
             files.size_hint().1.unwrap_or(files.size_hint().0),
@@ -365,18 +370,18 @@ impl SourceInfoTable {
         let mut memory_location_map: HashMap<MemoryLocationId, MemoryLocation> =
             HashMap::new();
 
-        let mut variable_map = HashMap::new();
         let mut state_map = HashMap::new();
+        let mut type_map = HashMap::new();
 
         for (file, path) in files {
             if let Some(first_path) = file_map.insert(file, path) {
                 let inserted_path = &file_map[&file];
                 if &first_path != inserted_path {
-                    return Err(SourceInfoTableError::DuplicateFiles {
-                        id1: file,
-                        path1: first_path,
-                        path2: inserted_path.clone(),
-                    });
+                    return Err(SourceInfoTableError::InvalidTable(format!(
+                        "File id {file} is defined multiple times:\n   1. {}\n   2. {}\n",
+                        first_path.display(),
+                        inserted_path.display()
+                    )));
                 }
             }
         }
@@ -386,71 +391,79 @@ impl SourceInfoTable {
             if let Some(first_pos) = position_map.insert(pos, source) {
                 let inserted_position = &position_map[&pos];
                 if inserted_position != &first_pos {
-                    return Err(SourceInfoTableError::DuplicatePositions {
-                        pos,
-                        s1: first_pos,
-                        s2: position_map[&pos].clone(),
-                    });
+                    return Err(SourceInfoTableError::InvalidTable(format!(
+                        "Duplicate positions found in the metadata table. Position {pos} is defined multiple times:\n   1. file {}, line {}\n   2. file {}, line {}\n",
+                        first_pos.file,
+                        first_pos.line,
+                        inserted_position.file,
+                        inserted_position.line
+                    )));
                 }
             }
         }
 
         for (id, loc) in locations {
             if memory_location_map.insert(id, loc).is_some() {
-                // duplictate entry error
-                return Err(SourceInfoTableError::DuplicateMemoryIdentifiers {
-                    id,
-                });
+                return Err(SourceInfoTableError::InvalidTable(format!(
+                    "Multiple definitions for memory location {id}"
+                )));
             }
         }
 
-        for (assign_label, assigns) in vars {
-            let mut mapping = HashMap::new();
-            for (name, location) in assigns {
-                // this is to avoid copying the string in all cases since we
-                // would only need it when emitting the error. Clippy doesn't
-                // like this for good reasons and while I suspect it may be
-                // possible using the entry api, I think this is clearer so I'm
-                // just suppressing the warning and writing this very long
-                // comment about it instead.
-                #[allow(clippy::map_entry)]
-                if !memory_location_map.contains_key(&location) {
-                    // unknown memory location
-                    return Err(SourceInfoTableError::UnknownMemoryId {
-                        id: location,
-                    });
-                } else if mapping.contains_key(&name) {
-                    // duplicate entries
-                    return Err(
-                        SourceInfoTableError::DuplicateVariableAssignments {
-                            id: assign_label,
-                            var: name,
-                        },
-                    );
-                } else {
-                    mapping.insert(name, location);
-                }
-            }
-            if variable_map.insert(assign_label, mapping).is_some() {
-                // duplicate entries
-                return Err(SourceInfoTableError::DuplicateVariableMappings {
-                    id: assign_label,
-                });
-            };
-        }
+        let mut types_referenced: HashSet<TypeId> = HashSet::new();
+
+        let variable_map = VariableMap::build(
+            variable_assigns,
+            &memory_location_map,
+            &mut types_referenced,
+        )?;
 
         for (pos_id, var_id) in states {
             if !variable_map.contains_key(&var_id) {
-                // unknown var
-                return Err(SourceInfoTableError::UnknownVariableMapping {
-                    id: var_id,
-                });
+                return Err(SourceInfoTableError::InvalidTable(format!(
+                    "Variable mapping {var_id} is referenced but never defined"
+                )));
             }
             if state_map.insert(pos_id, var_id).is_some() {
-                // duplicate
-                return Err(SourceInfoTableError::DuplicatePosStateMappings {
-                    id: pos_id,
-                });
+                return Err(SourceInfoTableError::InvalidTable(format!(
+                    "Multiple variable maps have been assigned to position {pos_id}"
+                )));
+            }
+        }
+
+        for (id, source_type) in types {
+            types_referenced.extend(source_type.types_referenced());
+
+            if type_map.insert(id, source_type).is_some() {
+                return Err(SourceInfoTableError::InvalidTable(format!(
+                    "multiple definitions for type id {id}"
+                )));
+            }
+        }
+
+        for ty in types_referenced {
+            if !type_map.contains_key(&ty) {
+                return Err(SourceInfoTableError::InvalidTable(format!(
+                    "type id {ty} is referenced but never defined"
+                )));
+            }
+        }
+
+        // need to validate the number of arguments to the split layout function
+        for (name, def) in variable_map.iter().flat_map(|(_, v)| v) {
+            if let VariableLayout {
+                type_info,
+                layout_fn: LayoutFunction::Split,
+                layout_args,
+            } = def
+            {
+                let expected_count = type_info.entry_count(&type_map);
+                if expected_count != layout_args.len() {
+                    return Err(SourceInfoTableError::InvalidTable(format!(
+                        "Variable '{name}' of type '{type_info}' was given {} arguments to the split layout function when {expected_count} were required.",
+                        layout_args.len()
+                    )));
+                }
             }
         }
 
@@ -460,6 +473,7 @@ impl SourceInfoTable {
             mem_location_map: memory_location_map,
             variable_assignment_map: variable_map,
             position_state_map: state_map,
+            type_table: type_map,
         })
     }
 
@@ -467,70 +481,141 @@ impl SourceInfoTable {
         &self,
         mut f: W,
     ) -> Result<(), std::io::Error> {
-        writeln!(f, "{} #{{", Self::HEADER)?;
+        Self::write_header(&mut f)?;
 
-        // write file table
+        // mandatory entries
+        self.write_file_table(&mut f)?;
+        self.write_pos_table(&mut f)?;
+
+        // optional entries
+        if !(self.mem_location_map.is_empty()
+            && self.variable_assignment_map.is_empty()
+            && self.position_state_map.is_empty()
+            && self.type_table.is_empty())
+        {
+            self.write_memory_table(&mut f)?;
+            self.write_var_assigns(&mut f)?;
+            self.write_pos_state_table(&mut f)?;
+            self.write_type_table(&mut f)?;
+        }
+
+        Self::write_footer(&mut f)
+    }
+
+    fn write_pos_state_table<W: std::io::Write>(
+        &self,
+        f: &mut W,
+    ) -> Result<(), std::io::Error> {
+        writeln!(f, "POSITION_STATE_MAP")?;
+
+        for (pos, var) in
+            self.position_state_map.iter().sorted_by_key(|(k, _)| **k)
+        {
+            writeln!(f, "  {pos}: {var}")?;
+        }
+        Ok(())
+    }
+
+    fn write_var_assigns<W: std::io::Write>(
+        &self,
+        f: &mut W,
+    ) -> Result<(), std::io::Error> {
+        writeln!(f, "VARIABLE_ASSIGNMENTS")?;
+
+        for (id, map) in self
+            .variable_assignment_map
+            .iter_serialize()
+            .sorted_by_key(|(k, _)| **k)
+        {
+            writeln!(f, "  {id}: {{")?;
+            for (var, variable_layout) in map.sorted_by_key(|(v, _)| *v) {
+                write!(f, "    {var}:")?;
+                write!(
+                    f,
+                    " ty {}, {}",
+                    variable_layout.type_info, variable_layout.layout_fn
+                )?;
+                for loc in variable_layout.layout_args.iter() {
+                    write!(f, " {loc}")?;
+                }
+                writeln!(f)?;
+            }
+            writeln!(f, "  }}")?;
+        }
+        Ok(())
+    }
+
+    fn write_pos_table<W: std::io::Write>(
+        &self,
+        f: &mut W,
+    ) -> Result<(), std::io::Error> {
+        writeln!(f, "POSITIONS")?;
+        for (position, source_loc) in
+            self.position_map.iter().sorted_by_key(|(k, _)| **k)
+        {
+            write!(f, "  {position}: ")?;
+            source_loc.serialize(f)?;
+            writeln!(f)?;
+        }
+        Ok(())
+    }
+
+    fn write_memory_table<W: std::io::Write>(
+        &self,
+        f: &mut W,
+    ) -> Result<(), std::io::Error> {
+        writeln!(f, "MEMORY_LOCATIONS")?;
+
+        for (loc, MemoryLocation { cell, address }) in
+            self.mem_location_map.iter().sorted_by_key(|(k, _)| **k)
+        {
+            write!(f, "  {loc}: {cell}")?;
+            if !address.is_empty() {
+                write!(f, "[{}]", address.iter().join(","))?;
+            }
+            writeln!(f)?;
+        }
+        Ok(())
+    }
+
+    fn write_file_table<W: std::io::Write>(
+        &self,
+        f: &mut W,
+    ) -> Result<(), std::io::Error> {
         writeln!(f, "FILES")?;
         for (file, path) in self.file_map.iter().sorted_by_key(|(k, _)| **k) {
             writeln!(f, "  {file}: {}", path.display())?;
         }
+        Ok(())
+    }
 
-        // write the position table
-        writeln!(f, "POSITIONS")?;
-        for (
-            position,
-            SourceLocation {
-                line,
-                file,
-                end_line,
-            },
-        ) in self.position_map.iter().sorted_by_key(|(k, _)| **k)
+    fn write_type_table<W: std::io::Write>(
+        &self,
+        f: &mut W,
+    ) -> Result<(), std::io::Error> {
+        writeln!(f, "TYPES")?;
+        for (id, source_type) in
+            self.type_table.iter().sorted_by_key(|(k, _)| **k)
         {
-            let endlinestr = if let Some(line) = end_line {
-                format!(":{line}")
-            } else {
-                String::new()
-            };
-            writeln!(f, "  {position}: {file} {line}{endlinestr}")?;
-        }
-        if !(self.mem_location_map.is_empty()
-            && self.variable_assignment_map.is_empty()
-            && self.position_state_map.is_empty())
-        {
-            // write the position table
-            writeln!(f, "MEMORY_LOCATIONS")?;
-            for (loc, MemoryLocation { cell, address }) in
-                self.mem_location_map.iter().sorted_by_key(|(k, _)| **k)
-            {
-                write!(f, "  {loc}: {cell}")?;
-                if !address.is_empty() {
-                    write!(f, "[{}]", address.iter().join(","))?;
+            write!(f, "    {id}: {{ ",)?;
+            match source_type {
+                SourceType::Array { ty, length } => {
+                    write!(f, "{ty}; {length}")?;
                 }
-                writeln!(f)?;
-            }
+                SourceType::Struct { fields } => {
+                    if let Some((name, ty)) = fields.first() {
+                        write!(f, "{name}: {ty}")?;
+                    }
 
-            writeln!(f, "VARIABLE_ASSIGNMENTS")?;
-            for (id, map) in self
-                .variable_assignment_map
-                .iter()
-                .sorted_by_key(|(k, _)| **k)
-            {
-                writeln!(f, "  {id}: {{")?;
-                for (var, loc) in map.iter().sorted() {
-                    writeln!(f, "    {var}: {loc}")?;
+                    for (name, ty) in fields.iter().skip(1) {
+                        write!(f, ", {name}: {ty}")?;
+                    }
                 }
-                writeln!(f, "  }}")?;
             }
 
-            writeln!(f, "POSITION_STATE_MAP")?;
-            for (pos, var) in
-                self.position_state_map.iter().sorted_by_key(|(k, _)| **k)
-            {
-                writeln!(f, "  {pos}: {var}")?;
-            }
+            writeln!(f, " }}")?;
         }
-
-        writeln!(f, "}}#")
+        Ok(())
     }
 
     /// Attempt to lookup the line that a given position points to. Returns an error in
@@ -539,36 +624,57 @@ impl SourceInfoTable {
     pub fn get_position_string(
         &self,
         pos: PositionId,
-    ) -> Result<String, SourceLookupError<'_>> {
+    ) -> Result<String, SourceInfoTableError> {
         let Some(src_loc) = self.get_position(pos) else {
-            return Err(SourceLookupError::MissingPosition(pos));
+            return Err(SourceInfoTableError::LookupFailure(format!(
+                "position {pos} does not exist"
+            )));
         };
         // this will panic if the file doesn't exist but that would imply the table has
         // incorrect information in it
         let file_path = self.lookup_file_path(src_loc.file);
 
         let Ok(mut file) = File::open(file_path) else {
-            return Err(SourceLookupError::MissingFile(file_path));
+            return Err(SourceInfoTableError::LookupFailure(format!(
+                "unable to open file '{}'",
+                file_path.display()
+            )));
         };
 
         let mut file_contents = String::new();
 
         match file.read_to_string(&mut file_contents) {
             Ok(_) => {}
-            Err(_) => {
-                return Err(SourceLookupError::MissingFile(file_path));
+            Err(e) => {
+                return Err(SourceInfoTableError::LookupFailure(format!(
+                    "read of file '{}' failed with error {e}",
+                    file_path.display()
+                )));
             }
         }
 
         let Some(line) = file_contents.lines().nth(src_loc.line.as_usize() - 1)
         else {
-            return Err(SourceLookupError::MissingLine {
-                file: file_path,
-                line: src_loc.line.as_usize(),
-            });
+            return Err(SourceInfoTableError::LookupFailure(format!(
+                "file '{}' does not contain a line {}",
+                file_path.display(),
+                src_loc.line.as_usize()
+            )));
         };
 
         Ok(String::from(line))
+    }
+
+    fn write_header<W: std::io::Write>(
+        f: &mut W,
+    ) -> Result<(), std::io::Error> {
+        writeln!(f, "{} #{{", SourceInfoTable::HEADER)
+    }
+
+    fn write_footer<W: std::io::Write>(
+        f: &mut W,
+    ) -> Result<(), std::io::Error> {
+        writeln!(f, "}}#")
     }
 }
 
@@ -587,63 +693,412 @@ impl SourceLocation {
             end_line,
         }
     }
+
+    /// Write out the source location string
+    pub fn serialize(
+        &self,
+        out: &mut impl std::io::Write,
+    ) -> Result<(), std::io::Error> {
+        if let Some(endline) = self.end_line {
+            write!(out, "{} {}:{}", self.file, self.line, endline)
+        } else {
+            write!(out, "{} {}", self.file, self.line)
+        }
+    }
 }
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum PrimitiveType {
+    Uint(u32),
+    Sint(u32),
+    Bool,
+    Bitfield(u32),
+}
+
+impl Display for PrimitiveType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PrimitiveType::Uint(x) => write!(f, "u{x}"),
+            PrimitiveType::Sint(x) => write!(f, "i{x}"),
+            PrimitiveType::Bool => write!(f, "bool"),
+            PrimitiveType::Bitfield(x) => write!(f, "b{x}"),
+        }
+    }
+}
+
+impl PrimitiveType {
+    pub fn type_size(&self) -> usize {
+        match self {
+            PrimitiveType::Uint(width) => *width as usize,
+            PrimitiveType::Sint(width) => *width as usize,
+            PrimitiveType::Bool => 1_usize,
+            PrimitiveType::Bitfield(width) => *width as usize,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FieldType {
+    Primitive(PrimitiveType),
+    Composite(TypeId),
+}
+
+impl Display for FieldType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FieldType::Primitive(primitive_type) => primitive_type.fmt(f),
+            FieldType::Composite(type_id) => type_id.fmt(f),
+        }
+    }
+}
+
+impl FieldType {
+    pub fn type_size(&self, type_map: &HashMap<TypeId, SourceType>) -> usize {
+        match self {
+            FieldType::Primitive(primitive_type) => primitive_type.type_size(),
+            FieldType::Composite(type_id) => {
+                type_map[type_id].type_size(type_map)
+            }
+        }
+    }
+
+    /// Return the number of primitive types that must be mapped for this type
+    pub fn entry_count(&self, type_map: &HashMap<TypeId, SourceType>) -> usize {
+        match self {
+            FieldType::Primitive(_) => 1,
+            FieldType::Composite(type_id) => {
+                type_map[type_id].entry_count(type_map)
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SourceType {
+    Array {
+        ty: FieldType,
+        length: u32,
+    },
+    Struct {
+        fields: Vec<(VariableName<String>, FieldType)>,
+    },
+}
+
+impl SourceType {
+    pub fn type_size(&self, type_map: &HashMap<TypeId, SourceType>) -> usize {
+        match self {
+            SourceType::Array { ty, length } => {
+                ty.type_size(type_map) * (*length as usize)
+            }
+            SourceType::Struct { fields } => fields
+                .iter()
+                .fold(0, |acc, (_, ty)| acc + ty.type_size(type_map)),
+        }
+    }
+
+    pub fn types_referenced(&self) -> Vec<TypeId> {
+        match self {
+            SourceType::Array { ty, .. } => {
+                if let FieldType::Composite(id) = ty {
+                    vec![*id]
+                } else {
+                    vec![]
+                }
+            }
+            SourceType::Struct { fields } => fields
+                .iter()
+                .filter_map(|(_, ty)| {
+                    if let FieldType::Composite(id) = ty {
+                        Some(*id)
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+        }
+    }
+
+    /// Return the number of primitive types that must be mapped for this type
+    pub fn entry_count(&self, type_map: &HashMap<TypeId, SourceType>) -> usize {
+        match self {
+            SourceType::Array { ty, length } => {
+                let entries_per_field = ty.entry_count(type_map);
+                entries_per_field * (*length as usize)
+            }
+            SourceType::Struct { fields } => fields
+                .iter()
+                .fold(0, |acc, (_, ty)| acc + ty.entry_count(type_map)),
+        }
+    }
+}
+
+/// ID for types from the source language
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct TypeId(Word);
+
+impl TypeId {
+    pub fn new(v: Word) -> Self {
+        Self(v)
+    }
+}
+
+impl Display for TypeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> core::fmt::Result {
+        <Word as Display>::fmt(&self.0, f)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Copy)]
+/// A thin wrapper over a String for names used by the source info table
+pub struct VariableName<S: AsRef<str>> {
+    name: S,
+    /// a bool tracking whether or not this name came from a string literal for
+    /// purposes of serialization
+    name_is_literal: bool,
+}
+
+impl<S: AsRef<str>> Display for VariableName<S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.name_is_literal {
+            write!(f, "\"{}\"", self.name.as_ref())
+        } else {
+            self.name.as_ref().fmt(f)
+        }
+    }
+}
+
+impl<S: AsRef<str>> VariableName<S> {
+    pub fn new(name: S, name_is_literal: bool) -> Self {
+        Self {
+            name,
+            name_is_literal,
+        }
+    }
+
+    pub fn new_non_literal(name: S) -> Self {
+        Self {
+            name,
+            name_is_literal: false,
+        }
+    }
+
+    pub fn new_literal(name: S) -> Self {
+        Self {
+            name,
+            name_is_literal: true,
+        }
+    }
+
+    pub fn into_inner(self) -> S {
+        self.name
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.name.as_ref()
+    }
+
+    /// flips the name_is_literal bool. should only be used when searching for
+    /// a value in a hashmap
+    pub fn flip_is_literal(&mut self) {
+        self.name_is_literal = !self.name_is_literal
+    }
+
+    pub fn set_is_literal(&mut self) {
+        self.name_is_literal = true
+    }
+
+    pub fn unset_is_literal(&mut self) {
+        self.name_is_literal = false
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct VariableMap {
+    data: HashMap<VariableAssignmentId, HashMap<String, VariableLayout>>,
+    /// This is a somewhat silly structure but preserves the literals on
+    /// printing even if the same string is written as a literal in one
+    /// assignment collection and normally in another. However, within a single
+    /// assignment collection, it is not possible to have both a literal and
+    /// standard declaration of the same name.
+    is_literal: HashMap<VariableAssignmentId, HashMap<String, bool>>,
+}
+
+impl VariableMap {
+    pub fn build(
+        stream: impl IntoIterator<
+            Item = (
+                VariableAssignmentId,
+                impl IntoIterator<Item = (VariableName<String>, VariableLayout)>,
+            ),
+        >,
+        memory_location_map: &HashMap<MemoryLocationId, MemoryLocation>,
+        types_referenced: &mut HashSet<TypeId>,
+    ) -> SourceInfoResult<Self> {
+        let mut variable_map = HashMap::new();
+        let mut literal_map = HashMap::new();
+
+        for (assign_label, assigns) in stream {
+            let mut data_mapping = HashMap::new();
+            let mut literal_mapping = HashMap::new();
+            for (name, location) in assigns {
+                let VariableName {
+                    name,
+                    name_is_literal,
+                } = name;
+
+                for loc in location.layout_args.iter() {
+                    if !memory_location_map.contains_key(loc) {
+                        // unknown memory location
+                        return Err(SourceInfoTableError::InvalidTable(
+                            format!(
+                                "Memory location {loc} is referenced but never defined"
+                            ),
+                        ));
+                    }
+                }
+
+                if let Some(ty) = location.referenced_type() {
+                    types_referenced.insert(ty);
+                }
+
+                // this is to avoid copying the string in all cases since we
+                // would only need it when emitting the error. Clippy doesn't
+                // like this for good reasons and while I suspect it may be
+                // possible using the entry api, I think this is clearer so I'm
+                // just suppressing the warning and writing this very long
+                // comment about it instead.
+                #[allow(clippy::map_entry)]
+                if data_mapping.contains_key(&name) {
+                    return Err(SourceInfoTableError::InvalidTable(format!(
+                        "In variable mapping {assign_label} the variable '{name}' has multiple definitions"
+                    )));
+                } else {
+                    literal_mapping.insert(name.clone(), name_is_literal);
+                    data_mapping.insert(name, location);
+                }
+            }
+            if variable_map.insert(assign_label, data_mapping).is_some() {
+                return Err(SourceInfoTableError::InvalidTable(format!(
+                    "Duplicate definitions for variable mapping associated with position {assign_label}"
+                )));
+            };
+            literal_map.insert(assign_label, literal_mapping);
+        }
+
+        Ok(Self {
+            data: variable_map,
+            is_literal: literal_map,
+        })
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
+    pub fn iter_serialize(
+        &self,
+    ) -> impl Iterator<
+        Item = (
+            &VariableAssignmentId,
+            impl Iterator<Item = (VariableName<&str>, &VariableLayout)> + '_,
+        ),
+    > {
+        self.data.iter().map(|(id, data)| {
+            (
+                id,
+                data.iter().map(|(name, dec)| {
+                    (
+                        VariableName::new(
+                            name.as_str(),
+                            self.is_literal[id][name],
+                        ),
+                        dec,
+                    )
+                }),
+            )
+        })
+    }
+
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<
+        Item = (
+            &VariableAssignmentId,
+            impl Iterator<Item = (&String, &VariableLayout)>,
+        ),
+    > {
+        self.data.iter().map(|(k, v)| (k, v.iter()))
+    }
+
+    pub fn contains_key(&self, key: &VariableAssignmentId) -> bool {
+        self.data.contains_key(key)
+    }
+
+    pub fn get(
+        &self,
+        k: &VariableAssignmentId,
+    ) -> Option<&HashMap<String, VariableLayout>> {
+        self.data.get(k)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LayoutFunction {
+    /// Standard layout function which maps all fields into a single memory
+    /// slot / register. This function must be given exactly a single argument
+    Packed,
+    /// Standard layout function which maps each entry in the variable structure
+    /// to a distinct register / memory location. Must take N arguments where N
+    /// is the number of entries for the type.
+    Split,
+}
+
+impl Display for LayoutFunction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LayoutFunction::Packed => write!(f, "packed"),
+            LayoutFunction::Split => write!(f, "split"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VariableLayout {
+    pub type_info: FieldType,
+    pub layout_fn: LayoutFunction,
+    pub layout_args: Box<[MemoryLocationId]>,
+}
+
+impl VariableLayout {
+    pub fn new(
+        type_info: FieldType,
+        layout_fn: LayoutFunction,
+        layout_args: impl IntoIterator<Item = MemoryLocationId>,
+    ) -> Self {
+        Self {
+            type_info,
+            layout_fn,
+            layout_args: layout_args.into_iter().collect(),
+        }
+    }
+
+    pub fn referenced_type(&self) -> Option<TypeId> {
+        if let FieldType::Composite(c) = self.type_info {
+            Some(c)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Error)]
 pub enum SourceInfoTableError {
-    #[error("Duplicate positions found in the metadata table. Position {pos} is defined multiple times:
-    1. file {}, line {}
-    2. file {}, line {}\n", s1.file, s1.line, s2.file, s2.line)]
-    DuplicatePositions {
-        pos: PositionId,
-        s1: SourceLocation,
-        s2: SourceLocation,
-    },
-
-    #[error("Duplicate files found in the metadata table. File id {id1} is defined multiple times:
-         1. {path1}
-         2. {path2}\n")]
-    DuplicateFiles {
-        id1: FileId,
-        path1: PathBuf,
-        path2: PathBuf,
-    },
-
-    #[error("Duplicate definitions for memory location {id}")]
-    DuplicateMemoryIdentifiers { id: MemoryLocationId },
-
-    #[error("Memory location {id} is referenced but never defined")]
-    UnknownMemoryId { id: MemoryLocationId },
-
-    #[error("Variable mapping {id} is referenced but never defined")]
-    UnknownVariableMapping { id: VariableAssignmentId },
-
-    #[error("Duplicate definitions for variable mapping {id}")]
-    DuplicateVariableMappings { id: VariableAssignmentId },
-
-    #[error(
-        "Duplicate definitions for variable mapping associated with position {id}"
-    )]
-    DuplicatePosStateMappings { id: PositionId },
-
-    #[error(
-        "In variable mapping {id} the variable '{var}' has multiple definitions"
-    )]
-    DuplicateVariableAssignments {
-        id: VariableAssignmentId,
-        var: String,
-    },
-}
-
-/// Any error that can emerge while attempting to pull the actual line of text that a
-/// source line points to
-#[derive(Error, Debug)]
-pub enum SourceLookupError<'a> {
-    #[error("unable to open file {0}")]
-    MissingFile(&'a PathBuf),
-    #[error("file {file} does not have a line {line}")]
-    MissingLine { file: &'a PathBuf, line: usize },
-    #[error("position id {0} does not exist")]
-    MissingPosition(PositionId),
+    /// A fatal error representing a malformed table
+    #[error("source info is malformed. {0}")]
+    InvalidTable(String),
+    /// A non-fatal error representing a failed lookup
+    #[error("source lookup failed. {0}")]
+    LookupFailure(String),
 }
 
 impl std::fmt::Debug for SourceInfoTableError {
@@ -656,17 +1111,9 @@ pub type SourceInfoResult<T> = Result<T, SourceInfoTableError>;
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
-    use crate::{
-        parser::CalyxParser,
-        source_info::{
-            FileId, LineNum, MemoryLocationId, PositionId,
-            SourceInfoTableError, VariableAssignmentId,
-        },
-    };
-
     use super::SourceInfoTable;
+    use crate::{parser::CalyxParser, source_info::LineNum};
+    use std::path::PathBuf;
 
     #[test]
     fn test_parse_metadata() {
@@ -683,18 +1130,26 @@ mod tests {
         0: main.reg1
         1: main.reg2
         2: main.mem1 [1,4]
+        3: main.mem1 [0,1]
+        4: main.mem1 [0,2]
     VARIABLE_ASSIGNMENTS
         0: {
-            x: 0
-            y: 1
-            z: 2
+            x: ty b12, packed 0
+            y: ty 1, packed 1
+            z: ty 0, split 2 3
+            "q": ty 2, packed 4
         }
         1: {
-            q: 0
+            q: ty 0, packed 1
         }
     POSITION_STATE_MAP
         0: 0
         2: 1
+    TYPES
+        0: { 0: u4, 1: i6 }
+        1: { bool; 15 }
+        2: { coordinate: 0, "bvec": 1 }
+
 }#"#;
 
         let metadata = CalyxParser::parse_source_info_table(input_str)
@@ -706,6 +1161,17 @@ mod tests {
         let pos = metadata.lookup_position(1.into());
         assert_eq!(pos.file, 0.into());
         assert_eq!(pos.line, LineNum::new(1));
+
+        let mut serialized_str = vec![];
+        metadata.serialize(&mut serialized_str).unwrap();
+        let serialized_str = String::from_utf8(serialized_str).unwrap();
+        eprintln!("{}", &serialized_str);
+        let parsed_metadata =
+            CalyxParser::parse_source_info_table(&serialized_str)
+                .unwrap()
+                .unwrap();
+
+        assert_eq!(metadata, parsed_metadata)
     }
 
     #[test]
@@ -722,26 +1188,21 @@ mod tests {
         2: main.mem1 [1,4]
     VARIABLE_ASSIGNMENTS
         0: {
-            x: 0
-            y: 1
-            z: 2
+            x: ty b10, packed 0
+            y: ty b10, packed 1
+            z: ty b10, packed 2
         }
         1: {
-            q: 0
+            q: ty b14, packed 0
         }
     POSITION_STATE_MAP
         0: 0
         2: 1
+    TYPES
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
-        let err = metadata.unwrap_err();
-        assert!(matches!(
-            &err,
-            SourceInfoTableError::UnknownMemoryId {
-                id: MemoryLocationId(1)
-            }
-        ));
+        eprintln!("{}", metadata.unwrap_err());
     }
 
     #[test]
@@ -759,27 +1220,21 @@ mod tests {
         2: main.mem1 [1,4]
     VARIABLE_ASSIGNMENTS
         0: {
-            x: 0
-            y: 1
-            z: 2
+            x: ty b10, packed 0
+            y: ty b10, packed 1
+            z: ty b10, packed 2
         }
         1: {
-            q: 0
+            q: ty b14, packed 0
         }
     POSITION_STATE_MAP
         0: 0
         2: 2
+    TYPES
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
-        let err = metadata.unwrap_err();
-
-        assert!(matches!(
-            &err,
-            SourceInfoTableError::UnknownVariableMapping {
-                id: VariableAssignmentId(2)
-            }
-        ));
+        eprintln!("{}", metadata.unwrap_err());
     }
 
     #[test]
@@ -797,29 +1252,24 @@ mod tests {
         2: main.mem1 [1,4]
     VARIABLE_ASSIGNMENTS
         0: {
-            x: 0
-            y: 1
-            z: 2
+            x: ty b10, packed 0
+            y: ty b10, packed 1
+            z: ty b10, packed 2
         }
         1: {
-            q: 0
+            q: ty b14, packed 0
         }
         1: {
-            a: 0
+            a: ty i15, packed 0
         }
     POSITION_STATE_MAP
         0: 0
         2: 1
+    TYPES
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
-        let err = metadata.unwrap_err();
-        assert!(matches!(
-            &err,
-            SourceInfoTableError::DuplicateVariableMappings {
-                id: VariableAssignmentId(1)
-            }
-        ));
+        eprintln!("{}", metadata.unwrap_err());
     }
 
     #[test]
@@ -837,28 +1287,23 @@ mod tests {
         2: main.mem1 [1,4]
     VARIABLE_ASSIGNMENTS
         0: {
-            x: 0
-            y: 1
-            z: 2
+            x: ty b10, packed 0
+            y: ty b10, packed 1
+            z: ty b10, packed 2
         }
         1: {
-            q: 0
-            q: 1
+            q: ty b14, packed 0
+            q: ty b10, packed 1
+
         }
     POSITION_STATE_MAP
         0: 0
         2: 1
+    TYPES
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
-        let err = metadata.unwrap_err();
-        assert!(matches!(
-            &err,
-            SourceInfoTableError::DuplicateVariableAssignments {
-                id: VariableAssignmentId(1),
-                var
-            } if var == "q"
-        ));
+        eprintln!("{}", metadata.unwrap_err());
     }
 
     #[test]
@@ -875,27 +1320,22 @@ mod tests {
         1: main.reg2
         1: main.mem1 [1,4]
     VARIABLE_ASSIGNMENTS
-        0: {
-            x: 0
-            y: 1
-            z: 2
+       0: {
+            x: ty b10, packed 0
+            y: ty b10, packed 1
+            z: ty b10, packed 2
         }
         1: {
-            q: 0
+            q: ty b14, packed 0
         }
     POSITION_STATE_MAP
         0: 0
         2: 1
+    TYPES
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
-        let err = metadata.unwrap_err();
-        assert!(matches!(
-            &err,
-            SourceInfoTableError::DuplicateMemoryIdentifiers {
-                id: MemoryLocationId(1)
-            }
-        ));
+        eprintln!("{}", metadata.unwrap_err());
     }
 
     #[test]
@@ -912,27 +1352,22 @@ mod tests {
         1: main.reg2
         2: main.mem1 [1,4]
     VARIABLE_ASSIGNMENTS
-        0: {
-            x: 0
-            y: 1
-            z: 2
+          0: {
+            x: ty b10, packed 0
+            y: ty b10, packed 1
+            z: ty b10, packed 2
         }
         1: {
-            q: 0
+            q: ty b14, packed 0
         }
     POSITION_STATE_MAP
         0: 0
         0: 1
+    TYPES
 }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
         assert!(metadata.is_err());
-        let err = metadata.unwrap_err();
-        assert!(matches!(
-            &err,
-            SourceInfoTableError::DuplicatePosStateMappings {
-                id: PositionId(0)
-            }
-        ));
+        eprintln!("{}", metadata.unwrap_err());
     }
 
     #[test]
@@ -948,15 +1383,8 @@ mod tests {
                 2: 0 2
         }#"#;
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
-
         assert!(metadata.is_err());
-        let err = metadata.unwrap_err();
-        assert!(matches!(&err, SourceInfoTableError::DuplicateFiles { .. }));
-        if let SourceInfoTableError::DuplicateFiles { id1, .. } = &err {
-            assert_eq!(id1, &FileId::new(0))
-        } else {
-            unreachable!()
-        }
+        eprintln!("{}", metadata.unwrap_err());
     }
 
     #[test]
@@ -974,16 +1402,39 @@ mod tests {
         let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
 
         assert!(metadata.is_err());
-        let err = metadata.unwrap_err();
-        assert!(matches!(
-            &err,
-            SourceInfoTableError::DuplicatePositions { .. }
-        ));
-        if let SourceInfoTableError::DuplicatePositions { pos, .. } = err {
-            assert_eq!(pos, PositionId::new(0))
-        } else {
-            unreachable!()
+        eprintln!("{}", metadata.unwrap_err());
+    }
+
+    #[test]
+    fn test_unknown_type() {
+        let input_str = r#"sourceinfo #{
+    FILES
+        0: test.calyx
+    POSITIONS
+        0: 0 5
+        1: 0 1
+        2: 0 2
+    MEMORY_LOCATIONS
+        0: main.reg1
+        1: main.reg2
+        2: main.mem1 [1,4]
+    VARIABLE_ASSIGNMENTS
+        0: {
+            x: ty 2, packed 0
+            y: ty b12, packed 1
+            z: ty b12, packed 2
         }
+        1: {
+            q: ty b10, packed 0
+        }
+    POSITION_STATE_MAP
+        0: 0
+        1: 1
+    TYPES
+}#"#;
+        let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
+        assert!(metadata.is_err());
+        eprintln!("{}", metadata.unwrap_err());
     }
 
     #[test]

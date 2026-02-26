@@ -389,3 +389,28 @@ module std_mult_pipe #(
     .out(out)
   );
 endmodule
+
+module std_bit_slice #(
+    parameter IN_WIDTH = 32,
+    parameter START_IDX = 0,
+    parameter END_IDX = 31,
+    parameter OUT_WIDTH = 32
+)(
+   input wire logic [IN_WIDTH-1:0] in,
+   output logic [OUT_WIDTH-1:0] out
+);
+  assign out = in[END_IDX:START_IDX];
+
+  `ifdef VERILATOR
+    always_comb begin
+      if (START_IDX < 0 || END_IDX > IN_WIDTH-1)
+        $error(
+          "std_bit_slice: Slice range out of bounds\n",
+          "IN_WIDTH: %0d", IN_WIDTH,
+          "START_IDX: %0d", START_IDX,
+          "END_IDX: %0d", END_IDX,
+        );
+    end
+  `endif
+
+endmodule

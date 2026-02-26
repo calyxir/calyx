@@ -1,7 +1,6 @@
 ---
 source: fud2/tests/tests.rs
 description: "emit plan: profiler-area-util"
-snapshot_kind: text
 ---
 build-tool = fud2
 rule get-rsrc
@@ -27,7 +26,7 @@ path-descriptors-json = path-descriptors.json
 ctrl-pos-json = ctrl-pos.json
 adl-metadata-json = adl-metadata.json
 passes = -p pre-opt -p compile -p post-opt -p lower
-edsl-args = 
+py-args = 
 component_cells = $calyx-base/target/debug/component_cells
 rule component-cells
   command = $component_cells -l $calyx-base $in > $out
@@ -36,8 +35,8 @@ create-visuals-script = $calyx-base/tools/profiler/create-visuals.sh
 rule create-visuals
   command = bash $create-visuals-script $flamegraph-script profiler-out $in $out
 build tb.sv: get-rsrc
-rule edsl-to-calyx
-  command = python3 $in $edsl-args > $out
+rule py-to-calyx
+  command = python3 $in $py-args > $out
 metadata-mapping-json = metadata-map.json
 fileinfo_emitter = $calyx-base/target/debug/fileinfo_emitter
 rule parse-metadata

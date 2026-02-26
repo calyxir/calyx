@@ -447,17 +447,43 @@ memory_str    = { string_lit | (identifier ~ ("." ~ identifier)*) }
 memory_loc    = { bitwidth ~ ":" ~ memory_str ~ ("[" ~ (bitwidth ~ ","?)+ ~ "]")? }
 memory_table  = { memory_header ~ memory_loc* }
 
+variable_name = { string_lit | identifier }
+
 variable_header   = { ^"variable_assignments" }
-single_assignment = { identifier ~ ":" ~ bitwidth }
+single_assignment = { variable_name ~ ":" ~ variable_layout }
 assignment_set    = { bitwidth ~ ":" ~ "{" ~ single_assignment+ ~ "}" }
 variable_table    = { variable_header ~ assignment_set* }
+
+layout_function_packed = { ^"packed" }
+layout_function_split = { ^"split" }
+
+variable_layout = { ^"ty" ~ type_field ~ "," ~ ((layout_function_split ~ bitwidth+) | (layout_function_packed ~ bitwidth)) }
+
 
 pos_state_header = { ^"position_state_map" }
 pos_state_entry  = { bitwidth ~ ":" ~ bitwidth }
 pos_state_table  = { pos_state_header ~ pos_state_entry* }
 
+
+type_header = {^"types"}
+type_primitive_uint = ${ "u" ~ bitwidth }
+type_primitive_sint = ${ "i" ~ bitwidth }
+type_primitive_bitfield = ${ "b" ~ bitwidth }
+type_primitive_bool = { ^"bool" }
+
+type_primitive = {( type_primitive_uint | type_primitive_sint | type_primitive_bitfield | type_primitive_bool )}
+type_field = { type_primitive | bitwidth }
+
+type_entry_array = { type_field ~ ";" ~ bitwidth }
+type_entry_struct_field_name = { (string_lit | identifier | bitwidth) }
+type_entry_struct = { type_entry_struct_field_name ~ ":" ~  type_field }
+
+type_entry = { bitwidth ~ ":" ~ "{" ~ (type_entry_array | (type_entry_struct ~ ("," ~ type_entry_struct)*)) ~ "}"}
+
+type_table = { type_header ~ type_entry* }
+
 source_info_table = {
-    ^"sourceinfo" ~ "#{" ~ file_table ~ position_table ~ (memory_table ~ variable_table ~ pos_state_table)? ~ "}#"
+    ^"sourceinfo" ~ "#{" ~ file_table ~ position_table ~ (memory_table ~ variable_table ~ pos_state_table ~ type_table)? ~ "}#"
 }
 
 
