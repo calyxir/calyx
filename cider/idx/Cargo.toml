@@ -12,7 +12,7 @@ serde = ["dep:serde"]
 ahash = "0.8.3"
 smallvec = { workspace = true, features = ["union", "const_generics"] }
 serde = { workspace = true, optional = true, features = ["derive"] }
-rustc-hash = "2"
+
 
 [dev-dependencies]
 proptest = "1.0.0"
