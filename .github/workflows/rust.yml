@@ -119,7 +119,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: build
-        args: --all --all-features --manifest-path /home/calyx/cider/Cargo.toml
+        args: --all --manifest-path /home/calyx/cider/Cargo.toml
 
     - name: Runt tests
       working-directory: /home/calyx/cider/tests
