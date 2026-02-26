@@ -1,0 +1,151 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+
+component main(@go go: 1) -> (@done done: 1) {
+  cells {
+    @external(1) mem = seq_mem_d2(32, 6, 6, 32, 32);
+    loop_guard = std_lt(32);
+    
+    not_op = std_not(32);
+    and_op = std_and(32);
+    or_op = std_or(32);
+    xor_op = std_xor(32);
+
+    row_reg = std_reg(32);
+    const0 = std_const(32, 0);
+    const1 = std_const(32, 1);
+    add = std_add(32);
+    num_rows = std_const(32, 6);
+
+    x = std_reg(32);
+    y = std_reg(32);
+
+    column = std_reg(32);
+    const2 = std_const(32, 2);
+
+    comp_output = std_reg(32);
+  }
+
+  wires {
+    comb group cond0 {
+      loop_guard.left = row_reg.out;
+      loop_guard.right = num_rows.out;
+    }
+    group init0 {
+      row_reg.in = const0.out;
+      row_reg.write_en = 1'b1;
+      init0[done] = row_reg.done;
+    }
+    group incr_row {
+      add.left = row_reg.out;
+      add.right = const1.out;
+      row_reg.in = add.out;
+      row_reg.write_en = 1'b1;
+      incr_row[done] = row_reg.done;
+    }
+
+    group load_x {
+      mem.addr0 = row_reg.out;
+      mem.addr1 = const0.out;
+      mem.content_en = 1'b1;
+      x.in = mem.read_data;
+      x.write_en = mem.done ? 1'b1;
+      load_x[done] = x.done;
+    }
+
+    group load_y {
+      mem.addr0 = row_reg.out;
+      mem.addr1 = const1.out;
+      mem.content_en = 1'b1;
+      y.in = mem.read_data;
+      y.write_en = mem.done ? 1'b1;
+      load_y[done] = y.done;
+    }
+
+    group start_column {
+      column.in = const2.out;
+      column.write_en = 1'b1;
+      start_column[done] = column.done;
+    }
+
+    group incr_column {
+      add.left = column.out;
+      add.right = const1.out;
+      column.in = add.out;
+      column.write_en = 1'b1;
+      incr_column[done] = column.done;
+    }
+
+    group not_compare {
+      not_op.in = x.out;
+      comp_output.in = not_op.out;
+      comp_output.write_en = 1'b1;
+      not_compare[done] = comp_output.done;
+    }
+
+    group and_compare {
+      and_op.left = x.out;
+      and_op.right = y.out;
+      comp_output.in = and_op.out;
+      comp_output.write_en = 1'b1;
+      and_compare[done] = comp_output.done;
+    }
+
+    group or_compare {
+      or_op.left = x.out;
+      or_op.right = y.out;
+      comp_output.in = or_op.out;
+      comp_output.write_en = 1'b1;
+      or_compare[done] = comp_output.done;
+    }
+
+    group xor_compare {
+      xor_op.left = x.out;
+      xor_op.right = y.out;
+      comp_output.in = xor_op.out;
+      comp_output.write_en = 1'b1;
+      xor_compare[done] = comp_output.done;
+    }
+
+    group write_result {
+      mem.addr0 = row_reg.out;
+      mem.addr1 = column.out;
+      mem.content_en = 1'b1;
+      mem.write_data = comp_output.out;
+      mem.write_en = 1'b1;
+      write_result[done] = mem.done;
+    }
+  }
+
+  control {
+    seq {
+      init0;
+      while loop_guard.out with cond0 {
+        seq {
+          load_x;
+          load_y;
+
+          start_column;
+          
+          not_compare;
+          write_result;
+          incr_column;
+
+          and_compare;
+          write_result;
+          incr_column;
+
+          or_compare;
+          write_result;
+          incr_column;
+
+          xor_compare;
+          write_result;
+          incr_column;
+
+          incr_row;
+        }
+      }
+    }
+  }
+}

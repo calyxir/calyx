@@ -19,12 +19,18 @@ done
 
 for folded in $( ls ${DATA_DIR}/*.folded ); do
     base_name=$( echo "${folded}" | rev | cut -d. -f2- | rev )
+    if [[ "${base_name}" == *"dahlia"* ]]; then
+        # do not add extra coloring for Dahlia programs
+        color_opt="--noColor;"
+    else 
+        color_opt=""
+    fi
     if [[ "${base_name}" == *"scaled"* ]]; then
 	${FLAME_GRAPH_SCRIPT} --countname="cycles" ${folded} > ${base_name}-original.svg
-	python3 ${SCRIPT_DIR}/adjust-scaled-flame-svg.py ${base_name}-original.svg --scale > ${base_name}.svg
+	python3 ${SCRIPT_DIR}/adjust-scaled-flame-svg.py ${base_name}-original.svg "${color_opt}--scale" > ${base_name}.svg
     else
         ${FLAME_GRAPH_SCRIPT} --countname="cycles" ${folded} > tmp.svg
-	python3 ${SCRIPT_DIR}/adjust-scaled-flame-svg.py tmp.svg --noScale > ${base_name}.svg
+	python3 ${SCRIPT_DIR}/adjust-scaled-flame-svg.py tmp.svg "${color_opt}--noScale" > ${base_name}.svg
 	rm tmp.svg
     fi
 done

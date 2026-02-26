@@ -640,7 +640,6 @@ dependencies = [
  "petgraph",
  "proptest",
  "rand 0.9.2",
- "rustc-hash",
  "rustyline",
  "serde",
  "serde_json",
@@ -692,7 +691,6 @@ version = "0.1.0"
 dependencies = [
  "ahash 0.8.12",
  "proptest",
- "rustc-hash",
  "serde",
  "smallvec",
 ]

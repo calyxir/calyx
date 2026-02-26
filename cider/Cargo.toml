@@ -9,6 +9,9 @@ rust-version.workspace = true
 name = "cider"
 path = "src/main.rs"
 
+[features]
+data-race-stats = []
+
 [dependencies]
 smallvec = { workspace = true, features = ["union", "const_generics"] }
 serde = { workspace = true, features = ["derive", "rc"] }
@@ -40,7 +43,6 @@ num-traits = "0.2.19"
 ciborium = "0.2.2"
 fst-writer = "0.2.3"
 bon = "2.3"
-rustc-hash = "2"
 delegate = "0.13.3"
 rand.workspace = true
 mimalloc = { version = "*", features = ["v3"] }
