@@ -32,7 +32,7 @@ rustsat = { version = "0.7.3", optional = true }
 rustsat-minisat = { version = "0.7.3", optional = true }
 
 [dev-dependencies]
-rand_chacha = "0.3.1"
+rand_chacha = "0.10"
 insta = "1.43.1"
 
 [features]
