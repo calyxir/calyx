@@ -77,6 +77,7 @@ def generate(firrtl_filename, primitive_uses_filename):
     # The first line contains the circuit name,
     # which needs to come before the primitives.
     print(firrtl_file.readline().rstrip())
+    print(firrtl_file.readline().rstrip())
     # Display the primitive definitions.
     primitive_insts = json.load(primitive_uses_file)
     if primitive_insts:

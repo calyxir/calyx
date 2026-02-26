@@ -3,4 +3,4 @@
         input right : UInt<WIDTH>
         output out : UInt<WIDTH>
 
-        out <= dshr(left, right)
+        connect out, dshr(left, right)

@@ -3,4 +3,4 @@
         input right : UInt<WIDTH>
         output out : UInt<WIDTH>
 
-        out <= xor(left, right)
+        connect out, xor(left, right)

@@ -10,14 +10,14 @@
         reg done_reg : UInt<1>, clk
 
         when eq(reset, UInt(1)):
-            internal_reg <= UInt(0)
-            done_reg <= UInt(0)
+            connect internal_reg, UInt(0)
+            connect done_reg, UInt(0)
         else:
             when eq(write_en, UInt(1)):
-                internal_reg <= in
-                done_reg <= UInt(1)
+                connect internal_reg, in
+                connect done_reg, UInt(1)
             else:
-                done_reg <= UInt(0)
+                connect done_reg, UInt(0)
 
-        out <= internal_reg
-        done <= done_reg
+        connect out, internal_reg
+        connect done, done_reg
