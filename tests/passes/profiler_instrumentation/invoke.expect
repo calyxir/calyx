@@ -1,0 +1,281 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/binary_operators.futil";
+component exponent(base: 32, exp: 4, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+  cells {
+    pow = std_reg(32);
+    count = std_reg(4);
+    mul = std_mult_pipe(32);
+    lt = std_lt(4);
+    incr = std_add(4);
+    const0 = std_const(4, 3);
+    @control @generated @protected init___exponent_group_probe = std_wire(1);
+    @control @generated @protected pow___init___exponent_primitive_probe = std_wire(1);
+    @control @generated @protected count___init___exponent_primitive_probe = std_wire(1);
+    @control @generated @protected do_mul___exponent_group_probe = std_wire(1);
+    @control @generated @protected mul___do_mul___exponent_primitive_probe = std_wire(1);
+    @control @generated @protected pow___do_mul___exponent_primitive_probe = std_wire(1);
+    @control @generated @protected incr_count___exponent_group_probe = std_wire(1);
+    @control @generated @protected incr___incr_count___exponent_primitive_probe = std_wire(1);
+    @control @generated @protected count___incr_count___exponent_primitive_probe = std_wire(1);
+    @control @generated @protected initUG___exponent_group_probe = std_wire(1);
+    @control @generated @protected pow___initUG___exponent_primitive_probe = std_wire(1);
+    @control @generated @protected count___initUG___exponent_primitive_probe = std_wire(1);
+    @control @generated @protected do_mulUG___exponent_group_probe = std_wire(1);
+    @control @generated @protected mul___do_mulUG___exponent_primitive_probe = std_wire(1);
+    @control @generated @protected pow___do_mulUG___exponent_primitive_probe = std_wire(1);
+    @control @generated @protected incr_countUG___exponent_group_probe = std_wire(1);
+    @control @generated @protected incr___incr_countUG___exponent_primitive_probe = std_wire(1);
+    @control @generated @protected count___incr_countUG___exponent_primitive_probe = std_wire(1);
+    @control @generated @protected cond___exponent_group_probe = std_wire(1);
+    @control @generated @protected lt___cond___exponent_primitive_probe = std_wire(1);
+    @control @generated @protected condUG___exponent_group_probe = std_wire(1);
+    @control @generated @protected lt___condUG___exponent_primitive_probe = std_wire(1);
+  }
+  wires {
+    group init {
+      pow.in = 32'd1;
+      pow.write_en = 1'd1;
+      count.in = 4'd0;
+      count.write_en = 1'd1;
+      init[done] = pow.done & count.done ? 1'd1;
+      init___exponent_group_probe.in = 1'd1;
+      pow___init___exponent_primitive_probe.in = 1'd1;
+      count___init___exponent_primitive_probe.in = 1'd1;
+    }
+    group do_mul {
+      mul.left = base;
+      mul.right = pow.out;
+      mul.go = !mul.done ? 1'd1;
+      pow.in = mul.out;
+      pow.write_en = mul.done;
+      do_mul[done] = pow.done;
+      do_mul___exponent_group_probe.in = 1'd1;
+      mul___do_mul___exponent_primitive_probe.in = !mul.done ? 1'd1;
+      pow___do_mul___exponent_primitive_probe.in = mul.done ? 1'd1;
+    }
+    group incr_count {
+      incr.left = 4'd1;
+      incr.right = count.out;
+      count.in = incr.out;
+      count.write_en = 1'd1;
+      incr_count[done] = count.done;
+      incr_count___exponent_group_probe.in = 1'd1;
+      incr___incr_count___exponent_primitive_probe.in = 1'd1;
+      count___incr_count___exponent_primitive_probe.in = 1'd1;
+    }
+    group initUG {
+      pow.in = 32'd1;
+      pow.write_en = 1'd1;
+      count.in = 4'd0;
+      count.write_en = 1'd1;
+      initUG[done] = pow.done & count.done ? 1'd1;
+      initUG___exponent_group_probe.in = 1'd1;
+      pow___initUG___exponent_primitive_probe.in = 1'd1;
+      count___initUG___exponent_primitive_probe.in = 1'd1;
+    }
+    group do_mulUG {
+      mul.left = base;
+      mul.right = pow.out;
+      mul.go = !mul.done ? 1'd1;
+      pow.in = mul.out;
+      pow.write_en = mul.done;
+      do_mulUG[done] = pow.done;
+      do_mulUG___exponent_group_probe.in = 1'd1;
+      mul___do_mulUG___exponent_primitive_probe.in = !mul.done ? 1'd1;
+      pow___do_mulUG___exponent_primitive_probe.in = mul.done ? 1'd1;
+    }
+    group incr_countUG {
+      incr.left = 4'd1;
+      incr.right = count.out;
+      count.in = incr.out;
+      count.write_en = 1'd1;
+      incr_countUG[done] = count.done;
+      incr_countUG___exponent_group_probe.in = 1'd1;
+      incr___incr_countUG___exponent_primitive_probe.in = 1'd1;
+      count___incr_countUG___exponent_primitive_probe.in = 1'd1;
+    }
+    comb group cond {
+      lt.right = exp;
+      lt.left = count.out;
+      cond___exponent_group_probe.in = 1'd1;
+      lt___cond___exponent_primitive_probe.in = 1'd1;
+    }
+    comb group condUG {
+      lt.right = exp;
+      lt.left = count.out;
+      condUG___exponent_group_probe.in = 1'd1;
+      lt___condUG___exponent_primitive_probe.in = 1'd1;
+    }
+    out = pow.out;
+  }
+  control {
+    seq {
+      initUG;
+      while lt.out with condUG {
+        par {
+          do_mulUG;
+          incr_countUG;
+        }
+      }
+    }
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @external a0 = comb_mem_d1(32, 10, 4);
+    a_read0_0 = std_reg(32);
+    add0 = std_add(4);
+    const0 = std_const(4, 0);
+    const1 = std_const(4, 9);
+    const2 = std_const(4, 1);
+    const3 = std_const(4, 3);
+    exp0 = exponent();
+    i0 = std_reg(4);
+    le0 = std_le(4);
+    tmp_0 = std_reg(32);
+    @control @generated @protected invoke_exp00UG___main_group_probe = std_wire(1);
+    @control @generated @protected exp0___invoke_exp00UG___main_cell_probe = std_wire(1);
+    @control @generated @protected let0___main_group_probe = std_wire(1);
+    @control @generated @protected i0___let0___main_primitive_probe = std_wire(1);
+    @control @generated @protected let1___main_group_probe = std_wire(1);
+    @control @generated @protected tmp_0___let1___main_primitive_probe = std_wire(1);
+    @control @generated @protected upd0___main_group_probe = std_wire(1);
+    @control @generated @protected a_read0_0___upd0___main_primitive_probe = std_wire(1);
+    @control @generated @protected upd1___main_group_probe = std_wire(1);
+    @control @generated @protected a0___upd1___main_primitive_probe = std_wire(1);
+    @control @generated @protected upd2___main_group_probe = std_wire(1);
+    @control @generated @protected i0___upd2___main_primitive_probe = std_wire(1);
+    @control @generated @protected add0___upd2___main_primitive_probe = std_wire(1);
+    @control @generated @protected let0UG___main_group_probe = std_wire(1);
+    @control @generated @protected i0___let0UG___main_primitive_probe = std_wire(1);
+    @control @generated @protected upd0UG___main_group_probe = std_wire(1);
+    @control @generated @protected a_read0_0___upd0UG___main_primitive_probe = std_wire(1);
+    @control @generated @protected let1UG___main_group_probe = std_wire(1);
+    @control @generated @protected tmp_0___let1UG___main_primitive_probe = std_wire(1);
+    @control @generated @protected upd1UG___main_group_probe = std_wire(1);
+    @control @generated @protected a0___upd1UG___main_primitive_probe = std_wire(1);
+    @control @generated @protected upd2UG___main_group_probe = std_wire(1);
+    @control @generated @protected i0___upd2UG___main_primitive_probe = std_wire(1);
+    @control @generated @protected add0___upd2UG___main_primitive_probe = std_wire(1);
+    @control @generated @protected cond0___main_group_probe = std_wire(1);
+    @control @generated @protected le0___cond0___main_primitive_probe = std_wire(1);
+    @control @generated @protected cond0UG___main_group_probe = std_wire(1);
+    @control @generated @protected le0___cond0UG___main_primitive_probe = std_wire(1);
+  }
+  wires {
+    group let0 {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+      let0___main_group_probe.in = 1'd1;
+      i0___let0___main_primitive_probe.in = 1'd1;
+    }
+    group let1 {
+      tmp_0.in = exp0.out;
+      tmp_0.write_en = 1'd1;
+      let1[done] = tmp_0.done;
+      let1___main_group_probe.in = 1'd1;
+      tmp_0___let1___main_primitive_probe.in = 1'd1;
+    }
+    group upd0 {
+      a_read0_0.write_en = 1'd1;
+      a0.addr0 = i0.out;
+      a_read0_0.in = a0.read_data;
+      upd0[done] = a_read0_0.done ? 1'd1;
+      upd0___main_group_probe.in = 1'd1;
+      a_read0_0___upd0___main_primitive_probe.in = 1'd1;
+    }
+    group upd1 {
+      a0.addr0 = i0.out;
+      a0.write_en = 1'd1;
+      a0.write_data = tmp_0.out;
+      upd1[done] = a0.done ? 1'd1;
+      upd1___main_group_probe.in = 1'd1;
+      a0___upd1___main_primitive_probe.in = 1'd1;
+    }
+    group upd2 {
+      i0.write_en = 1'd1;
+      add0.left = i0.out;
+      add0.right = const2.out;
+      i0.in = add0.out;
+      upd2[done] = i0.done ? 1'd1;
+      upd2___main_group_probe.in = 1'd1;
+      i0___upd2___main_primitive_probe.in = 1'd1;
+      add0___upd2___main_primitive_probe.in = 1'd1;
+    }
+    group let0UG {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0UG[done] = i0.done;
+      let0UG___main_group_probe.in = 1'd1;
+      i0___let0UG___main_primitive_probe.in = 1'd1;
+    }
+    group upd0UG {
+      a_read0_0.write_en = 1'd1;
+      a0.addr0 = i0.out;
+      a_read0_0.in = a0.read_data;
+      upd0UG[done] = a_read0_0.done ? 1'd1;
+      upd0UG___main_group_probe.in = 1'd1;
+      a_read0_0___upd0UG___main_primitive_probe.in = 1'd1;
+    }
+    group let1UG {
+      tmp_0.in = exp0.out;
+      tmp_0.write_en = 1'd1;
+      let1UG[done] = tmp_0.done;
+      let1UG___main_group_probe.in = 1'd1;
+      tmp_0___let1UG___main_primitive_probe.in = 1'd1;
+    }
+    group upd1UG {
+      a0.addr0 = i0.out;
+      a0.write_en = 1'd1;
+      a0.write_data = tmp_0.out;
+      upd1UG[done] = a0.done ? 1'd1;
+      upd1UG___main_group_probe.in = 1'd1;
+      a0___upd1UG___main_primitive_probe.in = 1'd1;
+    }
+    group upd2UG {
+      i0.write_en = 1'd1;
+      add0.left = i0.out;
+      add0.right = const2.out;
+      i0.in = add0.out;
+      upd2UG[done] = i0.done ? 1'd1;
+      upd2UG___main_group_probe.in = 1'd1;
+      i0___upd2UG___main_primitive_probe.in = 1'd1;
+      add0___upd2UG___main_primitive_probe.in = 1'd1;
+    }
+    comb group cond0 {
+      le0.left = i0.out;
+      le0.right = const1.out;
+      cond0___main_group_probe.in = 1'd1;
+      le0___cond0___main_primitive_probe.in = 1'd1;
+    }
+    comb group invoke_exp00UG {
+      invoke_exp00UG___main_group_probe.in = 1'd1;
+      exp0___invoke_exp00UG___main_cell_probe.in = 1'd1;
+    }
+    comb group cond0UG {
+      le0.left = i0.out;
+      le0.right = const1.out;
+      cond0UG___main_group_probe.in = 1'd1;
+      le0___cond0UG___main_primitive_probe.in = 1'd1;
+    }
+  }
+  control {
+    seq {
+      let0UG;
+      while le0.out with cond0UG {
+        seq {
+          upd0UG;
+          invoke exp0(
+            base = a_read0_0.out,
+            exp = const3.out
+          )() with invoke_exp00UG;
+          let1UG;
+          upd1UG;
+          upd2UG;
+        }
+      }
+    }
+  }
+}
