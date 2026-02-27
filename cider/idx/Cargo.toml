@@ -9,7 +9,7 @@ version = "0.1.0"
 serde = ["dep:serde"]
 
 [dependencies]
-ahash = "0.8.3"
+ahash = "0.8"
 smallvec = { workspace = true, features = ["union", "const_generics"] }
 serde = { workspace = true, optional = true, features = ["derive"] }
 

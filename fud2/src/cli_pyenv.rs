@@ -131,6 +131,7 @@ impl CliExt for Fud2CliExt {
     fn inner_command_info() -> Vec<CommandInfo> {
         vec![CommandInfo {
             name: "env",
+            short: &'e',
             description: "manage the fud2 python environment",
         }]
     }
