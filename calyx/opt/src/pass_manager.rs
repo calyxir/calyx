@@ -291,7 +291,7 @@ impl PassManager {
                     let elapsed = start.elapsed();
                     // Warn if pass takes more than 3 seconds.
                     if elapsed.as_secs() > 5 {
-                        log::warn!("{name}: {}ms", elapsed.as_millis());
+                        log::info!("{name}: {}ms", elapsed.as_millis());
                     } else {
                         log::info!("{name}: {}ms", start.elapsed().as_millis());
                     }

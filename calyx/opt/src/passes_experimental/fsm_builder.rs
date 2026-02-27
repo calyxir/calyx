@@ -2,12 +2,16 @@ use crate::analysis::{IncompleteTransition, StaticSchedule};
 use crate::traversal::{Action, ConstructVisitor, Named, Visitor};
 use calyx_ir::{self as ir, GetAttributes};
 use calyx_utils::CalyxResult;
+use core::ops::Not;
+use itertools::Itertools;
 const ACYCLIC: ir::Attribute =
     ir::Attribute::Internal(ir::InternalAttr::ACYCLIC);
 const UNROLL: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::UNROLL);
 const OFFLOAD: ir::Attribute =
     ir::Attribute::Internal(ir::InternalAttr::OFFLOAD);
 const INLINE: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::INLINE);
+const NUM_STATES: ir::Attribute =
+    ir::Attribute::Internal(ir::InternalAttr::NUM_STATES);
 
 pub struct FSMBuilder {}
 
@@ -50,6 +54,10 @@ fn is_offload<T: GetAttributes>(control: &T) -> bool {
 fn is_inline<T: GetAttributes>(control: &T) -> bool {
     matches!(control.get_attributes().get(INLINE), Some(1))
 }
+// Gets the `@NUM_STATES` attribute, which could possibly default to just one state
+fn get_num_states<T: GetAttributes>(control: &T) -> u64 {
+    control.get_attributes().get(NUM_STATES).unwrap()
+}
 
 // A `StaticSchedule` is an abstract representation of fsms and maps out transitions, states, and assignments.
 // This implmentation includes functions to build up static schedules and transform them to `ir::RRC::FSM`s.
@@ -59,6 +67,9 @@ impl StaticSchedule<'_, '_> {
     /// preparation to replace the `StaticControl` node with an instance of `ir::FSM`.
     /// Every static assignment collected into `state2assigns` will have its existing guard
     /// "anded" with `guard`. The `looped_once_guard` is used to encode the "doneness" of a FSM.
+    /// While the "doneness" of a FSM is not necessarily used in purely static components,
+    /// we support promoted static components, which were dynamic before and thus we must preserve
+    /// the "doneness" semantics by it's previous dynamic nature.
     fn build_abstract(
         &mut self,
         scon: &ir::StaticControl,
@@ -69,8 +80,10 @@ impl StaticSchedule<'_, '_> {
         match scon {
             ir::StaticControl::Empty(_) => (transitions_to_curr, None),
             ir::StaticControl::Enable(sen) => {
-                if is_acyclic(sen) {
+                if is_acyclic(sen) && is_inline(sen) {
+                    // @NUM_STATES(n) @ACYCLIC @INLINE
                     // The `@ACYCLIC` attribute requires that one state is allocated per cycle in a static enable.
+                    // The `@INLINE` attribute requires that this node must allocate states for this enable.
                     // For all parts of the FSM that want to transition to this enable,
                     // register their transitions in self.state2trans.
                     self.register_transitions(
@@ -101,7 +114,7 @@ impl StaticSchedule<'_, '_> {
                             })
                     });
                     // On an acyclic annotated node, we allocate N states to make N cycles elapse.
-                    self.state += sen.group.borrow().latency;
+                    self.state += get_num_states(sen);
                     // Don't know where to transition next; let the parent that called
                     // `build_abstract` deal with registering the transition
                     // from the state(s) we just built.
@@ -112,10 +125,12 @@ impl StaticSchedule<'_, '_> {
                         )],
                         looped_once_guard,
                     )
-                } else {
+                } else if is_inline(sen) {
+                    // @NUM_STATES(n) @INLINE
                     // In the absence of `@ACYCLIC`, the node must contain cycles,
-                    // or have children that contain cycles; We'll run this placeholder code that
-                    // creates one state for now.
+                    // or have children that contain cycles
+                    // We should create `n` states.
+                    // We'll run this placeholder code that creates one state for now.
                     self.register_transitions(
                         self.state,
                         &mut transitions_to_curr,
@@ -133,28 +148,57 @@ impl StaticSchedule<'_, '_> {
                         )],
                         None,
                     )
+                } else {
+                    unreachable!(
+                        "`build_abstract` encountered a node without any annotations."
+                    )
                 }
             }
-            ir::StaticControl::Seq(sseq) => (
-                // For now, we'll automatically inline static seqs.
-                // Added support for more annotations will be coming in the future.
-                sseq.stmts.iter().fold(
-                    transitions_to_curr,
-                    |transitions_to_this_stmt, stmt| {
-                        self.build_abstract(
-                            stmt,
-                            guard.clone(),
-                            transitions_to_this_stmt,
-                            looped_once_guard.clone(),
-                        )
-                        .0
-                    },
-                ),
-                None,
-            ),
+            ir::StaticControl::Seq(sseq) => {
+                if is_inline(sseq) {
+                    // @NUM_STATES(n) @ACYCLIC @INLINE
+                    // The `@ACYCLIC` attribute requires that one state is allocated per cycle in a static seq.
+                    // The `@INLINE` attribute requires that this node must allocate states for this seq.
+
+                    // @NUM_STATES(n) @INLINE
+                    // In the absence of `@ACYCLIC`, the node must contain cycles,
+                    // or have children that contain cycles
+                    // We should create `n` states.
+                    // We change each child node that may be externally "cyclic" in a finish_[StaticControl]
+                    // to an @INLINE enable node. Thus, we can just build_abstract on each and the recursive calls
+                    // will create the states to satisfy both the "cyclic" and @ACYCLIC invariants.
+                    // Then we can add transitions to link each of the recursive calls together.
+                    (
+                        sseq.stmts.iter().fold(
+                            transitions_to_curr,
+                            |transitions_to_this_stmt, stmt| {
+                                self.build_abstract(
+                                    stmt,
+                                    guard.clone(),
+                                    transitions_to_this_stmt,
+                                    looped_once_guard.clone(),
+                                )
+                                .0
+                            },
+                        ),
+                        None,
+                    )
+                } else if is_offload(sseq) {
+                    // @NUM_STATES(1) @OFFLOAD
+                    unreachable!(
+                        "`build_abstract` encountered an impossible offload of Static Seq node."
+                    )
+                } else {
+                    // cyclic static seqs are not possible
+                    // we must have at least one `attr` annotation
+                    unreachable!(
+                        "`build_abstract` encountered a node without any annotations."
+                    )
+                }
+            }
             ir::StaticControl::Repeat(srep) => {
-                // Matching for the `@ACYCLIC` attribute coming soon.
-                if is_unroll(srep) {
+                if is_acyclic(srep) && is_unroll(srep) {
+                    // @ACYCLIC @UNROLL
                     // In the encounter of a `@UNROLL` attribute, we'll want to create a state for each child.
                     (
                         (0..srep.num_repeats).fold(
@@ -172,21 +216,205 @@ impl StaticSchedule<'_, '_> {
                         None,
                     )
                 } else if is_offload(srep) {
-                    todo!()
+                    // @NUM_STATES(1) @OFFLOAD
+                    // Offloads are handled by the finish_static_repeat function.
+                    unreachable!(
+                        "`build_abstract` offload of `static_repeat` nodes should have been transformed away."
+                    )
                 } else if is_inline(srep) {
-                    // In the case of inline, we'll want to assign as many states as children of this loop,
-                    // but create a register to count the amount of times looped, and assign
-                    // backward edges from the end to the beginning.
-                    todo!()
+                    // @NUM_STATES(n) @INLINE
+                    // Create a loop: the body has n states (from annotations)
+                    // We build those states once, add a counter, and create a back edge
+
+                    // Register incoming transitions to start of repeat
+                    self.register_transitions(
+                        self.state,
+                        &mut transitions_to_curr,
+                        guard.clone(),
+                    );
+
+                    let loop_start_state = self.state;
+
+                    // Get the number of states the body needs from its annotation
+                    let body_num_states = get_num_states(srep);
+
+                    // Build the body ONCE to populate the state->assignments mapping
+                    let (_body_exits, _) = self.build_abstract(
+                        &srep.body,
+                        guard.clone(),
+                        vec![],
+                        looped_once_guard.clone(),
+                    );
+
+                    // After building the body, self.state has advanced by body_num_states
+                    // So the last state of the loop body is self.state - 1
+                    let loop_end_state = loop_start_state + body_num_states - 1;
+
+                    // Build counter logic and loop transitions
+                    let exit_guard = self.build_repeat_loop(
+                        loop_start_state,
+                        loop_end_state,
+                        srep.num_repeats,
+                        guard.clone(),
+                    );
+
+                    // Return transition from the final state when loop is done
+                    (
+                        vec![IncompleteTransition::new(
+                            loop_end_state,
+                            exit_guard,
+                        )],
+                        None,
+                    )
                 } else {
-                    todo!()
+                    // we must have at least one `attr` annotation
+                    unreachable!(
+                        "`build_abstract` encountered a node without any annotations."
+                    )
                 }
             }
-            ir::StaticControl::If(_sif) => {
-                todo!()
+            ir::StaticControl::If(sif) => {
+                if is_acyclic(sif) && is_inline(sif) {
+                    // @NUM_STATES(n) @ACYCLIC @INLINE
+                    // Both branches execute in parallel with conditional guards
+                    let true_guard =
+                        guard.clone().and(ir::Guard::port(sif.port.clone()));
+                    let false_guard = guard
+                        .clone()
+                        .and(ir::Guard::not(ir::Guard::port(sif.port.clone())));
+
+                    // Build both branches with their respective guards
+                    (
+                        self.build_abstract(
+                            &sif.tbranch,
+                            true_guard,
+                            transitions_to_curr.clone(),
+                            looped_once_guard.clone(),
+                        )
+                        .0
+                        .into_iter()
+                        .chain(
+                            self.build_abstract(
+                                &sif.fbranch,
+                                false_guard,
+                                transitions_to_curr,
+                                looped_once_guard,
+                            )
+                            .0,
+                        )
+                        .collect(),
+                        None,
+                    )
+                } else if is_offload(sif) {
+                    // @NUM_STATES(1) @OFFLOAD
+                    // Offloads are handled by the finish_static_if function.
+                    unreachable!(
+                        "`build_abstract` encountered an impossible offload of Static Seq node."
+                    )
+                } else {
+                    // we must have at least one `attr` annotation
+                    unreachable!(
+                        "`build_abstract` encountered a node without any annotations."
+                    )
+                }
             }
-            ir::StaticControl::Par(_spar) => {
-                todo!()
+            ir::StaticControl::Par(spar) => {
+                if is_acyclic(spar) && is_inline(spar) {
+                    // @NUM_STATES(n) @ACYCLIC @INLINE
+                    // schedule children in lock-step.
+                    // we register incoming transitions to the start state of the par region
+                    // for each child, build its schedule into a temporary StaticSchedule
+                    // (so the child's states start at 0 in the tmp schedule).
+                    // then we collect each child's per-state assignments and merge them
+                    // into `self.state2assigns` aligned at `self.state`.
+                    // and finally reserve `L = max_i latency(i)` states in `self.state`
+                    // and return a single exit transition from `self.state + L - 1`.
+
+                    // Register incoming transitions to the start of the par region
+                    self.register_transitions(
+                        self.state,
+                        &mut transitions_to_curr,
+                        guard.clone(),
+                    );
+
+                    let par_start = self.state;
+
+                    // Build temporary schedules and collect per-thread maps
+                    let mut max_len: u64 = 0;
+                    let mut per_thread_maps: Vec<
+                        std::collections::HashMap<
+                            u64,
+                            Vec<ir::Assignment<ir::Nothing>>,
+                        >,
+                    > = Vec::new();
+
+                    for thread in spar.stmts.iter() {
+                        // Build the thread in a temporary schedule so we can observe
+                        // its per-state assignments without advancing `self.state`.
+                        let mut tmp = StaticSchedule::from(&mut *self.builder);
+                        let (_exits, _g) = tmp.build_abstract(
+                            thread,
+                            guard.clone(),
+                            vec![],
+                            looped_once_guard.clone(),
+                        );
+
+                        let thread_len = get_num_states(thread);
+                        max_len = max_len.max(thread_len);
+
+                        // Drain the tmp schedule's state->assigns map into a HashMap
+                        let map: std::collections::HashMap<
+                            u64,
+                            Vec<ir::Assignment<ir::Nothing>>,
+                        > = tmp.state2assigns.drain().collect();
+                        per_thread_maps.push(map);
+                    }
+
+                    // Merge per-thread maps into the current schedule, aligned at par_start
+                    for map in per_thread_maps.into_iter() {
+                        for (s, assigns) in map.into_iter() {
+                            let target = par_start + s;
+                            self.state2assigns
+                                .entry(target)
+                                .and_modify(|other| {
+                                    other.extend(assigns.clone())
+                                })
+                                .or_insert(assigns.clone());
+                        }
+                    }
+
+                    // Reserve max_len states and return exit transition from final state
+                    if max_len == 0 {
+                        // empty par -> immediate exit
+                        (
+                            vec![IncompleteTransition::new(
+                                par_start,
+                                ir::Guard::True,
+                            )],
+                            None,
+                        )
+                    } else {
+                        self.state += max_len;
+                        (
+                            vec![IncompleteTransition::new(
+                                self.state - 1,
+                                ir::Guard::True,
+                            )],
+                            None,
+                        )
+                    }
+                } else if is_offload(spar) {
+                    // @NUM_STATES(1) @OFFLOAD
+                    // Offloads are handled by the finish_static_par function.
+                    unreachable!(
+                        "`build_abstract` encountered an impossible offload of Static Seq node."
+                    )
+                } else {
+                    // we must have at least one `attr` annotation
+                    unreachable!(
+                        "`build_abstract` encountered a node without any annotations."
+                    )
+                }
             }
             ir::StaticControl::Invoke(_) => {
                 unreachable!(
@@ -196,12 +424,15 @@ impl StaticSchedule<'_, '_> {
             }
         }
     }
+
     /// Returns the FSM implementing the given control node, as well as the builder
     /// object from which it was built.
     fn fsm_build(
         &mut self,
         control: &ir::StaticControl,
-        build_component_type: Component, // need to get better type name. Some(True) means non-promoted-static-component. False means promoted/static island. Otherwise it's a
+        build_component_type: Component,
+        // need to get better type name. Some(True) means non-promoted-static-component. False
+        // means promoted/static island. Otherwise it's dynamic, support for which we'll add soon
     ) -> ir::RRC<ir::FSM> {
         let signal_on = self.builder.add_constant(1, 1);
 
@@ -339,7 +570,233 @@ impl StaticSchedule<'_, '_> {
     }
 }
 
+// A `Visitor` visits all the nodes in the internal representation and either calls
+// start_[node type], enabling top-down traversal, or finish_[node type] which enables
+// bottom up traversal. I like to think of it as finish functions are called on the
+// child-most node, and start functions are called at the root-most node.
 impl Visitor for FSMBuilder {
+    /// Handles `@OFFLOAD` static repeat statements by converting them into `@INLINE` enables.
+    /// Creates an FSM for the repeat body, then wraps it in a static group where the FSM's
+    /// `[start]` signal is held high for the entire duration of the repeat. This allows the
+    /// body FSM to loop the desired number of times. The entire repeat is transformed into
+    /// a `StaticControl::Enable` with the `@INLINE` attribute, which will later be integrated
+    /// into the parent FSM by `build_abstract`.
+    fn finish_static_repeat(
+        &mut self,
+        s: &mut calyx_ir::StaticRepeat,
+        comp: &mut calyx_ir::Component,
+        sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> crate::traversal::VisResult {
+        if is_offload(s) {
+            let non_promoted_static_component = comp.is_static()
+                && !(comp
+                    .attributes
+                    .has(ir::Attribute::Bool(ir::BoolAttr::Promoted)));
+
+            let mut builder = ir::Builder::new(comp, sigs);
+            let signal_on = builder.add_constant(1, 1);
+            let repeat_group = builder.add_static_group("repeat", s.latency);
+            let mut sch_generator = StaticSchedule::from(&mut builder);
+
+            let trigger_fsm = {
+                // This FSM implements the schedule for the body of the repeat
+                let fsm = sch_generator.fsm_build(
+                    &s.body,
+                    Component {
+                        non_promoted_static_component: Some(
+                            non_promoted_static_component,
+                        ),
+                        static_control_component: true,
+                    },
+                );
+
+                let mut trigger_thread = builder.build_assignment(
+                    fsm.borrow().get("start"),
+                    signal_on.borrow().get("out"),
+                    ir::Guard::True,
+                );
+                // Make fsm[start] active for the entire execution of the repeat,
+                // not just the first cycle. This way, we can repeat the body the desired
+                // number of times.
+                trigger_thread
+                    .guard
+                    .add_interval(ir::StaticTiming::new((0, s.latency)));
+                trigger_thread
+            };
+
+            repeat_group.borrow_mut().assignments.push(trigger_fsm);
+            let mut enable = ir::StaticControl::Enable(ir::StaticEnable {
+                group: repeat_group,
+                attributes: ir::Attributes::default(),
+            });
+            enable.get_mut_attributes().insert(INLINE, 1);
+            Ok(Action::static_change(enable))
+        } else {
+            Ok(Action::Continue)
+        }
+    }
+
+    /// Handles `@OFFLOAD` static if statements by converting them into `@INLINE` enables.
+    /// Creates separate FSMs for the true and false branches, then wraps them in a static
+    /// group that conditionally triggers the appropriate branch FSM. The entire if statement
+    /// is transformed into a `StaticControl::Enable` with the `@INLINE` attribute, which will
+    /// later be integrated into the parent FSM by `build_abstract`.
+    fn finish_static_if(
+        &mut self,
+        s: &mut calyx_ir::StaticIf,
+        comp: &mut calyx_ir::Component,
+        sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> crate::traversal::VisResult {
+        if is_offload(s) {
+            let non_promoted_static_component = comp.is_static()
+                && !(comp
+                    .attributes
+                    .has(ir::Attribute::Bool(ir::BoolAttr::Promoted)));
+
+            let mut builder = ir::Builder::new(comp, sigs);
+            let signal_on = builder.add_constant(1, 1);
+
+            // generate FSM for true branch
+            let mut sch_constructor_true = StaticSchedule::from(&mut builder);
+            let true_branch_fsm = sch_constructor_true.fsm_build(
+                &s.tbranch,
+                Component {
+                    non_promoted_static_component: Some(
+                        non_promoted_static_component,
+                    ),
+                    static_control_component: true,
+                },
+            );
+
+            // group to active each FSM conditionally
+            let if_group = builder.add_static_group("if", s.latency);
+            let true_guard: ir::Guard<ir::StaticTiming> =
+                ir::Guard::port(ir::RRC::clone(&s.port));
+            let false_guard = ir::Guard::not(true_guard.clone());
+
+            // assignments to active each FSM
+            let mut trigger_fsms_with_branch_latency = vec![(
+                builder.build_assignment(
+                    true_branch_fsm.borrow().get("start"),
+                    signal_on.borrow().get("out"),
+                    true_guard,
+                ),
+                s.tbranch.get_latency(),
+            )];
+
+            // generate FSM and start condition for false branch if branch not empty
+            if !(matches!(&*s.fbranch, ir::StaticControl::Empty(_))) {
+                let mut sch_constructor_false =
+                    StaticSchedule::from(&mut builder);
+                let false_branch_fsm = sch_constructor_false.fsm_build(
+                    &s.fbranch,
+                    Component {
+                        non_promoted_static_component: Some(
+                            non_promoted_static_component,
+                        ),
+                        static_control_component: true,
+                    },
+                );
+                trigger_fsms_with_branch_latency.push((
+                    builder.build_assignment(
+                        false_branch_fsm.borrow().get("start"),
+                        signal_on.borrow().get("out"),
+                        false_guard,
+                    ),
+                    s.fbranch.get_latency(),
+                ));
+            }
+
+            // make sure [start] for each FSM is pulsed at most once, at the first
+            // cycle
+
+            let trigger_fsms = trigger_fsms_with_branch_latency
+                .into_iter()
+                .map(|(mut assign, latency)| {
+                    assign
+                        .guard
+                        .add_interval(ir::StaticTiming::new((0, latency)));
+                    assign
+                })
+                .collect_vec();
+
+            if_group.borrow_mut().assignments.extend(trigger_fsms);
+
+            // ensure this group only gets one state in the parent FSM, and only
+            // transitions out when the latency counter has completed
+            let mut enable = ir::StaticControl::Enable(ir::StaticEnable {
+                group: if_group,
+                attributes: ir::Attributes::default(),
+            });
+
+            enable.get_mut_attributes().insert(INLINE, 1);
+            Ok(Action::static_change(enable))
+        } else {
+            Ok(Action::Continue)
+        }
+    }
+
+    /// Handles `@OFFLOAD` static pars by converting them into `@INLINE` enables.
+    /// Creates separate FSMs for each thread in the parallel block, then wraps them in a static
+    /// group that simultaneously triggers all thread FSMs. Each FSM's `[start]` signal is held
+    /// high for the duration of its respective thread. The entire par is transformed into a
+    /// `StaticControl::Enable` with the `@INLINE` attribute, which will later be integrated
+    /// into the parent FSM by `build_abstract`.
+    fn finish_static_par(
+        &mut self,
+        spar: &mut calyx_ir::StaticPar,
+        comp: &mut calyx_ir::Component,
+        sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> crate::traversal::VisResult {
+        let non_promoted_static_component = comp.is_static()
+            && !(comp
+                .attributes
+                .has(ir::Attribute::Bool(ir::BoolAttr::Promoted)));
+        if is_offload(spar) {
+            let mut builder = ir::Builder::new(comp, sigs);
+            let signal_on = builder.add_constant(1, 1);
+            let par_group = builder.add_static_group("par", spar.latency);
+            par_group
+                .borrow_mut()
+                .assignments
+                .extend(spar.stmts.iter().map(|thread: &ir::StaticControl| {
+                    let mut sch_generator = StaticSchedule::from(&mut builder);
+                    let thread_latency = thread.get_latency();
+                    let thread_fsm = sch_generator.fsm_build(
+                        thread,
+                        Component {
+                            non_promoted_static_component: Some(
+                                non_promoted_static_component,
+                            ),
+                            static_control_component: true,
+                        },
+                    );
+                    let mut trigger_thread = builder.build_assignment(
+                        thread_fsm.borrow().get("start"),
+                        signal_on.borrow().get("out"),
+                        ir::Guard::True,
+                    );
+                    trigger_thread.guard.add_interval(ir::StaticTiming::new((
+                        0,
+                        thread_latency,
+                    )));
+                    trigger_thread
+                }));
+
+            let mut enable = ir::StaticControl::Enable(ir::StaticEnable {
+                group: par_group,
+                attributes: ir::Attributes::default(),
+            });
+            enable.get_mut_attributes().insert(INLINE, 1);
+
+            Ok(Action::static_change(enable))
+        } else {
+            Ok(Action::Continue)
+        }
+    }
     /// `finish_static_control` is called once, at the very end of traversing the control tree,
     /// when all child nodes have been traversed. We traverse the static control node from parent to
     /// child, and recurse inward to inline children.
@@ -354,6 +811,7 @@ impl Visitor for FSMBuilder {
             && !(comp
                 .attributes
                 .has(ir::Attribute::Bool(ir::BoolAttr::Promoted)));
+
         // Implementation for single static enable components and static seqs for now.
         let mut builder = ir::Builder::new(comp, sigs);
 
