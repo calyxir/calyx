@@ -33,5 +33,5 @@ itertools.workspace = true
 thiserror = "2"
 calyx-utils.workspace = true
 
-strum_macros = "0.25"
-strum = "0.25"
+strum_macros = "0.28"
+strum = "0.28"
