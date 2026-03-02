@@ -140,13 +140,17 @@ impl StaticSchedule<'_, '_> {
                     let final_state_guard =
                         self.leave_one_state_condition(guard, sen);
 
+                    let new_looped_once_guard = match self.state {
+                        0 => Some(final_state_guard.clone()),
+                        _ => looped_once_guard,
+                    };
                     self.state += 1;
                     (
                         vec![IncompleteTransition::new(
                             self.state - 1,
                             final_state_guard,
                         )],
-                        None,
+                        new_looped_once_guard,
                     )
                 } else {
                     unreachable!(
@@ -168,20 +172,22 @@ impl StaticSchedule<'_, '_> {
                     // to an @INLINE enable node. Thus, we can just build_abstract on each and the recursive calls
                     // will create the states to satisfy both the "cyclic" and @ACYCLIC invariants.
                     // Then we can add transitions to link each of the recursive calls together.
-                    (
-                        sseq.stmts.iter().fold(
-                            transitions_to_curr,
-                            |transitions_to_this_stmt, stmt| {
-                                self.build_abstract(
+                    sseq.stmts.iter().fold(
+                        (transitions_to_curr, looped_once_guard),
+                        |(transitions_to_this_stmt, acc_looped_once_guard),
+                         stmt| {
+                            let (new_transitions, new_looped_once_guard) = self
+                                .build_abstract(
                                     stmt,
                                     guard.clone(),
                                     transitions_to_this_stmt,
-                                    looped_once_guard.clone(),
-                                )
-                                .0
-                            },
-                        ),
-                        None,
+                                    acc_looped_once_guard.clone(),
+                                );
+                            // Keep the first looped_once_guard that gets set (from state 0)
+                            let updated_guard =
+                                acc_looped_once_guard.or(new_looped_once_guard);
+                            (new_transitions, updated_guard)
+                        },
                     )
                 } else if is_offload(sseq) {
                     // @NUM_STATES(1) @OFFLOAD
@@ -213,7 +219,7 @@ impl StaticSchedule<'_, '_> {
                                 .0
                             },
                         ),
-                        None,
+                        looped_once_guard.clone(),
                     )
                 } else if is_offload(srep) {
                     // @NUM_STATES(1) @OFFLOAD
@@ -262,9 +268,9 @@ impl StaticSchedule<'_, '_> {
                     (
                         vec![IncompleteTransition::new(
                             loop_end_state,
-                            exit_guard,
+                            exit_guard.clone(),
                         )],
-                        None,
+                        Some(exit_guard),
                     )
                 } else {
                     // we must have at least one `attr` annotation
@@ -298,12 +304,12 @@ impl StaticSchedule<'_, '_> {
                                 &sif.fbranch,
                                 false_guard,
                                 transitions_to_curr,
-                                looped_once_guard,
+                                looped_once_guard.clone(),
                             )
                             .0,
                         )
                         .collect(),
-                        None,
+                        looped_once_guard.clone(),
                     )
                 } else if is_inline(sif) {
                     // @NUM_STATES(n) @INLINE
@@ -333,11 +339,14 @@ impl StaticSchedule<'_, '_> {
                         &sif.fbranch,
                         false_guard,
                         vec![],
-                        looped_once_guard,
+                        looped_once_guard.clone(),
                     );
 
                     // Combine exit transitions from both branches
-                    (true_exits.into_iter().chain(false_exits).collect(), None)
+                    (
+                        true_exits.into_iter().chain(false_exits).collect(),
+                        looped_once_guard,
+                    )
                 } else if is_offload(sif) {
                     // @NUM_STATES(1) @OFFLOAD
                     // Offloads are handled by the finish_static_if function.
@@ -424,7 +433,7 @@ impl StaticSchedule<'_, '_> {
                                 par_start,
                                 ir::Guard::True,
                             )],
-                            None,
+                            looped_once_guard.clone(),
                         )
                     } else {
                         self.state += max_len;
@@ -433,7 +442,7 @@ impl StaticSchedule<'_, '_> {
                                 self.state - 1,
                                 ir::Guard::True,
                             )],
-                            None,
+                            looped_once_guard.clone(),
                         )
                     }
                 } else if is_offload(spar) {
@@ -665,6 +674,9 @@ impl Visitor for FSMBuilder {
             });
             enable.get_mut_attributes().insert(INLINE, 1);
             enable.get_mut_attributes().insert(NUM_STATES, srep.latency);
+            enable
+                .get_mut_attributes()
+                .insert(ir::BoolAttr::OneState, 1);
 
             Ok(Action::static_change(enable))
         } else {
@@ -768,6 +780,9 @@ impl Visitor for FSMBuilder {
 
             enable.get_mut_attributes().insert(INLINE, 1);
             enable.get_mut_attributes().insert(NUM_STATES, sif.latency);
+            enable
+                .get_mut_attributes()
+                .insert(ir::BoolAttr::OneState, 1);
 
             Ok(Action::static_change(enable))
         } else {
@@ -829,6 +844,9 @@ impl Visitor for FSMBuilder {
             });
             enable.get_mut_attributes().insert(INLINE, 1);
             enable.get_mut_attributes().insert(NUM_STATES, spar.latency);
+            enable
+                .get_mut_attributes()
+                .insert(ir::BoolAttr::OneState, 1);
 
             Ok(Action::static_change(enable))
         } else {
