@@ -92,11 +92,31 @@ impl Display for Planner {
 
 /// edit the configuration file
 #[derive(FromArgs, PartialEq, Debug)]
-#[argh(subcommand, name = "edit-config")]
+#[argh(subcommand, name = "edit")]
 pub struct EditConfig {
     /// the editor to use
     #[argh(option, short = 'e')]
     pub editor: Option<String>,
+}
+
+/// print the path of the config file
+#[derive(FromArgs, PartialEq, Debug)]
+#[argh(subcommand, name = "print-path")]
+pub struct PrintConfig {}
+
+#[derive(FromArgs, PartialEq, Debug)]
+#[argh(subcommand)]
+pub enum ConfigAction {
+    Edit(EditConfig),
+    Path(PrintConfig),
+}
+
+/// manipulate the fud2 config
+#[derive(FromArgs, PartialEq, Debug)]
+#[argh(subcommand, name = "config")]
+pub struct ConfigCommand {
+    #[argh(subcommand)]
+    action: ConfigAction,
 }
 
 /// extract a resource file
@@ -130,8 +150,8 @@ pub struct RegisterCommand {
 #[derive(FromArgs)]
 #[argh(subcommand)]
 pub enum Subcommand<T: CliExt> {
-    /// edit the configuration file
-    EditConfig(EditConfig),
+    /// manipulate the configuration file
+    Config(ConfigCommand),
 
     /// extract a resource file
     GetResource(GetResource),
@@ -350,6 +370,22 @@ fn edit_config(driver: &Driver, cmd: EditConfig) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn run_config_command(
+    driver: &Driver,
+    cmd: ConfigCommand,
+) -> anyhow::Result<()> {
+    match cmd.action {
+        ConfigAction::Edit(edit_cmd) => edit_config(driver, edit_cmd),
+        ConfigAction::Path(_) => print_config_path(driver),
+    }
+}
+
+fn print_config_path(driver: &Driver) -> anyhow::Result<()> {
+    let config_path = config::config_path(&driver.name);
+    println!("{}", config_path.display());
+    Ok(())
+}
+
 fn get_resource(driver: &Driver, cmd: GetResource) -> anyhow::Result<()> {
     let to_path = cmd.output.as_deref().unwrap_or(&cmd.filename);
 
@@ -472,8 +508,8 @@ fn cli_ext<T: CliExt>(
 
     // Special commands that bypass the normal behavior.
     match args.sub {
-        Some(Subcommand::EditConfig(cmd)) => {
-            return edit_config(driver, cmd);
+        Some(Subcommand::Config(cmd)) => {
+            return run_config_command(driver, cmd);
         }
         Some(Subcommand::GetResource(cmd)) => {
             return get_resource(driver, cmd);
