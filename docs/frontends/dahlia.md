@@ -22,7 +22,7 @@ The Dahlia compiler can be run using the `./fuse` binary:
 ```
 
 Finally, configure `fud2` to use the Dahlia compiler.
-Type `fud2 edit-config` and add a line like this:
+Type `fud2 config edit` and add a line like this:
 ```
 dahlia = "<path to Dahlia repository>/fuse"
 ```
