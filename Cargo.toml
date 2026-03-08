@@ -142,8 +142,6 @@ calyx-opt.workspace = true
 workspace = true
 features = ["mlir", "resources", "xilinx"]
 
-[profile.release]
-lto = "thin"
 
 # = ========== Benchmarks ===========
 [dev-dependencies]
@@ -155,6 +153,26 @@ calyx-frontend = { path = "calyx/frontend" }
 [[bench]]
 name = "component-sharing"
 harness = false
+
+
+# ==== Profiles ====
+
+# makes the compilation faster on the default path
+[profile.dev]
+debug = 0
+
+# "debug" is reserved, used when you need the debug info
+[profile.dev-debug]
+inherits = "dev"
+debug = true
+
+# tuned toward maximizing performance. long compilation times. theoretically
+# performs better than the default release
+[profile.release-perf]
+inherits = "release"
+lto = true
+codegen-units = 1
+panic = "abort"
 
 
 [profile.test.package.proptest]
