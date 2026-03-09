@@ -14,7 +14,7 @@ use crate::passes::{
 };
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
-    FSMAnnotator, FSMBuilder, HoleInliner, Metadata, ParToSeq,
+    FSMAnnotator, FSMBuilder, HoleInliner, MemFlat, Metadata, ParToSeq,
     RegisterUnsharing, SimplifyIfComb,
 };
 use crate::traversal::Named;
@@ -94,6 +94,8 @@ impl PassManager {
 
         //add metadata
         pm.register_pass::<Metadata>()?;
+
+        pm.register_pass::<MemFlat>()?;
 
         register_alias!(pm, "validate", [WellFormed, Papercut, Canonicalize]);
         register_alias!(
