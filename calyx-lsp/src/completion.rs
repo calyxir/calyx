@@ -124,7 +124,7 @@ impl QueryResult for CompletionRes {
                             doc.captures(root, "(component (ident) @name)");
                         multizip((prims["name"].iter(), prims["param"].iter()))
                             .map(|(n, p)| (doc.node_text(n), doc.node_text(p)))
-                            .group_by(|(n, _)| n.to_string())
+                            .chunk_by(|(n, _)| n.to_string())
                             .into_iter()
                             .map(|(n, p)| {
                                 CompletionItem::snippet(
