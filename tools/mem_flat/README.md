@@ -17,6 +17,8 @@ to use the generated components:
 
 note that the address lines of the generated component are marked ``write_together``. while not a strict requirement due to its combinational implementation, this better conforms with the behaviour of the existing multi-dimensional memory primitives.
 
+also note that, since this tool only works on addressing, the same 'type' of component can be used for memories of different data widths but the same size. for example, because the addressing for a 2x5 32-bit memory is the same as that for a 2x5 16-bit memory, the same address adapter can be used for both.
+
 an example is provided in this folder, which can be run with:
 ```
    fud2 --from calyx --to jq --through verilator -s sim.data={$PWD}/seq-mem-flat-add.futil.data -s verilog.cycle_limit=500 -s jq.expr=".memories" {$PWD}/seq-mem-flat-add.futil

@@ -119,13 +119,13 @@ def mk_naive_addrgen(parent_comp, dim_sizes, idx_sizes, addr_width):
         return addr_tot
 
 
-def add_flatten_mem(prog, width, dim_sizes, idx_sizes):
+def add_flatten_mem(prog, dim_sizes, idx_sizes):
     assert len(dim_sizes) == len(idx_sizes), "dimensions don't match"
     assert 2 <= len(idx_sizes) and len(idx_sizes) <= 4, "dimension count not supported"
 
     spec = "x".join(str(n) for n in dim_sizes)
 
-    flat_comp = prog.comb_component(f"d{len(idx_sizes)}_{width}_flat_{spec}")
+    flat_comp = prog.comb_component(f"fd{len(idx_sizes)}_{spec}")
 
     mem_len = 1
     for i in dim_sizes:
@@ -144,7 +144,6 @@ def add_flatten_mem(prog, width, dim_sizes, idx_sizes):
 
 
 # Since yxi is still young, keys and formatting change often.
-width_key = "data_width"
 size_key = "total_size"
 name_key = "name"
 
@@ -153,14 +152,12 @@ def build():
     prog = Builder(emit_sourceloc=False)
     memsizes = []
     for mem in mems:
-        nwidth = mem[width_key]
-        nlen = mem[size_key]
         dims = mem["dimension_sizes"]
         if len(dims) == 1:
             continue
-        if (nwidth, nlen) not in memsizes:
-            add_flatten_mem(prog, nwidth, dims, mem["idx_sizes"])
-            memsizes.append((nwidth, nlen))
+        if dims not in memsizes:
+            add_flatten_mem(prog, dims, mem["idx_sizes"])
+            memsizes.append(dims)
     # add_main_comp(prog, mems)
     return prog.program
 
