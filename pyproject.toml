@@ -2,7 +2,11 @@
 name = "calyx-tools"
 authors = []
 requires-python = ">=3.13"
-dependencies = ["calyx-ast"]
+dependencies = [
+    "calyx-ast",
+    "cocotb==1.8.1",
+    "cocotbext-axi>=0.1.26",
+]
 version = "0.1.0"
 
 [tool.uv.sources]
