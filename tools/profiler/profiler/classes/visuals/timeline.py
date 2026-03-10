@@ -385,9 +385,9 @@ class DahliaProtoTimeline:
     main_function_name = "main"
     primitive_collection_name = "Calyx Primitives"
     # block name --> statement name --> Thread name
-    block_to_active_threads : dict[str, dict[str, str]] = field(default_factory=dict)
+    block_to_active_threads: dict[str, dict[str, str]] = field(default_factory=dict)
     # all thread ids that were constructed within the block
-    block_to_constructed_threads : dict[str, set[str]] = field(default_factory=dict)
+    block_to_constructed_threads: dict[str, set[str]] = field(default_factory=dict)
     dahlia_map: DahliaAdlMap
 
     def __init__(self, primitive_metadata: PrimitiveMetadata, dahlia_map: DahliaAdlMap):
@@ -404,7 +404,6 @@ class DahliaProtoTimeline:
         # FIXME: hella defunct way of creating a lookup for primitives
         for _, p_map in primitive_metadata.p_map.items():
             self.primitive_name_to_type.update(p_map)
-
 
     def create_tracks(
         self,
@@ -433,7 +432,6 @@ class DahliaProtoTimeline:
             self.block_to_active_threads[block] = {}
             self.block_to_constructed_threads[block] = set()
 
-
         # create tracks for each statement with no block parents
         for stmt in set(statements_to_block_ancestors.keys()).difference(blocks):
             stmt_ancestors = statements_to_block_ancestors[stmt]
@@ -458,7 +456,9 @@ class DahliaProtoTimeline:
             #     # No threads constructed so far. create and register thread 1
             #     new_thread = f"{parent_prefix}: Thread 1"
             # print("======" + statement)
-            assert(len(self.block_to_constructed_threads[parent_track_id]) >= len(self.block_to_active_threads[parent_track_id]))
+            assert len(self.block_to_constructed_threads[parent_track_id]) >= len(
+                self.block_to_active_threads[parent_track_id]
+            )
             active_threads = set(self.block_to_active_threads[parent_track_id].values())
             # print(f"Constructed threads: {self.block_to_constructed_threads[parent_track_id]}")
             # print(f"Active threads: {active_threads}")
@@ -469,14 +469,22 @@ class DahliaProtoTimeline:
                 # register new thread in constructed threads set
                 self.block_to_constructed_threads[parent_track_id].add(new_thread)
                 # register track for new thread
-                self.proto.register_track_in_collection(self.main_function_name, new_thread, intermediate_parent_name=parent_track_id)
+                self.proto.register_track_in_collection(
+                    self.main_function_name,
+                    new_thread,
+                    intermediate_parent_name=parent_track_id,
+                )
             else:
-                new_thread = sorted(self.block_to_constructed_threads[parent_track_id].difference(active_threads))[0]
+                new_thread = sorted(
+                    self.block_to_constructed_threads[parent_track_id].difference(
+                        active_threads
+                    )
+                )[0]
             # register in self.block_to_active_threads that the statement will be using the new thread
             self.block_to_active_threads[parent_track_id][statement] = new_thread
             return new_thread
 
-    def get_track_id_from_ending_statement(self, statement : str):
+    def get_track_id_from_ending_statement(self, statement: str):
         stmt_ancestors = self.dahlia_map.stmt_to_block_ancestors[statement]
         # track is already defined with the name
         if statement in self.dahlia_map.blocks or len(stmt_ancestors) == 0:
@@ -498,10 +506,14 @@ class DahliaProtoTimeline:
             case TrackEvent.TYPE_SLICE_BEGIN:
                 track_id = self.get_track_id_from_starting_statement(statement)
                 # print(track_id)
-                self.proto.register_event_in_collection(self.main_function_name, statement, track_id, timestamp, event_type)
+                self.proto.register_event_in_collection(
+                    self.main_function_name, statement, track_id, timestamp, event_type
+                )
             case TrackEvent.TYPE_SLICE_END:
                 track_id = self.get_track_id_from_ending_statement(statement)
-                self.proto.register_event_in_collection(self.main_function_name, statement, track_id, timestamp, event_type)
+                self.proto.register_event_in_collection(
+                    self.main_function_name, statement, track_id, timestamp, event_type
+                )
 
         #     # make sure there is a
         # # if not self.proto.is_track_registered_in_collection(
