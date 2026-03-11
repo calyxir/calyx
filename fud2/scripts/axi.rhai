@@ -73,6 +73,7 @@ fn axi_wrapped_op(e, input, output) {
    let refified_calyx = replace_ext(`refified_${file_name}`, "futil");
    e.build_cmd([refified_calyx], "calyx-pass", [input], []);
    e.arg("pass", "external-to-ref");
+   e.arg("args", "-x external-to-ref:activate=true" );
 
    let axi_wrapper = "axi_wrapper.futil";
    e.build_cmd([axi_wrapper], "gen-axi", [tmp_yxi], []);
