@@ -9,26 +9,26 @@ rule get-rsrc
 rule t1_rule_1
   command = echo one
 build f1: t1_rule_1
-  i0 = _from_stdin_s1
-  o0 = _to_stdout_s2
+  i0 = s1_0
+  o0 = s2_1
 
 rule t1_rule_4
   command = echo five
 build f2: t1_rule_4 f1
-  i0 = _from_stdin_s1
-  o0 = _to_stdout_s2
+  i0 = s1_0
+  o0 = s2_1
 
 rule t1_rule_6
   command = echo five
 build $o0: t1_rule_6
-  i0 = _from_stdin_s1
-  o0 = _to_stdout_s2
+  i0 = s1_0
+  o0 = s2_1
 
 rule t1_rule_7
   command = echo five
 build f4 f5: t1_rule_7 $i0 f1 f2
-  i0 = _from_stdin_s1
-  o0 = _to_stdout_s2
+  i0 = s1_0
+  o0 = s2_1
 
 
-default _to_stdout_s2
+default s2_1

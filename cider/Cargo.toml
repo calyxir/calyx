@@ -9,6 +9,9 @@ rust-version.workspace = true
 name = "cider"
 path = "src/main.rs"
 
+[features]
+data-race-stats = []
+
 [dependencies]
 smallvec = { workspace = true, features = ["union", "const_generics"] }
 serde = { workspace = true, features = ["derive", "rc"] }
@@ -33,16 +36,16 @@ serde_json.workspace = true
 serde_with.workspace = true
 
 owo-colors = { version = "4.1", features = ["supports-colors"] }
-rustyline = "=15.0.0"
-fraction = { version = "0.15.3", features = ["with-serde-support"] }
-num-bigint = "0.4.6"
-num-traits = "0.2.19"
-ciborium = "0.2.2"
-fst-writer = "0.2.3"
-bon = "2.3"
-fxhash = "0.2.1"
-delegate = "0.13.3"
+rustyline = "17.0.0"
+fraction = { version = "0.15", features = ["with-serde-support"] }
+num-bigint = "0.4"
+num-traits = "0.2"
+ciborium = "0.2"
+fst-writer = "0.2"
+bon = "3.9"
+delegate = "0.13"
 rand.workspace = true
+mimalloc = { version = "*", features = ["v3"] }
 
 [dev-dependencies]
-proptest = "1.0.0"
+proptest = "1.0"

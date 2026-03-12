@@ -2,7 +2,16 @@
 //! and must be special cased by the logic later. Currently planners only emit states with file
 //! assignment done later.
 
-use super::{FindPlan, PlannerType};
+use std::io::{self, Read as _};
+
+use cranelift_entity::PrimaryMap;
+
+use crate::{
+    exec::{OpRef, Operation, State, StateRef},
+    flang::{self, ast_to_plan},
+};
+
+use super::{FindPlan, planner::Request};
 
 #[derive(Debug)]
 pub struct JsonPlanner {}
@@ -10,22 +19,26 @@ pub struct JsonPlanner {}
 impl FindPlan for JsonPlanner {
     fn find_plan(
         &self,
-        _start: &[crate::exec::StateRef],
-        _end: &[crate::exec::StateRef],
-        _through: &[crate::exec::OpRef],
-        _ops: &cranelift_entity::PrimaryMap<
-            crate::exec::OpRef,
-            crate::exec::Operation,
-        >,
-        _states: &cranelift_entity::PrimaryMap<
-            crate::exec::StateRef,
-            crate::exec::State,
-        >,
-    ) -> Option<Vec<super::Step>> {
-        None
-    }
+        _req: &Request,
+        ops: &PrimaryMap<OpRef, Operation>,
+        _states: &PrimaryMap<StateRef, State>,
+    ) -> Option<flang::Plan> {
+        let _ = _states;
+        let mut stdin = io::stdin().lock();
+        let mut input = String::new();
+        let res = stdin.read_to_string(&mut input);
+        if let Err(e) = res {
+            eprintln!("error: {e}");
+            return None;
+        }
 
-    fn ty(&self) -> PlannerType {
-        PlannerType::FromJson
+        let ast = &serde_json::from_str(&input);
+        match ast {
+            // Panicing here isn't great. The open issue to fix this is https://github.com/calyxir/calyx/issues/2610
+            // In summery, it would be nice for planners to return `Result<PlanResp, SomeErrorType>`  so they could
+            // better communicate how they fail.
+            Err(e) => panic!("{e}"),
+            Ok(p) => Some(ast_to_plan(p, ops)),
+        }
     }
 }

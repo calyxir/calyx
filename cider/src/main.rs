@@ -13,6 +13,11 @@ use cider::{
     },
 };
 
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 use std::{
     io::stdout,
     path::{Path, PathBuf},

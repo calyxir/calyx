@@ -59,6 +59,8 @@ enum Planner {
     Legacy,
     Enumerate,
     FromJson,
+    #[cfg(feature = "sat_planner")]
+    Sat,
 }
 
 impl FromStr for Planner {
@@ -69,6 +71,8 @@ impl FromStr for Planner {
             "legacy" => Ok(Planner::Legacy),
             "enumerate" => Ok(Planner::Enumerate),
             "json" => Ok(Planner::FromJson),
+            #[cfg(feature = "sat_planner")]
+            "sat" => Ok(Planner::Sat),
             _ => Err("unknown planner".to_string()),
         }
     }
@@ -80,17 +84,59 @@ impl Display for Planner {
             Planner::Legacy => write!(f, "legacy"),
             Planner::Enumerate => write!(f, "enumerate"),
             Planner::FromJson => write!(f, "json"),
+            #[cfg(feature = "sat_planner")]
+            Planner::Sat => write!(f, "sat"),
         }
     }
 }
 
 /// edit the configuration file
 #[derive(FromArgs, PartialEq, Debug)]
-#[argh(subcommand, name = "edit-config")]
+#[argh(subcommand, name = "edit")]
 pub struct EditConfig {
     /// the editor to use
     #[argh(option, short = 'e')]
     pub editor: Option<String>,
+}
+
+/// Adjust keys in the configuration file.
+///
+/// When given both a key and a value, update the configuration file
+/// accordingly. When given a key without a value, display the current
+/// value of the key or delete it depending on the delete flag
+#[derive(FromArgs, PartialEq, Debug)]
+#[argh(subcommand, name = "key")]
+pub struct KeyConfig {
+    #[argh(positional)]
+    key: String,
+
+    #[argh(positional)]
+    value: Option<String>,
+
+    /// delete the given key
+    #[argh(switch, short = 'd')]
+    delete: bool,
+}
+
+/// print the path of the config file
+#[derive(FromArgs, PartialEq, Debug)]
+#[argh(subcommand, name = "print-path")]
+pub struct PrintConfig {}
+
+#[derive(FromArgs, PartialEq, Debug)]
+#[argh(subcommand)]
+pub enum ConfigAction {
+    Edit(EditConfig),
+    Path(PrintConfig),
+    Key(KeyConfig),
+}
+
+/// manipulate the fud2 config
+#[derive(FromArgs, PartialEq, Debug)]
+#[argh(subcommand, name = "config")]
+pub struct ConfigCommand {
+    #[argh(subcommand)]
+    action: ConfigAction,
 }
 
 /// extract a resource file
@@ -124,8 +170,8 @@ pub struct RegisterCommand {
 #[derive(FromArgs)]
 #[argh(subcommand)]
 pub enum Subcommand<T: CliExt> {
-    /// edit the configuration file
-    EditConfig(EditConfig),
+    /// manipulate the configuration file
+    Config(ConfigCommand),
 
     /// extract a resource file
     GetResource(GetResource),
@@ -166,7 +212,7 @@ pub struct FudArgs<T: CliExt> {
     #[argh(option)]
     to: Vec<String>,
 
-    /// execution mode (run, plan, emit, gen, dot, json-plan)
+    /// execution mode (run, plan, emit, gen, dot, emit-json)
     #[argh(option, short = 'm', default = "Mode::Run")]
     mode: Mode,
 
@@ -283,6 +329,20 @@ fn get_request<T: CliExt>(
         _ => ".".into(),
     });
 
+    // Special case the json planner to skip input sanitization. The json files are just scripts to run.
+    if matches!(args.planner, Planner::FromJson) {
+        return Ok(Request {
+            start_states: vec![],
+            end_states: vec![],
+            start_files: vec![],
+            end_files: vec![],
+            through: vec![],
+            workdir,
+            timing_csv: args.timing_csv.clone(),
+            planner: Box::new(plan::JsonPlanner {}),
+        });
+    }
+
     // Find all the operations to route through.
     let through: Result<Vec<_>, _> = args
         .through
@@ -304,6 +364,8 @@ fn get_request<T: CliExt>(
             Planner::Legacy => Box::new(plan::LegacyPlanner {}),
             Planner::Enumerate => Box::new(plan::EnumeratePlanner {}),
             Planner::FromJson => Box::new(plan::JsonPlanner {}),
+            #[cfg(feature = "sat_planner")]
+            Planner::Sat => Box::new(plan::SatPlanner {}),
         },
         timing_csv: args.timing_csv.clone(),
     })
@@ -325,6 +387,31 @@ fn edit_config(driver: &Driver, cmd: EditConfig) -> anyhow::Result<()> {
     if !status.success() {
         bail!("editor exited with status {}", status);
     }
+    Ok(())
+}
+
+fn run_config_command(
+    driver: &Driver,
+    cmd: ConfigCommand,
+) -> anyhow::Result<()> {
+    match cmd.action {
+        ConfigAction::Edit(edit_cmd) => edit_config(driver, edit_cmd),
+        ConfigAction::Path(_) => print_config_path(driver),
+        ConfigAction::Key(k) => {
+            if k.delete {
+                delete_config_key(driver, &k.key)
+            } else if let Some(val) = k.value {
+                set_config_key(driver, &k.key, &val)
+            } else {
+                print_config_key(driver, &k.key)
+            }
+        }
+    }
+}
+
+fn print_config_path(driver: &Driver) -> anyhow::Result<()> {
+    let config_path = config::config_path(&driver.name);
+    println!("{}", config_path.display());
     Ok(())
 }
 
@@ -366,9 +453,7 @@ fn register_plugin(
     println!("Registering {full_path}");
 
     let config_path = config::config_path(&driver.name);
-    let contents = fs::read_to_string(&config_path)?;
-
-    let mut toml_doc = contents.parse::<toml_edit::DocumentMut>()?;
+    let mut toml_doc = get_toml_doc(&config_path)?;
 
     let config = config::load_config(&driver.name)
         .adjoin(Serialized::default("plugins", [full_path.to_string()]));
@@ -381,7 +466,105 @@ fn register_plugin(
             .collect::<toml_edit::Array>(),
     );
 
+    write_config(config_path, toml_doc)?;
+    Ok(())
+}
+
+fn write_config(
+    config_path: std::path::PathBuf,
+    toml_doc: toml_edit::DocumentMut,
+) -> Result<(), anyhow::Error> {
+    // best effort attempt to ensure that the file can be written. There's
+    // probably a better way to do this.
+    if !config_path.parent().unwrap().exists() {
+        fs::create_dir_all(config_path.parent().unwrap())?;
+    }
+
     fs::write(&config_path, toml_doc.to_string())?;
+    Ok(())
+}
+
+/// gets a toml doc from the configuration file. If the configuration file does
+/// not exist, returns an empty document but does not create the file.
+fn get_toml_doc(
+    config_path: &std::path::PathBuf,
+) -> Result<toml_edit::DocumentMut, anyhow::Error> {
+    let toml_doc = fs::read_to_string(config_path)
+        .map(|s| s.parse::<toml_edit::DocumentMut>())
+        .unwrap_or_else(|_| Ok(toml_edit::DocumentMut::new()))?;
+
+    Ok(toml_doc)
+}
+
+/// sets the given config key in the config toml to the given value. Note: this
+/// cannot handle quoted strings
+fn set_config_key(
+    driver: &Driver,
+    key: &str,
+    val: &str,
+) -> Result<(), anyhow::Error> {
+    let path = config::config_path(&driver.name);
+    let mut toml_doc = get_toml_doc(&path)?;
+    let mut key_line = key.split('.').collect_vec();
+    let final_key = key_line.pop().unwrap();
+
+    let mut_tab = walk_toml(&mut toml_doc, &key_line);
+
+    mut_tab.insert(final_key, val.into());
+
+    write_config(path, toml_doc)
+}
+
+/// traverses the config toml and returns the table specified by the list of keys.
+/// if the toml lacks the given sub-tables they will be constructed on the way
+/// down
+fn walk_toml<'a>(
+    toml_doc: &'a mut toml_edit::DocumentMut,
+    key_line: &[&str],
+) -> &'a mut toml_edit::Table {
+    let mut mut_tab = toml_doc.as_table_mut();
+
+    for key in key_line {
+        mut_tab = mut_tab
+            .entry(key)
+            .or_insert_with(|| {
+                let mut table = toml_edit::Table::new();
+                table.set_implicit(true);
+                table.set_dotted(true);
+                table.into()
+            })
+            .as_table_mut()
+            .unwrap_or_else(|| panic!("{key} is defined and is not a table"));
+    }
+    mut_tab
+}
+
+/// traverses the config file and deletes the given key. Note: cannot handle
+/// quoted strings
+fn delete_config_key(driver: &Driver, key: &str) -> Result<(), anyhow::Error> {
+    let path = config::config_path(&driver.name);
+    let mut toml_doc = get_toml_doc(&path)?;
+    let mut key_line = key.split('.').collect_vec();
+    let final_key = key_line.pop().unwrap();
+
+    let mut_tab = walk_toml(&mut toml_doc, &key_line);
+    mut_tab.remove(final_key);
+
+    write_config(path, toml_doc)
+}
+
+/// prints the current value of the given config key, if it exists
+fn print_config_key(driver: &Driver, key: &str) -> Result<(), anyhow::Error> {
+    let path = config::config_path(&driver.name);
+    let mut toml_doc = get_toml_doc(&path)?;
+    let mut key_line = key.split('.').collect_vec();
+    let final_key = key_line.pop().unwrap();
+
+    let tab = walk_toml(&mut toml_doc, &key_line);
+    if let Some(val) = tab.get(final_key) {
+        println!("{val}");
+    }
+
     Ok(())
 }
 
@@ -450,8 +633,8 @@ fn cli_ext<T: CliExt>(
 
     // Special commands that bypass the normal behavior.
     match args.sub {
-        Some(Subcommand::EditConfig(cmd)) => {
-            return edit_config(driver, cmd);
+        Some(Subcommand::Config(cmd)) => {
+            return run_config_command(driver, cmd);
         }
         Some(Subcommand::GetResource(cmd)) => {
             return get_resource(driver, cmd);
@@ -489,7 +672,7 @@ fn cli_ext<T: CliExt>(
     })?;
 
     // Configure.
-    let mut run = Run::new(driver, plan, config.clone());
+    let mut run = Run::new(driver, plan, req.workdir, config.clone());
 
     // Override some global config options.
     if let Some(keep) = args.keep {

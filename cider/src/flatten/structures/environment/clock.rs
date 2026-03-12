@@ -1,6 +1,5 @@
 use std::{
     cmp::{Ordering, max},
-    collections::HashMap,
     hash::Hash,
     num::NonZeroU32,
     ops::{Index, IndexMut},
@@ -19,13 +18,13 @@ use crate::flatten::{
     text_utils::Color,
 };
 
-use ahash::{HashMapExt, HashSetExt};
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use baa::BitVecValue;
 use cider_idx::{
     impl_index_nonzero,
     maps::{IndexedMap, SecondarySparseMap},
 };
-use fxhash::{FxHashMap, FxHashSet};
+
 use thiserror::Error;
 
 use super::Environment;
@@ -489,8 +488,7 @@ where
     I: Hash + Eq + Clone + Ord,
     C: Ord + Clone + Counter,
 {
-    // TODO: maybe use `ahash` instead
-    map: FxHashMap<I, C>,
+    map: HashMap<I, C>,
 }
 
 impl<I, C> std::ops::Index<&I> for VectorClock<I, C>
@@ -557,7 +555,7 @@ where
 {
     pub fn new() -> Self {
         Self {
-            map: FxHashMap::new(),
+            map: HashMap::new(),
         }
     }
 
@@ -643,19 +641,16 @@ where
         // not sure if it's better to do extra redundant comparisons or incur
         // the cost of the `unique` call. Something to investigate in the future
 
-        let mut set = FxHashSet::with_capacity(self.map.len());
-        set.extend(self.map.keys());
-        set.extend(other.map.keys());
-        let iter =
-            set.into_iter()
-                .map(|id| match (self.get(id), other.get(id)) {
-                    (None, Some(count_other)) => C::default().cmp(count_other),
-                    (Some(count_self), None) => count_self.cmp(&C::default()),
-                    (Some(count_self), Some(count_other)) => {
-                        count_self.cmp(count_other)
-                    }
-                    (None, None) => unreachable!(),
-                });
+        let iter = self.map.keys().chain(other.map.keys()).map(|id| {
+            match (self.get(id), other.get(id)) {
+                (None, Some(count_other)) => C::default().cmp(count_other),
+                (Some(count_self), None) => count_self.cmp(&C::default()),
+                (Some(count_self), Some(count_other)) => {
+                    count_self.cmp(count_other)
+                }
+                (None, None) => unreachable!(),
+            }
+        });
 
         let mut current_answer = None;
         for cmp in iter {
@@ -750,6 +745,11 @@ impl ClockPair {
         (thread, reading_clock): ThreadClockPair,
         clock_map: &mut ClockMap,
     ) -> Result<(), ReadError> {
+        #[cfg(feature = "data-race-stats")]
+        {
+            crate::flatten::structures::stats::incr_read_count();
+        }
+
         if clock_map[reading_clock] >= clock_map[self.write_clock] {
             let v = clock_map[reading_clock][thread];
             clock_map[self.read_clock].set_thread_clock(thread, v);
@@ -802,6 +802,11 @@ impl ClockPair {
         writing_clock: ClockIdx,
         clock_map: &mut ClockMap,
     ) -> Result<(), WriteError> {
+        #[cfg(feature = "data-race-stats")]
+        {
+            crate::flatten::structures::stats::incr_write_count();
+        }
+
         if clock_map[writing_clock] >= clock_map[self.write_clock]
             && clock_map[writing_clock] >= clock_map[self.read_clock]
         {
@@ -948,7 +953,7 @@ pub enum TransitiveSet<const N: usize> {
         data: [Option<ClockPair>; N],
         available_spots: usize,
     },
-    Hash(FxHashSet<ClockPair>),
+    Hash(HashSet<ClockPair>),
 }
 
 impl<const N: usize> Extend<ClockPair> for TransitiveSet<N> {
@@ -982,7 +987,7 @@ impl<const N: usize> TransitiveSet<N> {
                     data[index] = Some(item)
                 } else {
                     // need to spill over into a hashset
-                    let mut set = FxHashSet::with_capacity(N + 1);
+                    let mut set = HashSet::with_capacity(N + 1);
                     set.extend(data.iter().map(|x| x.as_ref().unwrap()));
                     set.insert(item);
                     *self = Self::Hash(set);

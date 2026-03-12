@@ -1,8 +1,12 @@
-use crate::exec::State;
+use crate::{
+    exec::{State, plan::op_list_converter::prog_from_op_list},
+    flang::Plan,
+};
 
 use super::{
     super::{OpRef, Operation, StateRef},
-    FindPlan, PlannerType, Step,
+    FindPlan, Step,
+    planner::Request,
 };
 use cranelift_entity::PrimaryMap;
 
@@ -169,16 +173,11 @@ impl EnumeratePlanner {
 impl FindPlan for EnumeratePlanner {
     fn find_plan(
         &self,
-        start: &[StateRef],
-        end: &[StateRef],
-        through: &[OpRef],
+        req: &Request,
         ops: &PrimaryMap<OpRef, Operation>,
-        _states: &PrimaryMap<StateRef, State>,
-    ) -> Option<Vec<Step>> {
-        Self::find_plan(start, end, through, ops)
-    }
-
-    fn ty(&self) -> PlannerType {
-        PlannerType::Enumerative
+        states: &PrimaryMap<StateRef, State>,
+    ) -> Option<Plan> {
+        Self::find_plan(req.start_states, req.end_states, req.through, ops)
+            .map(|plan| prog_from_op_list(&plan, req, ops, states))
     }
 }

@@ -1,0 +1,22 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+  cells {
+    mem = comb_mem_d1(32, 1, 1);
+    add = std_add(32);
+    r = std_reg(32);
+  }
+  wires {
+    group incr {
+      add.left = mem.read_data;
+      add.right = 32'd1;
+      r.in = add.out;
+      r.write_en = 1'd1;
+      incr[done] = r.done;
+    }
+  }
+  control {
+    incr;
+  }
+}

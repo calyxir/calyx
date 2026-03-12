@@ -1,93 +1,79 @@
+use camino::Utf8PathBuf;
 use cranelift_entity::PrimaryMap;
-use std::{collections::HashMap, ops};
+use std::ops;
 
 use crate::{
-    exec::{IO, OpRef, Operation},
-    flang::ast::{
-        Assignment, AssignmentList, Op, Visitable, Visitor, VisitorResult,
-    },
+    exec::{OpRef, Operation},
+    flang::ast::{Assignment, Op, Visitable, Visitor, VisitorResult},
 };
 
-pub fn steps_to_ast(
-    plan: &Vec<(OpRef, Vec<IO>, Vec<IO>)>,
-    ops: &PrimaryMap<OpRef, Operation>,
-) -> AssignmentList {
-    let mut ast = AssignmentList { assigns: vec![] };
-    for step in plan {
-        let vars = step
-            .1
-            .iter()
-            .map(|v| match v {
-                IO::StdIO(utf8_path_buf) => utf8_path_buf,
-                IO::File(utf8_path_buf) => utf8_path_buf,
-            })
-            .cloned()
-            .collect();
-        let args = step
-            .2
-            .iter()
-            .map(|v| match v {
-                IO::StdIO(utf8_path_buf) => utf8_path_buf,
-                IO::File(utf8_path_buf) => utf8_path_buf,
-            })
-            .cloned()
-            .collect();
+use super::{PathRef, Plan, ast};
 
-        let fun = Op {
-            name: ops[step.0].name.clone(),
-            args,
-        };
-
-        let assignment = Assignment { vars, value: fun };
-        ast.assigns.push(assignment);
-    }
-
-    ast
+struct ASTToIr<'a> {
+    plan: Plan,
+    ops: &'a PrimaryMap<OpRef, Operation>,
 }
 
-/// A struct to convert a flang AST into the steps of a `Plan`.
-struct ASTToStepList {
-    step_list: Vec<(OpRef, Vec<IO>, Vec<IO>)>,
-    name_to_op_ref: HashMap<String, OpRef>,
-}
-
-impl ASTToStepList {
-    fn from_ops(ops: &PrimaryMap<OpRef, Operation>) -> Self {
-        let name_to_op_ref =
-            ops.iter().map(|(k, v)| (v.name.clone(), k)).collect();
-        ASTToStepList {
-            step_list: vec![],
-            name_to_op_ref,
+impl ASTToIr<'_> {
+    fn paths_to_refs(&mut self, vars: &Vec<Utf8PathBuf>) -> Vec<PathRef> {
+        let mut out = vec![];
+        for path in vars {
+            let r = self.plan.path_ref(path);
+            out.push(r);
         }
-    }
-
-    fn step_list_from_ast(
-        mut self,
-        ast: &AssignmentList,
-    ) -> Vec<(OpRef, Vec<IO>, Vec<IO>)> {
-        let _ = ast.visit(&mut self);
-        self.step_list
+        out
     }
 }
 
-impl Visitor for ASTToStepList {
-    type Result = ops::ControlFlow<()>;
+impl Visitor for ASTToIr<'_> {
+    type Result = ops::ControlFlow<String>;
 
     fn visit_assignment(&mut self, a: &Assignment) -> Self::Result {
-        let vars = a.vars.iter().map(|s| IO::File(s.clone())).collect();
-        let args = a.value.args.iter().map(|s| IO::File(s.clone())).collect();
-        let op_ref = self.name_to_op_ref[&a.value.name];
-
-        self.step_list.push((op_ref, vars, args));
-        Self::Result::output()
+        let rets = self.paths_to_refs(&a.vars);
+        let args = self.paths_to_refs(&a.value.args);
+        for (r, op) in self.ops {
+            if op.name == a.value.name {
+                self.plan.push_vec(r, args, rets);
+                return Self::Result::output();
+            }
+        }
+        Self::Result::Break(format!("no op {} found", a.value.name))
     }
 }
 
-/// Given a flang AST and a set of ops, returns the steps of a `Plan` which the flang AST
-/// represents.
-pub fn ast_to_steps(
-    ast: &AssignmentList,
-    ops: &PrimaryMap<OpRef, Operation>,
-) -> Vec<(OpRef, Vec<IO>, Vec<IO>)> {
-    ASTToStepList::from_ops(ops).step_list_from_ast(ast)
+pub fn ast_to_plan(p: &ast::Prog, ops: &PrimaryMap<OpRef, Operation>) -> Plan {
+    let mut visitor = ASTToIr {
+        plan: Plan::new(),
+        ops,
+    };
+    let res = p.ast.visit(&mut visitor);
+    if let ops::ControlFlow::Break(e) = res {
+        unimplemented!("{e}");
+    }
+    let mut plan = visitor.plan;
+    plan.extend_inputs_buf(&p.inputs);
+    plan.extend_outputs_buf(&p.outputs);
+    plan.extend_stdins_buf(&p.stdins);
+    plan.extend_stdouts_buf(&p.stdouts);
+    plan
+}
+
+pub fn plan_to_ast(p: &Plan, ops: &PrimaryMap<OpRef, Operation>) -> ast::Prog {
+    let mut assigns = vec![];
+    for a in p {
+        let vars = p.to_path_buf_vec(a.rets());
+        let args = p.to_path_buf_vec(a.args());
+        let name = ops[a.op_ref()].name.clone();
+        assigns.push(Assignment {
+            vars,
+            value: Op { name, args },
+        });
+    }
+    ast::Prog {
+        stdins: p.stdins_buf_vec(),
+        stdouts: p.stdouts_buf_vec(),
+        inputs: p.inputs_buf_vec(),
+        outputs: p.outputs_buf_vec(),
+        ast: ast::AssignmentList { assigns },
+    }
 }
