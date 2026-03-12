@@ -368,7 +368,6 @@ class BlockInterval:
 
     def stmt_end(self, end_cycle: int, stmt_track_id: str):
         self.possible_end = end_cycle
-        # print(f"INTERVAL END EVENT {stmt_track_id} {self.active_children}")
         assert stmt_track_id in self.active_children
         self.active_children.remove(stmt_track_id)
 
@@ -401,7 +400,7 @@ class DahliaProtoTimeline:
 
         self.create_tracks(self.dahlia_map)
 
-        # FIXME: hella defunct way of creating a lookup for primitives
+        # FIXME: defunct way of creating a lookup for primitives
         for _, p_map in primitive_metadata.p_map.items():
             self.primitive_name_to_type.update(p_map)
 
@@ -436,12 +435,18 @@ class DahliaProtoTimeline:
         for stmt in set(statements_to_block_ancestors.keys()).difference(blocks):
             stmt_ancestors = statements_to_block_ancestors[stmt]
             if len(stmt_ancestors) == 0:
-                # parent_track_id = stmt_ancestors[0] if len(stmt_ancestors) > 0 else None
                 self.proto.register_track_in_collection(
                     self.main_function_name, stmt, intermediate_parent_name=None
                 )
 
     def get_track_id_from_starting_statement(self, statement: str):
+        """
+        Helper funtion for `register_statement_event()` to obtain the track id for a statement that we are going to
+        fire a start event for.
+        If the statement we are registering is a non-block statement taking place
+        inside of a block, the statement and its new track ID will be registered in
+        `self.block_to_active_threads`.
+        """
         stmt_ancestors = self.dahlia_map.stmt_to_block_ancestors[statement]
         # track is already defined with the name
         if statement in self.dahlia_map.blocks or len(stmt_ancestors) == 0:
@@ -452,19 +457,12 @@ class DahliaProtoTimeline:
             # identify the parent block
             parent_track_id = stmt_ancestors[0]
             parent_prefix = parent_track_id.split(":")[0]
-            # if len(self.block_to_constructed_threads[parent_track_id]) == 0:
-            #     # No threads constructed so far. create and register thread 1
-            #     new_thread = f"{parent_prefix}: Thread 1"
-            # print("======" + statement)
             assert len(self.block_to_constructed_threads[parent_track_id]) >= len(
                 self.block_to_active_threads[parent_track_id]
             )
             active_threads = set(self.block_to_active_threads[parent_track_id].values())
-            # print(f"Constructed threads: {self.block_to_constructed_threads[parent_track_id]}")
-            # print(f"Active threads: {active_threads}")
             if self.block_to_constructed_threads[parent_track_id] == active_threads:
                 num_threads = len(self.block_to_constructed_threads[parent_track_id])
-                # print(f"num_threads: {num_threads}")
                 new_thread = f"Thread {num_threads + 1} ({parent_prefix})"
                 # register new thread in constructed threads set
                 self.block_to_constructed_threads[parent_track_id].add(new_thread)
@@ -485,6 +483,12 @@ class DahliaProtoTimeline:
             return new_thread
 
     def get_track_id_from_ending_statement(self, statement: str):
+        """
+        Helper function for `register_statement_evnet()` to obtain the track id for a statement for which we are
+        firing an end event for.
+        If the statement is a non-block statement taking place inside of a block, the statement and its
+        thread ID will be removed from self.block_to_active_threads.
+        """
         stmt_ancestors = self.dahlia_map.stmt_to_block_ancestors[statement]
         # track is already defined with the name
         if statement in self.dahlia_map.blocks or len(stmt_ancestors) == 0:
@@ -505,7 +509,6 @@ class DahliaProtoTimeline:
         match event_type:
             case TrackEvent.TYPE_SLICE_BEGIN:
                 track_id = self.get_track_id_from_starting_statement(statement)
-                # print(track_id)
                 self.proto.register_event_in_collection(
                     self.main_function_name, statement, track_id, timestamp, event_type
                 )
@@ -514,15 +517,6 @@ class DahliaProtoTimeline:
                 self.proto.register_event_in_collection(
                     self.main_function_name, statement, track_id, timestamp, event_type
                 )
-
-        #     # make sure there is a
-        # # if not self.proto.is_track_registered_in_collection(
-        # #     self.main_function_name, statement
-        # # ):
-        # #     self.proto.register_track_in_collection(self.main_function_name, statement)
-        # self.proto.register_event_in_collection(
-        #     self.main_function_name, statement, statement, timestamp, event_type
-        # )
 
     def register_calyx_primitive_event(
         self, primitive: str, timestamp: int, event_type: TrackEvent.Type
