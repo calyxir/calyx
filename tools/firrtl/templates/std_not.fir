@@ -2,4 +2,4 @@
         input in : UInt<WIDTH>
         output out : UInt<WIDTH>
 
-        out <= not(in)
+        connect out, not(in)

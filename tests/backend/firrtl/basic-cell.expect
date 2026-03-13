@@ -1,3 +1,4 @@
+FIRRTL version 4.0.0
 circuit main:
     extmodule std_wire_1:
         input in: UInt<1>
@@ -5,46 +6,46 @@ circuit main:
         defname = std_wire
         parameter WIDTH = 1
 
-    module identity:
+    public module identity:
         input in: UInt<32>
         output out: UInt<32>
         input go: UInt<1>
         input clk: Clock
         input reset: UInt<1>
         output done: UInt<1>
-        out is invalid ; default initialization
-        out <= UInt(0)
-        done is invalid ; default initialization
-        done <= UInt(0)
+        invalidate out ; default initialization
+        connect out, UInt(0)
+        invalidate done ; default initialization
+        connect done, UInt(0)
         ; COMPONENT START: identity
-        done <= UInt(1)
-        out <= in
+        connect done, UInt(1)
+        connect out, in
         ; COMPONENT END: identity
 
-    module main:
+    public module main:
         input go: UInt<1>
         input clk: Clock
         input reset: UInt<1>
         output done: UInt<1>
-        done is invalid ; default initialization
-        done <= UInt(0)
+        invalidate done ; default initialization
+        connect done, UInt(0)
         ; COMPONENT START: main
         inst id of identity
         inst invoke0_go of std_wire_1
         inst invoke0_done of std_wire_1
         when invoke0_done.out:
-            done <= UInt(1)
-        id.clk <= clk
-        id.go is invalid ; default initialization
-        id.go <= UInt(0)
+            connect done, UInt(1)
+        connect id.clk, clk
+        invalidate id.go ; default initialization
+        connect id.go, UInt(0)
         when invoke0_go.out:
-            id.go <= UInt(1)
-        id.reset <= reset
-        id.in is invalid ; default initialization
-        id.in <= UInt(0)
+            connect id.go, UInt(1)
+        connect id.reset, reset
+        invalidate id.in ; default initialization
+        connect id.in, UInt(0)
         when invoke0_go.out:
-            id.in <= UInt(5)
-        invoke0_go.in <= go
-        invoke0_done.in <= id.done
+            connect id.in, UInt(5)
+        connect invoke0_go.in, go
+        connect invoke0_done.in, id.done
         ; COMPONENT END: main
 

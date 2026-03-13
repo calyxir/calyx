@@ -3,4 +3,4 @@
         input right : UInt<WIDTH>
         output out : UInt<1>
 
-        out <= leq(left, right)
+        connect out, leq(left, right)

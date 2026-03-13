@@ -1,5 +1,6 @@
+FIRRTL version 4.0.0
 circuit main:
-    module main:
+    public module main:
         input go: UInt<1>
         input clk: Clock
         input reset: UInt<1>
@@ -9,14 +10,14 @@ circuit main:
         output mem_write_en: UInt<1>
         input mem_read_data: UInt<32>
         input mem_done: UInt<1>
-        done is invalid ; default initialization
-        done <= UInt(0)
-        mem_addr0 is invalid ; default initialization
-        mem_addr0 <= UInt(0)
-        mem_write_data is invalid ; default initialization
-        mem_write_data <= UInt(0)
-        mem_write_en is invalid ; default initialization
-        mem_write_en <= UInt(0)
+        invalidate done ; default initialization
+        connect done, UInt(0)
+        invalidate mem_addr0 ; default initialization
+        connect mem_addr0, UInt(0)
+        invalidate mem_write_data ; default initialization
+        connect mem_write_data, UInt(0)
+        invalidate mem_write_en ; default initialization
+        connect mem_write_en, UInt(0)
         ; COMPONENT START: main
         inst val of std_reg_32
         inst add of std_add_32
@@ -53,221 +54,221 @@ circuit main:
         inst tdcc_done of std_wire_1
         inst tdcc0_go of std_wire_1
         inst tdcc0_done of std_wire_1
-        early_reset_cond00_go.in is invalid ; default initialization
-        early_reset_cond00_go.in <= UInt(0)
+        invalidate early_reset_cond00_go.in ; default initialization
+        connect early_reset_cond00_go.in, UInt(0)
         when wrapper_early_reset_cond00_go.out:
-            early_reset_cond00_go.in <= UInt(1)
+            connect early_reset_cond00_go.in, UInt(1)
         when tdcc0_done.out:
-            done <= UInt(1)
+            connect done, UInt(1)
         when or(write_go.out, and(eq(fsm.out, UInt(0)), early_reset_static_seq_go.out)):
-            mem_addr0 <= UInt(0)
+            connect mem_addr0, UInt(0)
         when write_go.out:
-            mem_write_en <= UInt(1)
+            connect mem_write_en, UInt(1)
         when write_go.out:
-            mem_write_data <= val.out
-        fsm.write_en is invalid ; default initialization
-        fsm.write_en <= UInt(0)
+            connect mem_write_data, val.out
+        invalidate fsm.write_en ; default initialization
+        connect fsm.write_en, UInt(0)
         when or(and(neq(fsm.out, UInt(1)), early_reset_static_seq_go.out), and(eq(fsm.out, UInt(1)), early_reset_static_seq_go.out)):
-            fsm.write_en <= UInt(1)
-        fsm.clk <= clk
-        fsm.reset <= reset
-        fsm.in is invalid ; default initialization
-        fsm.in <= UInt(0)
+            connect fsm.write_en, UInt(1)
+        connect fsm.clk, clk
+        connect fsm.reset, reset
+        invalidate fsm.in ; default initialization
+        connect fsm.in, UInt(0)
         when and(neq(fsm.out, UInt(1)), early_reset_static_seq_go.out):
-            fsm.in <= adder.out
+            connect fsm.in, adder.out
         when and(eq(fsm.out, UInt(1)), early_reset_static_seq_go.out):
-            fsm.in <= UInt(0)
-        adder.left is invalid ; default initialization
-        adder.left <= UInt(0)
+            connect fsm.in, UInt(0)
+        invalidate adder.left ; default initialization
+        connect adder.left, UInt(0)
         when early_reset_static_seq_go.out:
-            adder.left <= fsm.out
-        adder.right is invalid ; default initialization
-        adder.right <= UInt(0)
+            connect adder.left, fsm.out
+        invalidate adder.right ; default initialization
+        connect adder.right, UInt(0)
         when early_reset_static_seq_go.out:
-            adder.right <= UInt(1)
-        invoke2_go.in is invalid ; default initialization
-        invoke2_go.in <= UInt(0)
+            connect adder.right, UInt(1)
+        invalidate invoke2_go.in ; default initialization
+        connect invoke2_go.in, UInt(0)
         when and(not(or(pd.out, invoke2_done.out)), par0_go.out):
-            invoke2_go.in <= UInt(1)
-        tdcc0_done.in is invalid ; default initialization
-        tdcc0_done.in <= UInt(0)
+            connect invoke2_go.in, UInt(1)
+        invalidate tdcc0_done.in ; default initialization
+        connect tdcc0_done.in, UInt(0)
         when eq(fsm1.out, UInt(4)):
-            tdcc0_done.in <= UInt(1)
-        add2.left is invalid ; default initialization
-        add2.left <= UInt(0)
+            connect tdcc0_done.in, UInt(1)
+        invalidate add2.left ; default initialization
+        connect add2.left, UInt(0)
         when invoke2_go.out:
-            add2.left <= counter.out
-        add2.right is invalid ; default initialization
-        add2.right <= UInt(0)
+            connect add2.left, counter.out
+        invalidate add2.right ; default initialization
+        connect add2.right, UInt(0)
         when invoke2_go.out:
-            add2.right <= UInt(1)
-        comb_reg.write_en is invalid ; default initialization
-        comb_reg.write_en <= UInt(0)
+            connect add2.right, UInt(1)
+        invalidate comb_reg.write_en ; default initialization
+        connect comb_reg.write_en, UInt(0)
         when early_reset_cond00_go.out:
-            comb_reg.write_en <= UInt(1)
-        comb_reg.clk <= clk
-        comb_reg.reset <= reset
-        comb_reg.in is invalid ; default initialization
-        comb_reg.in <= UInt(0)
+            connect comb_reg.write_en, UInt(1)
+        connect comb_reg.clk, clk
+        connect comb_reg.reset, reset
+        invalidate comb_reg.in ; default initialization
+        connect comb_reg.in, UInt(0)
         when early_reset_cond00_go.out:
-            comb_reg.in <= lt.out
-        write_go.in is invalid ; default initialization
-        write_go.in <= UInt(0)
+            connect comb_reg.in, lt.out
+        invalidate write_go.in ; default initialization
+        connect write_go.in, UInt(0)
         when and(and(not(write_done.out), eq(fsm0.out, UInt(1))), tdcc_go.out):
-            write_go.in <= UInt(1)
-        early_reset_cond00_done.in <= ud1.out
-        val.write_en is invalid ; default initialization
-        val.write_en <= UInt(0)
+            connect write_go.in, UInt(1)
+        connect early_reset_cond00_done.in, ud1.out
+        invalidate val.write_en ; default initialization
+        connect val.write_en, UInt(0)
         when and(or(eq(fsm.out, UInt(0)), eq(fsm.out, UInt(1))), early_reset_static_seq_go.out):
-            val.write_en <= UInt(1)
-        val.clk <= clk
-        val.reset <= reset
-        val.in is invalid ; default initialization
-        val.in <= UInt(0)
+            connect val.write_en, UInt(1)
+        connect val.clk, clk
+        connect val.reset, reset
+        invalidate val.in ; default initialization
+        connect val.in, UInt(0)
         when and(eq(fsm.out, UInt(0)), early_reset_static_seq_go.out):
-            val.in <= mem_read_data
+            connect val.in, mem_read_data
         when and(eq(fsm.out, UInt(1)), early_reset_static_seq_go.out):
-            val.in <= add.out
-        fsm1.write_en is invalid ; default initialization
-        fsm1.write_en <= UInt(0)
+            connect val.in, add.out
+        invalidate fsm1.write_en ; default initialization
+        connect fsm1.write_en, UInt(0)
         when or(or(or(or(or(or(eq(fsm1.out, UInt(4)), and(and(eq(fsm1.out, UInt(0)), invoke0_done.out), tdcc0_go.out)), and(and(eq(fsm1.out, UInt(1)), and(wrapper_early_reset_cond00_done.out, comb_reg.out)), tdcc0_go.out)), and(and(eq(fsm1.out, UInt(3)), and(wrapper_early_reset_cond00_done.out, comb_reg.out)), tdcc0_go.out)), and(and(eq(fsm1.out, UInt(2)), par0_done.out), tdcc0_go.out)), and(and(eq(fsm1.out, UInt(1)), and(wrapper_early_reset_cond00_done.out, not(comb_reg.out))), tdcc0_go.out)), and(and(eq(fsm1.out, UInt(3)), and(wrapper_early_reset_cond00_done.out, not(comb_reg.out))), tdcc0_go.out)):
-            fsm1.write_en <= UInt(1)
-        fsm1.clk <= clk
-        fsm1.reset <= reset
-        fsm1.in is invalid ; default initialization
-        fsm1.in <= UInt(0)
+            connect fsm1.write_en, UInt(1)
+        connect fsm1.clk, clk
+        connect fsm1.reset, reset
+        invalidate fsm1.in ; default initialization
+        connect fsm1.in, UInt(0)
         when or(and(and(eq(fsm1.out, UInt(1)), and(wrapper_early_reset_cond00_done.out, comb_reg.out)), tdcc0_go.out), and(and(eq(fsm1.out, UInt(3)), and(wrapper_early_reset_cond00_done.out, comb_reg.out)), tdcc0_go.out)):
-            fsm1.in <= UInt(2)
+            connect fsm1.in, UInt(2)
         when or(and(and(eq(fsm1.out, UInt(1)), and(wrapper_early_reset_cond00_done.out, not(comb_reg.out))), tdcc0_go.out), and(and(eq(fsm1.out, UInt(3)), and(wrapper_early_reset_cond00_done.out, not(comb_reg.out))), tdcc0_go.out)):
-            fsm1.in <= UInt(4)
+            connect fsm1.in, UInt(4)
         when eq(fsm1.out, UInt(4)):
-            fsm1.in <= UInt(0)
+            connect fsm1.in, UInt(0)
         when and(and(eq(fsm1.out, UInt(0)), invoke0_done.out), tdcc0_go.out):
-            fsm1.in <= UInt(1)
+            connect fsm1.in, UInt(1)
         when and(and(eq(fsm1.out, UInt(2)), par0_done.out), tdcc0_go.out):
-            fsm1.in <= UInt(3)
-        counter.write_en is invalid ; default initialization
-        counter.write_en <= UInt(0)
+            connect fsm1.in, UInt(3)
+        invalidate counter.write_en ; default initialization
+        connect counter.write_en, UInt(0)
         when or(invoke0_go.out, invoke2_go.out):
-            counter.write_en <= UInt(1)
-        counter.clk <= clk
-        counter.reset <= reset
-        counter.in is invalid ; default initialization
-        counter.in <= UInt(0)
+            connect counter.write_en, UInt(1)
+        connect counter.clk, clk
+        connect counter.reset, reset
+        invalidate counter.in ; default initialization
+        connect counter.in, UInt(0)
         when invoke0_go.out:
-            counter.in <= UInt(0)
+            connect counter.in, UInt(0)
         when invoke2_go.out:
-            counter.in <= add2.out
-        invoke0_go.in is invalid ; default initialization
-        invoke0_go.in <= UInt(0)
+            connect counter.in, add2.out
+        invalidate invoke0_go.in ; default initialization
+        connect invoke0_go.in, UInt(0)
         when and(and(not(invoke0_done.out), eq(fsm1.out, UInt(0))), tdcc0_go.out):
-            invoke0_go.in <= UInt(1)
-        tdcc_go.in is invalid ; default initialization
-        tdcc_go.in <= UInt(0)
+            connect invoke0_go.in, UInt(1)
+        invalidate tdcc_go.in ; default initialization
+        connect tdcc_go.in, UInt(0)
         when and(not(or(pd0.out, tdcc_done.out)), par0_go.out):
-            tdcc_go.in <= UInt(1)
-        fsm0.write_en is invalid ; default initialization
-        fsm0.write_en <= UInt(0)
+            connect tdcc_go.in, UInt(1)
+        invalidate fsm0.write_en ; default initialization
+        connect fsm0.write_en, UInt(0)
         when or(or(eq(fsm0.out, UInt(2)), and(and(eq(fsm0.out, UInt(0)), wrapper_early_reset_static_seq_done.out), tdcc_go.out)), and(and(eq(fsm0.out, UInt(1)), write_done.out), tdcc_go.out)):
-            fsm0.write_en <= UInt(1)
-        fsm0.clk <= clk
-        fsm0.reset <= reset
-        fsm0.in is invalid ; default initialization
-        fsm0.in <= UInt(0)
+            connect fsm0.write_en, UInt(1)
+        connect fsm0.clk, clk
+        connect fsm0.reset, reset
+        invalidate fsm0.in ; default initialization
+        connect fsm0.in, UInt(0)
         when and(and(eq(fsm0.out, UInt(0)), wrapper_early_reset_static_seq_done.out), tdcc_go.out):
-            fsm0.in <= UInt(1)
+            connect fsm0.in, UInt(1)
         when eq(fsm0.out, UInt(2)):
-            fsm0.in <= UInt(0)
+            connect fsm0.in, UInt(0)
         when and(and(eq(fsm0.out, UInt(1)), write_done.out), tdcc_go.out):
-            fsm0.in <= UInt(2)
-        tdcc0_go.in <= go
-        write_done.in <= mem_done
-        wrapper_early_reset_static_seq_done.in is invalid ; default initialization
-        wrapper_early_reset_static_seq_done.in <= UInt(0)
+            connect fsm0.in, UInt(2)
+        connect tdcc0_go.in, go
+        connect write_done.in, mem_done
+        invalidate wrapper_early_reset_static_seq_done.in ; default initialization
+        connect wrapper_early_reset_static_seq_done.in, UInt(0)
         when signal_reg.out:
-            wrapper_early_reset_static_seq_done.in <= UInt(1)
-        par0_done.in is invalid ; default initialization
-        par0_done.in <= UInt(0)
+            connect wrapper_early_reset_static_seq_done.in, UInt(1)
+        invalidate par0_done.in ; default initialization
+        connect par0_done.in, UInt(0)
         when and(pd.out, pd0.out):
-            par0_done.in <= UInt(1)
-        invoke0_done.in <= counter.done
-        early_reset_static_seq_go.in is invalid ; default initialization
-        early_reset_static_seq_go.in <= UInt(0)
+            connect par0_done.in, UInt(1)
+        connect invoke0_done.in, counter.done
+        invalidate early_reset_static_seq_go.in ; default initialization
+        connect early_reset_static_seq_go.in, UInt(0)
         when wrapper_early_reset_static_seq_go.out:
-            early_reset_static_seq_go.in <= UInt(1)
-        signal_reg.write_en is invalid ; default initialization
-        signal_reg.write_en <= UInt(0)
+            connect early_reset_static_seq_go.in, UInt(1)
+        invalidate signal_reg.write_en ; default initialization
+        connect signal_reg.write_en, UInt(0)
         when or(or(signal_reg.out, and(and(and(UInt<1>(1), UInt<1>(1)), not(signal_reg.out)), wrapper_early_reset_cond00_go.out)), and(and(and(eq(fsm.out, UInt(1)), UInt<1>(1)), not(signal_reg.out)), wrapper_early_reset_static_seq_go.out)):
-            signal_reg.write_en <= UInt(1)
-        signal_reg.clk <= clk
-        signal_reg.reset <= reset
-        signal_reg.in is invalid ; default initialization
-        signal_reg.in <= UInt(0)
+            connect signal_reg.write_en, UInt(1)
+        connect signal_reg.clk, clk
+        connect signal_reg.reset, reset
+        invalidate signal_reg.in ; default initialization
+        connect signal_reg.in, UInt(0)
         when or(and(and(and(UInt<1>(1), UInt<1>(1)), not(signal_reg.out)), wrapper_early_reset_cond00_go.out), and(and(and(eq(fsm.out, UInt(1)), UInt<1>(1)), not(signal_reg.out)), wrapper_early_reset_static_seq_go.out)):
-            signal_reg.in <= UInt(1)
+            connect signal_reg.in, UInt(1)
         when signal_reg.out:
-            signal_reg.in <= UInt(0)
-        invoke2_done.in <= counter.done
-        add.left is invalid ; default initialization
-        add.left <= UInt(0)
+            connect signal_reg.in, UInt(0)
+        connect invoke2_done.in, counter.done
+        invalidate add.left ; default initialization
+        connect add.left, UInt(0)
         when and(eq(fsm.out, UInt(1)), early_reset_static_seq_go.out):
-            add.left <= val.out
-        add.right is invalid ; default initialization
-        add.right <= UInt(0)
+            connect add.left, val.out
+        invalidate add.right ; default initialization
+        connect add.right, UInt(0)
         when and(eq(fsm.out, UInt(1)), early_reset_static_seq_go.out):
-            add.right <= UInt(4)
-        pd.write_en is invalid ; default initialization
-        pd.write_en <= UInt(0)
+            connect add.right, UInt(4)
+        invalidate pd.write_en ; default initialization
+        connect pd.write_en, UInt(0)
         when or(and(pd.out, pd0.out), and(invoke2_done.out, par0_go.out)):
-            pd.write_en <= UInt(1)
-        pd.clk <= clk
-        pd.reset <= reset
-        pd.in is invalid ; default initialization
-        pd.in <= UInt(0)
+            connect pd.write_en, UInt(1)
+        connect pd.clk, clk
+        connect pd.reset, reset
+        invalidate pd.in ; default initialization
+        connect pd.in, UInt(0)
         when and(invoke2_done.out, par0_go.out):
-            pd.in <= UInt(1)
+            connect pd.in, UInt(1)
         when and(pd.out, pd0.out):
-            pd.in <= UInt(0)
-        pd0.write_en is invalid ; default initialization
-        pd0.write_en <= UInt(0)
+            connect pd.in, UInt(0)
+        invalidate pd0.write_en ; default initialization
+        connect pd0.write_en, UInt(0)
         when or(and(pd.out, pd0.out), and(tdcc_done.out, par0_go.out)):
-            pd0.write_en <= UInt(1)
-        pd0.clk <= clk
-        pd0.reset <= reset
-        pd0.in is invalid ; default initialization
-        pd0.in <= UInt(0)
+            connect pd0.write_en, UInt(1)
+        connect pd0.clk, clk
+        connect pd0.reset, reset
+        invalidate pd0.in ; default initialization
+        connect pd0.in, UInt(0)
         when and(tdcc_done.out, par0_go.out):
-            pd0.in <= UInt(1)
+            connect pd0.in, UInt(1)
         when and(pd.out, pd0.out):
-            pd0.in <= UInt(0)
-        wrapper_early_reset_cond00_go.in is invalid ; default initialization
-        wrapper_early_reset_cond00_go.in <= UInt(0)
+            connect pd0.in, UInt(0)
+        invalidate wrapper_early_reset_cond00_go.in ; default initialization
+        connect wrapper_early_reset_cond00_go.in, UInt(0)
         when or(and(and(not(wrapper_early_reset_cond00_done.out), eq(fsm1.out, UInt(1))), tdcc0_go.out), and(and(not(wrapper_early_reset_cond00_done.out), eq(fsm1.out, UInt(3))), tdcc0_go.out)):
-            wrapper_early_reset_cond00_go.in <= UInt(1)
-        wrapper_early_reset_cond00_done.in is invalid ; default initialization
-        wrapper_early_reset_cond00_done.in <= UInt(0)
+            connect wrapper_early_reset_cond00_go.in, UInt(1)
+        invalidate wrapper_early_reset_cond00_done.in ; default initialization
+        connect wrapper_early_reset_cond00_done.in, UInt(0)
         when signal_reg.out:
-            wrapper_early_reset_cond00_done.in <= UInt(1)
-        early_reset_static_seq_done.in <= ud0.out
-        tdcc_done.in is invalid ; default initialization
-        tdcc_done.in <= UInt(0)
+            connect wrapper_early_reset_cond00_done.in, UInt(1)
+        connect early_reset_static_seq_done.in, ud0.out
+        invalidate tdcc_done.in ; default initialization
+        connect tdcc_done.in, UInt(0)
         when eq(fsm0.out, UInt(2)):
-            tdcc_done.in <= UInt(1)
-        lt.left is invalid ; default initialization
-        lt.left <= UInt(0)
+            connect tdcc_done.in, UInt(1)
+        invalidate lt.left ; default initialization
+        connect lt.left, UInt(0)
         when early_reset_cond00_go.out:
-            lt.left <= counter.out
-        lt.right is invalid ; default initialization
-        lt.right <= UInt(0)
+            connect lt.left, counter.out
+        invalidate lt.right ; default initialization
+        connect lt.right, UInt(0)
         when early_reset_cond00_go.out:
-            lt.right <= UInt(8)
-        wrapper_early_reset_static_seq_go.in is invalid ; default initialization
-        wrapper_early_reset_static_seq_go.in <= UInt(0)
+            connect lt.right, UInt(8)
+        invalidate wrapper_early_reset_static_seq_go.in ; default initialization
+        connect wrapper_early_reset_static_seq_go.in, UInt(0)
         when and(and(not(wrapper_early_reset_static_seq_done.out), eq(fsm0.out, UInt(0))), tdcc_go.out):
-            wrapper_early_reset_static_seq_go.in <= UInt(1)
-        par0_go.in is invalid ; default initialization
-        par0_go.in <= UInt(0)
+            connect wrapper_early_reset_static_seq_go.in, UInt(1)
+        invalidate par0_go.in ; default initialization
+        connect par0_go.in, UInt(0)
         when and(and(not(par0_done.out), eq(fsm1.out, UInt(2))), tdcc0_go.out):
-            par0_go.in <= UInt(1)
+            connect par0_go.in, UInt(1)
         ; COMPONENT END: main
 
