@@ -75,6 +75,14 @@ tdcc:infer-fsms -p lower -p externalize --disable-verify",
     )
     registry.register(
         futil.CalyxStage(
+            "med-fsms-synth-verilog",
+            "-b verilog --synthesis -p synthesis-papercut -p med-fsm -x \
+tdcc:infer-fsms -p lower -p externalize --disable-verify",
+            "Compile Calyx to synthesizable Verilog",
+        )
+    )
+    registry.register(
+        futil.CalyxStage(
             "calyx-lowered",
             "-b calyx",
             "Compile Calyx to Calyx to remove all control and inline groups",
@@ -133,6 +141,7 @@ tdcc:infer-fsms -p lower -p externalize --disable-verify",
     # # Vivado / vivado hls
     registry.register(vivado.VivadoStage())
     registry.register(vivado.VivadoStageFSMs())
+    registry.register(vivado.VivadoStageMedFSMs())
     registry.register(vivado.VivadoExtractStage())
     registry.register(vivado.VivadoHLSStage())
     registry.register(vivado.VivadoHLSExtractStage())

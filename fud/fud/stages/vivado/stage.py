@@ -170,6 +170,36 @@ class VivadoStageFSMs(VivadoBaseStage):
         return [tcl, constraints]
 
 
+class VivadoStageMedFSMs(VivadoBaseStage):
+    name = "med-fsms-synth-verilog"
+
+    def __init__(self):
+        super().__init__(
+            "med-fsms-synth-verilog",
+            "synth-files",
+            "Produces synthesis files from a Verilog program",
+            target_name="main.sv",
+            remote_exec="vivado",
+            flags="-mode batch -source synth.tcl",
+        )
+
+    def device_files(self, config):
+        root = Path(config["global", cfg.ROOT])
+        # Load constraints
+        constraints = config.get(["stages", self.name, "constraints"])
+        if constraints:
+            constraints = Path(constraints)
+        else:
+            constraints = root / "fud" / "synth" / "device.xdc"
+        # Load synthesis TCL file
+        synth = config.get(["stages", self.name, "tcl"])
+        if synth:
+            tcl = Path(synth)
+        else:
+            tcl = root / "fud" / "synth" / "synth.tcl"
+        return [tcl, constraints]
+
+
 class VivadoHLSStage(VivadoBaseStage):
     name = "vivado-hls"
 

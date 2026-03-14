@@ -316,7 +316,7 @@ impl Named for FSMAnnotator {
         vec![PassOpt::new(
             "child-fsm-cutoff",
             "The maximum number of states a child FSM can have, before it is offloaded",
-            ParseVal::Num(300),
+            ParseVal::Num(10000),
             PassOpt::parse_num,
         )]
     }

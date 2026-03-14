@@ -927,23 +927,23 @@ fn emit_fsm_module<F: io::Write>(
     writeln!(f, "{always_comb_header}")?;
 
     // Begin emitting the FSM's transitions and updates
-    let case_header = "  always @(*) begin\n    state_next = s0;\n\
-        case ( state_reg )";
-    writeln!(f, "{case_header}")?;
+    writeln!(f, "  always @(*) begin")?;
+    writeln!(f, "    state_next = s0;")?;
+
+    // Default: set all state outputs to 0
+    for st in 0..num_states {
+        writeln!(f, "    s{st}_out = 1'b0;")?;
+    }
+    writeln!(f)?;
+
+    writeln!(f, "    case ( state_reg )")?;
     // At each state, write the updates to the state and the outward-facing
     // wires to make high / low
     for (case, trans) in fsm.borrow().transitions.iter().enumerate() {
         writeln!(f, "        s{case}: begin")?;
 
-        // Outward-facing wires
-        for st in 0..num_states {
-            writeln!(
-                f,
-                "{}s{st}_out = 1'b{};",
-                " ".repeat(10),
-                if st == case { 1 } else { 0 }
-            )?;
-        }
+        // Outward-facing wire: only set the current state to 1
+        writeln!(f, "{}s{case}_out = 1'b1;", " ".repeat(10))?;
 
         // Updates to state
         emit_fsm_transtions(trans, f)?;
