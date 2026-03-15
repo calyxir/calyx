@@ -70,6 +70,7 @@ tools/profiler/fg-tmp
 *.svg
 *.folded
 fud2-runs
+comp-out
 
 temp/
 
