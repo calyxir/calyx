@@ -6,6 +6,7 @@ from cocotb.triggers import Timer, FallingEdge, with_timeout, RisingEdge, ClockC
 from typing import Literal, Mapping, Any, Union, List
 from pathlib import Path
 import os
+import math
 
 
 # NOTE (nathanielnrn) cocotb-bus 0.2.1 has a bug that does not recognize optional
@@ -32,12 +33,14 @@ class KernelTB:
             # i.e m0_axi_RDATA.
             # These prefixes have to match verilog code. See kernel.xml <args>
             # and ports assigned within that for guidance.
+            rounded_size = math.floor(math.log2(size)) + 1
+            rounded_size = 2**rounded_size
             rams[mem] = AxiRam(
                 AxiBus.from_prefix(self.toplevel, f"m_axi_{mem}"),
                 self.toplevel.ap_clk,
                 reset=self.toplevel.reset,
                 # self.toplevel.ap_rst_n,
-                size=size,
+                size=rounded_size,
             )
 
             # NOTE: This defaults to little endian to match AxiRam defaults
@@ -71,7 +74,7 @@ async def run_kernel_test(toplevel, data_path: str):
         f.close()
     assert data_map is not None
     await tb.setup_rams(data_map)
-    # print(data_map)
+    # print(tb.rams["in"].mem.hexdump_lines(0, 40))
 
     # set up clock of 2ns period, simulator default timestep is 1ps
     cocotb.start_soon(Clock(toplevel.ap_clk, 2, units="ns").start())
