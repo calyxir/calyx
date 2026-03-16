@@ -2,7 +2,7 @@ use cranelift_entity::PrimaryMap;
 use fud_core::{
     exec::{
         OpRef, Operation,
-        plan::{EnumeratePlanner, FindPlan},
+        plan::{EnumeratePlanner, FindPlan, InductivePlanner},
     },
     flang::{PathRef, Plan},
     run::EmitBuildFn,
@@ -17,6 +17,8 @@ use fud_core::exec::plan::SatPlanner;
 fn all_planners() -> impl Iterator<Item = Box<dyn FindPlan>> {
     #[allow(unused_mut)]
     let mut out: Vec<Box<dyn FindPlan>> = vec![Box::new(EnumeratePlanner {})];
+    out.push(Box::new(InductivePlanner {}));
+
     #[cfg(feature = "sat_planner")]
     out.push(Box::new(SatPlanner {}));
 
