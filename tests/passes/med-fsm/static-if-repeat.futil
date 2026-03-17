@@ -1,13 +1,19 @@
-// -p med-fsm
+// -p med-fsm -x tdcc:infer-fsms
+
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 
 component main() -> () {
   cells {
+    lt = std_lt(1);
     a = std_reg(2);
     b = std_reg(2);
   }
+
   wires {
+    lt.left = 1'b1;
+    lt.right = 1'b0;
+
     static<1> group A {
       a.in = 2'd0;
       a.write_en = %0 ? 1'd1;
@@ -19,15 +25,14 @@ component main() -> () {
   }
 
   control {
-    static seq { 
-      A;
-      static seq {
+    static if lt.out {
+      static repeat 3{
         A;
+      }
+    } else {
+      static repeat 3{
         B;
-        A;
-        B;
-      } 
-      A;
+      }
     }
   }
 }
