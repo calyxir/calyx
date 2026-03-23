@@ -560,19 +560,23 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             .collect();
 
         for target in targets {
-            let Some(mem_loc) =
+            let Some(var_def) =
                 variable_maps.iter().find_map(|map| map.get(&target))
             else {
-                return Err(VarPrintError::UndefinedSourceVar(target));
+                return Err(VarPrintError::UndefinedSourceVar(
+                    target.to_string(),
+                ));
             };
 
-            let calyx_target = source_info.get_memory_location(mem_loc);
+            // this is silly but preserves the limited existing behavior
+            // TODO griffin: actually use the format information
+            let calyx_target =
+                source_info.get_memory_location(&var_def.layout_args[0]);
 
             let name_split: Vec<String> =
                 calyx_target.cell.split('.').map(|x| x.into()).collect();
 
             let path = self.interpreter.traverse_name_vec(&name_split)?;
-
             let calyx_target = PrintTarget::new(
                 path,
                 (!calyx_target.address.is_empty())
@@ -823,7 +827,11 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                         // the memory addressing comes up elsewhere in a similar way
                         return Ok(());
                     } else {
-                        println!("{}","Target cell has no internal state, printing port information instead".stylize_warning());
+                        println!(
+                            "{}",
+                            "Target cell has no internal state, printing port information instead"
+                                .stylize_warning()
+                        );
                     }
                 }
 

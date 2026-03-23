@@ -163,8 +163,10 @@ def read_tdcc_file(
             )
             calyx_pos_list: list[int] = list(
                 filter(
-                    lambda x: component_to_pos_to_loc_str is not None
-                    and x in component_to_pos_to_loc_str[component],
+                    lambda x: (
+                        component_to_pos_to_loc_str is not None
+                        and x in component_to_pos_to_loc_str[component]
+                    ),
                     pos_list,
                 )
             )
@@ -191,8 +193,10 @@ def read_tdcc_file(
             # TODO: remove code clone
             calyx_pos_list: list[int] = list(
                 filter(
-                    lambda x: component_to_pos_to_loc_str is not None
-                    and x in component_to_pos_to_loc_str[component],
+                    lambda x: (
+                        component_to_pos_to_loc_str is not None
+                        and x in component_to_pos_to_loc_str[component]
+                    ),
                     entry["pos"],
                 )
             )

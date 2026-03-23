@@ -244,7 +244,7 @@ where
     let dsts = dsts1.chain(dsts2);
     let dst_grps = dsts
         .sorted_by(|(dst1, _), (dst2, _)| ir::Canonical::cmp(dst1, dst2))
-        .group_by(|(dst, _)| dst.clone());
+        .chunk_by(|(dst, _)| dst.clone());
 
     for (_, group) in &dst_grps {
         let assigns = group.collect_vec();
