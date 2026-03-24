@@ -1,6 +1,8 @@
 import "calyx" as c;
 import "profiler" as p;
 import "calyx-to-synth-verilog" as csv;
+import "calyx-fsms-to-synth-verilog" as cfsv;
+import "calyx-med-fsms-to-synth-verilog" as cmfsv;
 
 export const utilization_report_state = state("utilization-report", ["rpt"]);
 export const timing_report_state = state("timing-report", ["rpt"]);
@@ -120,6 +122,112 @@ op(
         synth_verilog_through_vivado(e, input, output);
         // Similarly IGNOREME is needed here as a dependency so that Ninja threads this command
         // with the Vivado synthesis command
+        e.build_cmd([output], "extract-hierarchy-json", ["IGNOREME"], []);
+    }
+);
+
+// Op variants for fsms-synth-verilog input
+op(
+    "fsms-synth-verilog-to-util-report",
+    [synth_setup],
+    cfsv::synth_verilog_state,
+    utilization_report_state,
+    |e, input, output| {
+        synth_verilog_to_report(e, input, output, "utilization");
+    }
+);
+
+op(
+    "fsms-synth-verilog-to-timing-report",
+    [synth_setup],
+    cfsv::synth_verilog_state,
+    timing_report_state,
+    |e, input, output| {
+        synth_verilog_to_report(e, input, output, "timing");
+    }
+);
+
+op(
+    "fsms-synth-verilog-to-area-report",
+    [synth_setup],
+    cfsv::synth_verilog_state,
+    area_report_state,
+    |e, input, output| {
+        synth_verilog_to_report(e, input, output, "area");
+    }
+);
+
+op(
+    "fsms-synth-verilog-to-util-json",
+    [synth_setup],
+    cfsv::synth_verilog_state,
+    json_report_state,
+    |e, input, output| {
+        synth_verilog_through_vivado(e, input, output);
+        e.build_cmd([output], "extract-util-json", ["IGNOREME"], []);
+    }
+);
+
+op(
+    "fsms-synth-verilog-to-hierarchy-json",
+    [synth_setup],
+    cfsv::synth_verilog_state,
+    json_report_state,
+    |e, input, output| {
+        synth_verilog_through_vivado(e, input, output);
+        e.build_cmd([output], "extract-hierarchy-json", ["IGNOREME"], []);
+    }
+);
+
+// Op variants for med-fsms-synth-verilog input
+op(
+    "med-fsms-synth-verilog-to-util-report",
+    [synth_setup],
+    cmfsv::synth_verilog_state,
+    utilization_report_state,
+    |e, input, output| {
+        synth_verilog_to_report(e, input, output, "utilization");
+    }
+);
+
+op(
+    "med-fsms-synth-verilog-to-timing-report",
+    [synth_setup],
+    cmfsv::synth_verilog_state,
+    timing_report_state,
+    |e, input, output| {
+        synth_verilog_to_report(e, input, output, "timing");
+    }
+);
+
+op(
+    "med-fsms-synth-verilog-to-area-report",
+    [synth_setup],
+    cmfsv::synth_verilog_state,
+    area_report_state,
+    |e, input, output| {
+        synth_verilog_to_report(e, input, output, "area");
+    }
+);
+
+op(
+    "med-fsms-synth-verilog-to-util-json",
+    [synth_setup],
+    cmfsv::synth_verilog_state,
+    json_report_state,
+    |e, input, output| {
+        synth_verilog_through_vivado(e, input, output);
+        e.build_cmd([output], "extract-util-json", ["IGNOREME"], []);
+    }
+);
+
+op(
+    "med-fsms-synth-verilog-to-hierarchy-json",
+    [synth_setup],
+    cmfsv::synth_verilog_state,
+    json_report_state,
+    |e, input, output| {
+        synth_verilog_through_vivado(e, input, output);
         e.build_cmd([output], "extract-hierarchy-json", ["IGNOREME"], []);
     }
 );
