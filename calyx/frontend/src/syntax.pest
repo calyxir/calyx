@@ -18,7 +18,7 @@ octal =   @{ ASCII_HEX_DIGIT+ }
 hex =     @{ ASCII_HEX_DIGIT+ }
 
 // Floating-point numbers are only supported within the `std_float_const` primitive.
-float =   @{ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
+float =   @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
 
 // `$` creates a compound rule which ignores whitespace while allowing for
 // inner rules (`@` makes inner rules silent).
