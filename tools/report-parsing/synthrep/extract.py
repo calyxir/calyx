@@ -158,13 +158,13 @@ def place_and_route_extract(
 
 
 def hls_extract(directory: Path, top: str):
-    directory = directory / "solution1"
+    directory = directory / "hls"
 
     try:
         parser = rpt.RPTParser(directory / "syn" / "report" / f"{top}_csynth.rpt")
         summary_table = parser.get_table(re.compile(r"== Utilization Estimates"), 2)
 
-        solution_data = json.load((directory / "solution1_data.json").open())
+        solution_data = json.load((directory / "hls_data.json").open())
         latency = solution_data["ModuleInfo"]["Metrics"][top]["Latency"]
 
         total_row = find_row(summary_table, "Name", "Total")

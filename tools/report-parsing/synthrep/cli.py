@@ -45,7 +45,7 @@ def hls_summary(dir, top):
 def hls_impl_summary(dir, top):
     print(
         place_and_route_extract(
-            Path(dir, "solution1", "impl", "verilog", "report"),
+            Path(dir, "hls", "impl", "verilog", "report"),
             PurePath(f"{top}_utilization_routed.rpt"),
             PurePath(f"{top}_timing_routed.rpt"),
             PurePath(f"{top}_utilization_synth.rpt"),
@@ -148,9 +148,9 @@ def main():
                 case "hierarchy":
                     hierarchy_summary(args.directory or "out")
                 case "hls":
-                    hls_summary(args.directory or "benchmark.prj", args.top)
+                    hls_summary(args.directory or "out", args.top)
                 case "hls-impl":
-                    hls_impl_summary(args.directory or "benchmark.prj", args.top)
+                    hls_impl_summary(args.directory or "out", args.top)
         case "viz":
             match args.type:
                 case "flamegraph":
