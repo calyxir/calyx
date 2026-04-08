@@ -62,39 +62,41 @@ struct PrimitiveParam {
 /// in the program with entrypoint `main_comp`.
 fn gen_primitive_set(
     ctx: &ir::Context,
-    main_comp: &ir::Component,
+    _main_comp: &ir::Component,
     primitive_set: &mut HashSet<PrimitiveUse>,
 ) {
-    for cell in main_comp.cells.iter() {
-        let cell_ref = cell.borrow();
-        match &cell_ref.prototype {
-            ir::CellType::Primitive {
-                name,
-                param_binding,
-                ..
-            } => {
-                let curr_params = param_binding
-                    .iter()
-                    .map(|(param_name, param_size)| PrimitiveParam {
-                        param_name: param_name.to_string(),
-                        param_value: *param_size,
-                    })
-                    .collect();
-                let curr_primitive = PrimitiveUse {
-                    name: name.to_string(),
-                    params: curr_params,
-                };
-                (*primitive_set).insert(curr_primitive);
+    for comp in &ctx.components {
+        for cell in comp.cells.iter() {
+            let cell_ref = cell.borrow();
+            match &cell_ref.prototype {
+                ir::CellType::Primitive {
+                    name,
+                    param_binding,
+                    ..
+                } => {
+                    let curr_params = param_binding
+                        .iter()
+                        .map(|(param_name, param_size)| PrimitiveParam {
+                            param_name: param_name.to_string(),
+                            param_value: *param_size,
+                        })
+                        .collect();
+                    let curr_primitive = PrimitiveUse {
+                        name: name.to_string(),
+                        params: curr_params,
+                    };
+                    (*primitive_set).insert(curr_primitive);
+                }
+                ir::CellType::Component { name } => {
+                    let component = ctx
+                        .components
+                        .iter()
+                        .find(|comp| comp.name == name)
+                        .unwrap();
+                    gen_primitive_set(ctx, component, primitive_set);
+                }
+                _ => (),
             }
-            ir::CellType::Component { name } => {
-                let component = ctx
-                    .components
-                    .iter()
-                    .find(|comp| comp.name == name)
-                    .unwrap();
-                gen_primitive_set(ctx, component, primitive_set);
-            }
-            _ => (),
         }
     }
 }
