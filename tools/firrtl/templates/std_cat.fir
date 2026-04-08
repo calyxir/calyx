@@ -3,4 +3,4 @@
         input right : UInt<RIGHT_WIDTH>
         output out : UInt<OUT_WIDTH>
 
-        out <= cat(left, right)
+        connect out, cat(left, right)

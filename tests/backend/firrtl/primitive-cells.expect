@@ -1,3 +1,4 @@
+FIRRTL version 4.0.0
 circuit main:
     extmodule std_add_32:
         input left: UInt<32>
@@ -12,49 +13,49 @@ circuit main:
         defname = std_wire
         parameter WIDTH = 1
 
-    module plus_one:
+    public module plus_one:
         input in: UInt<32>
         output out: UInt<32>
         input go: UInt<1>
         input clk: Clock
         input reset: UInt<1>
         output done: UInt<1>
-        out is invalid ; default initialization
-        out <= UInt(0)
-        done is invalid ; default initialization
-        done <= UInt(0)
+        invalidate out ; default initialization
+        connect out, UInt(0)
+        invalidate done ; default initialization
+        connect done, UInt(0)
         ; COMPONENT START: plus_one
         inst add of std_add_32
-        done <= UInt(1)
-        out <= add.out
-        add.left <= UInt(1)
-        add.right <= in
+        connect done, UInt(1)
+        connect out, add.out
+        connect add.left, UInt(1)
+        connect add.right, in
         ; COMPONENT END: plus_one
 
-    module main:
+    public module main:
         input go: UInt<1>
         input clk: Clock
         input reset: UInt<1>
         output done: UInt<1>
-        done is invalid ; default initialization
-        done <= UInt(0)
+        invalidate done ; default initialization
+        connect done, UInt(0)
         ; COMPONENT START: main
         inst po of plus_one
         inst invoke0_go of std_wire_1
         inst invoke0_done of std_wire_1
         when invoke0_done.out:
-            done <= UInt(1)
-        invoke0_go.in <= go
-        invoke0_done.in <= po.done
-        po.clk <= clk
-        po.go is invalid ; default initialization
-        po.go <= UInt(0)
+            connect done, UInt(1)
+        connect invoke0_go.in, go
+        connect invoke0_done.in, po.done
+        connect po.clk, clk
+        invalidate po.go ; default initialization
+        connect po.go, UInt(0)
         when invoke0_go.out:
-            po.go <= UInt(1)
-        po.reset <= reset
-        po.in is invalid ; default initialization
-        po.in <= UInt(0)
+            connect po.go, UInt(1)
+        connect po.reset, reset
+        invalidate po.in ; default initialization
+        connect po.in, UInt(0)
         when invoke0_go.out:
-            po.in <= UInt(5)
+            connect po.in, UInt(5)
         ; COMPONENT END: main
 
