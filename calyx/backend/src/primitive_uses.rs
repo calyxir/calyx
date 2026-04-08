@@ -34,11 +34,9 @@ impl Backend for PrimitiveUsesBackend {
     }
 
     fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
-        let main_comp = ctx.entrypoint();
-
         let mut primitive_set: HashSet<PrimitiveUse> = HashSet::new();
 
-        gen_primitive_set(ctx, main_comp, &mut primitive_set);
+        gen_primitive_set(ctx, &mut primitive_set);
 
         write_json(primitive_set.clone(), file)?;
 
@@ -62,7 +60,6 @@ struct PrimitiveParam {
 /// in the program with entrypoint `main_comp`.
 fn gen_primitive_set(
     ctx: &ir::Context,
-    _main_comp: &ir::Component,
     primitive_set: &mut HashSet<PrimitiveUse>,
 ) {
     for comp in &ctx.components {
@@ -86,14 +83,6 @@ fn gen_primitive_set(
                         params: curr_params,
                     };
                     (*primitive_set).insert(curr_primitive);
-                }
-                ir::CellType::Component { name } => {
-                    let component = ctx
-                        .components
-                        .iter()
-                        .find(|comp| comp.name == name)
-                        .unwrap();
-                    gen_primitive_set(ctx, component, primitive_set);
                 }
                 _ => (),
             }
