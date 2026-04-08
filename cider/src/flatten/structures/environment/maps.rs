@@ -461,4 +461,8 @@ impl MemoryMap {
     pub fn get_region_slice(&self, region: MemoryRegion) -> &[BitVecValue] {
         self.data.get_region_slice(region)
     }
+
+    pub fn get_clocked_count(&self) -> usize {
+        self.clocks.count()
+    }
 }

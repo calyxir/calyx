@@ -32,7 +32,7 @@ Install it using your OS package manager or by downloading a binary.
 Run the following command to edit fud2's configuration file (usually `~/.config/fud2.toml`):
 
 ```sh
-fud2 edit-config
+fud2 config edit
 ```
 
 Add these lines:
@@ -104,11 +104,11 @@ Here are some options you might need:
   - `plan`: Print a brief description of the plan, i.e., the sequence of operations that the build would run.
   - `dot`: Print a [GraphViz][] depiction of the plan. Try `fud2 -m dot | dot -Tpdf > graph.pdf` and take a look.
   - `cmds`: Print the commands Ninja would run when executing the plan, but do not execute them.
-  - `emit-json`: Prints a `json` representation of a build to stdout. If saved to a file, this build script can be run using `fud2 --planner json < build.json` 
+  - `emit-json`: Prints a `json` representation of a build to stdout. If saved to a file, this build script can be run using `fud2 --planner json < build.json`
 
 There are also some subcommands for doing things other than building stuff:
 
-- `fud2 edit-config`: Open the `fud2` configuration file in `$EDITOR`.
+- `fud2 config edit`: Open the `fud2` configuration file in `$EDITOR`.
 - `fud2 list`: Print out all the available states and operations.
 - `fud2 get-rsrc FILE`: Fetch a *resource file* and place it in the working directory. You typically do not need to use this interactively; it is used during builds to obtain files included with `fud2` that are necessary for a given build.
 
