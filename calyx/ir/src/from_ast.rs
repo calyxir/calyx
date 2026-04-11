@@ -234,6 +234,7 @@ pub fn ast_to_ir(
         {
             Component::extend_signature(sig);
         }
+        log::debug!("{:?}", comp.name);
         sig_ctx
             .comp_sigs
             .insert(comp.name, (sig.clone(), comp.latency));
