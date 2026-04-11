@@ -14,7 +14,7 @@ use crate::passes::{
 };
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
-    FSMAnnotator, FSMBuilder, HoleInliner, Metadata, ParToSeq,
+    FSMAnnotator, FSMBuilder, HoleInliner, MemFlat, Metadata, ParToSeq,
     RegisterUnsharing, SimplifyIfComb,
 };
 use crate::traversal::Named;
@@ -44,6 +44,7 @@ impl PassManager {
         pm.register_pass::<StaticPromotion>()?;
         pm.register_pass::<SimplifyStaticGuards>()?;
         pm.register_pass::<DataPathInfer>()?;
+        pm.register_pass::<ExternalToRef>()?;
 
         // Compilation passes
         pm.register_pass::<StaticInliner>()?;
@@ -84,7 +85,6 @@ impl PassManager {
         pm.register_pass::<LowerGuards>()?;
         pm.register_pass::<HoleInliner>()?;
         pm.register_pass::<RemoveIds>()?;
-        pm.register_pass::<ExternalToRef>()?;
         pm.register_pass::<ConstantPortProp>()?;
         pm.register_pass::<SimplifyIfComb>()?;
 
@@ -94,6 +94,8 @@ impl PassManager {
 
         //add metadata
         pm.register_pass::<Metadata>()?;
+
+        pm.register_pass::<MemFlat>()?;
 
         register_alias!(pm, "validate", [WellFormed, Papercut, Canonicalize]);
         register_alias!(
@@ -117,6 +119,7 @@ impl PassManager {
                 CompileInvoke,   // creates dead comb groups
                 StaticInference,
                 StaticPromotion,
+                ExternalToRef,
                 CompileRepeat,
                 DeadGroupRemoval, // Since previous passes potentially create dead groups
                 CollapseControl,
@@ -141,6 +144,7 @@ impl PassManager {
                 CompileInvoke,
                 StaticInference,
                 StaticPromotion,
+                ExternalToRef,
                 DeadGroupRemoval,
                 CollapseControl,
                 StaticRepeatFSMAllocation,
@@ -170,6 +174,7 @@ impl PassManager {
                 CompileInvoke,
                 StaticInference,
                 StaticPromotion,
+                ExternalToRef,
                 DeadGroupRemoval,
                 CollapseControl,
                 FSMAnnotator,
@@ -199,6 +204,7 @@ impl PassManager {
                 CompileInvoke,
                 StaticInference,
                 StaticPromotion,
+                ExternalToRef,
                 DeadGroupRemoval,
                 CollapseControl,
                 FSMAnnotator,
@@ -277,6 +283,7 @@ impl PassManager {
                 CompileInvoke,   // creates dead comb groups
                 StaticInference,
                 StaticPromotion,
+                ExternalToRef,
                 CompileRepeat,
                 DeadGroupRemoval, // Since previous passes potentially create dead groups
                 CollapseControl,
