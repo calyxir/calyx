@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
-use calyx_ir::{self as ir, Assignment, Cell, Id, LibrarySignatures, Nothing};
+use calyx_ir::{
+    self as ir, Assignment, Cell, GetAttributes, Id, LibrarySignatures, Nothing,
+};
 use calyx_utils::{CalyxResult, Error};
 
 struct MemTransformInfo {
@@ -25,7 +27,9 @@ impl Named for MemFlat {
     }
 }
 
-impl<'ctx> ConstructVisitor for MemFlat {
+// TODO: could be reworked to use the utils stuff
+// TODO: A_int may have some shadow 'uses'?
+impl ConstructVisitor for MemFlat {
     fn from(ctx: &ir::Context) -> CalyxResult<Self>
     where
         Self: Sized,
@@ -59,14 +63,14 @@ impl<'ctx> ConstructVisitor for MemFlat {
                         let sig = format!("fd{}_{spec}", dim_sizes.len());
                         let matching_wrapper =
                             ctx.components.iter().find(|c| c.name == sig);
-
+                        let is_extern = subcomp
+                            .get_attribute(ir::BoolAttr::External)
+                            .is_some_and(|x| x == 1);
                         if matching_wrapper.is_some() {
                             return Some(MemTransformInfo {
                                 dim_sizes,
                                 width: subcomp.get_parameter("WIDTH").unwrap(),
-                                is_extern: subcomp
-                                    .get_attribute(ir::BoolAttr::External)
-                                    .is_some_and(|x| x == 1),
+                                is_extern,
                                 wrapper_name: sig,
                                 mem_name: subcomp.name(),
                             });
@@ -75,7 +79,7 @@ impl<'ctx> ConstructVisitor for MemFlat {
                             "no wrapper for {n}, expected {sig}"
                         )));
                     }
-                    return None;
+                    None
                 })
                 .collect();
             if let Some(err) = e {
@@ -101,18 +105,25 @@ impl Visitor for MemFlat {
 
         let mut builder = ir::Builder::new(comp, sigs);
         for mem in mems_to_process.iter() {
-            let new_size: u64 = mem.dim_sizes.iter().fold(1, |acc, x| acc * x);
+            let new_size: u64 = mem.dim_sizes.iter().product();
             let address_width: u64 = (new_size as f64).log2().ceil() as u64;
             let new_mem_ref = builder.add_primitive(
-                mem.mem_name.clone(),
+                mem.mem_name,
                 "seq_mem_d1",
-                &vec![mem.width, new_size, address_width],
+                &[mem.width, new_size, address_width],
             );
 
             if mem.is_extern {
                 new_mem_ref
                     .borrow_mut()
                     .add_attribute(ir::BoolAttr::External, 1);
+                // unset external so it can be removed in dead cell removal
+                let orig_instance =
+                    builder.component.find_cell(mem.mem_name).unwrap();
+                orig_instance
+                    .borrow_mut()
+                    .get_mut_attributes()
+                    .remove(ir::BoolAttr::External);
             }
 
             let wrapper =

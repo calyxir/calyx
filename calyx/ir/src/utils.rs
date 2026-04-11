@@ -19,7 +19,12 @@ pub fn external_and_ref_memories_cells(comp: &Component) -> Vec<RRC<Cell>> {
         // find external and ref memories
         .filter(|cell_ref| {
             let cell = cell_ref.borrow();
-            cell.attributes.has(BoolAttr::External) || cell.is_reference()
+            let Some(prot_name) = cell.type_name() else {
+                return false;
+            };
+            prot_name.to_string().contains("mem")
+                && (cell.attributes.has(BoolAttr::External)
+                    || cell.is_reference())
         })
         .cloned()
         .collect()

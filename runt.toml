@@ -718,3 +718,17 @@ cmd = """
  fud2 axi-wrapped.futil --from calyx --to verilog-noverify -o axi-wrapped.v 2> /dev/null && \
  fud2 axi-wrapped.v --from verilog-noverify --to cocotb-axi --set sim.data=${dirname}/../vectorized-add.data 2> /dev/null
  """
+
+[[tests]]
+name="cocotb axi: polybench"
+paths = ["cider/tests/benchmarks/polybench/*.fuse"]
+cmd="""
+  filename=$(basename {} .fuse) && \
+  fud2 --from dahlia --to calyx {} -o compiled/${filename}.futil &&\
+  fud2 compiled/${filename}.futil --dir compiled --through mem_flat --to calyx -o compiled/${filename}_flat.futil &&\
+  jq -f tools/mem_flat/data_flat.jq {}.data > compiled/${filename}.data &&\
+  fud2 compiled/${filename}_flat.futil --to calyx --through axi-wrapped -o axi-wrapped.futil 2> /dev/null && \
+  fud2 axi-wrapped.futil --from calyx --to verilog-noverify -o axi-wrapped.v 2> /dev/null && \
+   fud2 axi-wrapped.v --from verilog-noverify --to cocotb-axi --set sim.data=compiled/${filename}.data 2> /dev/null
+  
+"""

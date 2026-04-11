@@ -146,7 +146,7 @@ def _add_m_to_s_address_channel(prog, mwidth, mlen, prefix: Literal["AW", "AR"])
     return m_to_s_address_channel
 
 
-def add_read_channel(prog, mwidth, mlen):
+def add_read_channel(prog, mwidth, mlen, iwidth):
     # Inputs/Outputs
     read_channel = prog.component("m_read_channel_{}_{}".format(mwidth, mlen))
     # TODO(nathanielnrn): We currently assume RDATA is the same width as the
@@ -171,7 +171,7 @@ def add_read_channel(prog, mwidth, mlen):
         name="mem_ref",
         bitwidth=mwidth,
         len=mlen,
-        idx_size=clog2_or_1(mlen),
+        idx_size=iwidth,
         is_external=False,
         is_ref=True,
     )
@@ -179,7 +179,7 @@ def add_read_channel(prog, mwidth, mlen):
     # according to zipcpu, rready should be registered
     rready = read_channel.reg(1, "rready")
     curr_addr_internal_mem = read_channel.reg(
-        clog2_or_1(mlen), "curr_addr_internal_mem", is_ref=True
+        iwidth, "curr_addr_internal_mem", is_ref=True
     )
     curr_addr_axi = read_channel.reg(64, "curr_addr_axi", is_ref=True)
     # Registed because RLAST is high with laster transfer, not after
@@ -266,7 +266,7 @@ def add_read_channel(prog, mwidth, mlen):
     read_channel.control += [invoke_n_RLAST, while_n_RLAST]
 
 
-def add_write_channel(prog, mwidth, mlen):
+def add_write_channel(prog, mwidth, mlen, iwidth):
     # Inputs/Outputs
     write_channel = prog.component("m_write_channel_{}_{}".format(mwidth, mlen))
     channel_inputs = [("ARESETn", 1), ("WREADY", 1)]
@@ -287,7 +287,7 @@ def add_write_channel(prog, mwidth, mlen):
         name="mem_ref",
         bitwidth=mwidth,
         len=mlen,
-        idx_size=clog2_or_1(mlen),
+        idx_size=iwidth,
         is_external=False,
         is_ref=True,
     )
@@ -297,7 +297,7 @@ def add_write_channel(prog, mwidth, mlen):
     w_handshake_occurred = write_channel.reg(1, "w_handshake_occurred")
     # internal calyx memory indexing
     curr_addr_internal_mem = write_channel.reg(
-        clog2_or_1(mlen), "curr_addr_internal_mem", is_ref=True
+        iwidth, "curr_addr_internal_mem", is_ref=True
     )
     # host indexing, must be 64 bits
     curr_addr_axi = write_channel.reg(64, "curr_addr_axi", is_ref=True)

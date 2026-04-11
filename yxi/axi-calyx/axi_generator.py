@@ -35,6 +35,7 @@ from yxi_lib.axi_component import (
 width_key = "data_width"
 size_key = "total_size"
 name_key = "name"
+idx_key = "idx_sizes"
 
 
 # NOTE: Unlike the channel functions, this can expect multiple mems
@@ -127,7 +128,7 @@ def add_main_comp(prog, mems):
         # Cells
         # Read stuff
         curr_addr_internal_mem = wrapper_comp.reg(
-            clog2_or_1(mem[size_key]), f"curr_addr_internal_mem_{mem_name}"
+            mem[idx_key][0], f"curr_addr_internal_mem_{mem_name}"
         )
         curr_addr_axi = wrapper_comp.reg(64, f"curr_addr_axi_{mem_name}")
 
@@ -140,7 +141,7 @@ def add_main_comp(prog, mems):
             name=f"internal_mem_{mem_name}",
             bitwidth=mem[width_key],
             len=mem[size_key],
-            idx_size=clog2_or_1(mem[size_key]),
+            idx_size=mem[idx_key][0],
         )
 
         # Write stuff
@@ -291,8 +292,8 @@ def build():
         if (nwidth, nlen) not in memsizes:
             add_arread_channel(prog, nwidth, nlen)
             add_awwrite_channel(prog, nwidth, nlen)
-            add_read_channel(prog, nwidth, nlen)
-            add_write_channel(prog, nwidth, nlen)
+            add_read_channel(prog, nwidth, nlen, mem[idx_key][0])
+            add_write_channel(prog, nwidth, nlen, mem[idx_key][0])
             add_bresp_channel(prog, nwidth, nlen)
             memsizes.append((nwidth, nlen))
     add_main_comp(prog, mems)
@@ -310,6 +311,11 @@ def check_mems_welformed(mems):
             "Width must be a power of 2 to be correctly described by xSIZE"
         )
         assert mem[size_key] > 0, "Memory size must be greater than 0"
+        if mem["idx_sizes"][0] > clog2_or_1(mem[size_key]):
+            print(
+                "warn: idx sizes of {} are overspecified".format(mem[name_key]),
+                file=sys.stderr,
+            )
 
 
 if __name__ == "__main__":
