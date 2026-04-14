@@ -27,7 +27,7 @@ rule copy
 rule clang-c
   command = clang -Wno-override-module -c $in -o $out
 rule linking
-  command = clang++ -I $arcilator-include $driver $in -o $out
+  command = clang++ -I $arcilator-include $in -o $out
 rule extract-mem
   command = $cider-converter --to dat --output-path $out_dir $in
 rule simulation
@@ -41,7 +41,7 @@ build header.h: arcilator-header mapping.json
 build header_fixed.h: sed header.h
 build driver.cpp: copy $driver
 build hardware_model.o: clang-c simulator.ll
-build simulate: linking hardware_model.o | header_fixed.h
+build simulate: linking driver.cpp hardware_model.o | header_fixed.h
 build sim_flat.data: extract-mem $calyx-base/$sim_data
 build sim_data_dir: extract-mem $calyx-base/$sim_data
   out_dir = sim_data_dir
