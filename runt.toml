@@ -650,7 +650,7 @@ name = "[examples] memory by reference tutorial"
 paths = ["examples/futil/memory-by-reference/*.futil"]
 cmd = """
 fud2 {} -s sim.cycle_limit=500 \
-         --through verilator \
+         --through verilator-refmem \
          -s sim.data={}.data \
          --from calyx --to dat -q
 """
