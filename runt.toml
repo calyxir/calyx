@@ -81,7 +81,7 @@ cmd = """
 name = "fud2 yxi invocation"
 paths = ["yxi/tests/yxi-tool/ref-mems-vec-add.futil"]
 cmd = """
-fud2 {} --from calyx --to yxi --through verilator-refmem
+fud2 {} --from calyx --to yxi
 """
 
 [[tests]]
