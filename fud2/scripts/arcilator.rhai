@@ -22,7 +22,7 @@ fn arcilator_setup(e) {
   e.rule("sed", "sed 's/)extern/)\\n\\nextern/g' $in > $out");
   e.rule("copy", "cp $in $out");
   e.rule("clang-c", "clang -Wno-override-module -c $in -o $out");
-  e.rule("linking", "clang++ -I $arcilator-include $driver $in -o $out");
+  e.rule("linking", "clang++ -I $arcilator-include $in -o $out");
   e.rule("extract-mem", "$cider-converter --to dat --output-path $out_dir $in");
   e.rule("simulation", "./$in $data_file > $out");
 }
@@ -42,8 +42,8 @@ fn arcilator_sim_helper(e, input, output) {
   
   e.build_cmd(["hardware_model.o"], "clang-c", ["simulator.ll"], []);
   
-  e.build_cmd(["simulate"], "linking", ["hardware_model.o"], ["header_fixed.h"]);
-  
+  e.build_cmd(["simulate"], "linking", ["driver.cpp", "hardware_model.o"], ["header_fixed.h"]);
+
   e.build_cmd(["sim_flat.data"], "extract-mem", ["$calyx-base/$sim_data"], []);
 
   e.build_cmd(["sim_data_dir"], "extract-mem", ["$calyx-base/$sim_data"], []);
