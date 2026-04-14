@@ -1,0 +1,51 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: arcilator"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+circt-dir = $calyx-base/circt
+firtool-exe = $circt-dir/build/bin/firtool
+arcilator-exe = $circt-dir/build/bin/arcilator
+arcilator-header-script = $circt-dir/tools/arcilator/arcilator-header-cpp.py
+arcilator-include = $circt-dir/tools/arcilator
+driver = $calyx-base/tools/firrtl/arcilator/driver.cpp
+sim_data = /test/data.json
+cider-converter = $calyx-base/target/debug/cider-data-converter
+rule arcilator-firtool
+  command = $firtool-exe $in -ir-hw -o $out
+rule arcilator-compile
+  command = $arcilator-exe $in -state-file=$state_file -o $ll_file
+rule arcilator-header
+  command = python3 $arcilator-header-script $in > $out
+rule sed
+  command = sed 's/)extern/)\n\nextern/g' $in > $out
+rule copy
+  command = cp $in $out
+rule clang-c
+  command = clang -Wno-override-module -c $in -o $out
+rule linking
+  command = clang++ -I $arcilator-include $driver $in -o $out
+rule extract-mem
+  command = $cider-converter --to dat --output-path $out_dir $in
+rule simulation
+  command = ./$in $data_file > $out
+
+build design.mlir: arcilator-firtool /input.ext
+build mapping.json simulator.ll: arcilator-compile design.mlir
+  state_file = mapping.json
+  ll_file = simulator.ll
+build header.h: arcilator-header mapping.json
+build header_fixed.h: sed header.h
+build driver.cpp: copy $driver
+build hardware_model.o: clang-c simulator.ll
+build simulate: linking hardware_model.o | header_fixed.h
+build sim_flat.data: extract-mem $calyx-base/$sim_data
+build sim_data_dir: extract-mem $calyx-base/$sim_data
+  out_dir = sim_data_dir
+build /output.ext: simulation simulate | sim_data_dir
+  data_file = sim_data_dir/mem.dat
+
+default /output.ext
