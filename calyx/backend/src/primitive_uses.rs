@@ -57,7 +57,7 @@ struct PrimitiveParam {
 }
 
 /// Accumulates a set with each primitive with a given set of parameters
-/// in the program with entrypoint `main_comp`.
+/// in the program.
 fn gen_primitive_set(
     ctx: &ir::Context,
     primitive_set: &mut HashSet<PrimitiveUse>,
@@ -65,26 +65,24 @@ fn gen_primitive_set(
     for comp in &ctx.components {
         for cell in comp.cells.iter() {
             let cell_ref = cell.borrow();
-            match &cell_ref.prototype {
-                ir::CellType::Primitive {
-                    name,
-                    param_binding,
-                    ..
-                } => {
-                    let curr_params = param_binding
-                        .iter()
-                        .map(|(param_name, param_size)| PrimitiveParam {
-                            param_name: param_name.to_string(),
-                            param_value: *param_size,
-                        })
-                        .collect();
-                    let curr_primitive = PrimitiveUse {
-                        name: name.to_string(),
-                        params: curr_params,
-                    };
-                    (*primitive_set).insert(curr_primitive);
-                }
-                _ => (),
+            if let ir::CellType::Primitive {
+                name,
+                param_binding,
+                ..
+            } = &cell_ref.prototype 
+            {
+                let curr_params = param_binding
+                    .iter()
+                    .map(|(param_name, param_size)| PrimitiveParam {
+                        param_name: param_name.to_string(),
+                        param_value: *param_size,
+                    })
+                    .collect();
+                let curr_primitive = PrimitiveUse {
+                    name: name.to_string(),
+                    params: curr_params,
+                };
+                (*primitive_set).insert(curr_primitive);
             }
         }
     }
