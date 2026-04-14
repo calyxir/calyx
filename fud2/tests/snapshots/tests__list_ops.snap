@@ -1,8 +1,12 @@
 ---
 source: fud2/tests/tests.rs
-snapshot_kind: text
 ---
 [
+    (
+        "arcilator",
+        "firrtl-with-primitives",
+        "dat",
+    ),
     (
         "area-report-to-flamegraph",
         "area-report",
