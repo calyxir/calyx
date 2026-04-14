@@ -109,7 +109,7 @@ cmd = """
 name = "Arcilator Tests"
 paths = ["tests/arcilator/*.futil"]
 cmd = """
- fud2 {} --to dat --through firrtl-with-primitives --through arcilator -s sim.data={}.data
+ fud2 {} -q --to dat --through firrtl-with-primitives --through arcilator -s sim.data={}.data
 """
 
 ##### Frontend Tests #####
