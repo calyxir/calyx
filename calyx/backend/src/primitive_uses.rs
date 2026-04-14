@@ -69,7 +69,7 @@ fn gen_primitive_set(
                 name,
                 param_binding,
                 ..
-            } = &cell_ref.prototype 
+            } = &cell_ref.prototype
             {
                 let curr_params = param_binding
                     .iter()
