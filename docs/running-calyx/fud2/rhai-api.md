@@ -15,7 +15,7 @@ All existing fud2 Rhai scripts can be found [here][fud2-scripts]. These provide 
 There are two ways to add new functionality to fud2:
 
 - Add a new Rhai script to `<CALYX_BASE_DIR>/fud2/scripts`
-- Load a script to `fud2` by editing the configuration file (`fud2 edit-config`):
+- Load a script to `fud2` by editing the configuration file (`fud2 config edit`):
 ```toml
 plugins = ["/my/fancy/plugin.rhai"]
 

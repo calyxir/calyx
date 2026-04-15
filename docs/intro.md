@@ -118,7 +118,7 @@ For example, use `brew install ninja uv` on macOS or `apt-get install ninja-buil
 
 Configure fud2 by typing:
 
-    fud2 edit-config
+    fud2 config edit
 
 And put this in the resulting TOML file:
 

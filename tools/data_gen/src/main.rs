@@ -3,7 +3,7 @@ use calyx_frontend as frontend;
 use calyx_ir as ir;
 use calyx_ir::utils::GetMemInfo;
 use calyx_utils::CalyxResult;
-use rand::Rng;
+use rand::RngExt;
 use serde_json::{Map, Value, json};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};

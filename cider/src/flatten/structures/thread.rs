@@ -40,6 +40,13 @@ impl ThreadMap {
             parent: None,
             clock_id: continuous_clock,
         });
+
+        #[cfg(feature = "data-race-stats")]
+        {
+            super::stats::incr_thread_spawn();
+            super::stats::incr_thread_spawn();
+        }
+
         Self { map }
     }
 
@@ -74,6 +81,10 @@ impl ThreadMap {
             parent: Some(parent),
             clock_id,
         })
+    }
+
+    pub fn thread_count(&self) -> usize {
+        self.map.len()
     }
 }
 

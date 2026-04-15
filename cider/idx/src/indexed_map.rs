@@ -421,6 +421,11 @@ impl<K: IndexRef + Ord, D> SemiContiguousSecondaryMap<K, D> {
         let target = base + (key.index() - range.start().index());
         Some(&self.data[target])
     }
+
+    /// Return the total number of values stored as actual data in the map.
+    pub fn count(&self) -> usize {
+        self.data.len()
+    }
 }
 
 impl<K: IndexRef + Ord, D> Default for SemiContiguousSecondaryMap<K, D> {

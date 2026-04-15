@@ -18,7 +18,7 @@ To run FIRRTL-translated programs, we need to set up [Firtool](https://github.co
 
 First, download and extract the Firtool binary. Then, edit `fud2`'s configuration file:
 
-    $ fud2 edit-config
+    $ fud2 config edit
 
 Add these lines:
 

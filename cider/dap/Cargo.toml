@@ -16,7 +16,7 @@ thiserror.workspace = true
 slog.workspace = true
 slog-term.workspace = true
 slog-async.workspace = true
-owo-colors = "^3.5"
+owo-colors = "4.1"
 
 [[bin]]
 name = "cider-dap"
