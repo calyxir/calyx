@@ -78,5 +78,5 @@ To add primitives to `firrtl`, you would add the SystemVerilog implementation of
 
 1.  **Create a Template:** Add a `.fir` file to `tools/firrtl/templates/`. The filename should match the primitive name (e.g., `std_add.fir`).
 2.  **Define the Interface:** The template must define a `module` whose ports (names and widths) match the [Calyx primitive library](https://docs.calyxir.org/libraries/core.html).
-3.  **Update the Replacement Map:** If your primitive uses unique parameters, update the replacement map logic in `tools/firrtl/generate-firrtl-with-primitives.py`. 
+3.  **Update the Replacement Map:** If your FIRRTL primitive template uses unique parameters (those that are not in the SV definition of the primitive), update the replacement map logic in `tools/firrtl/generate-firrtl-with-primitives.py`. 
 4.  **Testing:** Add a `runt` test in `tests/firrtl/primitive-templates` to ensure the new implementation generates valid FIRRTL and produces correct simulation results.
