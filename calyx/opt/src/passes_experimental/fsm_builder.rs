@@ -631,11 +631,6 @@ impl Visitor for FSMBuilder {
         _comps: &[calyx_ir::Component],
     ) -> crate::traversal::VisResult {
         if is_offload(srep) {
-            let non_promoted_static_component = comp.is_static()
-                && !(comp
-                    .attributes
-                    .has(ir::Attribute::Bool(ir::BoolAttr::Promoted)));
-
             let mut builder = ir::Builder::new(comp, sigs);
             let signal_on = builder.add_constant(1, 1);
             let repeat_group = builder.add_static_group("repeat", srep.latency);
@@ -646,9 +641,7 @@ impl Visitor for FSMBuilder {
                 let fsm = sch_generator.fsm_build(
                     &srep.body,
                     Component {
-                        non_promoted_static_component: Some(
-                            non_promoted_static_component,
-                        ),
+                        non_promoted_static_component: None,
                         static_control_component: true,
                     },
                 );
@@ -697,11 +690,6 @@ impl Visitor for FSMBuilder {
         _comps: &[calyx_ir::Component],
     ) -> crate::traversal::VisResult {
         if is_offload(sif) {
-            let non_promoted_static_component = comp.is_static()
-                && !(comp
-                    .attributes
-                    .has(ir::Attribute::Bool(ir::BoolAttr::Promoted)));
-
             let mut builder = ir::Builder::new(comp, sigs);
             let signal_on = builder.add_constant(1, 1);
 
@@ -710,9 +698,7 @@ impl Visitor for FSMBuilder {
             let true_branch_fsm = sch_constructor_true.fsm_build(
                 &sif.tbranch,
                 Component {
-                    non_promoted_static_component: Some(
-                        non_promoted_static_component,
-                    ),
+                    non_promoted_static_component: None,
                     static_control_component: true,
                 },
             );
@@ -740,9 +726,7 @@ impl Visitor for FSMBuilder {
                 let false_branch_fsm = sch_constructor_false.fsm_build(
                     &sif.fbranch,
                     Component {
-                        non_promoted_static_component: Some(
-                            non_promoted_static_component,
-                        ),
+                        non_promoted_static_component: None,
                         static_control_component: true,
                     },
                 );
@@ -803,10 +787,6 @@ impl Visitor for FSMBuilder {
         sigs: &calyx_ir::LibrarySignatures,
         _comps: &[calyx_ir::Component],
     ) -> crate::traversal::VisResult {
-        let non_promoted_static_component = comp.is_static()
-            && !(comp
-                .attributes
-                .has(ir::Attribute::Bool(ir::BoolAttr::Promoted)));
         if is_offload(spar) {
             let mut builder = ir::Builder::new(comp, sigs);
             let signal_on = builder.add_constant(1, 1);
@@ -820,9 +800,7 @@ impl Visitor for FSMBuilder {
                     let thread_fsm = sch_generator.fsm_build(
                         thread,
                         Component {
-                            non_promoted_static_component: Some(
-                                non_promoted_static_component,
-                            ),
+                            non_promoted_static_component: None,
                             static_control_component: true,
                         },
                     );
