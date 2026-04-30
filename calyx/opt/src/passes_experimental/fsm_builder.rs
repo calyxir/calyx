@@ -12,6 +12,7 @@ const OFFLOAD: ir::Attribute =
 const INLINE: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::INLINE);
 const NUM_STATES: ir::Attribute =
     ir::Attribute::Internal(ir::InternalAttr::NUM_STATES);
+const ONE_STATE: ir::Attribute = ir::Attribute::Bool(ir::BoolAttr::OneState);
 
 pub struct FSMBuilder {}
 
@@ -128,30 +129,78 @@ impl StaticSchedule<'_, '_> {
                 } else if is_inline(sen) {
                     // @NUM_STATES(n) @INLINE
                     // In the absence of `@ACYCLIC`, the node must contain cycles,
-                    // or have children that contain cycles
-                    // We should create `n` states.
-                    // We'll run this placeholder code that creates one state for now.
-                    self.register_transitions(
-                        self.state,
-                        &mut transitions_to_curr,
-                        guard.clone(),
-                    );
+                    // or have children that contain cycles.
+                    if sen.attributes.has(ir::BoolAttr::OneState) || get_num_states(sen) == 1 {
+                        // @OneState: allocate exactly 1 state for offloaded structures
+                        // (e.g., nested FSMs for offloaded repeat/if/par)
+                        self.register_transitions(
+                            self.state,
+                            &mut transitions_to_curr,
+                            guard.clone(),
+                        );
 
-                    let final_state_guard =
-                        self.leave_one_state_condition(guard, sen);
+                        let final_state_guard =
+                            self.leave_one_state_condition(guard, sen);
 
-                    let new_looped_once_guard = match self.state {
-                        0 => Some(final_state_guard.clone()),
-                        _ => looped_once_guard,
-                    };
-                    self.state += 1;
-                    (
-                        vec![IncompleteTransition::new(
-                            self.state - 1,
-                            final_state_guard,
-                        )],
-                        new_looped_once_guard,
-                    )
+                        let new_looped_once_guard = match self.state {
+                            0 => Some(final_state_guard.clone()),
+                            _ => looped_once_guard,
+                        };
+                        self.state += 1;
+                        (
+                            vec![IncompleteTransition::new(
+                                self.state - 1,
+                                final_state_guard,
+                            )],
+                            new_looped_once_guard,
+                        )
+                    } else {
+                        // Non-@OneState: allocate states based on actual group latency
+                        let group_latency = sen.group.borrow().get_latency();
+                        if group_latency == 0 {
+                            // Zero-latency group: don't allocate a state, pass transitions through
+                            (transitions_to_curr, looped_once_guard)
+                        } else {
+                            // Multi-cycle inlined group: expand assignments across latency states
+                            self.register_transitions(
+                                self.state,
+                                &mut transitions_to_curr,
+                                guard.clone(),
+                            );
+
+                            sen.group.borrow().assignments.iter().for_each(
+                                |sassign| {
+                                    sassign
+                                        .guard
+                                        .compute_live_states(group_latency)
+                                        .into_iter()
+                                        .for_each(|offset| {
+                                            let mut assign: ir::Assignment<
+                                                ir::Nothing,
+                                            > = ir::Assignment::from(
+                                                sassign.clone(),
+                                            );
+                                            assign.and_guard(guard.clone());
+                                            self.state2assigns
+                                                .entry(self.state + offset)
+                                                .and_modify(|other_assigns| {
+                                                    other_assigns
+                                                        .push(assign.clone())
+                                                })
+                                                .or_insert(vec![assign]);
+                                        })
+                                },
+                            );
+                            self.state += group_latency;
+                            (
+                                vec![IncompleteTransition::new(
+                                    self.state - 1,
+                                    ir::Guard::True,
+                                )],
+                                looped_once_guard,
+                            )
+                        }
+                    }
                 } else {
                     unreachable!(
                         "`build_abstract` encountered a node without any annotations."
@@ -667,9 +716,7 @@ impl Visitor for FSMBuilder {
             });
             enable.get_mut_attributes().insert(INLINE, 1);
             enable.get_mut_attributes().insert(NUM_STATES, srep.latency);
-            enable
-                .get_mut_attributes()
-                .insert(ir::BoolAttr::OneState, 1);
+            enable.get_mut_attributes().insert(ONE_STATE, 1);
 
             Ok(Action::static_change(enable))
         } else {
@@ -764,9 +811,7 @@ impl Visitor for FSMBuilder {
 
             enable.get_mut_attributes().insert(INLINE, 1);
             enable.get_mut_attributes().insert(NUM_STATES, sif.latency);
-            enable
-                .get_mut_attributes()
-                .insert(ir::BoolAttr::OneState, 1);
+            enable.get_mut_attributes().insert(ONE_STATE, 1);
 
             Ok(Action::static_change(enable))
         } else {
@@ -822,9 +867,7 @@ impl Visitor for FSMBuilder {
             });
             enable.get_mut_attributes().insert(INLINE, 1);
             enable.get_mut_attributes().insert(NUM_STATES, spar.latency);
-            enable
-                .get_mut_attributes()
-                .insert(ir::BoolAttr::OneState, 1);
+            enable.get_mut_attributes().insert(ONE_STATE, 1);
 
             Ok(Action::static_change(enable))
         } else {
