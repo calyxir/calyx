@@ -112,7 +112,7 @@ impl FSMPolicy for ir::StaticEnable {
     ) -> FSMImplementation {
         let (num_states, acyclic) = {
             let latency = ctrl.group.borrow().get_latency();
-            if latency < child_fsm_cutoff {
+            if latency <= child_fsm_cutoff {
                 (latency, true)
             } else {
                 (1, false)
@@ -180,14 +180,15 @@ impl FSMPolicy for ir::StaticRepeat {
         let (body_num_states, body_is_acyclic) =
             (get_num_states_static(&ctrl.body), is_acyclic(&ctrl.body));
         let unrolled_num_states = ctrl.num_repeats * body_num_states;
+        eprintln!("[fsm-annotator] StaticRepeat: repeats={} body_states={} unrolled={} cutoff={} acyclic={}", ctrl.num_repeats, body_num_states, unrolled_num_states, child_fsm_cutoff, body_is_acyclic);
         let (num_states, acyclic, attr) =
-            if body_is_acyclic && (unrolled_num_states < child_fsm_cutoff) {
+            if body_is_acyclic && (unrolled_num_states <= child_fsm_cutoff) {
                 (
                     unrolled_num_states,
                     true,
                     ControlNodeAnnotation::Inline(InlineImplementation::Unroll),
                 )
-            } else if body_num_states < child_fsm_cutoff {
+            } else if body_num_states <= child_fsm_cutoff {
                 (
                     body_num_states,
                     false,
