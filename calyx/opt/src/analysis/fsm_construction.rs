@@ -179,22 +179,30 @@ impl StaticSchedule<'_, '_> {
     /// on the last state of the loop body, and conditional transitions for looping back
     /// or exiting based on the counter value.
     ///
+    /// Each entry in `body_exits` names a state the body can exit from and the guard
+    /// that fires when that exit is taken (e.g. `True` for acyclic bodies, or a
+    /// group-counter condition for cyclic bodies with internal state).  The counter is
+    /// only advanced when one of those guards holds, so the repeat correctly counts
+    /// full body iterations rather than raw cycles.
+    ///
     /// # Arguments
     /// * `loop_start_state` - The first state of the loop body
-    /// * `loop_end_state` - The last state of the loop body
     /// * `num_repeats` - Number of times to repeat the loop
-    /// * `guard` - Guard condition for the loop
+    /// * `guard` - Guard condition for the loop (anded onto the back-edge)
+    /// * `body_exits` - Exit transitions returned by `build_abstract` on the body
     ///
     /// # Returns
-    /// The exit guard that signals when the loop is complete
+    /// `(exit_transitions, looped_once_guard)` — incomplete transitions that the
+    /// parent should wire to the state after the repeat, and an optional guard that
+    /// fires exactly when the repeat completes its final iteration.
     pub fn build_repeat_loop(
         &mut self,
         loop_start_state: u64,
-        loop_end_state: u64,
         num_repeats: u64,
         guard: ir::Guard<ir::Nothing>,
-    ) -> ir::Guard<ir::Nothing> {
-        // Create a counter to track iterations
+        body_exits: Vec<IncompleteTransition>,
+    ) -> (Vec<IncompleteTransition>, Option<ir::Guard<ir::Nothing>>) {
+        // Create a single shared counter to track iterations.
         let counter_width = bits_needed_for(num_repeats);
         let counter = self.builder.add_primitive(
             format!("repeat_counter_{loop_start_state}"),
@@ -239,39 +247,51 @@ impl StaticSchedule<'_, '_> {
         let const_one = self.builder.add_constant(1, counter_width);
         let const_zero = self.builder.add_constant(0, counter_width);
 
-        // Assignments to increment/reset the counter on the last state of the loop body
-        let counter_assigns = build_assignments!(self.builder;
-            final_state_wire["in"] = ? counter_max["out"];
-            adder["left"] = ? counter["out"];
-            adder["right"] = ? const_one["out"];
-            counter["write_en"] = ? signal_on["out"];
-            counter["in"] = final_state_guard ? const_zero["out"];
-            counter["in"] = not_final_state_guard ? adder["out"];
-        );
+        let mut exit_transitions = Vec::new();
+        let mut looped_once_guard: Option<ir::Guard<ir::Nothing>> = None;
 
-        // Add counter increment/reset assignments to the last state of the body
-        self.state2assigns
-            .entry(loop_end_state)
-            .and_modify(|assigns| assigns.extend(counter_assigns.to_vec()))
-            .or_insert(counter_assigns.to_vec());
+        for IncompleteTransition {
+            source,
+            guard: body_exit_guard,
+        } in body_exits
+        {
+            // Gate counter writes on body_exit_guard so the counter only advances
+            // when the body completes one full iteration, not every cycle in the
+            // exit state.  For acyclic bodies body_exit_guard is True (no change);
+            // for cyclic bodies it is the group-counter's final-state condition.
+            let counter_assigns = build_assignments!(self.builder;
+                final_state_wire["in"] = ? counter_max["out"];
+                adder["left"] = ? counter["out"];
+                adder["right"] = ? const_one["out"];
+                counter["write_en"] = body_exit_guard ? signal_on["out"];
+                counter["in"] = final_state_guard ? const_zero["out"];
+                counter["in"] = not_final_state_guard ? adder["out"];
+            );
 
-        // Exit condition: counter == max
-        let exit_guard = final_state_guard.clone();
+            self.state2assigns
+                .entry(source)
+                .and_modify(|assigns| assigns.extend(counter_assigns.to_vec()))
+                .or_insert(counter_assigns.to_vec());
 
-        // Create the loop-back transition: if counter != max, go back to loop start
-        let loop_back_guard = not_final_state_guard;
-        let loop_back_transition =
-            IncompleteTransition::new(loop_end_state, loop_back_guard);
+            // Loop back: body finished one iteration but counter not yet at max
+            let loop_back_guard =
+                body_exit_guard.clone().and(not_final_state_guard.clone());
+            self.register_transitions(
+                loop_start_state,
+                &mut vec![IncompleteTransition::new(source, loop_back_guard)],
+                guard.clone(),
+            );
 
-        // Register the back edge
-        self.register_transitions(
-            loop_start_state,
-            &mut vec![loop_back_transition],
-            guard,
-        );
+            // Exit: body finished its final iteration
+            let exit_guard =
+                body_exit_guard.and(final_state_guard.clone());
+            if looped_once_guard.is_none() {
+                looped_once_guard = Some(exit_guard.clone());
+            }
+            exit_transitions.push(IncompleteTransition::new(source, exit_guard));
+        }
 
-        // Exit condition: counter == max
-        exit_guard
+        (exit_transitions, looped_once_guard)
     }
 
     pub fn build_fsm_pieces(&mut self, fsm: ir::RRC<ir::FSM>) -> FSMPieces {

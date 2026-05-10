@@ -278,8 +278,8 @@ impl StaticSchedule<'_, '_> {
                     )
                 } else if is_inline(srep) {
                     // @NUM_STATES(n) @INLINE
-                    // Create a loop: the body has n states (from annotations)
-                    // We build those states once, add a counter, and create a back edge
+                    // Create a loop: build the body once to populate state->assignments,
+                    // then use the body's actual exits to wire up the counter and back-edge.
 
                     // Register incoming transitions to start of repeat
                     self.register_transitions(
@@ -290,37 +290,32 @@ impl StaticSchedule<'_, '_> {
 
                     let loop_start_state = self.state;
 
-                    // Get the number of states the body needs from its annotation
-                    let body_num_states = get_num_states(srep);
-
-                    // Build the body ONCE to populate the state->assignments mapping
-                    let (_body_exits, _) = self.build_abstract(
+                    // Build the body ONCE to populate the state->assignments mapping.
+                    // The returned body_exits carry both the source state(s) and the
+                    // guard(s) that fire when the body completes one iteration.
+                    // For acyclic bodies the guard is True; for cyclic bodies (e.g. a
+                    // @INLINE enable with an internal group counter) the guard is the
+                    // group-counter's final-state condition.  We must not ignore these
+                    // guards: the repeat counter must only advance when the body finishes
+                    // a full iteration, not every cycle in the exit state.
+                    let (body_exits, _) = self.build_abstract(
                         &srep.body,
                         guard.clone(),
                         vec![],
                         looped_once_guard.clone(),
                     );
 
-                    // After building the body, self.state has advanced by body_num_states
-                    // So the last state of the loop body is self.state - 1
-                    let loop_end_state = loop_start_state + body_num_states - 1;
+                    // Build counter logic and loop/exit transitions, correctly gated
+                    // on each body exit's guard.
+                    let (exit_transitions, loop_exit_guard) =
+                        self.build_repeat_loop(
+                            loop_start_state,
+                            srep.num_repeats,
+                            guard.clone(),
+                            body_exits,
+                        );
 
-                    // Build counter logic and loop transitions
-                    let exit_guard = self.build_repeat_loop(
-                        loop_start_state,
-                        loop_end_state,
-                        srep.num_repeats,
-                        guard.clone(),
-                    );
-
-                    // Return transition from the final state when loop is done
-                    (
-                        vec![IncompleteTransition::new(
-                            loop_end_state,
-                            exit_guard.clone(),
-                        )],
-                        Some(exit_guard),
-                    )
+                    (exit_transitions, loop_exit_guard)
                 } else {
                     // we must have at least one `attr` annotation
                     unreachable!(
