@@ -55,6 +55,9 @@ pub struct Component {
     /// (Optional) latency of component, if it is static
     pub latency: Option<NonZeroU64>,
 
+    /// Whether this component definition only provides a signature
+    pub sig_only: bool,
+
     ///// Internal structures
     /// Namegenerator that contains the names currently defined in this
     /// component (cell and group names).
@@ -141,6 +144,7 @@ impl Component {
             namegen: NameGenerator::with_prev_defined_names(prev_names),
             attributes: Attributes::default(),
             is_comb,
+            sig_only: false, // set to false by default. since users seemingly get a mutable reference to the Component anyway, it can be set later
             // converting from NonZeroU64 to u64. May want to keep permanently as NonZeroU64
             // in the future, but rn it's probably easier to keep as u64
             latency,

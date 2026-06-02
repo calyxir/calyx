@@ -255,12 +255,28 @@ impl Workspace {
             self.components.extend(&mut ns.components.into_iter());
         }
         // Return the canonical location of import paths
+
+        /*
+        TODO: bodged together fix for 'whether something is source or not':
+        allows mem_wrap to be merged in to the main workspace without bringing in primitives
+
+        currently 'permits memwrap only', could be changed to 'allow everything but primitives'
+        */
         let deps = ns
             .imports
             .into_iter()
             .map(|p| {
-                Self::canonicalize_import(p, parent, lib_paths)
-                    .map(|s| (s, false))
+                Self::canonicalize_import(p, parent, lib_paths).map(|s| {
+                    let is_source = s
+                        .components()
+                        .find(|e| {
+                            *e == std::path::Component::Normal(
+                                std::ffi::OsStr::new("memwrap.futil"),
+                            )
+                        })
+                        .is_some();
+                    (s, is_source)
+                })
             })
             .collect::<CalyxResult<_>>()?;
 
@@ -304,8 +320,17 @@ impl Workspace {
             .collect::<CalyxResult<_>>()?;
 
         // Add original imports to workspace
-        ws.original_imports =
-            ns.imports.iter().map(|imp| imp.to_string()).collect();
+        ws.original_imports = ns
+            .imports
+            .iter()
+            .filter_map(|imp| {
+                if imp.to_string().contains("memwrap") {
+                    None
+                } else {
+                    Some(imp.to_string())
+                }
+            })
+            .collect();
 
         // TODO (griffin): Probably not a great idea to clone the metadata
         // string but it works for now
@@ -333,6 +358,8 @@ impl Workspace {
             if already_imported.contains(&p) {
                 continue;
             }
+            log::info!("merging p {}: source? {}", p.to_str().unwrap(), source);
+
             let ns = parser::CalyxParser::parse_file(&p)?;
             let parent = Self::get_parent(&p);
 
@@ -347,6 +374,8 @@ impl Workspace {
 
             already_imported.insert(p);
         }
+        // log::debug!("{:?}", ws.lib);
+
         Ok(ws)
     }
 }
