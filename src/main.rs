@@ -77,7 +77,11 @@ fn main() -> PassResult<()> {
     }
 
     // Construct the namespace.
-    let mut ws = frontend::Workspace::construct(&opts.file, &opts.lib_path)?;
+    let mut ws = if opts.compile_mode == CompileMode::File {
+        frontend::Workspace::construct_shallow(&opts.file, &opts.lib_path)?
+    } else {
+        frontend::Workspace::construct(&opts.file, &opts.lib_path)?
+    };
 
     let imports = std::mem::take(&mut ws.original_imports);
 

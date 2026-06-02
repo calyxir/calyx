@@ -96,6 +96,7 @@ wheels = [
 
 [[package]]
 name = "calyx-ast"
+version = "0.1.0"
 source = { editable = "calyx-py" }
 
 [[package]]
@@ -104,6 +105,8 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "calyx-ast" },
+    { name = "cocotb" },
+    { name = "cocotbext-axi" },
 ]
 
 [package.optional-dependencies]
@@ -130,6 +133,8 @@ systolic = [
 [package.metadata]
 requires-dist = [
     { name = "calyx-ast", editable = "calyx-py" },
+    { name = "cocotb", specifier = "==1.8.1" },
+    { name = "cocotbext-axi", specifier = ">=0.1.26" },
     { name = "fud", marker = "extra == 'fud2-scripts'", editable = "fud" },
     { name = "mrxl", marker = "extra == 'mrxl'", editable = "frontends/mrxl" },
     { name = "ntt-pipeline", marker = "extra == 'ntt'", editable = "frontends/ntt-pipeline" },
@@ -183,6 +188,41 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/a0/1d/ec1a60bd1a10daa292d3cd6bb0b359a81607154fb8165f3ec95fe003b85c/cffi-2.0.0-cp314-cp314t-win32.whl", hash = "sha256:1fc9ea04857caf665289b7a75923f2c6ed559b8298a1b8c49e59f7dd95c8481e", size = 180487, upload-time = "2025-09-08T23:23:40.423Z" },
     { url = "https://files.pythonhosted.org/packages/bf/41/4c1168c74fac325c0c8156f04b6749c8b6a8f405bbf91413ba088359f60d/cffi-2.0.0-cp314-cp314t-win_amd64.whl", hash = "sha256:d68b6cef7827e8641e8ef16f4494edda8b36104d79773a334beaa1e3521430f6", size = 191726, upload-time = "2025-09-08T23:23:41.742Z" },
     { url = "https://files.pythonhosted.org/packages/ae/3a/dbeec9d1ee0844c679f6bb5d6ad4e9f198b1224f4e7a32825f47f6192b0c/cffi-2.0.0-cp314-cp314t-win_arm64.whl", hash = "sha256:0a1527a803f0a659de1af2e1fd700213caba79377e27e4693648c2923da066f9", size = 184195, upload-time = "2025-09-08T23:23:43.004Z" },
+]
+
+[[package]]
+name = "cocotb"
+version = "1.8.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "find-libpython" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4e/43/e4339bc57886296ca30cc22d6c141a8d66098c71156973bc39c5d119dcb0/cocotb-1.8.1.tar.gz", hash = "sha256:1499dbe0d4d10676bc9b234861e1df171a7f02aca6b696b5fadf01fe61e3a4f6", size = 294718, upload-time = "2023-10-06T18:54:44.491Z" }
+
+[[package]]
+name = "cocotb-bus"
+version = "0.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cocotb" },
+    { name = "scapy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4e/f9/1474d5503af6f8c979a33e3489c0e6886b6ffb1af3d00419d2e0da1dd274/cocotb_bus-0.3.0.tar.gz", hash = "sha256:9762b29273ff062f52160e57274e3cb106d14e7e776515de1372c1d73546b005", size = 29991, upload-time = "2025-11-22T00:19:31.734Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ea/43/8b3f96cf401c2a7f6e907ccc86d3b73433eeaf5525df90b630d8c112474b/cocotb_bus-0.3.0-py3-none-any.whl", hash = "sha256:b4f06cce2462a8f9487b42c46b0ff3afd253f0fa4f67a0c382ebe0ba614229eb", size = 36206, upload-time = "2026-01-15T04:51:43.009Z" },
+]
+
+[[package]]
+name = "cocotbext-axi"
+version = "0.1.28"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cocotb" },
+    { name = "cocotb-bus" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0d/dc/6cd75a8554dbb07a52a2ce4371e9045bf03b943ae40edfb7428a2413381d/cocotbext_axi-0.1.28.tar.gz", hash = "sha256:5d062185b9bb5476839a1d816821c4533b245f56f7b171b3f39130e26891ae37", size = 58298, upload-time = "2026-03-12T22:22:05.057Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/29/eb/d1c1f727a52ef2b7d0a2e4ff31817add1ccd42155642ba971b49d9ee089c/cocotbext_axi-0.1.28-py3-none-any.whl", hash = "sha256:aff88b528733e4e59359f06b8cc30524cc75bf31ee951ed8a573694b26816eb2", size = 56673, upload-time = "2026-03-12T22:22:03.553Z" },
 ]
 
 [[package]]
@@ -245,6 +285,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/96/93/682d2b43c1d5f1406ed048f377c0fc9fc8f7b0447a478d5c65ab3d3a66eb/cryptography-46.0.5-cp38-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:ced80795227d70549a411a4ab66e8ce307899fad2220ce5ab2f296e687eacde9", size = 4667123, upload-time = "2026-02-10T19:18:15.886Z" },
     { url = "https://files.pythonhosted.org/packages/45/2d/9c5f2926cb5300a8eefc3f4f0b3f3df39db7f7ce40c8365444c49363cbda/cryptography-46.0.5-cp38-abi3-win32.whl", hash = "sha256:02f547fce831f5096c9a567fd41bc12ca8f11df260959ecc7c3202555cc47a72", size = 3010220, upload-time = "2026-02-10T19:18:17.361Z" },
     { url = "https://files.pythonhosted.org/packages/48/ef/0c2f4a8e31018a986949d34a01115dd057bf536905dca38897bacd21fac3/cryptography-46.0.5-cp38-abi3-win_amd64.whl", hash = "sha256:556e106ee01aa13484ce9b0239bca667be5004efb0aabbed28d353df86445595", size = 3467050, upload-time = "2026-02-10T19:18:18.899Z" },
+]
+
+[[package]]
+name = "find-libpython"
+version = "0.5.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/70/60/951b7ca316ab3ec928ed788de5fcb30b4a0292704e50b872c8edf24c11fe/find_libpython-0.5.1.tar.gz", hash = "sha256:12a0fb39ff8dcc64ad0fd554b1bd142ea4a8c4c18e5da6043a547ce7b25559fe", size = 9402, upload-time = "2026-02-11T03:18:04.844Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/34/1f/1d6079f4f0540aaa368aa20d89d98eda42f081c397a822c547340e32d1e3/find_libpython-0.5.1-py3-none-any.whl", hash = "sha256:723a8cfe6fed255a1f58b53c62ed556fb340ec0d456e9863ebc01a5cc047607d", size = 9201, upload-time = "2026-02-11T03:18:03.263Z" },
 ]
 
 [[package]]
@@ -335,6 +384,7 @@ wheels = [
 
 [[package]]
 name = "mrxl"
+version = "0.1.0"
 source = { editable = "frontends/mrxl" }
 dependencies = [
     { name = "calyx-ast" },
@@ -654,7 +704,17 @@ wheels = [
 
 [[package]]
 name = "queues"
+version = "0.1.0"
 source = { editable = "frontends/queues" }
+
+[[package]]
+name = "scapy"
+version = "2.7.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/82/97/7caec64f05eae3d305d83e7cce1ef2f337710513b89efb334f7278202e79/scapy-2.7.0.tar.gz", hash = "sha256:bfc1ef1b93280aea1ddee53be7f74232aa28ac3d891244d41ee85200d24aa446", size = 2412897, upload-time = "2025-12-26T22:10:53.359Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f0/6f/bd32e5e8adc391063858da17271bb444e4b009842cffa593bca8b2b78af7/scapy-2.7.0-py3-none-any.whl", hash = "sha256:eb22786da92be6fd8e5c694ae5595e4f5b9ac1f4364c9c45986844f3e3063561", size = 2590982, upload-time = "2025-12-26T22:07:48.941Z" },
+]
 
 [[package]]
 name = "scp"

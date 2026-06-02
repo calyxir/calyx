@@ -1,15 +1,23 @@
 [build-system]
-requires = ["flit_core >=3.2,<4"]
-build-backend = "flit_core.buildapi"
+# requires = ["flit_core >=3.2,<4"]
+# build-backend = "flit_core.buildapi"
+requires = ["uv_build>=0.11.17,<0.12"]
+build-backend = "uv_build"
+
 
 [project]
 name = "calyx-ast"
 authors = [{ name = "The Calyx Authors" }]
 classifiers = ["License :: OSI Approved :: MIT License"]
-dynamic = ["version", "description"]
+version = "0.1.0"
+# dynamic = ["version", "description"]
 readme = "README.md"
 requires-python = ">=3.4"
 urls.Source = "https://github.com/calyxir/calyx"
 
 [tool.flit.module]
 name = "calyx"
+
+[tool.uv.build-backend]
+module-name = "calyx"
+module-root = ""
