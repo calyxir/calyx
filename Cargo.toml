@@ -27,10 +27,11 @@ members = [
     "tools/yxi",
     "tools/calyx-writer",
     "tools/data_gen",
+    "tools/petal",
     "calyx-lsp",
 
     # Playground crate
-    "web/rust",
+    "web/rust"
 ]
 exclude = ["site"]
 
