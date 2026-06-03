@@ -1,11 +1,12 @@
 use anyhow::{Context, Result};
 
 use cranelift_entity::{PrimaryMap, SecondaryMap, entity_impl};
+use rustc_hash::FxHashMap;
 use smallvec::{SmallVec, smallvec};
 use std::path::Prefix;
 use wellen::{Hierarchy, Scope, ScopeRef, SignalRef, VarRef};
 
-use crate::hierarchy;
+use crate::design;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct CellId(u32);
@@ -17,6 +18,8 @@ struct Cell {
     groups: SmallVec<[GroupId; 6]>,
     scope: ScopeRef,
     is_primitive: bool,
+    probe: Option<SignalRef>,
+    probe_idx: Option<u32>,
     component: String,
     /// cells that are defined within the component
     instances: SmallVec<[CellId; 6]>,
@@ -31,6 +34,7 @@ struct Group {
     name: String,
     probe: SignalRef,
     invokes: SmallVec<[InvokeId; 6]>,
+    probe_idx: u32,
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
@@ -42,6 +46,7 @@ struct Invoke {
     name: String,
     probe: SignalRef,
     target: CellId,
+    probe_idx: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -50,15 +55,24 @@ pub struct Design {
     groups: PrimaryMap<GroupId, Group>,
     invokes: PrimaryMap<InvokeId, Invoke>,
     main: CellId,
+    clk: SignalRef,
+    signals: Vec<SignalRef>,
 }
 
 impl Design {
     pub fn new(h: &wellen::Hierarchy) -> Result<Self> {
+        let main = h
+            .lookup_scope(&[&"toplevel", &"main"])
+            .with_context(|| format!("Failed to find main scope"))?;
+        let clk = get_var(h, &h[main], "clk")?;
+        let clk = h[clk].signal_ref();
         let mut out = Self {
             cells: PrimaryMap::new(),
             groups: PrimaryMap::new(),
             invokes: PrimaryMap::new(),
             main: CellId(u32::MAX),
+            clk,
+            signals: vec![],
         };
         out.populate(h)?;
         Ok(out)
@@ -135,6 +149,50 @@ pub fn parse_probe_name(name: &str) -> Result<ProbeName> {
 }
 
 impl Design {
+    fn build_idx(&mut self) {
+        self.signals = self.signals();
+        let to_index = FxHashMap::from_iter(
+            self.signals
+                .iter()
+                .enumerate()
+                .map(|(idx, &signal)| (signal, idx as u32)),
+        );
+
+        for (_, cell) in self.cells.iter_mut() {
+            if let Some(p) = cell.probe {
+                cell.probe_idx = Some(to_index[&p]);
+            }
+        }
+
+        for (_, group) in self.groups.iter_mut() {
+            group.probe_idx = to_index[&group.probe];
+        }
+
+        for (_, invoke) in self.invokes.iter_mut() {
+            invoke.probe_idx = to_index[&invoke.probe];
+        }
+    }
+
+    fn signals(&self) -> Vec<SignalRef> {
+        let mut signals = vec![];
+        for cell in self.cells.values() {
+            if let Some(p) = cell.probe {
+                signals.push(p);
+            }
+        }
+
+        for group in self.groups.values() {
+            signals.push(group.probe);
+        }
+
+        for invoke in self.invokes.values() {
+            signals.push(invoke.probe);
+        }
+
+        signals.sort();
+        signals.dedup();
+        signals
+    }
     fn populate(&mut self, h: &wellen::Hierarchy) -> Result<()> {
         let main_scope = h
             .lookup_scope(&[&"toplevel", &"main"])
@@ -143,11 +201,12 @@ impl Design {
         let mut main_cell = Cell {
             name: "main".to_string(),
             groups: smallvec![],
-            // probe: h[main_go].signal_ref(),
+            probe: Some(h[main_go].signal_ref()),
             scope: main_scope,
             is_primitive: false,
             instances: smallvec![],
             component: String::new(),
+            probe_idx: None,
         };
         self.scan_probes(h, main_scope, &mut main_cell)?;
         self.main = self.cells.push(main_cell);
@@ -188,6 +247,7 @@ impl Design {
                             name,
                             probe,
                             invokes,
+                            probe_idx: u32::MAX,
                         });
                         cell.groups.push(groupid);
                     }
@@ -232,6 +292,8 @@ impl Design {
                                 is_primitive,
                                 instances: smallvec![],
                                 component: String::new(),
+                                probe: None,
+                                probe_idx: None,
                             };
                             self.scan_probes(h, scope, &mut cell_instance)?;
                             let cell_id = self.cells.push(cell_instance);
@@ -242,6 +304,7 @@ impl Design {
                             name: name.to_string(),
                             probe,
                             target,
+                            probe_idx: u32::MAX,
                         });
                         if let Some(&group) = maybe_group {
                             self.groups[group].invokes.push(invoke_id);

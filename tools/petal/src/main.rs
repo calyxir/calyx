@@ -1,6 +1,6 @@
-mod hierarchy;
+mod design;
 
-use hierarchy::{get_var, parse_probe_name};
+use design::{get_var, parse_probe_name};
 
 use anyhow::{Context, Ok, Result};
 use baa::BitVecMutOps;
@@ -9,7 +9,7 @@ use clap::Parser;
 use rustc_hash::FxHashMap;
 use wellen::*;
 
-use crate::hierarchy::Design;
+use crate::design::Design;
 
 #[derive(Parser, Debug)]
 #[command(name = "petal")]
