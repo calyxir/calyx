@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 
+use baa::{BitVecOps, BitVecValue};
 use cranelift_entity::{PrimaryMap, SecondaryMap, entity_impl};
 use rustc_hash::FxHashMap;
 use smallvec::{SmallVec, smallvec};
@@ -75,7 +76,25 @@ impl Design {
             signals: vec![],
         };
         out.populate(h)?;
+        out.build_idx();
         Ok(out)
+    }
+
+    pub fn get_signals(&self) -> Vec<SignalRef> {
+        self.signals.clone()
+    }
+
+    pub fn clk(&self) -> SignalRef {
+        self.clk
+    }
+
+    pub fn compute(&self, values: &BitVecValue) -> Result<()> {
+        // -> Result<Vec<Vec<String>>> {
+        let main = &self.cells[self.main];
+        if values.is_bit_set(main.probe_idx.unwrap()) {
+            self.compute_cell(values, self.main);
+        }
+        Ok(())
     }
 }
 
@@ -148,7 +167,65 @@ pub fn parse_probe_name(name: &str) -> Result<ProbeName> {
     }
 }
 
+// trying to build up the same thing that we have in the python version for now.
+pub type Stack = Vec<String>;
+
 impl Design {
+    fn compute_group(
+        &self,
+        value: &BitVecValue,
+        group_id: GroupId,
+        // mut prefix: Stack,
+    ) {
+        // ) -> Vec<Stack> {
+        let group = &self.groups[group_id];
+        for &invoke_id in &group.invokes {
+            let invoke = &self.invokes[invoke_id];
+            let target_cell_id = invoke.target;
+            let target_cell = &self.cells[target_cell_id];
+            if value.is_bit_set(invoke.probe_idx) {
+                // the invoke probe is active
+                if target_cell.is_primitive {
+                    println!("Primitive {}", target_cell.name)
+                } else {
+                    println!(
+                        "Cell {} [{}]",
+                        target_cell.name, target_cell.component
+                    );
+                    self.compute_cell(value, target_cell_id)
+                }
+            }
+        }
+    }
+
+    fn compute_cell(
+        &self,
+        value: &BitVecValue,
+        cell_id: CellId,
+        // mut prefix: Stack,
+        // ) -> Vec<Stack> {
+    ) {
+        let cell = &self.cells[cell_id];
+        if let Some(idx) = cell.probe_idx {
+            if value.is_bit_set(idx) {
+                println!("Cell {} [{}]", cell.name, cell.component)
+                // prefix.push(cell.name.clone());
+                // } else {
+                //     return vec![prefix];
+            }
+        }
+        // let mut out = vec![];
+        for &group_idx in &cell.groups {
+            let group = &self.groups[group_idx];
+            if value.is_bit_set(group.probe_idx) {
+                println!("Group {}", group.name);
+                self.compute_group(value, group_idx); // prefix
+            }
+        }
+
+        // out
+    }
+
     fn build_idx(&mut self) {
         self.signals = self.signals();
         let to_index = FxHashMap::from_iter(
@@ -188,6 +265,8 @@ impl Design {
         for invoke in self.invokes.values() {
             signals.push(invoke.probe);
         }
+
+        signals.push(self.clk);
 
         signals.sort();
         signals.dedup();
