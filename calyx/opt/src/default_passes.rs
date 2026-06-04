@@ -258,8 +258,8 @@ impl PassManager {
             [
                 "validate",
                 UniquefyEnables,
-                ProfilerInstrumentation,
                 DeadGroupRemoval,
+                ProfilerInstrumentation,
                 "pre-opt",
                 "compile",
                 "post-opt",
