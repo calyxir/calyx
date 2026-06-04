@@ -1,19 +1,17 @@
 use anyhow::{Context, Result};
 
 use baa::{BitVecOps, BitVecValue};
-use cranelift_entity::{PrimaryMap, SecondaryMap, entity_impl};
+use cranelift_entity::{PrimaryMap, entity_impl};
 use rustc_hash::FxHashMap;
 use smallvec::{SmallVec, smallvec};
-use std::path::Prefix;
 use wellen::{Hierarchy, Scope, ScopeRef, SignalRef, VarRef};
-
-use crate::design;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct CellId(u32);
 entity_impl!(CellId, "cell");
 
 #[derive(Clone, Debug)]
+/// Represents
 struct Cell {
     name: String,
     groups: SmallVec<[GroupId; 6]>,
@@ -31,6 +29,7 @@ pub struct GroupId(u32);
 entity_impl!(GroupId, "group");
 
 #[derive(Debug, Clone)]
+/// Represents a group activation from a component's control.
 struct Group {
     name: String,
     probe: SignalRef,
@@ -43,6 +42,8 @@ pub struct InvokeId(u32);
 entity_impl!(InvokeId, "invoke");
 
 #[derive(Debug, Clone)]
+/// Represents a group invoking either a component or primitive cell.
+/// TODO: Should we include structural enables here? If so, the type of target would need to change.
 struct Invoke {
     name: String,
     probe: SignalRef,
@@ -51,6 +52,7 @@ struct Invoke {
 }
 
 #[derive(Clone, Debug)]
+/// Represents the static call tree (all possible calls).
 pub struct Design {
     cells: PrimaryMap<CellId, Cell>,
     groups: PrimaryMap<GroupId, Group>,
@@ -92,50 +94,16 @@ impl Design {
         // -> Result<Vec<Vec<String>>> {
         let main = &self.cells[self.main];
         if values.is_bit_set(main.probe_idx.unwrap()) {
-            self.compute_cell(values, self.main);
+            self.compute_cell(values, self.main, vec![]);
         }
         Ok(())
     }
 }
 
-pub fn get_var(h: &wellen::Hierarchy, s: &Scope, name: &str) -> Result<VarRef> {
-    s.vars(h)
-        .find(|&v| h[v].name(h) == name)
-        .with_context(|| format!("Failed to find {name} in {}", s.full_name(h)))
-}
-
-pub fn get_scope(
-    h: &wellen::Hierarchy,
-    s: &Scope,
-    name: &str,
-) -> Result<ScopeRef> {
-    s.scopes(h)
-        .find(|&v| h[v].name(h) == name)
-        .with_context(|| format!("Failed to find {name} in {}", s.full_name(h)))
-}
-
-#[derive(PartialEq, Debug)]
-pub enum ProbeName<'a> {
-    Group {
-        group: &'a str,
-        component: &'a str,
-    },
-    InvokePrimitive {
-        name: &'a str,
-        group: &'a str,
-        component: &'a str,
-    },
-    InvokeCell {
-        name: &'a str,
-        group: &'a str,
-        component: &'a str,
-    },
-}
-
 pub fn parse_probe_name(name: &str) -> Result<ProbeName> {
     let pat = "___";
-    // invoke2UG___main_group_probe
     if let Some(prefix) = name.strip_suffix("_group_probe") {
+        // invoke2UG___main_group_probe
         let mut parts = prefix.split(pat);
         let group = parts.next().unwrap().split("UG").next().unwrap();
         let component = parts.next().unwrap();
@@ -167,7 +135,7 @@ pub fn parse_probe_name(name: &str) -> Result<ProbeName> {
     }
 }
 
-// trying to build up the same thing that we have in the python version for now.
+// trying to build up the same thing that we have in pypetal for now.
 pub type Stack = Vec<String>;
 
 impl Design {
@@ -175,24 +143,36 @@ impl Design {
         &self,
         value: &BitVecValue,
         group_id: GroupId,
-        // mut prefix: Stack,
+        mut prefix: Stack,
     ) {
         // ) -> Vec<Stack> {
         let group = &self.groups[group_id];
+        prefix.push(group.name.clone());
+        if group.invokes.is_empty() {
+            println!("No invokes in group {}: {prefix:?}", group.name);
+            return;
+        }
         for &invoke_id in &group.invokes {
+            let mut this_thread_prefix = prefix.clone();
             let invoke = &self.invokes[invoke_id];
             let target_cell_id = invoke.target;
             let target_cell = &self.cells[target_cell_id];
             if value.is_bit_set(invoke.probe_idx) {
                 // the invoke probe is active
                 if target_cell.is_primitive {
-                    println!("Primitive {}", target_cell.name)
+                    // println!("Primitive {}", target_cell.name)
+                    this_thread_prefix.push(target_cell.name.clone());
+                    println!("{this_thread_prefix:?}");
                 } else {
                     println!(
                         "Cell {} [{}]",
                         target_cell.name, target_cell.component
                     );
-                    self.compute_cell(value, target_cell_id)
+                    self.compute_cell(
+                        value,
+                        target_cell_id,
+                        this_thread_prefix.clone(),
+                    )
                 }
             }
         }
@@ -202,24 +182,29 @@ impl Design {
         &self,
         value: &BitVecValue,
         cell_id: CellId,
-        // mut prefix: Stack,
+        mut prefix: Stack,
         // ) -> Vec<Stack> {
     ) {
         let cell = &self.cells[cell_id];
         if let Some(idx) = cell.probe_idx {
             if value.is_bit_set(idx) {
-                println!("Cell {} [{}]", cell.name, cell.component)
+                prefix.push(cell.name.clone());
+                // println!("Cell {} [{}]", cell.name, cell.component)
                 // prefix.push(cell.name.clone());
-                // } else {
-                //     return vec![prefix];
+            } else {
+                return; // vec![prefix];
             }
+        }
+        if cell.groups.is_empty() {
+            // No more children, so this is a sink.
+            println!("{prefix:?}");
         }
         // let mut out = vec![];
         for &group_idx in &cell.groups {
             let group = &self.groups[group_idx];
             if value.is_bit_set(group.probe_idx) {
-                println!("Group {}", group.name);
-                self.compute_group(value, group_idx); // prefix
+                // println!("Group {}", group.name);
+                self.compute_group(value, group_idx, prefix.clone()); // prefix
             }
         }
 
@@ -272,6 +257,7 @@ impl Design {
         signals.dedup();
         signals
     }
+
     fn populate(&mut self, h: &wellen::Hierarchy) -> Result<()> {
         let main_scope = h
             .lookup_scope(&[&"toplevel", &"main"])
@@ -397,6 +383,40 @@ impl Design {
         assert!(parentless_invokes.is_empty());
         Ok(())
     }
+}
+
+pub fn get_var(h: &wellen::Hierarchy, s: &Scope, name: &str) -> Result<VarRef> {
+    s.vars(h)
+        .find(|&v| h[v].name(h) == name)
+        .with_context(|| format!("Failed to find {name} in {}", s.full_name(h)))
+}
+
+pub fn get_scope(
+    h: &wellen::Hierarchy,
+    s: &Scope,
+    name: &str,
+) -> Result<ScopeRef> {
+    s.scopes(h)
+        .find(|&v| h[v].name(h) == name)
+        .with_context(|| format!("Failed to find {name} in {}", s.full_name(h)))
+}
+
+#[derive(PartialEq, Debug)]
+pub enum ProbeName<'a> {
+    Group {
+        group: &'a str,
+        component: &'a str,
+    },
+    InvokePrimitive {
+        name: &'a str,
+        group: &'a str,
+        component: &'a str,
+    },
+    InvokeCell {
+        name: &'a str,
+        group: &'a str,
+        component: &'a str,
+    },
 }
 
 #[cfg(test)]
