@@ -82,7 +82,7 @@ fn py_to_profiled(e, input, output) {
     e.build_cmd(["$cell-json"], "component-cells", [calyx], []);
     e.build_cmd([instrumented_verilog], "calyx", [calyx], []);
     e.arg("backend", "verilog");
-    e.arg("args", "-p metadata-table-generation -p validate -p uniquefy-enables -p profiler-instrumentation -p dead-group-removal $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json -x uniquefy-enables:path-descriptor-json=path-descriptors.json");
+    e.arg("args", "-p metadata-table-generation -p validate -p uniquefy-enables -p dead-group-removal -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json -x uniquefy-enables:path-descriptor-json=path-descriptors.json");
 
     let instrumented_sim = "instrumented.exe";
     // verilog --> sim; adapted from verilator::verilator_build()
