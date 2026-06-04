@@ -69,9 +69,16 @@ fn main() -> Result<()> {
 
     println!("probe value len: {}", probe_values.len());
 
+    let mut cycle_count = -1;
     for (idx, value) in probe_values.iter().enumerate().take(15) {
-        println!("{idx}");
-        design.compute(value)?;
+        let stacks = design.compute(value)?;
+        if !stacks.is_empty() {
+            cycle_count += 1;
+            println!("{cycle_count}");
+            for stack in stacks {
+                println!("{stack:?}");
+            }
+        }
     }
 
     Ok(())

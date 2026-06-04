@@ -90,13 +90,17 @@ impl Design {
         self.clk
     }
 
-    pub fn compute(&self, values: &BitVecValue) -> Result<()> {
+    pub fn compute(&self, values: &BitVecValue) -> Result<Vec<Stack>> {
         // -> Result<Vec<Vec<String>>> {
         let main = &self.cells[self.main];
-        if values.is_bit_set(main.probe_idx.unwrap()) {
-            self.compute_cell(values, self.main, vec![]);
+        let main_active = values.is_bit_set(main.probe_idx.unwrap());
+        let mut stacks = vec![];
+        if main_active {
+            stacks = self.compute_cell(values, self.main, vec![]);
+            stacks.sort();
+            stacks.dedup();
         }
-        Ok(())
+        Ok(stacks)
     }
 }
 
@@ -144,14 +148,15 @@ impl Design {
         value: &BitVecValue,
         group_id: GroupId,
         mut prefix: Stack,
-    ) {
-        // ) -> Vec<Stack> {
+    ) -> Vec<Stack> {
+        // assumes that the group is active (otherwise this function would not be called.)
         let group = &self.groups[group_id];
         prefix.push(group.name.clone());
         if group.invokes.is_empty() {
             println!("No invokes in group {}: {prefix:?}", group.name);
-            return;
+            return vec![prefix];
         }
+        let mut out: Vec<Stack> = vec![];
         for &invoke_id in &group.invokes {
             let mut this_thread_prefix = prefix.clone();
             let invoke = &self.invokes[invoke_id];
@@ -159,23 +164,26 @@ impl Design {
             let target_cell = &self.cells[target_cell_id];
             if value.is_bit_set(invoke.probe_idx) {
                 // the invoke probe is active
+                this_thread_prefix.push(target_cell.name.clone());
                 if target_cell.is_primitive {
                     // println!("Primitive {}", target_cell.name)
-                    this_thread_prefix.push(target_cell.name.clone());
-                    println!("{this_thread_prefix:?}");
+                    out.push(this_thread_prefix);
+                    // println!("{this_thread_prefix:?}");
                 } else {
-                    println!(
-                        "Cell {} [{}]",
-                        target_cell.name, target_cell.component
-                    );
-                    self.compute_cell(
+                    // println!(
+                    //     "Cell {} [{}]",
+                    //     target_cell.name, target_cell.component
+                    // );
+                    let mut cell_stack = self.compute_cell(
                         value,
                         target_cell_id,
                         this_thread_prefix.clone(),
-                    )
+                    );
+                    out.append(&mut cell_stack);
                 }
             }
         }
+        out
     }
 
     fn compute_cell(
@@ -183,32 +191,32 @@ impl Design {
         value: &BitVecValue,
         cell_id: CellId,
         mut prefix: Stack,
-        // ) -> Vec<Stack> {
-    ) {
+    ) -> Vec<Stack> {
         let cell = &self.cells[cell_id];
         if let Some(idx) = cell.probe_idx {
+            // the main component cell is the only one to have a probe_idx.
             if value.is_bit_set(idx) {
                 prefix.push(cell.name.clone());
-                // println!("Cell {} [{}]", cell.name, cell.component)
-                // prefix.push(cell.name.clone());
             } else {
-                return; // vec![prefix];
+                return vec![prefix];
             }
         }
         if cell.groups.is_empty() {
             // No more children, so this is a sink.
-            println!("{prefix:?}");
+            return vec![prefix];
         }
-        // let mut out = vec![];
+        let mut out = vec![];
         for &group_idx in &cell.groups {
             let group = &self.groups[group_idx];
             if value.is_bit_set(group.probe_idx) {
                 // println!("Group {}", group.name);
-                self.compute_group(value, group_idx, prefix.clone()); // prefix
+                let mut group_stacks =
+                    self.compute_group(value, group_idx, prefix.clone());
+                out.append(&mut group_stacks);
             }
         }
 
-        // out
+        out
     }
 
     fn build_idx(&mut self) {
