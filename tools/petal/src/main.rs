@@ -1,12 +1,8 @@
 mod design;
 
-use design::{get_var, parse_probe_name};
-
 use anyhow::{Context, Ok, Result};
-use baa::BitVecMutOps;
-use baa::BitVecOps;
+use baa::{BitVecMutOps, BitVecValue};
 use clap::Parser;
-use rustc_hash::FxHashMap;
 use wellen::*;
 
 use crate::design::Design;
@@ -41,20 +37,25 @@ fn main() -> Result<()> {
     let mut wav = wellen::stream::read_from_file(&args.filename, &opts)
         .with_context(|| format!("Failed to load {}", args.filename))?;
 
+    // static tree
     let design = Design::new(wav.hierarchy())?;
 
+    // all probe signals we would need to track
     let signals = design.get_signals();
 
     let filter = wellen::stream::Filter::include_signals(&signals);
 
     let mut clock_previous = true;
 
-    let mut probe_values: Vec<_> = vec![];
+    // One bit vector for each cycle. Each index in the BitVecValue corresponds to a probe.
+    // If it is active, the index will contain 1.
+    let mut probe_values: Vec<BitVecValue> = vec![];
 
+    // populate probe_values on the clock's falling edge
     wav.stream_time_steps(filter, |time, values| {
         let c = read_bool(design.clk(), values);
         if c && !clock_previous {
-            let mut value = baa::BitVecValue::zero(signals.len() as u32);
+            let mut value = BitVecValue::zero(signals.len() as u32);
             for (idx, &signal) in signals.iter().enumerate() {
                 let probe_value = read_bool(signal, values);
                 if probe_value {
@@ -66,17 +67,19 @@ fn main() -> Result<()> {
         clock_previous = c;
     })
     .with_context(|| format!("Failed to stream"))?;
+    println!("Number of clock ticks: {}", probe_values.len());
 
-    println!("probe value len: {}", probe_values.len());
-
+    // Compute the trace (stacks for each active cycle) from probe_values
     let mut cycle_count = -1;
-    for (idx, value) in probe_values.iter().enumerate().take(15) {
+    for (_, value) in probe_values.iter().enumerate() {
+        // .take(15) // for debugging
         let stacks = design.compute(value)?;
         if !stacks.is_empty() {
             cycle_count += 1;
             println!("{cycle_count}");
             for stack in stacks {
-                println!("{stack:?}");
+                let stack_str = stack.join(", ");
+                println!("	[{stack_str}]");
             }
         }
     }

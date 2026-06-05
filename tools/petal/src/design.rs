@@ -24,6 +24,18 @@ struct Cell {
     instances: SmallVec<[CellId; 6]>,
 }
 
+impl Cell {
+    pub fn display_name(&self) -> String {
+        if self.is_primitive {
+            format!("{} (primitive)", self.name)
+        } else if (self.component == "main") {
+            self.name.clone()
+        } else {
+            format!("{} [{}]", self.name, self.component)
+        }
+    }
+}
+
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct GroupId(u32);
 entity_impl!(GroupId, "group");
@@ -35,6 +47,13 @@ struct Group {
     probe: SignalRef,
     invokes: SmallVec<[InvokeId; 6]>,
     probe_idx: u32,
+}
+
+impl Group {
+    pub fn display_name(&self) -> String {
+        // remove unique group identifier.
+        self.name.split("UG").next().unwrap().to_string()
+    }
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
@@ -91,7 +110,6 @@ impl Design {
     }
 
     pub fn compute(&self, values: &BitVecValue) -> Result<Vec<Stack>> {
-        // -> Result<Vec<Vec<String>>> {
         let main = &self.cells[self.main];
         let main_active = values.is_bit_set(main.probe_idx.unwrap());
         let mut stacks = vec![];
@@ -109,14 +127,16 @@ pub fn parse_probe_name(name: &str) -> Result<ProbeName> {
     if let Some(prefix) = name.strip_suffix("_group_probe") {
         // invoke2UG___main_group_probe
         let mut parts = prefix.split(pat);
-        let group = parts.next().unwrap().split("UG").next().unwrap();
+        // let group = parts.next().unwrap().split("UG").next().unwrap();
+        let group = parts.next().unwrap();
         let component = parts.next().unwrap();
         Ok(ProbeName::Group { group, component })
     } else if let Some(prefix) = name.strip_suffix("_cell_probe") {
         // mac___invoke2UG___main_cell_probe
         let mut parts = prefix.split(pat);
         let cell = parts.next().unwrap();
-        let group = parts.next().unwrap().split("UG").next().unwrap();
+        // let group = parts.next().unwrap().split("UG").next().unwrap();
+        let group = parts.next().unwrap();
         let component = parts.next().unwrap();
         Ok(ProbeName::InvokeCell {
             name: cell,
@@ -127,7 +147,8 @@ pub fn parse_probe_name(name: &str) -> Result<ProbeName> {
         //lt0___in_rangeUG___main_primitive_probe
         let mut parts = prefix.split(pat);
         let primitive = parts.next().unwrap();
-        let group = parts.next().unwrap().split("UG").next().unwrap();
+        // let group = parts.next().unwrap().split("UG").next().unwrap();
+        let group = parts.next().unwrap();
         let component = parts.next().unwrap();
         Ok(ProbeName::InvokePrimitive {
             name: primitive,
@@ -151,9 +172,8 @@ impl Design {
     ) -> Vec<Stack> {
         // assumes that the group is active (otherwise this function would not be called.)
         let group = &self.groups[group_id];
-        prefix.push(group.name.clone());
+        prefix.push(group.display_name());
         if group.invokes.is_empty() {
-            println!("No invokes in group {}: {prefix:?}", group.name);
             return vec![prefix];
         }
         let mut out: Vec<Stack> = vec![];
@@ -164,11 +184,10 @@ impl Design {
             let target_cell = &self.cells[target_cell_id];
             if value.is_bit_set(invoke.probe_idx) {
                 // the invoke probe is active
-                this_thread_prefix.push(target_cell.name.clone());
+                this_thread_prefix.push(target_cell.display_name());
                 if target_cell.is_primitive {
-                    // println!("Primitive {}", target_cell.name)
+                    // println!("Primitive {}", target_cell.name);
                     out.push(this_thread_prefix);
-                    // println!("{this_thread_prefix:?}");
                 } else {
                     // println!(
                     //     "Cell {} [{}]",
@@ -196,7 +215,7 @@ impl Design {
         if let Some(idx) = cell.probe_idx {
             // the main component cell is the only one to have a probe_idx.
             if value.is_bit_set(idx) {
-                prefix.push(cell.name.clone());
+                prefix.push(cell.display_name());
             } else {
                 return vec![prefix];
             }
@@ -209,11 +228,15 @@ impl Design {
         for &group_idx in &cell.groups {
             let group = &self.groups[group_idx];
             if value.is_bit_set(group.probe_idx) {
-                // println!("Group {}", group.name);
                 let mut group_stacks =
                     self.compute_group(value, group_idx, prefix.clone());
                 out.append(&mut group_stacks);
             }
+        }
+        // if the cell has groups but none of them are active, we still need to add the cell
+        // NOTE: this is a control cycle.
+        if !cell.groups.is_empty() && out.is_empty() {
+            out.push(prefix);
         }
 
         out
