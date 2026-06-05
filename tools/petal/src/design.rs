@@ -11,24 +11,34 @@ pub struct CellId(u32);
 entity_impl!(CellId, "cell");
 
 #[derive(Clone, Debug)]
-/// Represents
+/// Represents a (component/primitive) cell in the static tree.
 struct Cell {
+    /// The user-defined name of the cell.
     name: String,
+    /// Ids of groups that could be called from this cell, if it is a component.
+    /// NOTE: Primitive cells should have an empty vec here.
     groups: SmallVec<[GroupId; 6]>,
+    /// The scope of the cell in the RTL trace.
     scope: ScopeRef,
+    /// Is the cell a primitive?
     is_primitive: bool,
+    /// If the cell is of the main component, contains a ref to the probe (main.go).
     probe: Option<SignalRef>,
+    /// If the cell is of the main component, contains the bitvector index to the probe (main.go).
     probe_idx: Option<u32>,
+    /// Non-empty if the cell is from a user-defined component.
+    /// FIXME: might be worth pulling the primitive's original name as well?
     component: String,
     /// cells that are defined within the component
     instances: SmallVec<[CellId; 6]>,
 }
 
 impl Cell {
+    /// String representation of cell for trace and visualizations
     pub fn display_name(&self) -> String {
         if self.is_primitive {
             format!("{} (primitive)", self.name)
-        } else if (self.component == "main") {
+        } else if self.component == "main" {
             self.name.clone()
         } else {
             format!("{} [{}]", self.name, self.component)
@@ -50,6 +60,7 @@ struct Group {
 }
 
 impl Group {
+    /// String representation of cell for trace and visualizations
     pub fn display_name(&self) -> String {
         // remove unique group identifier.
         self.name.split("UG").next().unwrap().to_string()
@@ -64,6 +75,7 @@ entity_impl!(InvokeId, "invoke");
 /// Represents a group invoking either a component or primitive cell.
 /// TODO: Should we include structural enables here? If so, the type of target would need to change.
 struct Invoke {
+    /// The name of the cell being invoked.
     name: String,
     probe: SignalRef,
     target: CellId,
@@ -125,17 +137,15 @@ impl Design {
 pub fn parse_probe_name(name: &str) -> Result<ProbeName> {
     let pat = "___";
     if let Some(prefix) = name.strip_suffix("_group_probe") {
-        // invoke2UG___main_group_probe
+        // ex. invoke2UG___main_group_probe
         let mut parts = prefix.split(pat);
-        // let group = parts.next().unwrap().split("UG").next().unwrap();
         let group = parts.next().unwrap();
         let component = parts.next().unwrap();
         Ok(ProbeName::Group { group, component })
     } else if let Some(prefix) = name.strip_suffix("_cell_probe") {
-        // mac___invoke2UG___main_cell_probe
+        // ex. mac___invoke2UG___main_cell_probe
         let mut parts = prefix.split(pat);
         let cell = parts.next().unwrap();
-        // let group = parts.next().unwrap().split("UG").next().unwrap();
         let group = parts.next().unwrap();
         let component = parts.next().unwrap();
         Ok(ProbeName::InvokeCell {
@@ -144,10 +154,9 @@ pub fn parse_probe_name(name: &str) -> Result<ProbeName> {
             component,
         })
     } else if let Some(prefix) = name.strip_suffix("_primitive_probe") {
-        //lt0___in_rangeUG___main_primitive_probe
+        // ex. lt0___in_rangeUG___main_primitive_probe
         let mut parts = prefix.split(pat);
         let primitive = parts.next().unwrap();
-        // let group = parts.next().unwrap().split("UG").next().unwrap();
         let group = parts.next().unwrap();
         let component = parts.next().unwrap();
         Ok(ProbeName::InvokePrimitive {
@@ -186,13 +195,8 @@ impl Design {
                 // the invoke probe is active
                 this_thread_prefix.push(target_cell.display_name());
                 if target_cell.is_primitive {
-                    // println!("Primitive {}", target_cell.name);
                     out.push(this_thread_prefix);
                 } else {
-                    // println!(
-                    //     "Cell {} [{}]",
-                    //     target_cell.name, target_cell.component
-                    // );
                     let mut cell_stack = self.compute_cell(
                         value,
                         target_cell_id,
@@ -234,7 +238,7 @@ impl Design {
             }
         }
         // if the cell has groups but none of them are active, we still need to add the cell
-        // NOTE: this is a control cycle.
+        // NOTE: this would be a control cycle.
         if !cell.groups.is_empty() && out.is_empty() {
             out.push(prefix);
         }
@@ -310,6 +314,7 @@ impl Design {
         Ok(())
     }
 
+    /// Constructs the static tree from available probes.
     fn scan_probes(
         &mut self,
         h: &Hierarchy,
@@ -416,12 +421,14 @@ impl Design {
     }
 }
 
+/// Returns a VarRef of the name `name` from the scope `s`, if it exists.
 pub fn get_var(h: &wellen::Hierarchy, s: &Scope, name: &str) -> Result<VarRef> {
     s.vars(h)
         .find(|&v| h[v].name(h) == name)
         .with_context(|| format!("Failed to find {name} in {}", s.full_name(h)))
 }
 
+/// Returns a VarRef of the name `name` from the scope `s`, if it exists.
 pub fn get_scope(
     h: &wellen::Hierarchy,
     s: &Scope,
@@ -433,6 +440,7 @@ pub fn get_scope(
 }
 
 #[derive(PartialEq, Debug)]
+/// Represents a probe name after parsing.
 pub enum ProbeName<'a> {
     Group {
         group: &'a str,
