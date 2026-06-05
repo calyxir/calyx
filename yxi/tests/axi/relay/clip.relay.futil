@@ -1,0 +1,192 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+import "primitives/binary_operators.futil";
+import "primitives/math.futil";
+component clip_2x2x2() -> () {
+  cells {
+    ref x = seq_mem_d3(32,2,2,2,2,2,2);
+    ref y = seq_mem_d3(32,2,2,2,2,2,2);
+    __i0 = std_reg(2);
+    __j0 = std_reg(2);
+    __k0 = std_reg(2);
+    add0 = std_add(2);
+    add1 = std_add(2);
+    add2 = std_add(2);
+    const0 = std_const(2,0);
+    const1 = std_const(2,1);
+    const2 = std_const(2,0);
+    const3 = std_const(2,1);
+    const4 = std_const(2,0);
+    const5 = std_const(2,1);
+    const6 = std_const(2,1);
+    const7 = std_const(2,1);
+    const8 = std_const(2,1);
+    fp_const0 = std_const(32,131072);
+    fp_const1 = std_const(32,131072);
+    fp_const2 = std_const(32,393216);
+    fp_const3 = std_const(32,393216);
+    gt0 = std_fp_sgt(32,16,16);
+    le0 = std_le(2);
+    le1 = std_le(2);
+    le2 = std_le(2);
+    lt0 = std_fp_slt(32,16,16);
+    val_0 = std_reg(32);
+  }
+  wires {
+    comb group cond0 {
+      le0.left = __i0.out;
+      le0.right = const1.out;
+    }
+    comb group cond1 {
+      le1.left = __j0.out;
+      le1.right = const3.out;
+    }
+    comb group cond2 {
+      le2.left = __k0.out;
+      le2.right = const5.out;
+    }
+    comb group cond3 {
+      gt0.left = val_0.out;
+      gt0.right = fp_const2.out;
+    }
+    comb group cond4 {
+      lt0.left = val_0.out;
+      lt0.right = fp_const0.out;
+    }
+    group let0<"promotable"=1> {
+      __i0.in = const0.out;
+      __i0.write_en = 1'd1;
+      let0[done] = __i0.done;
+    }
+    group let1<"promotable"=1> {
+      __j0.in = const2.out;
+      __j0.write_en = 1'd1;
+      let1[done] = __j0.done;
+    }
+    group let2<"promotable"=1> {
+      __k0.in = const4.out;
+      __k0.write_en = 1'd1;
+      let2[done] = __k0.done;
+    }
+    group let3<"promotable"=2> {
+      val_0.in = x.read_data;
+      val_0.write_en = x.done;
+      let3[done] = val_0.done;
+      x.content_en = 1'd1;
+      x.addr2 = __k0.out;
+      x.addr1 = __j0.out;
+      x.addr0 = __i0.out;
+    }
+    group upd0<"promotable"=1> {
+      y.content_en = 1'd1;
+      y.addr2 = __k0.out;
+      y.addr1 = __j0.out;
+      y.addr0 = __i0.out;
+      y.write_en = 1'd1;
+      y.write_data = fp_const1.out;
+      upd0[done] = y.done;
+    }
+    group upd1<"promotable"=1> {
+      y.content_en = 1'd1;
+      y.addr2 = __k0.out;
+      y.addr1 = __j0.out;
+      y.addr0 = __i0.out;
+      y.write_en = 1'd1;
+      y.write_data = fp_const3.out;
+      upd1[done] = y.done;
+    }
+    group upd2<"promotable"=1> {
+      y.content_en = 1'd1;
+      y.addr2 = __k0.out;
+      y.addr1 = __j0.out;
+      y.addr0 = __i0.out;
+      y.write_en = 1'd1;
+      y.write_data = val_0.out;
+      upd2[done] = y.done;
+    }
+    group upd3<"promotable"=1> {
+      __k0.write_en = 1'd1;
+      add0.left = __k0.out;
+      add0.right = const6.out;
+      __k0.in = add0.out;
+      upd3[done] = __k0.done;
+    }
+    group upd4<"promotable"=1> {
+      __j0.write_en = 1'd1;
+      add1.left = __j0.out;
+      add1.right = const7.out;
+      __j0.in = add1.out;
+      upd4[done] = __j0.done;
+    }
+    group upd5<"promotable"=1> {
+      __i0.write_en = 1'd1;
+      add2.left = __i0.out;
+      add2.right = const8.out;
+      __i0.in = add2.out;
+      upd5[done] = __i0.done;
+    }
+  }
+  control {
+    seq {
+      @pos(0) let0;
+      @bound(2) while le0.out with cond0 {
+        seq {
+          @pos(1) let1;
+          @bound(2) while le1.out with cond1 {
+            seq {
+              @pos(2) let2;
+              @bound(2) while le2.out with cond2 {
+                seq {
+                  @pos(3) let3;
+                  if lt0.out with cond4 {
+                    @pos(4) upd0;
+                  } else {
+                    if gt0.out with cond3 {
+                      @pos(5) upd1;
+                    } else {
+                      @pos(6) upd2;
+                    }
+                  }
+                  @pos(2) upd3;
+                }
+              }
+              @pos(1) upd4;
+            }
+          }
+          @pos(0) upd5;
+        }
+      }
+    }
+  }
+}
+
+component main<"pos"={4}>() -> () {
+  cells {
+    @external @pos{0} x = seq_mem_d3(32, 2, 2, 2, 2, 2, 2);
+    @external @pos{0} y = seq_mem_d3(32, 2, 2, 2, 2, 2, 2);
+    @pos{1} clip_2x2x2_ = clip_2x2x2();
+  }
+  wires {
+
+  }
+  control {
+    @pos{3} seq {
+      @pos{2} @pos(0) invoke clip_2x2x2_[x=x, y=y]()();
+    }
+  }
+}
+metadata #{
+0: let %y: Tensor[(2, 2, 2), float32] /* ty=Tensor[(2, 2, 2), float32] span=from_string:4:3 */ = clip(%x, a_min=2f, a_max=6f) /* ty=Tensor[(2, 2, 2), float32] span=from_string:3:40 */;
+}#
+
+sourceinfo #{
+FILES 
+  0: relay_utils.py
+  1: relay_visitor.py
+POSITIONS 
+  0: 0 157
+  1: 1 277
+  2: 0 117
+  3: 1 394
+  4: 1 389
+}#

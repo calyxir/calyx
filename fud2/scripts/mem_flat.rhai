@@ -1,7 +1,7 @@
 import "calyx" as c;
 import "axi" as a;
 
-fn wrapper_setup(e) {
+fn mwrap_setup(e) {
     // Define rule for the generator.
     
     e.config_var_or("python", "python", "python3");
@@ -17,7 +17,7 @@ fn wrapper_setup(e) {
     // use both of the required compiler passes for memory flattening
    e.rule(
        "calyx-mem-flat",
-       "$calyx-exe -l $calyx-lib-path -l $mem-flat-path -p mem-flat -p dead-cell-removal $args $in > $out",
+       "$calyx-exe -l $calyx-lib-path -l $mem-flat-path -p mem-flat -m file $args $in > $out",
    );
 	
 }
@@ -47,7 +47,7 @@ fn mem_wrapped_op(e, input, output) {
 
 op(
   "mem_flat",
-  [c::calyx_setup, a::yxi_setup, wrapper_setup],
+  [c::calyx_setup, a::yxi_setup, mwrap_setup],
   c::calyx_state,
   c::calyx_state,
   mem_wrapped_op
