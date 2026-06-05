@@ -17,12 +17,13 @@ struct Args {
     filename: String,
 }
 
+/// Reads a boolean value from a signal.
 fn read_bool(signal: SignalRef, values: &SignalMap<SignalValue>) -> bool {
     let value_ref: SignalValueRef = values.get(&signal).unwrap().into();
     if let SignalValueRef::BitVec(b) = value_ref {
         b.get_bit(0).as_ascii() == '1'
     } else {
-        panic!("Clock needs to be a bitvector!");
+        panic!("Signal needs to be a bitvector!");
     }
 }
 
@@ -73,7 +74,7 @@ fn main() -> Result<()> {
     let mut cycle_count = -1;
     for (_, value) in probe_values.iter().enumerate() {
         // .take(15) // for debugging
-        let stacks = design.compute(value)?;
+        let stacks = design.compute_cycle_trace(value)?;
         if !stacks.is_empty() {
             cycle_count += 1;
             println!("{cycle_count}");

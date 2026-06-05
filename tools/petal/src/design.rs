@@ -121,7 +121,12 @@ impl Design {
         self.clk
     }
 
-    pub fn compute(&self, values: &BitVecValue) -> Result<Vec<Stack>> {
+    /// Computes the active call tree from a cycle, represented as a list of stacks (Python Petal style).
+    /// values is the probe signals bitvector obtained from the cycle in question.
+    pub fn compute_cycle_trace(
+        &self,
+        values: &BitVecValue,
+    ) -> Result<Vec<Stack>> {
         let main = &self.cells[self.main];
         let main_active = values.is_bit_set(main.probe_idx.unwrap());
         let mut stacks = vec![];
@@ -173,42 +178,9 @@ pub fn parse_probe_name(name: &str) -> Result<ProbeName> {
 pub type Stack = Vec<String>;
 
 impl Design {
-    fn compute_group(
-        &self,
-        value: &BitVecValue,
-        group_id: GroupId,
-        mut prefix: Stack,
-    ) -> Vec<Stack> {
-        // assumes that the group is active (otherwise this function would not be called.)
-        let group = &self.groups[group_id];
-        prefix.push(group.display_name());
-        if group.invokes.is_empty() {
-            return vec![prefix];
-        }
-        let mut out: Vec<Stack> = vec![];
-        for &invoke_id in &group.invokes {
-            let mut this_thread_prefix = prefix.clone();
-            let invoke = &self.invokes[invoke_id];
-            let target_cell_id = invoke.target;
-            let target_cell = &self.cells[target_cell_id];
-            if value.is_bit_set(invoke.probe_idx) {
-                // the invoke probe is active
-                this_thread_prefix.push(target_cell.display_name());
-                if target_cell.is_primitive {
-                    out.push(this_thread_prefix);
-                } else {
-                    let mut cell_stack = self.compute_cell(
-                        value,
-                        target_cell_id,
-                        this_thread_prefix.clone(),
-                    );
-                    out.append(&mut cell_stack);
-                }
-            }
-        }
-        out
-    }
-
+    /// Builds up all active tree paths this cycle from the cell of cell_id.
+    /// prefix is the state of the stack before this particular cell.
+    /// NOTE: This function is co-recursive with compute_group().
     fn compute_cell(
         &self,
         value: &BitVecValue,
@@ -246,8 +218,48 @@ impl Design {
         out
     }
 
+    /// Builds up all active tree paths this cycle from the group of group_id.
+    /// prefix is the state of the stack before this particular group.
+    /// NOTE: This function is co-recursive with compute_cell(), and only called when
+    /// the group is active (otherwise this function would not be called.)
+    fn compute_group(
+        &self,
+        value: &BitVecValue,
+        group_id: GroupId,
+        mut prefix: Stack,
+    ) -> Vec<Stack> {
+        let group = &self.groups[group_id];
+        prefix.push(group.display_name());
+        if group.invokes.is_empty() {
+            return vec![prefix];
+        }
+        let mut out: Vec<Stack> = vec![];
+        for &invoke_id in &group.invokes {
+            let mut this_thread_prefix = prefix.clone();
+            let invoke = &self.invokes[invoke_id];
+            let target_cell_id = invoke.target;
+            let target_cell = &self.cells[target_cell_id];
+            if value.is_bit_set(invoke.probe_idx) {
+                // the invoke probe is active
+                this_thread_prefix.push(target_cell.display_name());
+                if target_cell.is_primitive {
+                    out.push(this_thread_prefix);
+                } else {
+                    let mut cell_stack = self.compute_cell(
+                        value,
+                        target_cell_id,
+                        this_thread_prefix.clone(),
+                    );
+                    out.append(&mut cell_stack);
+                }
+            }
+        }
+        out
+    }
+
+    /// Maps between probes and their indices in self.signals().
     fn build_idx(&mut self) {
-        self.signals = self.signals();
+        self.signals = self.probe_signals();
         let to_index = FxHashMap::from_iter(
             self.signals
                 .iter()
@@ -270,7 +282,8 @@ impl Design {
         }
     }
 
-    fn signals(&self) -> Vec<SignalRef> {
+    /// Helper for build_idx() to obtain all probe signals.
+    fn probe_signals(&self) -> Vec<SignalRef> {
         let mut signals = vec![];
         for cell in self.cells.values() {
             if let Some(p) = cell.probe {
@@ -293,6 +306,7 @@ impl Design {
         signals
     }
 
+    /// Builds the static call tree by scanning through all probes to find tree edges.
     fn populate(&mut self, h: &wellen::Hierarchy) -> Result<()> {
         let main_scope = h
             .lookup_scope(&[&"toplevel", &"main"])
