@@ -15,7 +15,7 @@ rust-version = "1.90.0"
 [dependencies]
 anyhow.workspace = true
 clap = { version = "4.6", features = ["derive"] }
-wellen = "0.24.2"
+wellen = "0.25.2"
 baa.workspace = true
 rustc-hash = "2.1.2"
 cranelift-entity = "0.128.4"

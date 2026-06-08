@@ -1,9 +1,9 @@
 mod design;
 
-use anyhow::{Context, Ok, Result};
+use anyhow::{Context, Ok, Result, anyhow};
 use baa::{BitVecMutOps, BitVecValue};
 use clap::Parser;
-use wellen::*;
+use wellen::{stream::SignalValues, *};
 
 use crate::design::Design;
 
@@ -18,7 +18,7 @@ struct Args {
 }
 
 /// Reads a boolean value from a signal.
-fn read_bool(signal: SignalRef, values: &SignalMap<SignalValue>) -> bool {
+fn read_bool(signal: SignalRef, values: &SignalValues) -> bool {
     let value_ref: SignalValueRef = values.get(&signal).unwrap().into();
     if let SignalValueRef::BitVec(b) = value_ref {
         b.get_bit(0).as_ascii() == '1'
@@ -53,12 +53,12 @@ fn main() -> Result<()> {
     let mut probe_values: Vec<BitVecValue> = vec![];
 
     // populate probe_values on the clock's falling edge
-    wav.stream_time_steps(filter, |time, values| {
-        let c = read_bool(design.clk(), values);
+    wav.stream_time_steps(filter, |time, values, _changed| {
+        let c = read_bool(design.clk(), &values);
         if c && !clock_previous {
             let mut value = BitVecValue::zero(signals.len() as u32);
             for (idx, &signal) in signals.iter().enumerate() {
-                let probe_value = read_bool(signal, values);
+                let probe_value = read_bool(signal, &values);
                 if probe_value {
                     value.set_bit(idx as u32);
                 }
@@ -66,8 +66,14 @@ fn main() -> Result<()> {
             probe_values.push(value);
         }
         clock_previous = c;
+        Ok(())
     })
-    .with_context(|| format!("Failed to stream"))?;
+    .map_err(|e| match e {
+        stream::StreamError::Wellen(wellen_error) => {
+            anyhow!(wellen_error)
+        }
+        stream::StreamError::Callback(e) => e,
+    })?;
     println!("Number of clock ticks: {}", probe_values.len());
 
     // Compute the trace (stacks for each active cycle) from probe_values
