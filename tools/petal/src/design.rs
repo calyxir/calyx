@@ -72,22 +72,23 @@ pub struct InvokeId(u32);
 entity_impl!(InvokeId, "invoke");
 
 #[derive(Debug, Clone)]
-/// Represents a group invoking either a component or primitive cell.
-/// TODO: Should we include structural enables here? If so, the type of target would need to change.
+/// Represents a group invoking either a component or primitive cell, or another group (via a structural enable).
 struct Invoke {
     /// The name of the cell being invoked.
     name: String,
     probe: SignalRef,
-    target: CellId,
+    target: InvokeTarget,
     probe_idx: u32,
 }
 
-// TODO: Accommodate structural enables
-// #[derive(Debug, Clone)]
-// enum InvokeTarget {
-//     Cell(CellId),
-//     Group(GroupId),
-// }
+#[derive(Debug, Clone)]
+/// Represents a target of an invoke from a group
+enum InvokeTarget {
+    // Group invokes a component/primitive cell
+    Cell(CellId),
+    // Group invokes a group (structural enable)
+    Group(GroupId),
+}
 
 #[derive(Clone, Debug)]
 /// Represents the static call tree (all possible calls).
