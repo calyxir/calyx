@@ -22,10 +22,10 @@ struct Cell {
     scope: ScopeRef,
     /// Is the cell a primitive?
     is_primitive: bool,
-    /// If the cell is of the main component, contains a ref to the probe (main.go).
-    probe: Option<SignalRef>,
-    /// If the cell is of the main component, contains the bitvector index to the probe (main.go).
-    probe_idx: Option<u32>,
+    /// If the cell is of the main component, contains a ref to main.go and main.done.
+    probes: Option<(SignalRef, SignalRef)>,
+    /// If the cell is of the main component, contains the bitvector index for main.go and main.done.
+    probe_idxs: Option<(u32, u32)>,
     /// Non-empty if the cell is from a user-defined component.
     /// FIXME: might be worth pulling the primitive's original name as well?
     component: String,
@@ -82,6 +82,13 @@ struct Invoke {
     probe_idx: u32,
 }
 
+// TODO: Accommodate structural enables
+// #[derive(Debug, Clone)]
+// enum InvokeTarget {
+//     Cell(CellId),
+//     Group(GroupId),
+// }
+
 #[derive(Clone, Debug)]
 /// Represents the static call tree (all possible calls).
 pub struct Design {
@@ -128,7 +135,9 @@ impl Design {
         values: &BitVecValue,
     ) -> Result<Vec<Stack>> {
         let main = &self.cells[self.main];
-        let main_active = values.is_bit_set(main.probe_idx.unwrap());
+        let (main_go, main_done) = main.probe_idxs.unwrap();
+        let main_active =
+            values.is_bit_set(main_go) & !values.is_bit_set(main_done);
         let mut stacks = vec![];
         if main_active {
             stacks = self.compute_cell(values, self.main, vec![]);
@@ -188,9 +197,10 @@ impl Design {
         mut prefix: Stack,
     ) -> Vec<Stack> {
         let cell = &self.cells[cell_id];
-        if let Some(idx) = cell.probe_idx {
+        if let Some((main_go_idx, main_done_idx)) = cell.probe_idxs {
             // the main component cell is the only one to have a probe_idx.
-            if value.is_bit_set(idx) {
+            if value.is_bit_set(main_go_idx) && !value.is_bit_set(main_done_idx)
+            {
                 prefix.push(cell.display_name());
             } else {
                 return vec![prefix];
@@ -268,8 +278,11 @@ impl Design {
         );
 
         for (_, cell) in self.cells.iter_mut() {
-            if let Some(p) = cell.probe {
-                cell.probe_idx = Some(to_index[&p]);
+            if let Some((main_go_probe, main_done_probe)) = cell.probes {
+                cell.probe_idxs = Some((
+                    to_index[&main_go_probe],
+                    to_index[&main_done_probe],
+                ));
             }
         }
 
@@ -286,8 +299,9 @@ impl Design {
     fn probe_signals(&self) -> Vec<SignalRef> {
         let mut signals = vec![];
         for cell in self.cells.values() {
-            if let Some(p) = cell.probe {
-                signals.push(p);
+            if let Some((main_go_probe, main_done_probe)) = cell.probes {
+                signals.push(main_go_probe);
+                signals.push(main_done_probe);
             }
         }
 
@@ -312,15 +326,16 @@ impl Design {
             .lookup_scope(&[&"toplevel", &"main"])
             .with_context(|| format!("Failed to find main scope"))?;
         let main_go = get_var(h, &h[main_scope], "go")?;
+        let main_done = get_var(h, &h[main_scope], "done")?;
         let mut main_cell = Cell {
             name: "main".to_string(),
             groups: smallvec![],
-            probe: Some(h[main_go].signal_ref()),
+            probes: Some((h[main_go].signal_ref(), h[main_done].signal_ref())),
             scope: main_scope,
             is_primitive: false,
             instances: smallvec![],
             component: String::new(),
-            probe_idx: None,
+            probe_idxs: None,
         };
         self.scan_probes(h, main_scope, &mut main_cell)?;
         self.main = self.cells.push(main_cell);
@@ -407,8 +422,8 @@ impl Design {
                                 is_primitive,
                                 instances: smallvec![],
                                 component: String::new(),
-                                probe: None,
-                                probe_idx: None,
+                                probes: None,
+                                probe_idxs: None,
                             };
                             self.scan_probes(h, scope, &mut cell_instance)?;
                             let cell_id = self.cells.push(cell_instance);
