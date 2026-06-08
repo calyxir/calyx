@@ -10,12 +10,7 @@ component main() -> () {
   }
 
   wires {
-    comb group cond {
-      lt.left = 32'd5;
-      lt.right = 32'd9;
-    }
-
-    group wr_a {
+   group wr_a {
       a.addr0 = 1'b0;
       a.write_en = 1'b1;
       a.write_data = 32'd1;
@@ -23,7 +18,7 @@ component main() -> () {
     }
 
     group wr_b {
-    wr_a[go] = lt.out ? 1'b1;
+    wr_a[go] = 1'b1;
     wr_b[done] = wr_a[done];
     }
   }

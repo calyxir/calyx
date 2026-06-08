@@ -94,6 +94,8 @@ enum InvokeTarget {
 /// Represents the static call tree (all possible calls).
 pub struct Design {
     cells: PrimaryMap<CellId, Cell>,
+    /// groups that are activated from control
+    /// NOTE: Does not include groups that are activated via structural enables.
     groups: PrimaryMap<GroupId, Group>,
     invokes: PrimaryMap<InvokeId, Invoke>,
     main: CellId,
@@ -179,6 +181,17 @@ pub fn parse_probe_name(name: &str) -> Result<ProbeName> {
             group,
             component,
         })
+    } else if let Some(prefix) = name.strip_suffix("_se_probe") {
+        // ex. wr_a___wr_b___main_se_probe
+        let mut parts = prefix.split(pat);
+        let enabled_group = parts.next().unwrap();
+        let caller_group = parts.next().unwrap();
+        let component = parts.next().unwrap();
+        Ok(ProbeName::InvokeGroup {
+            name: enabled_group,
+            group: caller_group,
+            component,
+        })
     } else {
         anyhow::bail!("failed to parse {name}")
     }
@@ -248,20 +261,33 @@ impl Design {
         for &invoke_id in &group.invokes {
             let mut this_thread_prefix = prefix.clone();
             let invoke = &self.invokes[invoke_id];
-            let target_cell_id = invoke.target;
-            let target_cell = &self.cells[target_cell_id];
             if value.is_bit_set(invoke.probe_idx) {
                 // the invoke probe is active
-                this_thread_prefix.push(target_cell.display_name());
-                if target_cell.is_primitive {
-                    out.push(this_thread_prefix);
-                } else {
-                    let mut cell_stack = self.compute_cell(
-                        value,
-                        target_cell_id,
-                        this_thread_prefix.clone(),
-                    );
-                    out.append(&mut cell_stack);
+                match invoke.target {
+                    InvokeTarget::Cell(target_cell_id) => {
+                        // component or primitive cell activation
+                        let target_cell = &self.cells[target_cell_id];
+                        this_thread_prefix.push(target_cell.display_name());
+                        if target_cell.is_primitive {
+                            out.push(this_thread_prefix);
+                        } else {
+                            let mut cell_stacks = self.compute_cell(
+                                value,
+                                target_cell_id,
+                                this_thread_prefix.clone(),
+                            );
+                            out.append(&mut cell_stacks);
+                        }
+                    }
+                    InvokeTarget::Group(target_group_id) => {
+                        // structural enable (group enables another group)
+                        let mut group_stacks = self.compute_group(
+                            value,
+                            target_group_id,
+                            this_thread_prefix.clone(),
+                        );
+                        out.append(&mut group_stacks);
+                    }
                 }
             }
         }
@@ -340,6 +366,7 @@ impl Design {
         };
         self.scan_probes(h, main_scope, &mut main_cell)?;
         self.main = self.cells.push(main_cell);
+        println!("{self:?}");
 
         Ok(())
     }
@@ -351,6 +378,11 @@ impl Design {
         cell_scope: ScopeRef,
         cell: &mut Cell,
     ) -> Result<()> {
+        // cell.groups should not contain any structurally enabled groups.
+        // So, we will hold all of the structurally enabled groups, and only add to cell.groups
+        let mut structurally_invoked_group_names: Vec<String> = vec![];
+        // collection of all groups within this cell. Will filter out those in structurally_invoked_groups
+        let mut all_groups: Vec<GroupId> = vec![];
         let mut parentless_invokes: Vec<(&str, InvokeId)> = vec![];
         for probe_scope in h[cell_scope].scopes(h) {
             let name = h[probe_scope].name(h);
@@ -380,7 +412,59 @@ impl Design {
                             invokes,
                             probe_idx: u32::MAX,
                         });
-                        cell.groups.push(groupid);
+                        all_groups.push(groupid);
+                    }
+                    ProbeName::InvokeGroup {
+                        name,
+                        group,
+                        component,
+                    } => {
+                        assert!(
+                            cell.component.is_empty()
+                                || cell.component == component
+                        );
+                        if cell.component.is_empty() {
+                            cell.component = component.to_string();
+                        }
+                        // check for the target group, and create it if it does not exist.
+                        let maybe_target_group = cell
+                            .groups
+                            .iter()
+                            .find(|&&g| self.groups[g].name == name);
+                        let target = if let Some(&t) = maybe_target_group {
+                            t
+                        } else {
+                            let invokes = parentless_invokes
+                                .extract_if(.., |(group_name, _)| {
+                                    group_name == &name
+                                })
+                                .map(|(_, ii)| ii)
+                                .collect();
+                            let groupid = self.groups.push(Group {
+                                name: name.to_string(),
+                                probe,
+                                invokes,
+                                probe_idx: u32::MAX,
+                            });
+                            structurally_invoked_group_names
+                                .push(name.to_string());
+                            groupid
+                        };
+                        let invoke_id = self.invokes.push(Invoke {
+                            name: name.to_string(),
+                            probe,
+                            target: InvokeTarget::Group(target),
+                            probe_idx: u32::MAX,
+                        });
+                        // Check for the caller group, and add an Invoke entry if it exists.
+                        let maybe_caller_group = all_groups
+                            .iter()
+                            .find(|&&g| self.groups[g].name == group);
+                        if let Some(&group) = maybe_caller_group {
+                            self.groups[group].invokes.push(invoke_id);
+                        } else {
+                            parentless_invokes.push((group, invoke_id))
+                        }
                     }
                     ProbeName::InvokePrimitive {
                         name,
@@ -392,19 +476,18 @@ impl Design {
                         group,
                         component,
                     } => {
-                        let is_primitive = matches!(
-                            probe_name,
-                            ProbeName::InvokePrimitive { .. }
-                        );
                         assert!(
                             cell.component.is_empty()
                                 || cell.component == component
                         );
+                        let is_primitive = matches!(
+                            probe_name,
+                            ProbeName::InvokePrimitive { .. }
+                        );
                         if cell.component.is_empty() {
                             cell.component = component.to_string();
                         }
-                        let maybe_group = cell
-                            .groups
+                        let maybe_group = all_groups
                             .iter()
                             .find(|&&g| self.groups[g].name == group);
                         // create target cell.
@@ -434,7 +517,7 @@ impl Design {
                         let invoke_id = self.invokes.push(Invoke {
                             name: name.to_string(),
                             probe,
-                            target,
+                            target: InvokeTarget::Cell(target),
                             probe_idx: u32::MAX,
                         });
                         if let Some(&group) = maybe_group {
@@ -446,6 +529,23 @@ impl Design {
                 }
             }
         }
+        // Only add groups that are NOT structurally enabled to cell.groups
+        // so that there is no edge from the component cell to any structurally enabled group.
+        println!(
+            "structurally invoked groups: {structurally_invoked_group_names:?}"
+        );
+        for &g in all_groups.iter().filter(|&&g| {
+            !structurally_invoked_group_names.contains(&self.groups[g].name)
+        }) {
+            cell.groups.push(g);
+        }
+        // cell.groups.push(groupid);
+        // let all_groups = cell.groups.clone();
+        // cell.groups = all_groups
+        //     .iter()
+        //     .filter(|&&g| !structurally_invoked_groups.contains(&g))
+        //     .collect();
+        println!("{parentless_invokes:?}");
         assert!(parentless_invokes.is_empty());
         Ok(())
     }
@@ -483,6 +583,13 @@ pub enum ProbeName<'a> {
     },
     InvokeCell {
         name: &'a str,
+        group: &'a str,
+        component: &'a str,
+    },
+    InvokeGroup {
+        // group that is invoked
+        name: &'a str,
+        // group that does the invoking
         group: &'a str,
         component: &'a str,
     },
