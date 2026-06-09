@@ -614,7 +614,7 @@ mod tests {
         assert_eq!(
             parse_probe_name("invoke2UG___main_group_probe").unwrap(),
             ProbeName::Group {
-                group: "invoke2",
+                group: "invoke2UG",
                 component: "main"
             }
         );
@@ -622,7 +622,7 @@ mod tests {
             parse_probe_name("mac___invoke2UG___main_cell_probe").unwrap(),
             ProbeName::InvokeCell {
                 name: "mac",
-                group: "invoke2",
+                group: "invoke2UG",
                 component: "main"
             }
         );
@@ -631,7 +631,15 @@ mod tests {
                 .unwrap(),
             ProbeName::InvokePrimitive {
                 name: "lt0",
-                group: "in_range",
+                group: "in_rangeUG",
+                component: "main"
+            }
+        );
+        assert_eq!(
+            parse_probe_name("wr_a___wr_b___main_se_probe").unwrap(),
+            ProbeName::InvokeGroup {
+                name: "wr_a",
+                group: "wr_b",
                 component: "main"
             }
         );
