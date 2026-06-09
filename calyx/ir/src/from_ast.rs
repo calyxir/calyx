@@ -234,7 +234,6 @@ pub fn ast_to_ir(
         {
             Component::extend_signature(sig);
         }
-        log::debug!("{:?}", comp.name);
         sig_ctx
             .comp_sigs
             .insert(comp.name, (sig.clone(), comp.latency));
@@ -245,6 +244,15 @@ pub fn ast_to_ir(
         .components
         .into_iter()
         .map(|comp| build_component(comp, &mut sig_ctx, config))
+        .collect::<Result<_, _>>()?;
+
+    let decls: Vec<Component> = workspace
+        .declarations
+        .into_iter()
+        .map(|comp| {
+            log::debug!("adding decl {:?}", comp.name);
+            build_component(comp, &mut sig_ctx, config)
+        })
         .collect::<Result<_, _>>()?;
 
     // Find the entrypoint for the program.
@@ -264,6 +272,8 @@ pub fn ast_to_ir(
 
     Ok(Context {
         components: comps,
+        decls,
+        comp_origins: workspace.comp_origins,
         lib: sig_ctx.lib,
         bc: BackendConf::default(),
         entrypoint,

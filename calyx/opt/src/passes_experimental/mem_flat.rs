@@ -16,6 +16,7 @@ struct MemTransformInfo {
 
 pub struct MemFlat {
     mems_to_proc: HashMap<Id, Vec<MemTransformInfo>>,
+    wrapper_map: HashMap<String, calyx_ir::RRC<Cell>>,
 }
 
 impl Named for MemFlat {
@@ -37,9 +38,9 @@ impl ConstructVisitor for MemFlat {
         let dimension_params = ["D0_SIZE", "D1_SIZE", "D2_SIZE", "D3_SIZE"];
         let mut to_constr = Self {
             mems_to_proc: HashMap::new(),
+            wrapper_map: HashMap::new(),
         };
         for comp in ctx.components.iter() {
-            let mut e = None;
             let comp_mems: Vec<MemTransformInfo> = comp
                 .cells
                 .iter()
@@ -61,30 +62,22 @@ impl ConstructVisitor for MemFlat {
                             .collect::<Vec<String>>()
                             .join("x");
                         let sig = format!("fd{}_{spec}", dim_sizes.len());
-                        let matching_wrapper =
-                            ctx.components.iter().find(|c| c.name == sig);
+
                         let is_extern = subcomp
                             .get_attribute(ir::BoolAttr::External)
                             .is_some_and(|x| x == 1);
-                        if matching_wrapper.is_some() {
-                            return Some(MemTransformInfo {
-                                dim_sizes,
-                                width: subcomp.get_parameter("WIDTH").unwrap(),
-                                is_extern,
-                                wrapper_name: sig,
-                                mem_name: subcomp.name(),
-                            });
-                        }
-                        e = Some(Error::misc(format!(
-                            "no wrapper for {n}, expected {sig}"
-                        )));
+
+                        return Some(MemTransformInfo {
+                            dim_sizes,
+                            width: subcomp.get_parameter("WIDTH").unwrap(),
+                            is_extern,
+                            wrapper_name: sig,
+                            mem_name: subcomp.name(),
+                        });
                     }
                     None
                 })
                 .collect();
-            if let Some(err) = e {
-                return Err(err);
-            }
             to_constr.mems_to_proc.insert(comp.name, comp_mems);
         }
         Ok(to_constr)
@@ -92,12 +85,32 @@ impl ConstructVisitor for MemFlat {
     fn clear_data(&mut self) {}
 }
 
-impl Visitor for MemFlat {
+impl<'a> Visitor for MemFlat {
+    fn start_context(&mut self, ctx: &mut calyx_ir::Context) -> VisResult {
+        for (_, mems) in self.mems_to_proc.iter() {
+            for m in mems.iter() {
+                let wrapper_decl =
+                    ctx.decls.iter().find(|c| c.name == m.wrapper_name);
+                if let Some(matching_wrapper) = wrapper_decl {
+                    self.wrapper_map.insert(
+                        m.wrapper_name.clone(),
+                        matching_wrapper.signature.clone(),
+                    );
+                } else {
+                    return Err(Error::misc(format!(
+                        "no wrapper matching {}",
+                        m.wrapper_name,
+                    )));
+                }
+            }
+        }
+        Ok(Action::Continue)
+    }
     fn start(
         &mut self,
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
-        comps: &[ir::Component],
+        _comps: &[ir::Component],
     ) -> VisResult {
         let Some(mems_to_process) = self.mems_to_proc.get(&comp.name) else {
             return Ok(Action::Continue);
@@ -126,16 +139,15 @@ impl Visitor for MemFlat {
                     .remove(ir::BoolAttr::External);
             }
 
-            let wrapper =
-                comps.iter().find(|e| e.name == mem.wrapper_name).unwrap();
-            let mut new_sig = wrapper.signature.borrow().get_signature();
+            let wrapper_cell = self.wrapper_map.get(&mem.wrapper_name).unwrap();
+            let mut new_sig = wrapper_cell.borrow().get_signature();
             new_sig
                 .iter_mut()
                 .for_each(|pd| pd.direction = pd.direction.reverse());
 
             let wrapper_inst_ref = builder.add_component(
                 format!("wrap_{}", mem.mem_name),
-                wrapper.name.to_string(),
+                mem.wrapper_name.to_string(),
                 new_sig,
             );
             let wrapper_inst = wrapper_inst_ref.borrow();
