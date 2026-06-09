@@ -366,8 +366,6 @@ impl Design {
         };
         self.scan_probes(h, main_scope, &mut main_cell)?;
         self.main = self.cells.push(main_cell);
-        println!("{self:?}");
-
         Ok(())
     }
 
@@ -384,6 +382,75 @@ impl Design {
         // collection of all groups within this cell. Will filter out those in structurally_invoked_groups
         let mut all_groups: Vec<GroupId> = vec![];
         let mut parentless_invokes: Vec<(&str, InvokeId)> = vec![];
+        // First pass approach: Iterate through all structural enables first to prevent creating duplicate group entries.
+        // (structurally enabled groups have two probes; the structural enable probe and the group active probe.)
+        for probe_scope in h[cell_scope].scopes(h) {
+            let name = h[probe_scope].name(h);
+            if name.ends_with("_se_probe") {
+                // only grabbing structural enables
+                let out = get_var(h, &h[probe_scope], "out")?;
+                let probe = h[out].signal_ref();
+                let probe_name = parse_probe_name(name)?;
+                match probe_name {
+                    ProbeName::InvokeGroup {
+                        name,
+                        group,
+                        component,
+                    } => {
+                        assert!(
+                            cell.component.is_empty()
+                                || cell.component == component
+                        );
+                        if cell.component.is_empty() {
+                            cell.component = component.to_string();
+                        }
+                        // check for the target group, and create it if it does not exist.
+                        let maybe_target_group = all_groups
+                            .iter()
+                            .find(|&&g| self.groups[g].name == name);
+                        let target = if let Some(&t) = maybe_target_group {
+                            t
+                        } else {
+                            let invokes = parentless_invokes
+                                .extract_if(.., |(group_name, _)| {
+                                    group_name == &name
+                                })
+                                .map(|(_, ii)| ii)
+                                .collect();
+                            let groupid = self.groups.push(Group {
+                                name: name.to_string(),
+                                probe,
+                                invokes,
+                                probe_idx: u32::MAX,
+                            });
+                            all_groups.push(groupid);
+                            structurally_invoked_group_names
+                                .push(name.to_string());
+                            groupid
+                        };
+                        let invoke_id = self.invokes.push(Invoke {
+                            name: name.to_string(),
+                            probe,
+                            target: InvokeTarget::Group(target),
+                            probe_idx: u32::MAX,
+                        });
+                        // Check for the caller group, and add an Invoke entry if it exists.
+                        let maybe_caller_group = all_groups
+                            .iter()
+                            .find(|&&g| self.groups[g].name == group);
+                        if let Some(&group) = maybe_caller_group {
+                            self.groups[group].invokes.push(invoke_id);
+                        } else {
+                            parentless_invokes.push((group, invoke_id))
+                        }
+                    }
+                    _ => {
+                        panic!("{name} should be a structural enable probe!")
+                    }
+                }
+            }
+        }
+        // iterate through all probes in this scope. Structural enable probes will be ignored as they were previously
         for probe_scope in h[cell_scope].scopes(h) {
             let name = h[probe_scope].name(h);
             if name.ends_with("_probe") {
@@ -406,64 +473,16 @@ impl Design {
                             })
                             .map(|(_, ii)| ii)
                             .collect();
-                        let groupid = self.groups.push(Group {
-                            name,
-                            probe,
-                            invokes,
-                            probe_idx: u32::MAX,
-                        });
-                        all_groups.push(groupid);
-                    }
-                    ProbeName::InvokeGroup {
-                        name,
-                        group,
-                        component,
-                    } => {
-                        assert!(
-                            cell.component.is_empty()
-                                || cell.component == component
-                        );
-                        if cell.component.is_empty() {
-                            cell.component = component.to_string();
-                        }
-                        // check for the target group, and create it if it does not exist.
-                        let maybe_target_group = cell
-                            .groups
-                            .iter()
-                            .find(|&&g| self.groups[g].name == name);
-                        let target = if let Some(&t) = maybe_target_group {
-                            t
-                        } else {
-                            let invokes = parentless_invokes
-                                .extract_if(.., |(group_name, _)| {
-                                    group_name == &name
-                                })
-                                .map(|(_, ii)| ii)
-                                .collect();
+                        if !structurally_invoked_group_names.contains(&name) {
+                            // only create a group entry if this group was not structurally enabled.
                             let groupid = self.groups.push(Group {
-                                name: name.to_string(),
+                                name,
                                 probe,
                                 invokes,
                                 probe_idx: u32::MAX,
                             });
-                            structurally_invoked_group_names
-                                .push(name.to_string());
-                            groupid
-                        };
-                        let invoke_id = self.invokes.push(Invoke {
-                            name: name.to_string(),
-                            probe,
-                            target: InvokeTarget::Group(target),
-                            probe_idx: u32::MAX,
-                        });
-                        // Check for the caller group, and add an Invoke entry if it exists.
-                        let maybe_caller_group = all_groups
-                            .iter()
-                            .find(|&&g| self.groups[g].name == group);
-                        if let Some(&group) = maybe_caller_group {
-                            self.groups[group].invokes.push(invoke_id);
-                        } else {
-                            parentless_invokes.push((group, invoke_id))
+                            cell.groups.push(groupid);
+                            all_groups.push(groupid);
                         }
                     }
                     ProbeName::InvokePrimitive {
@@ -526,26 +545,17 @@ impl Design {
                             parentless_invokes.push((group, invoke_id))
                         }
                     }
+                    ProbeName::InvokeGroup {
+                        name: _,
+                        group: _,
+                        component: _,
+                    } => {
+                        // we iterated through all structural enables at the beginning, so we will skip those here.
+                        continue;
+                    }
                 }
             }
         }
-        // Only add groups that are NOT structurally enabled to cell.groups
-        // so that there is no edge from the component cell to any structurally enabled group.
-        println!(
-            "structurally invoked groups: {structurally_invoked_group_names:?}"
-        );
-        for &g in all_groups.iter().filter(|&&g| {
-            !structurally_invoked_group_names.contains(&self.groups[g].name)
-        }) {
-            cell.groups.push(g);
-        }
-        // cell.groups.push(groupid);
-        // let all_groups = cell.groups.clone();
-        // cell.groups = all_groups
-        //     .iter()
-        //     .filter(|&&g| !structurally_invoked_groups.contains(&g))
-        //     .collect();
-        println!("{parentless_invokes:?}");
         assert!(parentless_invokes.is_empty());
         Ok(())
     }
