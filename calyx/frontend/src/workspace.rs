@@ -6,7 +6,7 @@ use crate::{LibrarySignatures, source_info::SourceInfoTable};
 use calyx_utils::{CalyxResult, Error, WithPos};
 use itertools::Itertools;
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
 };
 
@@ -47,6 +47,8 @@ pub struct Workspace {
     pub declarations: Vec<ComponentDef>,
     /// Absolute path to extern definitions and primitives defined by them.
     pub lib: LibrarySignatures,
+    /// maps a canonicalised import to which components it contains.
+    pub comp_origins: HashMap<String, Vec<calyx_utils::Id>>,
     /// Original import statements present in the top-level file.
     pub original_imports: Vec<String>,
     /// Optional opaque metadata attached to the top-level file.
@@ -218,6 +220,11 @@ impl Workspace {
         lib_paths: &[PathBuf],
     ) -> CalyxResult<Vec<(PathBuf, bool)>> {
         // Canonicalize the extern paths and add them
+
+        for import in ns.imports.iter() {
+            log::info!("import: {}", import.to_string());
+        }
+
         for (path, exts) in ns.externs {
             match path {
                 Some(p) => {
@@ -267,15 +274,12 @@ impl Workspace {
             .into_iter()
             .map(|p| {
                 Self::canonicalize_import(p, parent, lib_paths).map(|s| {
-                    let is_source = s
-                        .components()
-                        .find(|e| {
-                            *e == std::path::Component::Normal(
-                                std::ffi::OsStr::new("memwrap.futil"),
-                            )
-                        })
-                        .is_some();
-                    (s, is_source)
+                    // let is_source = s.components().any(|e| {
+                    //     e == std::path::Component::Normal(std::ffi::OsStr::new(
+                    //         "memwrap.futil",
+                    //     ))
+                    // });
+                    (s, false)
                 })
             })
             .collect::<CalyxResult<_>>()?;
@@ -320,17 +324,8 @@ impl Workspace {
             .collect::<CalyxResult<_>>()?;
 
         // Add original imports to workspace
-        ws.original_imports = ns
-            .imports
-            .iter()
-            .filter_map(|imp| {
-                if imp.to_string().contains("memwrap") {
-                    None
-                } else {
-                    Some(imp.to_string())
-                }
-            })
-            .collect();
+        ws.original_imports =
+            ns.imports.iter().map(|imp| imp.to_string()).collect();
 
         // TODO (griffin): Probably not a great idea to clone the metadata
         // string but it works for now
@@ -361,6 +356,10 @@ impl Workspace {
             log::info!("merging p {}: source? {}", p.to_str().unwrap(), source);
 
             let ns = parser::CalyxParser::parse_file(&p)?;
+            ws.comp_origins.insert(
+                String::from(p.to_str().unwrap()),
+                ns.components.iter().map(|c| c.name).collect(),
+            );
             let parent = Self::get_parent(&p);
 
             let mut deps = ws.merge_namespace(
