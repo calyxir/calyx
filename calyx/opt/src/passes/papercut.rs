@@ -3,6 +3,7 @@ use crate::traversal::{
     Action, ConstructVisitor, DiagnosticContext, DiagnosticPass, Named,
     ParseVal, PassOpt, VisResult, Visitor,
 };
+use calyx_ir::utils::{GetMemInfo, external_and_ref_memories_cells};
 use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::{CalyxResult, Error, WithPos};
 use itertools::Itertools;
@@ -206,6 +207,8 @@ impl Visitor for Papercut {
             .map(|cr| cr.borrow().name())
             .collect();
 
+        // check memories
+        self.check_mem(comp);
         Ok(Action::Continue)
     }
 
@@ -367,6 +370,29 @@ impl Papercut {
                     );
                     let err = Error::papercut(msg).with_pos(pos);
                     Self::report(&mut self.diag, self.warning_as_error, err);
+                }
+            }
+        }
+    }
+
+    fn check_mem(&mut self, comp: &ir::Component) {
+        // check bitwidths on memories
+        let mems = external_and_ref_memories_cells(comp);
+        for (memno, mem) in mems.get_mem_info().iter().enumerate() {
+            for (i, dim) in mem.dimension_sizes.iter().enumerate() {
+                let ideal_idx = (*dim as f64).log2().ceil() as u64;
+                if mem.idx_sizes[i] != ideal_idx {
+                    let msg = format!(
+                        "Component {} contains memory {} with incorrectly-sized line addr{}. Use the minimal number of bits to define addresses",
+                        comp.name, mem.name, i
+                    );
+                    // Use dummy Id to get correct source location for error
+                    Self::report(
+                        &mut self.diag,
+                        self.warning_as_error,
+                        Error::papercut(msg)
+                            .with_pos(&mems[memno].borrow().attributes),
+                    );
                 }
             }
         }

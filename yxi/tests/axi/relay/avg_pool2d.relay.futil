@@ -1,0 +1,375 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+import "primitives/binary_operators.futil";
+import "primitives/math.futil";
+component avg_pool2d_2x2x2x2() -> () {
+  cells {
+    ref data = seq_mem_d4(32,2,2,4,4,2,2,3,3);
+    ref result = seq_mem_d4(32,2,2,2,2,2,2,2,2);
+    __avg_0 = std_reg(32);
+    __b0 = std_reg(32);
+    __c0 = std_reg(32);
+    __current_0 = std_reg(32);
+    __m0 = std_reg(32);
+    __n0 = std_reg(32);
+    __pool_area_0 = std_reg(32);
+    __pool_x_0 = std_reg(32);
+    __pool_y_0 = std_reg(32);
+    __stride_x_0 = std_reg(32);
+    __stride_y_0 = std_reg(32);
+    __total_0 = std_reg(32);
+    __x0 = std_reg(32);
+    __y0 = std_reg(32);
+    add0 = std_add(32);
+    add1 = std_add(32);
+    add2 = std_sadd(32);
+    add3 = std_add(32);
+    add4 = std_add(32);
+    add5 = std_add(32);
+    add6 = std_add(32);
+    add7 = std_add(32);
+    add8 = std_add(32);
+    bin_read0_0 = std_reg(32);
+    bin_read1_0 = std_reg(32);
+    bin_read2_0 = std_reg(32);
+    bin_read3_0 = std_reg(32);
+    const0 = std_const(32,2);
+    const1 = std_const(32,2);
+    const10 = std_const(32,2);
+    const11 = std_const(32,2);
+    const12 = std_const(32,0);
+    const13 = std_const(32,0);
+    const14 = std_const(32,1);
+    const15 = std_const(32,0);
+    const16 = std_const(32,1);
+    const17 = std_const(32,1);
+    const18 = std_const(32,1);
+    const19 = std_const(32,1);
+    const2 = std_const(32,0);
+    const20 = std_const(32,1);
+    const21 = std_const(32,1);
+    const22 = std_const(32,1);
+    const3 = std_const(32,1);
+    const4 = std_const(32,0);
+    const5 = std_const(32,1);
+    const6 = std_const(32,0);
+    const7 = std_const(32,1);
+    const8 = std_const(32,0);
+    const9 = std_const(32,1);
+    div_pipe0 = std_sdiv_pipe(32);
+    le0 = std_le(32);
+    le1 = std_le(32);
+    le2 = std_le(32);
+    le3 = std_le(32);
+    le4 = std_le(32);
+    le5 = std_le(32);
+    mult_pipe0 = std_smult_pipe(32);
+    mult_pipe1 = std_mult_pipe(32);
+    mult_pipe2 = std_mult_pipe(32);
+    slice0 = std_slice(32,2);
+    slice1 = std_slice(32,2);
+    slice2 = std_slice(32,3);
+    slice3 = std_slice(32,3);
+    slice4 = std_slice(32,2);
+    slice5 = std_slice(32,2);
+    slice6 = std_slice(32,2);
+    slice7 = std_slice(32,2);
+  }
+  wires {
+    comb group cond0 {
+      le0.left = __b0.out;
+      le0.right = const3.out;
+    }
+    comb group cond1 {
+      le1.left = __c0.out;
+      le1.right = const5.out;
+    }
+    comb group cond2 {
+      le2.left = __y0.out;
+      le2.right = const7.out;
+    }
+    comb group cond3 {
+      le3.left = __x0.out;
+      le3.right = const9.out;
+    }
+    comb group cond4 {
+      le4.left = __m0.out;
+      le4.right = const14.out;
+    }
+    comb group cond5 {
+      le5.left = __n0.out;
+      le5.right = const16.out;
+    }
+    group let0<"promotable"=4> {
+      bin_read0_0.in = mult_pipe0.out;
+      bin_read0_0.write_en = mult_pipe0.done;
+      let0[done] = bin_read0_0.done;
+      mult_pipe0.left = const0.out;
+      mult_pipe0.right = const1.out;
+      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
+    }
+    group let1<"promotable"=1> {
+      __pool_area_0.in = bin_read0_0.out;
+      __pool_area_0.write_en = 1'd1;
+      let1[done] = __pool_area_0.done;
+    }
+    group let10<"promotable"=1> {
+      __total_0.in = const12.out;
+      __total_0.write_en = 1'd1;
+      let10[done] = __total_0.done;
+    }
+    group let11<"promotable"=1> {
+      __m0.in = const13.out;
+      __m0.write_en = 1'd1;
+      let11[done] = __m0.done;
+    }
+    group let12<"promotable"=1> {
+      __n0.in = const15.out;
+      __n0.write_en = 1'd1;
+      let12[done] = __n0.done;
+    }
+    group let13<"promotable"=1> {
+      __pool_y_0.in = add0.out;
+      __pool_y_0.write_en = 1'd1;
+      let13[done] = __pool_y_0.done;
+      add0.left = __stride_y_0.out;
+      add0.right = __m0.out;
+    }
+    group let14<"promotable"=1> {
+      __pool_x_0.in = add1.out;
+      __pool_x_0.write_en = 1'd1;
+      let14[done] = __pool_x_0.done;
+      add1.left = __stride_x_0.out;
+      add1.right = __n0.out;
+    }
+    group let15<"promotable"=2> {
+      __current_0.in = data.read_data;
+      __current_0.write_en = data.done;
+      let15[done] = __current_0.done;
+      data.content_en = 1'd1;
+      data.addr3 = slice3.out;
+      slice3.in = __pool_x_0.out;
+      data.addr2 = slice2.out;
+      slice2.in = __pool_y_0.out;
+      data.addr1 = slice1.out;
+      slice1.in = __c0.out;
+      data.addr0 = slice0.out;
+      slice0.in = __b0.out;
+    }
+    group let16 {
+      bin_read3_0.in = div_pipe0.out_quotient;
+      bin_read3_0.write_en = div_pipe0.done;
+      let16[done] = bin_read3_0.done;
+      div_pipe0.left = __total_0.out;
+      div_pipe0.right = __pool_area_0.out;
+      div_pipe0.go = !div_pipe0.done ? 1'd1;
+    }
+    group let17<"promotable"=1> {
+      __avg_0.in = bin_read3_0.out;
+      __avg_0.write_en = 1'd1;
+      let17[done] = __avg_0.done;
+    }
+    group let2<"promotable"=1> {
+      __b0.in = const2.out;
+      __b0.write_en = 1'd1;
+      let2[done] = __b0.done;
+    }
+    group let3<"promotable"=1> {
+      __c0.in = const4.out;
+      __c0.write_en = 1'd1;
+      let3[done] = __c0.done;
+    }
+    group let4<"promotable"=1> {
+      __y0.in = const6.out;
+      __y0.write_en = 1'd1;
+      let4[done] = __y0.done;
+    }
+    group let5<"promotable"=1> {
+      __x0.in = const8.out;
+      __x0.write_en = 1'd1;
+      let5[done] = __x0.done;
+    }
+    group let6<"promotable"=4> {
+      bin_read1_0.in = mult_pipe1.out;
+      bin_read1_0.write_en = mult_pipe1.done;
+      let6[done] = bin_read1_0.done;
+      mult_pipe1.left = __y0.out;
+      mult_pipe1.right = const10.out;
+      mult_pipe1.go = !mult_pipe1.done ? 1'd1;
+    }
+    group let7<"promotable"=1> {
+      __stride_y_0.in = bin_read1_0.out;
+      __stride_y_0.write_en = 1'd1;
+      let7[done] = __stride_y_0.done;
+    }
+    group let8<"promotable"=4> {
+      bin_read2_0.in = mult_pipe2.out;
+      bin_read2_0.write_en = mult_pipe2.done;
+      let8[done] = bin_read2_0.done;
+      mult_pipe2.left = __x0.out;
+      mult_pipe2.right = const11.out;
+      mult_pipe2.go = !mult_pipe2.done ? 1'd1;
+    }
+    group let9<"promotable"=1> {
+      __stride_x_0.in = bin_read2_0.out;
+      __stride_x_0.write_en = 1'd1;
+      let9[done] = __stride_x_0.done;
+    }
+    group upd0<"promotable"=1> {
+      __total_0.write_en = 1'd1;
+      add2.left = __total_0.out;
+      add2.right = __current_0.out;
+      __total_0.in = add2.out;
+      upd0[done] = __total_0.done;
+    }
+    group upd1<"promotable"=1> {
+      __n0.write_en = 1'd1;
+      add3.left = __n0.out;
+      add3.right = const17.out;
+      __n0.in = add3.out;
+      upd1[done] = __n0.done;
+    }
+    group upd2<"promotable"=1> {
+      __m0.write_en = 1'd1;
+      add4.left = __m0.out;
+      add4.right = const18.out;
+      __m0.in = add4.out;
+      upd2[done] = __m0.done;
+    }
+    group upd3<"promotable"=1> {
+      result.content_en = 1'd1;
+      result.addr3 = slice7.out;
+      slice7.in = __x0.out;
+      result.addr2 = slice6.out;
+      slice6.in = __y0.out;
+      result.addr1 = slice5.out;
+      slice5.in = __c0.out;
+      result.addr0 = slice4.out;
+      slice4.in = __b0.out;
+      result.write_en = 1'd1;
+      result.write_data = __avg_0.out;
+      upd3[done] = result.done;
+    }
+    group upd4<"promotable"=1> {
+      __x0.write_en = 1'd1;
+      add5.left = __x0.out;
+      add5.right = const19.out;
+      __x0.in = add5.out;
+      upd4[done] = __x0.done;
+    }
+    group upd5<"promotable"=1> {
+      __y0.write_en = 1'd1;
+      add6.left = __y0.out;
+      add6.right = const20.out;
+      __y0.in = add6.out;
+      upd5[done] = __y0.done;
+    }
+    group upd6<"promotable"=1> {
+      __c0.write_en = 1'd1;
+      add7.left = __c0.out;
+      add7.right = const21.out;
+      __c0.in = add7.out;
+      upd6[done] = __c0.done;
+    }
+    group upd7<"promotable"=1> {
+      __b0.write_en = 1'd1;
+      add8.left = __b0.out;
+      add8.right = const22.out;
+      __b0.in = add8.out;
+      upd7[done] = __b0.done;
+    }
+  }
+  control {
+    seq {
+      let0;
+      let1;
+      @pos(0) let2;
+      @bound(2) while le0.out with cond0 {
+        seq {
+          @pos(1) let3;
+          @bound(2) while le1.out with cond1 {
+            seq {
+              @pos(2) let4;
+              @bound(2) while le2.out with cond2 {
+                seq {
+                  @pos(3) let5;
+                  @bound(2) while le3.out with cond3 {
+                    seq {
+                      par {
+                        seq {
+                          let6;
+                          let7;
+                        }
+                        seq {
+                          let8;
+                          let9;
+                        }
+                        @pos(4) let10;
+                      }
+                      @pos(5) let11;
+                      @bound(2) while le4.out with cond4 {
+                        seq {
+                          @pos(6) let12;
+                          @bound(2) while le5.out with cond5 {
+                            seq {
+                              par {
+                                @pos(7) let13;
+                                @pos(8) let14;
+                              }
+                              @pos(9) let15;
+                              @pos(10) upd0;
+                              @pos(6) upd1;
+                            }
+                          }
+                          @pos(5) upd2;
+                        }
+                      }
+                      let16;
+                      let17;
+                      @pos(11) upd3;
+                      @pos(3) upd4;
+                    }
+                  }
+                  @pos(2) upd5;
+                }
+              }
+              @pos(1) upd6;
+            }
+          }
+          @pos(0) upd7;
+        }
+      }
+    }
+  }
+}
+
+component main<"pos"={4}>() -> () {
+  cells {
+    @external @pos{0} data = seq_mem_d4(32, 2, 2, 4, 4, 2, 2, 3, 3);
+    @external @pos{0} result = seq_mem_d4(32, 2, 2, 2, 2, 2, 2, 2, 2);
+    @pos{1} avg_pool2d_2x2x2x2_ = avg_pool2d_2x2x2x2();
+  }
+  wires {
+
+  }
+  control {
+    @pos{3} seq {
+      @pos{2} @pos(0) invoke avg_pool2d_2x2x2x2_[data=data, result=result]()();
+    }
+  }
+}
+metadata #{
+0: let %result: Tensor[(2, 2, 2, 2), int32] /* ty=Tensor[(2, 2, 2, 2), int32] span=from_string:4:3 */ = nn.avg_pool2d(%data, pool_size=[2, 2], strides=[2, 2], padding=[0, 0, 0, 0]) /* ty=Tensor[(2, 2, 2, 2), int32] span=from_string:3:48 */;
+}#
+
+sourceinfo #{
+FILES 
+  0: relay_utils.py
+  1: relay_visitor.py
+POSITIONS 
+  0: 0 157
+  1: 1 277
+  2: 0 117
+  3: 1 394
+  4: 1 389
+}#

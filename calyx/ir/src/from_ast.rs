@@ -246,6 +246,15 @@ pub fn ast_to_ir(
         .map(|comp| build_component(comp, &mut sig_ctx, config))
         .collect::<Result<_, _>>()?;
 
+    let decls: Vec<Component> = workspace
+        .declarations
+        .into_iter()
+        .map(|comp| {
+            log::debug!("adding decl {:?}", comp.name);
+            build_component(comp, &mut sig_ctx, config)
+        })
+        .collect::<Result<_, _>>()?;
+
     // Find the entrypoint for the program.
     let entrypoint = comps
         .iter()
@@ -254,8 +263,17 @@ pub fn ast_to_ir(
         .map(|c| c.name)
         .ok_or_else(|| Error::misc("No entry point for the program. Program needs to be either mark a component with the \"toplevel\" attribute or define a component named `main`".to_string()))?;
 
+    // for pr in sig_ctx.lib.prim_infos() {
+    //     log::debug!("lib: {:?}", pr);
+    // }
+    for c in comps.iter() {
+        log::debug!("comp name: {:?}", c.name)
+    }
+
     Ok(Context {
         components: comps,
+        decls,
+        comp_origins: workspace.comp_origins,
         lib: sig_ctx.lib,
         bc: BackendConf::default(),
         entrypoint,

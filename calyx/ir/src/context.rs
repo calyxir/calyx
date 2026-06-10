@@ -1,6 +1,8 @@
 //! An IR context. This is the top-level object for an IR and contains all information
 //! need to transform, lower, an emit a program.
 //! Passes usually have transform/analyze the components in the IR.
+use std::collections::HashMap;
+
 use super::{Component, Id};
 use calyx_frontend::{LibrarySignatures, source_info::SourceInfoTable};
 
@@ -23,6 +25,12 @@ pub struct BackendConf {
 pub struct Context {
     /// The components for this program.
     pub components: Vec<Component>,
+
+    /// The declarations in this program. These are stubbed signatures
+    pub decls: Vec<Component>,
+    /// maps a canonicalised import to which components it contains.
+    pub comp_origins: HashMap<String, Vec<calyx_utils::Id>>,
+
     /// Library definitions imported by the program.
     pub lib: LibrarySignatures,
     /// Entrypoint for the program

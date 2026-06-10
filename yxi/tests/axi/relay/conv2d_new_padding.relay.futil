@@ -1,0 +1,435 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+import "primitives/binary_operators.futil";
+import "primitives/math.futil";
+component conv2d_1x2x3x3() -> () {
+  cells {
+    ref data = seq_mem_d4(32,1,2,2,2,1,2,2,2);
+    ref weight = seq_mem_d4(32,2,2,1,1,2,2,1,1);
+    ref x = seq_mem_d4(32,1,2,3,3,1,2,2,2);
+    __b0 = std_reg(32);
+    __c0 = std_reg(32);
+    __dx0 = std_reg(32);
+    __dy0 = std_reg(32);
+    __k0 = std_reg(32);
+    __kernel_x_0 = std_reg(32);
+    __kernel_y_0 = std_reg(32);
+    __padded_tensor_val_0 = std_reg(32);
+    __sum_0 = std_reg(32);
+    __x0 = std_reg(32);
+    __y0 = std_reg(32);
+    add0 = std_add(32);
+    add1 = std_add(32);
+    add2 = std_sadd(32);
+    add3 = std_add(32);
+    add4 = std_add(32);
+    add5 = std_add(32);
+    add6 = std_add(32);
+    add7 = std_add(32);
+    add8 = std_add(32);
+    add9 = std_add(32);
+    and0 = std_and(1);
+    and1 = std_and(1);
+    and2 = std_and(1);
+    bin_read0_0 = std_reg(32);
+    bin_read1_0 = std_reg(32);
+    bin_read2_0 = std_reg(32);
+    const0 = std_const(32,0);
+    const1 = std_const(32,0);
+    const10 = std_const(32,1);
+    const11 = std_const(32,0);
+    const12 = std_const(32,0);
+    const13 = std_const(32,0);
+    const14 = std_const(32,0);
+    const15 = std_const(32,2);
+    const16 = std_const(32,2);
+    const17 = std_const(32,0);
+    const18 = std_const(32,2);
+    const19 = std_const(32,4);
+    const2 = std_const(32,0);
+    const20 = std_const(32,2);
+    const21 = std_const(32,4);
+    const22 = std_const(32,2);
+    const23 = std_const(32,2);
+    const24 = std_const(32,1);
+    const25 = std_const(32,1);
+    const26 = std_const(32,1);
+    const27 = std_const(32,1);
+    const28 = std_const(32,1);
+    const29 = std_const(32,1);
+    const3 = std_const(32,1);
+    const30 = std_const(32,1);
+    const4 = std_const(32,0);
+    const5 = std_const(32,2);
+    const6 = std_const(32,0);
+    const7 = std_const(32,2);
+    const8 = std_const(32,0);
+    const9 = std_const(32,0);
+    data_read0_0 = std_reg(32);
+    ge0 = std_ge(32);
+    ge1 = std_ge(32);
+    le0 = std_le(32);
+    le1 = std_le(32);
+    le2 = std_le(32);
+    le3 = std_le(32);
+    le4 = std_le(32);
+    le5 = std_le(32);
+    le6 = std_le(32);
+    lt0 = std_lt(32);
+    lt1 = std_lt(32);
+    mult_pipe0 = std_mult_pipe(32);
+    mult_pipe1 = std_mult_pipe(32);
+    mult_pipe2 = std_smult_pipe(32);
+    slice0 = std_slice(32,1);
+    slice1 = std_slice(32,2);
+    slice10 = std_slice(32,2);
+    slice11 = std_slice(32,2);
+    slice2 = std_slice(32,2);
+    slice3 = std_slice(32,2);
+    slice4 = std_slice(32,2);
+    slice5 = std_slice(32,2);
+    slice6 = std_slice(32,1);
+    slice7 = std_slice(32,1);
+    slice8 = std_slice(32,1);
+    slice9 = std_slice(32,2);
+    sub0 = std_sub(32);
+    sub1 = std_sub(32);
+    weight_read0_0 = std_reg(32);
+  }
+  wires {
+    comb group cond0 {
+      le0.left = __b0.out;
+      le0.right = const1.out;
+    }
+    comb group cond1 {
+      le1.left = __c0.out;
+      le1.right = const3.out;
+    }
+    comb group cond2 {
+      le2.left = __y0.out;
+      le2.right = const5.out;
+    }
+    comb group cond3 {
+      le3.left = __x0.out;
+      le3.right = const7.out;
+    }
+    comb group cond4 {
+      le4.left = __k0.out;
+      le4.right = const10.out;
+    }
+    comb group cond5 {
+      le5.left = __dy0.out;
+      le5.right = const12.out;
+    }
+    comb group cond6 {
+      le6.left = __dx0.out;
+      le6.right = const14.out;
+    }
+    comb group cond7 {
+      and2.left = and1.out;
+      and2.right = lt1.out;
+      and1.left = and0.out;
+      and1.right = ge1.out;
+      and0.left = ge0.out;
+      and0.right = lt0.out;
+      ge0.left = __kernel_y_0.out;
+      ge0.right = const18.out;
+      lt0.left = __kernel_y_0.out;
+      lt0.right = const19.out;
+      ge1.left = __kernel_x_0.out;
+      ge1.right = const20.out;
+      lt1.left = __kernel_x_0.out;
+      lt1.right = const21.out;
+    }
+    group let0<"promotable"=1> {
+      __b0.in = const0.out;
+      __b0.write_en = 1'd1;
+      let0[done] = __b0.done;
+    }
+    group let1<"promotable"=1> {
+      __c0.in = const2.out;
+      __c0.write_en = 1'd1;
+      let1[done] = __c0.done;
+    }
+    group let10<"promotable"=4> {
+      bin_read1_0.in = mult_pipe1.out;
+      bin_read1_0.write_en = mult_pipe1.done;
+      let10[done] = bin_read1_0.done;
+      mult_pipe1.left = const16.out;
+      mult_pipe1.right = __x0.out;
+      mult_pipe1.go = !mult_pipe1.done ? 1'd1;
+    }
+    group let11<"promotable"=1> {
+      __kernel_x_0.in = add1.out;
+      __kernel_x_0.write_en = 1'd1;
+      let11[done] = __kernel_x_0.done;
+      add1.left = bin_read1_0.out;
+      add1.right = __dx0.out;
+    }
+    group let12<"promotable"=1> {
+      __padded_tensor_val_0.in = const17.out;
+      __padded_tensor_val_0.write_en = 1'd1;
+      let12[done] = __padded_tensor_val_0.done;
+    }
+    group let13<"promotable"=2> {
+      data_read0_0.in = data.read_data;
+      data_read0_0.write_en = data.done;
+      let13[done] = data_read0_0.done;
+      data.content_en = 1'd1;
+      data.addr3 = slice3.out;
+      slice3.in = sub1.out;
+      sub1.left = __kernel_x_0.out;
+      sub1.right = const23.out;
+      data.addr2 = slice2.out;
+      slice2.in = sub0.out;
+      sub0.left = __kernel_y_0.out;
+      sub0.right = const22.out;
+      data.addr1 = slice1.out;
+      slice1.in = __k0.out;
+      data.addr0 = slice0.out;
+      slice0.in = __b0.out;
+    }
+    group let14<"promotable"=2> {
+      weight_read0_0.in = weight.read_data;
+      weight_read0_0.write_en = weight.done;
+      let14[done] = weight_read0_0.done;
+      weight.content_en = 1'd1;
+      weight.addr3 = slice7.out;
+      slice7.in = __dx0.out;
+      weight.addr2 = slice6.out;
+      slice6.in = __dy0.out;
+      weight.addr1 = slice5.out;
+      slice5.in = __k0.out;
+      weight.addr0 = slice4.out;
+      slice4.in = __c0.out;
+    }
+    group let15<"promotable"=4> {
+      bin_read2_0.in = mult_pipe2.out;
+      bin_read2_0.write_en = mult_pipe2.done;
+      let15[done] = bin_read2_0.done;
+      mult_pipe2.left = __padded_tensor_val_0.out;
+      mult_pipe2.right = weight_read0_0.out;
+      mult_pipe2.go = !mult_pipe2.done ? 1'd1;
+    }
+    group let2<"promotable"=1> {
+      __y0.in = const4.out;
+      __y0.write_en = 1'd1;
+      let2[done] = __y0.done;
+    }
+    group let3<"promotable"=1> {
+      __x0.in = const6.out;
+      __x0.write_en = 1'd1;
+      let3[done] = __x0.done;
+    }
+    group let4<"promotable"=1> {
+      __sum_0.in = const8.out;
+      __sum_0.write_en = 1'd1;
+      let4[done] = __sum_0.done;
+    }
+    group let5<"promotable"=1> {
+      __k0.in = const9.out;
+      __k0.write_en = 1'd1;
+      let5[done] = __k0.done;
+    }
+    group let6<"promotable"=1> {
+      __dy0.in = const11.out;
+      __dy0.write_en = 1'd1;
+      let6[done] = __dy0.done;
+    }
+    group let7<"promotable"=1> {
+      __dx0.in = const13.out;
+      __dx0.write_en = 1'd1;
+      let7[done] = __dx0.done;
+    }
+    group let8<"promotable"=4> {
+      bin_read0_0.in = mult_pipe0.out;
+      bin_read0_0.write_en = mult_pipe0.done;
+      let8[done] = bin_read0_0.done;
+      mult_pipe0.left = const15.out;
+      mult_pipe0.right = __y0.out;
+      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
+    }
+    group let9<"promotable"=1> {
+      __kernel_y_0.in = add0.out;
+      __kernel_y_0.write_en = 1'd1;
+      let9[done] = __kernel_y_0.done;
+      add0.left = bin_read0_0.out;
+      add0.right = __dy0.out;
+    }
+    group upd0<"promotable"=1> {
+      __padded_tensor_val_0.write_en = 1'd1;
+      __padded_tensor_val_0.in = data_read0_0.out;
+      upd0[done] = __padded_tensor_val_0.done;
+    }
+    group upd1<"promotable"=1> {
+      __sum_0.write_en = 1'd1;
+      add2.left = __sum_0.out;
+      add2.right = bin_read2_0.out;
+      __sum_0.in = add2.out;
+      upd1[done] = __sum_0.done;
+    }
+    group upd2<"promotable"=1> {
+      __dx0.write_en = 1'd1;
+      add3.left = __dx0.out;
+      add3.right = const24.out;
+      __dx0.in = add3.out;
+      upd2[done] = __dx0.done;
+    }
+    group upd3<"promotable"=1> {
+      __dy0.write_en = 1'd1;
+      add4.left = __dy0.out;
+      add4.right = const25.out;
+      __dy0.in = add4.out;
+      upd3[done] = __dy0.done;
+    }
+    group upd4<"promotable"=1> {
+      __k0.write_en = 1'd1;
+      add5.left = __k0.out;
+      add5.right = const26.out;
+      __k0.in = add5.out;
+      upd4[done] = __k0.done;
+    }
+    group upd5<"promotable"=1> {
+      x.content_en = 1'd1;
+      x.addr3 = slice11.out;
+      slice11.in = __x0.out;
+      x.addr2 = slice10.out;
+      slice10.in = __y0.out;
+      x.addr1 = slice9.out;
+      slice9.in = __c0.out;
+      x.addr0 = slice8.out;
+      slice8.in = __b0.out;
+      x.write_en = 1'd1;
+      x.write_data = __sum_0.out;
+      upd5[done] = x.done;
+    }
+    group upd6<"promotable"=1> {
+      __x0.write_en = 1'd1;
+      add6.left = __x0.out;
+      add6.right = const27.out;
+      __x0.in = add6.out;
+      upd6[done] = __x0.done;
+    }
+    group upd7<"promotable"=1> {
+      __y0.write_en = 1'd1;
+      add7.left = __y0.out;
+      add7.right = const28.out;
+      __y0.in = add7.out;
+      upd7[done] = __y0.done;
+    }
+    group upd8<"promotable"=1> {
+      __c0.write_en = 1'd1;
+      add8.left = __c0.out;
+      add8.right = const29.out;
+      __c0.in = add8.out;
+      upd8[done] = __c0.done;
+    }
+    group upd9<"promotable"=1> {
+      __b0.write_en = 1'd1;
+      add9.left = __b0.out;
+      add9.right = const30.out;
+      __b0.in = add9.out;
+      upd9[done] = __b0.done;
+    }
+  }
+  control {
+    seq {
+      @pos(0) let0;
+      @bound(1) while le0.out with cond0 {
+        seq {
+          @pos(1) let1;
+          @bound(2) while le1.out with cond1 {
+            seq {
+              @pos(2) let2;
+              @bound(3) while le2.out with cond2 {
+                seq {
+                  @pos(3) let3;
+                  @bound(3) while le3.out with cond3 {
+                    seq {
+                      @pos(4) let4;
+                      @pos(5) let5;
+                      @bound(2) while le4.out with cond4 {
+                        seq {
+                          @pos(6) let6;
+                          @bound(1) while le5.out with cond5 {
+                            seq {
+                              @pos(7) let7;
+                              @bound(1) while le6.out with cond6 {
+                                seq {
+                                  par {
+                                    seq {
+                                      let8;
+                                      let9;
+                                    }
+                                    seq {
+                                      let10;
+                                      let11;
+                                    }
+                                  }
+                                  @pos(8) let12;
+                                  if and2.out with cond7 {
+                                    seq {
+                                      @pos(9) let13;
+                                      @pos(10) upd0;
+                                    }
+                                  }
+                                  @pos(11) let14;
+                                  let15;
+                                  upd1;
+                                  @pos(7) upd2;
+                                }
+                              }
+                              @pos(6) upd3;
+                            }
+                          }
+                          @pos(5) upd4;
+                        }
+                      }
+                      @pos(12) upd5;
+                      @pos(3) upd6;
+                    }
+                  }
+                  @pos(2) upd7;
+                }
+              }
+              @pos(1) upd8;
+            }
+          }
+          @pos(0) upd9;
+        }
+      }
+    }
+  }
+}
+
+component main<"pos"={4}>() -> () {
+  cells {
+    @external @pos{0} data = seq_mem_d4(32, 1, 2, 2, 2, 1, 2, 2, 2);
+    @external @pos{0} weight = seq_mem_d4(32, 2, 2, 1, 1, 2, 2, 1, 1);
+    @external @pos{0} x = seq_mem_d4(32, 1, 2, 3, 3, 1, 2, 2, 2);
+    @pos{1} conv2d_1x2x3x3_ = conv2d_1x2x3x3();
+  }
+  wires {
+
+  }
+  control {
+    @pos{3} seq {
+      @pos{2} @pos(0) invoke conv2d_1x2x3x3_[data=data, weight=weight, x=x]()();
+    }
+  }
+}
+metadata #{
+0: let %x: Tensor[(1, 2, 3, 3), int32] /* ty=Tensor[(1, 2, 3, 3), int32] span=from_string:4:3 */ = nn.conv2d(%data, %weight, strides=[2, 2], padding=[2, 2, 2, 2], kernel_size=[1, 1]) /* ty=Tensor[(1, 2, 3, 3), int32] span=from_string:3:12 */;
+}#
+
+sourceinfo #{
+FILES 
+  0: relay_utils.py
+  1: relay_visitor.py
+POSITIONS 
+  0: 0 157
+  1: 1 277
+  2: 0 117
+  3: 1 394
+  4: 1 389
+}#
