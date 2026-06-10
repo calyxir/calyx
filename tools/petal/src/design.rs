@@ -19,7 +19,7 @@ struct Cell {
     /// NOTE: Primitive cells should have an empty vec here.
     groups: SmallVec<[GroupId; 6]>,
     /// The scope of the cell in the RTL trace.
-    scope: ScopeRef,
+    _scope: ScopeRef,
     /// Is the cell a primitive?
     is_primitive: bool,
     /// If the cell is of the main component, contains a ref to main.go and main.done.
@@ -75,7 +75,7 @@ entity_impl!(InvokeId, "invoke");
 /// Represents a group invoking either a component or primitive cell, or another group (via a structural enable).
 struct Invoke {
     /// The name of the cell being invoked.
-    name: String,
+    _name: String,
     probe: SignalRef,
     target: InvokeTarget,
     probe_idx: u32,
@@ -107,7 +107,7 @@ impl Design {
     pub fn new(h: &wellen::Hierarchy) -> Result<Self> {
         let main = h
             .lookup_scope(&[&"toplevel", &"main"])
-            .with_context(|| format!("Failed to find main scope"))?;
+            .with_context(|| "Failed to find main scope")?;
         let clk = get_var(h, &h[main], "clk")?;
         let clk = h[clk].signal_ref();
         let mut out = Self {
@@ -151,7 +151,7 @@ impl Design {
     }
 }
 
-pub fn parse_probe_name(name: &str) -> Result<ProbeName> {
+pub fn parse_probe_name(name: &str) -> Result<ProbeName<'_>> {
     let pat = "___";
     if let Some(prefix) = name.strip_suffix("_group_probe") {
         // ex. invoke2UG___main_group_probe
@@ -351,14 +351,14 @@ impl Design {
     fn populate(&mut self, h: &wellen::Hierarchy) -> Result<()> {
         let main_scope = h
             .lookup_scope(&[&"toplevel", &"main"])
-            .with_context(|| format!("Failed to find main scope"))?;
+            .with_context(|| "Failed to find main scope")?;
         let main_go = get_var(h, &h[main_scope], "go")?;
         let main_done = get_var(h, &h[main_scope], "done")?;
         let mut main_cell = Cell {
             name: "main".to_string(),
             groups: smallvec![],
             probes: Some((h[main_go].signal_ref(), h[main_done].signal_ref())),
-            scope: main_scope,
+            _scope: main_scope,
             is_primitive: false,
             instances: smallvec![],
             component: String::new(),
@@ -429,7 +429,7 @@ impl Design {
                             groupid
                         };
                         let invoke_id = self.invokes.push(Invoke {
-                            name: name.to_string(),
+                            _name: name.to_string(),
                             probe,
                             target: InvokeTarget::Group(target),
                             probe_idx: u32::MAX,
@@ -517,11 +517,11 @@ impl Design {
                         let target = if let Some(&t) = maybe_target {
                             t
                         } else {
-                            let scope = get_scope(h, &h[cell_scope], &name)?;
+                            let scope = get_scope(h, &h[cell_scope], name)?;
                             let mut cell_instance = Cell {
                                 name: name.to_string(),
                                 groups: smallvec![],
-                                scope,
+                                _scope: scope,
                                 is_primitive,
                                 instances: smallvec![],
                                 component: String::new(),
@@ -534,7 +534,7 @@ impl Design {
                             cell_id
                         };
                         let invoke_id = self.invokes.push(Invoke {
-                            name: name.to_string(),
+                            _name: name.to_string(),
                             probe,
                             target: InvokeTarget::Cell(target),
                             probe_idx: u32::MAX,

@@ -19,7 +19,7 @@ struct Args {
 
 /// Reads a boolean value from a signal.
 fn read_bool(signal: SignalRef, values: &SignalValues) -> bool {
-    let value_ref: SignalValueRef = values.get(&signal).unwrap().into();
+    let value_ref: SignalValueRef = values.get(&signal).unwrap();
     if let SignalValueRef::BitVec(b) = value_ref {
         b.get_bit(0).as_ascii() == '1'
     } else {
@@ -53,7 +53,7 @@ fn main() -> Result<()> {
     let mut probe_values: Vec<BitVecValue> = vec![];
 
     // populate probe_values on the clock's falling edge
-    wav.stream_time_steps(filter, |time, values, _changed| {
+    wav.stream_time_steps(filter, |_time, values, _changed| {
         let c = read_bool(design.clk(), &values);
         if c && !clock_previous {
             let mut value = BitVecValue::zero(signals.len() as u32);
@@ -78,7 +78,7 @@ fn main() -> Result<()> {
 
     // Compute the trace (stacks for each active cycle) from probe_values
     let mut cycle_count = -1;
-    for (_, value) in probe_values.iter().enumerate() {
+    for value in probe_values.iter() {
         // .take(15) // for debugging
         let stacks = design.compute_cycle_trace(value)?;
         if !stacks.is_empty() {
