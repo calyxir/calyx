@@ -718,3 +718,18 @@ cmd = """
  fud2 axi-wrapped.futil --from calyx --to verilog-noverify -o axi-wrapped.v 2> /dev/null && \
  fud2 axi-wrapped.v --from verilog-noverify --to cocotb-axi --set sim.data=${dirname}/../vectorized-add.data 2> /dev/null
  """
+
+### Profiling test
+[[tests]]
+name = "Petal rust implementation"
+paths = ["tools/petal/test/*.futil"]
+cmd = """
+dirname=$(dirname {}) && \
+basename=$(basename {} .futil) && \
+svg=${petal_test_dir}/${basename}.svg && \
+petal_test_dir=${dirname}/${basename} && \
+fud2 {} -o ${svg} --through profiler -s sim.data={}.data --dir ${petal_test_dir} 2> /dev/null
+
+target/debug/petal ${petal_test_dir}/instrumented.vcd && \
+rm -rf ${petal_test_dir}
+"""
