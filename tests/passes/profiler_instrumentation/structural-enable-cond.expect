@@ -8,8 +8,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @control @generated @protected a___wr_a___main_primitive_probe = std_wire(1);
     @control @generated @protected wr_b___main_group_probe = std_wire(1);
     @control @generated @protected wr_a___wr_b___main_se_probe = std_wire(1);
-    @control @generated @protected cond___main_group_probe = std_wire(1);
-    @control @generated @protected lt___cond___main_primitive_probe = std_wire(1);
   }
   wires {
     group wr_a {
@@ -21,16 +19,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       a___wr_a___main_primitive_probe.in = 1'd1;
     }
     group wr_b {
-      wr_a[go] = lt.out ? 1'd1;
+      wr_a[go] = 1'd1;
       wr_b[done] = wr_a[done];
       wr_b___main_group_probe.in = 1'd1;
-      wr_a___wr_b___main_se_probe.in = lt.out ? 1'd1;
-    }
-    comb group cond {
-      lt.left = 32'd5;
-      lt.right = 32'd9;
-      cond___main_group_probe.in = 1'd1;
-      lt___cond___main_primitive_probe.in = 1'd1;
+      wr_a___wr_b___main_se_probe.in = 1'd1;
     }
   }
   control {
