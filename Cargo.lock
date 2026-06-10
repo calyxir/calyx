@@ -2583,6 +2583,8 @@ dependencies = [
  "clap 4.6.1",
  "cranelift-entity 0.128.4",
  "rustc-hash",
+ "serde",
+ "serde_json",
  "smallvec",
  "wellen",
 ]

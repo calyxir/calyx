@@ -1,3 +1,4 @@
+mod control;
 mod design;
 
 use anyhow::{Context, Ok, Result, anyhow};
@@ -15,6 +16,12 @@ use crate::design::Design;
 struct Args {
     #[arg(value_name = "WAV", index = 1)]
     filename: String,
+    #[arg(value_name = "TDCC", index = 2)]
+    tdcc_filename: String,
+    #[arg(value_name = "PATH_DESC", index = 3)]
+    path_descriptor_filename: String,
+    #[arg(value_name = "CTRL_POS", index = 4)]
+    control_pos_filename: String,
 }
 
 /// Reads a boolean value from a signal.
@@ -29,6 +36,12 @@ fn read_bool(signal: SignalRef, values: &SignalValues) -> bool {
 
 fn main() -> Result<()> {
     let args = Args::parse();
+
+    crate::control::parse(
+        args.tdcc_filename,
+        args.path_descriptor_filename,
+        args.control_pos_filename,
+    )?;
 
     let opts = LoadOptions {
         multi_thread: true,
