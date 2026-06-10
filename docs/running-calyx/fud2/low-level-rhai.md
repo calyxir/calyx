@@ -109,7 +109,13 @@ Defines an op with name `<op name>` that generates specified output states from 
 Each of `<setup1>, <setup2>, ...` are functions with the purpose of creating vars and rules used by `<emit function>`.
 `<emit function>` typically produces commands.
 
-For more information about these "setups" and the emit function or "build," see the documentation for `op`.
+For more information about these "setups" see the documentation for `op`.
+
+The `<emit function>` or "builder" usually calls [build commands](#building-commands) to build files. It is a function of the form
+```
+|e, inputs, outputs| { ... }
+```
+where `inputs` and `outputs` are arrays of strings containing the filenames of the inputs and outputs to the op.
 
 <br>
 
