@@ -366,6 +366,19 @@ fn simple_defops() {
 }
 
 #[test]
+fn test_multiop() {
+    let driver = driver_from_path("op_multi");
+    request_with_planner(
+        &driver,
+        &["s1", "s2"],
+        &["s3", "s4"],
+        &[],
+        EnumeratePlanner {},
+    )
+    .test(&driver);
+}
+
+#[test]
 fn config() {
     let config = figment::Figment::from({
         let source = r#"

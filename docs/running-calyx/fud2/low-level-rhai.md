@@ -94,6 +94,24 @@ where `e` is an emitter, and `input` and `output` are strings containing the fil
 
 <br>
 
+```
+op_multi(
+  <op name>,
+  [<setup1>, <setup2>, ..],
+  [<input state0>, <input state1>, ...],
+  [<output state0>, <output state1>, ...],
+  <emit function>
+)
+```
+Defines an op with name `<op name>` that generates specified output states from specified input states.
+`<op name>` is a string and each of `<input staten>`/`<output staten>` are states.
+
+Each of `<setup1>, <setup2>, ...` are functions with the purpose of creating vars and rules used by `<emit function>`.
+`<emit function>` typically produces commands.
+
+For more information about these "setups" and the emit function or "build," see the documentation for `op`.
+
+<br>
 
 ```
 rule([<setup1>, <setup2>, ..], <input state>, <output state>, <rule name>)
