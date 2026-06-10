@@ -377,9 +377,10 @@ impl Design {
         cell: &mut Cell,
     ) -> Result<()> {
         // cell.groups should not contain any structurally enabled groups.
-        // So, we will hold all of the structurally enabled groups, and only add to cell.groups
+        // So, we will record all names of structurally invoked groups so later we can prevent cell.groups from
+        // containing any groups with such names.
         let mut structurally_invoked_group_names: Vec<String> = vec![];
-        // collection of all groups within this cell. Will filter out those in structurally_invoked_groups
+        // collection of all groups defined within this cell. Will filter out those in structurally_invoked_groups
         let mut all_groups: Vec<GroupId> = vec![];
         let mut parentless_invokes: Vec<(&str, InvokeId)> = vec![];
         // First pass approach: Iterate through all structural enables first to prevent creating duplicate group entries.
@@ -450,7 +451,7 @@ impl Design {
                 }
             }
         }
-        // iterate through all probes in this scope. Structural enable probes will be ignored as they were previously
+        // iterate through all probes in this scope. Structural enable probes will be ignored as nodes for them were previously created.
         for probe_scope in h[cell_scope].scopes(h) {
             let name = h[probe_scope].name(h);
             if name.ends_with("_probe") {
