@@ -55,7 +55,7 @@ class CycleTrace:
 
     def __repr__(self):
         out = ""
-        out = "\n".join(map(lambda x: f"\t{x}", self.stacks))
+        out = "\n".join(map(lambda x: f"\t{x}", sorted(self.stacks)))
         return out
 
     def __init__(self, stacks_this_cycle: list[list[StackElement]] | None = None):
@@ -347,8 +347,8 @@ class PTrace:
         self.trace.append(cycle_trace)
 
     def string_repr(self, mode: FlameMapMode) -> list[set[str]]:
-        return list(
-            map(lambda cycletrace: cycletrace.get_stack_str_set(mode), self.trace)
+        return sorted(
+            list(map(lambda cycletrace: cycletrace.get_stack_str_set(mode), self.trace))
         )
 
     def __getitem__(self, index):
