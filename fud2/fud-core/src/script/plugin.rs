@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use rhai::{Dynamic, ImmutableString, ParseError, Position};
 
 use crate::{
@@ -447,6 +448,7 @@ pub struct ScriptRunner {
     builder: Rc<RefCell<DriverBuilder>>,
     engine: rhai::Engine,
     rhai_functions: rhai::AST,
+    rhai_functions_names: HashSet<String>,
     resolver: Option<Resolver>,
     setups: Rc<RefCell<HashMap<String, SetupRef>>>,
 }
@@ -457,6 +459,7 @@ impl ScriptRunner {
             builder: Rc::new(RefCell::new(builder)),
             engine: rhai::Engine::new(),
             rhai_functions: rhai::AST::empty(),
+            rhai_functions_names: HashSet::new(),
             resolver: Some(Resolver::default()),
             setups: Rc::default(),
         };
@@ -485,6 +488,15 @@ impl ScriptRunner {
             };
             let functions =
                 self.resolver.as_mut().unwrap().register_path(f, ast);
+            for function in functions.iter_functions() {
+                if self.rhai_functions_names.contains(function.name) {
+                    return Err(anyhow!(
+                        "Multiple functions have the name \"{}\". This is not allowed.",
+                        function.name
+                    ));
+                }
+                self.rhai_functions_names.insert(function.name.to_string());
+            }
             self.rhai_functions = self.rhai_functions.merge(&functions);
         }
         Ok(self)
