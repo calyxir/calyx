@@ -401,3 +401,10 @@ fn emit_bad_config() {
         panic!()
     }
 }
+
+#[test]
+#[should_panic]
+fn fail_on_duplicated_setups() {
+    let driver = driver_from_path("fail_on_duplicated_setups");
+    request(&driver, &["state0"], &["state1"], &[]).test(&driver);
+}
