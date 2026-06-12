@@ -1,6 +1,7 @@
 use crate::run::{BufEmitter, EmitBuild, EmitResult, EmitSetup, StreamEmitter};
 use camino::Utf8PathBuf;
 use once_cell::unsync::Lazy;
+use rhai::Dynamic;
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 // use super::report::RhaiReport;
@@ -242,6 +243,45 @@ impl EmitBuild for RhaiSetupCtx {
                         rhai_emit.clone(),
                         input[0].to_string(),
                         output[0].to_string(),
+                    ),
+                )
+                .map_err(|e| e.into())
+            })
+        })?;
+
+        Ok(())
+    }
+}
+
+pub struct RhaiMultiIOSetupCtx {
+    pub _path: Rc<PathBuf>,
+    pub ast: Rc<rhai::AST>,
+    pub name: String,
+}
+
+impl EmitBuild for RhaiMultiIOSetupCtx {
+    fn build(
+        &self,
+        emitter: &mut StreamEmitter,
+        input: &[&str],
+        output: &[&str],
+    ) -> EmitResult {
+        RhaiEmitter::with(emitter, |rhai_emit| {
+            EMIT_ENGINE.with(|e| {
+                e.call_fn::<()>(
+                    &mut rhai::Scope::new(),
+                    &self.ast,
+                    &self.name,
+                    (
+                        rhai_emit.clone(),
+                        input
+                            .iter()
+                            .map(|&s| Dynamic::from(s.to_owned()))
+                            .collect::<rhai::Array>(),
+                        output
+                            .iter()
+                            .map(|&s| Dynamic::from(s.to_owned()))
+                            .collect::<rhai::Array>(),
                     ),
                 )
                 .map_err(|e| e.into())
