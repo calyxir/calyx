@@ -1,0 +1,12 @@
+---
+source: fud2/tests/tests.rs
+description: "emit request: s1 s2 -> s3 s4"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+build s1_0 s2_0: test s3_1 s4_1
+
+default s3_1
+default s4_1
