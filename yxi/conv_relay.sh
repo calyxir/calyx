@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# convert polybench expects
+# convert relay
 
 for file in tests/correctness/relay/*.relay
 do

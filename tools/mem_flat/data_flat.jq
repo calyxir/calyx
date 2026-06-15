@@ -5,7 +5,7 @@
   .key as $k | .value as $v |
   # flatten only 2d or above arrays
   if ($v.data[0] | type == "array") then
-    .key |= . + "0"|
+    .key |= "flat_" + . |
     .value.data |= (. | flatten)
   end
 )

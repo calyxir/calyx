@@ -18,6 +18,7 @@ op(
     },
 );
 
+export let axi_setup = wrapper_setup;
 fn wrapper_setup(e) {
     // Define a `gen-axi` rule that invokes our Python code generator program.
     // For now point to standalone axi-generator.py. Can maybe turn this into a rsrc file?
@@ -59,10 +60,14 @@ fn wrapper_setup(e) {
 
     e.rule(
            "calyx-add-axi",
-           "$calyx-exe -l $calyx-lib-path -l $axi-path -l $mem-path  $args $in > $out",
-       );
+           "$calyx-exe -l $calyx-lib-path -l $axi-path -p none $args $in > $out",
+    );
 
-    e.rule("gen-mem-wrap", "$python $calyx-base/tools/mem_flat/flatten.py $in > $out",);
+    e.rule(
+           "calyx-add-axi-with-mem",
+           "$calyx-exe -l $calyx-lib-path -l $axi-path -l $mem-path -p none $args $in > $out",
+    );
+
 
 }
 
@@ -98,11 +103,8 @@ fn axi_wrapped_op(e, input, output) {
    // let no_imports_calyx = `no_imports_${refified_calyx}`;
    // e.build_cmd([no_imports_calyx], "remove-imports", [refified_calyx], []);
 
-   e.build_cmd(["memwrap.futil"], "gen-mem-wrap", [tmp_yxi],[]);
-
-   e.build_cmd([output], "calyx-add-axi", [with_import_calyx], ["memwrap.futil"]);
+   e.build_cmd([output], "calyx-add-axi", [with_import_calyx], []);
    e.arg("axi-path", "axi_wrapper.futil");
-   e.arg("mem-path", "memwrap.futil");
 }
 
 op(

@@ -380,7 +380,7 @@ impl Papercut {
         let mems = external_and_ref_memories_cells(comp);
         for (memno, mem) in mems.get_mem_info().iter().enumerate() {
             for (i, dim) in mem.dimension_sizes.iter().enumerate() {
-                let ideal_idx = (*dim as f64).log2().ceil() as u64;
+                let ideal_idx = calyx_utils::bits_needed_for(*dim);
                 if mem.idx_sizes[i] != ideal_idx {
                     let msg = format!(
                         "Component {} contains memory {} with incorrectly-sized line addr{}. Use the minimal number of bits to define addresses",
