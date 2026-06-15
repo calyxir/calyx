@@ -1,6 +1,7 @@
 import "calyx" as c;
 import "axi" as a;
 
+export let mwrap_setup = mwrap_setup;
 fn mwrap_setup(e) {
     // Define rule for the generator.
     
@@ -10,8 +11,8 @@ fn mwrap_setup(e) {
 
     // really sloppy awk a la https://unix.stackexchange.com/a/303648
     e.rule(
-        "add-import",
-        `awk '/import.*/,/import.*/{if (!f){print "import \"$mem-flat-path\";";f=1;print;next}}; 1 ' $in > $out`,
+        "add-import-mw",
+        `awk '/import.*/,/import.*/{if (!f){print "import \"$imp-path\";";f=1;print;next}}; 1 ' $in > $out`,
     );
 
     // use both of the required compiler passes for memory flattening
@@ -24,16 +25,17 @@ fn mwrap_setup(e) {
 
 fn mem_wrapped_op(e, input, output) {
    let file_name = input.split("/")[-1];
-   let tmp_yxi = replace_ext(file_name, "yxi");
 
+   let tmp_yxi = replace_ext(file_name, "yxi");
    e.build_cmd([tmp_yxi], "yxi", [input], []);
+
    let wrapper = "memwrap.futil";
    e.build_cmd([wrapper], "gen-mem-wrap", [tmp_yxi], []);
 
     // add memwrap as an import
    let comb_file = `${file_name}_wrap_pre.futil`;
-   e.build_cmd([comb_file], "add-import", [input], [wrapper]);
-   e.arg("mem-flat-path", wrapper);
+   e.build_cmd([comb_file], "add-import-mw", [input], [wrapper]);
+   e.arg("imp-path", wrapper);
 
 
 

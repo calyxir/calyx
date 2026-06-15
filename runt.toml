@@ -726,11 +726,10 @@ expect_dir = "yxi/tests/axi/polybench"
 cmd="""
   filename=$(basename {} .fuse) && \
   fud2 --from dahlia --to calyx {} -o compiled/${filename}.futil &&\
-  target/debug/fud2 compiled/${filename}.futil --through mem_flat --to calyx -o compiled/${filename}_flat.futil &&\
   jq -f tools/mem_flat/data_flat.jq -S {}.data > compiled/${filename}.data &&\
-  fud2 compiled/${filename}_flat.futil --to calyx --through axi-wrapped -o compiled/${filename}-axi-wrapped.futil 2> /dev/null && \
+  target/debug/fud2 compiled/${filename}.futil --to calyx --through axi-wrapped-flat -o compiled/${filename}-axi-wrapped.futil 2> /dev/null && \
   fud2 compiled/${filename}-axi-wrapped.futil --from calyx --to verilog-noverify -o compiled/${filename}-axi-wrapped.v 2> /dev/null && \
-   fud2 compiled/${filename}-axi-wrapped.v --from verilog-noverify --to cocotb-axi --set sim.data=compiled/${filename}.data | jq -f yxi/sim_clean.jq -S
+   fud2 compiled/${filename}-axi-wrapped.v --from verilog-noverify --to cocotb-axi --set sim.data=compiled/${filename}.data 2> /dev/null | jq -f yxi/sim_clean.jq -S
   
 """
 
@@ -759,7 +758,7 @@ paths = ["tests/correctness/exp/*.txt"]
 cmd = """
 filename=$(basename {} .txt) && \
 python3 calyx-py/calyx/gen_exp.py {} > compiled/${filename}.futil &&\
-fud2 compiled/${filename}.futil --to calyx --through axi-wrapped -o compiled/${filename}-axi-wrapped.futil 2> /dev/null && \
+target/debug/fud2 compiled/${filename}.futil --to calyx --through axi-wrapped -o compiled/${filename}-axi-wrapped.futil 2> /dev/null && \
   fud2 compiled/${filename}-axi-wrapped.futil --from calyx --to verilog-noverify -o compiled/${filename}-axi-wrapped.v 2> /dev/null && \
    fud2 compiled/${filename}-axi-wrapped.v --from verilog-noverify --to cocotb-axi --set sim.data={}.data
 """
@@ -771,18 +770,22 @@ cmd = """
 filename=$(basename {} .txt) &&\
 fud2 --from ntt {} --to calyx -q -o compiled/${filename}.futil &&\
 fud2 compiled/${filename}.futil --to calyx --through axi-wrapped -o compiled/${filename}-axi-wrapped.futil 2> /dev/null && \
-  fud2 compiled/${filename}-axi-wrapped.futil --from calyx --to verilog-noverify -o compiled/${filename}-axi-wrapped.v 2> /dev/null && \
-   fud2 compiled/${filename}-axi-wrapped.v --from verilog-noverify --to cocotb-axi --set sim.data=tests/correctness/ntt-pipeline/${filename}.data
+fud2 compiled/${filename}-axi-wrapped.futil --from calyx --to verilog-noverify -o compiled/${filename}-axi-wrapped.v 2> /dev/null && \
+fud2 compiled/${filename}-axi-wrapped.v --from verilog-noverify --to cocotb-axi --set sim.data=tests/correctness/ntt-pipeline/${filename}.data
 """
 
 [[tests]]
 name = "cocotb axi: relay"
 paths = ["yxi/tests/axi/relay/*.futil"]
+# expect_dir = "yxi/tests/axi/relay"
 cmd = """
 filename=$(basename {} .futil) &&\
-target/debug/fud2 {} --through mem_flat --to calyx -o compiled/${filename}_flat.futil &&\
-fud2 compiled/${filename}_flat.futil --to calyx --through axi-wrapped -o compiled/${filename}-axi-wrapped.futil 2> /dev/null && \
+target/debug/fud2 {} --to calyx --through axi-wrapped-flat -o compiled/${filename}-axi-wrapped.futil 2> /dev/null && \
 jq -f tools/mem_flat/data_flat.jq -S tests/correctness/relay/${filename}.data > compiled/${filename}.data && \
   fud2 compiled/${filename}-axi-wrapped.futil --from calyx --to verilog-noverify -o compiled/${filename}-axi-wrapped.v 2> /dev/null && \
-   fud2 compiled/${filename}-axi-wrapped.v --from verilog-noverify --to cocotb-axi --set sim.data=compiled${filename}.data
+   fud2 compiled/${filename}-axi-wrapped.v --from verilog-noverify --to cocotb-axi --set sim.data=compiled/${filename}.data | jq -f yxi/sim_clean.jq -S
 """
+
+# reshape-no-infer, clip, constant-multiply-fixed-point, softmax, lrn, 
+
+# batch flatten

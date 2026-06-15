@@ -2,21 +2,59 @@ use std::collections::HashMap;
 
 use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::{
-    self as ir, Assignment, Cell, GetAttributes, Id, LibrarySignatures, Nothing,
+    self as ir, Assignment, Attributes, Cell, CellType, GetAttributes, Id,
+    LibrarySignatures, Nothing, NumAttr::WriteTogether, PortDef,
+    utils::GetMemInfo,
 };
-use calyx_utils::{CalyxResult, Error};
+use calyx_utils::CalyxResult;
 
-struct MemTransformInfo {
-    pub dim_sizes: Vec<u64>, // d1, d2, ...
-    pub width: u64,
-    pub is_extern: bool,
-    pub wrapper_name: String,
-    pub mem_name: Id,
+trait FlatTransform {
+    fn make_signature(&self, awidth: u64) -> Vec<PortDef<u64>>;
+    fn wrapper_name(&self) -> String;
+}
+
+impl FlatTransform for calyx_ir::utils::MemInfo {
+    fn make_signature(&self, awidth: u64) -> Vec<PortDef<u64>> {
+        self.dimension_sizes
+            .iter()
+            .enumerate()
+            .map(|(idx, w)| {
+                let mut attr = Attributes::default();
+                attr.insert(WriteTogether, 1);
+                PortDef::new(
+                    format!("addr{}", idx),
+                    *w,
+                    calyx_ir::Direction::Input,
+                    attr,
+                )
+            })
+            .chain(std::iter::once(PortDef::new(
+                "addr_o",
+                awidth,
+                calyx_ir::Direction::Output,
+                Attributes::default(),
+            )))
+            .collect()
+    }
+    fn wrapper_name(&self) -> String {
+        let spec = self
+            .dimension_sizes
+            .iter()
+            .map(|i| i.to_string())
+            .collect::<Vec<String>>()
+            .join("x");
+        format!("fd{}_{spec}", self.dimensions)
+    }
 }
 
 pub struct MemFlat {
-    mems_to_proc: HashMap<Id, Vec<MemTransformInfo>>,
-    wrapper_map: HashMap<String, calyx_ir::RRC<Cell>>,
+    mems_to_proc: HashMap<Id, Vec<calyx_ir::utils::MemInfo>>,
+
+    /// for each component, track which ref comps were renamed
+    invoke_renames: HashMap<Id, Vec<Id>>,
+
+    // memories which have only been renamed within current component
+    local_renames: Vec<Id>,
 }
 
 impl Named for MemFlat {
@@ -28,83 +66,45 @@ impl Named for MemFlat {
     }
 }
 
-// TODO: could be reworked to use the utils stuff
 // TODO: A_int may have some shadow 'uses'?
 impl ConstructVisitor for MemFlat {
     fn from(ctx: &ir::Context) -> CalyxResult<Self>
     where
         Self: Sized,
     {
-        let dimension_params = ["D0_SIZE", "D1_SIZE", "D2_SIZE", "D3_SIZE"];
         let mut to_constr = Self {
             mems_to_proc: HashMap::new(),
-            wrapper_map: HashMap::new(),
+            invoke_renames: HashMap::new(),
+            local_renames: Vec::new(),
         };
         for comp in ctx.components.iter() {
-            let comp_mems: Vec<MemTransformInfo> = comp
-                .cells
-                .iter()
-                .filter_map(|c| {
-                    let subcomp = c.borrow();
-                    let prot = &subcomp.prototype;
-                    let n = prot.get_name()?;
-                    if matches!(
-                        n.as_ref(),
-                        "seq_mem_d2" | "seq_mem_d3" | "seq_mem_d4"
-                    ) {
-                        let dim_sizes: Vec<u64> = dimension_params
-                            .iter()
-                            .filter_map(|param| subcomp.get_parameter(*param))
-                            .collect();
-                        let spec = dim_sizes
-                            .iter()
-                            .map(|i| i.to_string())
-                            .collect::<Vec<String>>()
-                            .join("x");
-                        let sig = format!("fd{}_{spec}", dim_sizes.len());
+            let comp_mem_cells =
+                calyx_ir::utils::external_and_ref_memories_cells(comp);
 
-                        let is_extern = subcomp
-                            .get_attribute(ir::BoolAttr::External)
-                            .is_some_and(|x| x == 1);
-
-                        return Some(MemTransformInfo {
-                            dim_sizes,
-                            width: subcomp.get_parameter("WIDTH").unwrap(),
-                            is_extern,
-                            wrapper_name: sig,
-                            mem_name: subcomp.name(),
-                        });
-                    }
-                    None
-                })
+            let comp_mem_info: Vec<calyx_ir::utils::MemInfo> = comp_mem_cells
+                .get_mem_info()
+                .into_iter()
+                .filter(|m| m.dimensions > 1)
                 .collect();
-            to_constr.mems_to_proc.insert(comp.name, comp_mems);
+
+            to_constr.mems_to_proc.insert(comp.name, comp_mem_info);
         }
         Ok(to_constr)
     }
-    fn clear_data(&mut self) {}
+    fn clear_data(&mut self) {
+        self.local_renames = Vec::new();
+    }
 }
 
-impl<'a> Visitor for MemFlat {
-    fn start_context(&mut self, ctx: &mut calyx_ir::Context) -> VisResult {
-        for (_, mems) in self.mems_to_proc.iter() {
-            for m in mems.iter() {
-                let wrapper_decl =
-                    ctx.decls.iter().find(|c| c.name == m.wrapper_name);
-                if let Some(matching_wrapper) = wrapper_decl {
-                    self.wrapper_map.insert(
-                        m.wrapper_name.clone(),
-                        matching_wrapper.signature.clone(),
-                    );
-                } else {
-                    return Err(Error::misc(format!(
-                        "no wrapper matching {}",
-                        m.wrapper_name,
-                    )));
-                }
-            }
-        }
-        Ok(Action::Continue)
+// TODO: skip if nothing to do. shouldn't actually have any effect, just. wastes cycles
+// TODO: creates excess wrappers on a component if it only uses its mems for invokes. the wrappers are within the invoked component anyway, so no need.
+
+impl Visitor for MemFlat {
+    fn iteration_order() -> crate::traversal::Order
+    where
+        Self: Sized,
+    {
+        crate::traversal::Order::Post
     }
     fn start(
         &mut self,
@@ -117,37 +117,42 @@ impl<'a> Visitor for MemFlat {
         };
 
         let mut builder = ir::Builder::new(comp, sigs);
+        let mut renames: Vec<Id> = Vec::new();
         for mem in mems_to_process.iter() {
-            let new_size: u64 = mem.dim_sizes.iter().product();
-            let address_width: u64 = (new_size as f64).log2().ceil() as u64;
+            let new_size: u64 = mem.dimension_sizes.iter().product();
+            let address_width = calyx_utils::bits_needed_for(new_size);
             let new_mem_ref = builder.add_primitive(
-                mem.mem_name,
+                format!("flat_{}", mem.name),
                 "seq_mem_d1",
-                &[mem.width, new_size, address_width],
+                &[mem.data_width, new_size, address_width],
             );
+
+            let orig_instance =
+                builder.component.find_cell(mem.name.as_str()).unwrap();
 
             if mem.is_extern {
                 new_mem_ref
                     .borrow_mut()
                     .add_attribute(ir::BoolAttr::External, 1);
                 // unset external so it can be removed in dead cell removal
-                let orig_instance =
-                    builder.component.find_cell(mem.mem_name).unwrap();
                 orig_instance
                     .borrow_mut()
                     .get_mut_attributes()
                     .remove(ir::BoolAttr::External);
             }
+            if mem.is_ref {
+                new_mem_ref.borrow_mut().set_reference(true);
+                orig_instance.borrow_mut().set_reference(false);
+                renames.push(Id::from(mem.name.as_str()));
+            } else {
+                self.local_renames.push(Id::from(mem.name.as_str()));
+            }
 
-            let wrapper_cell = self.wrapper_map.get(&mem.wrapper_name).unwrap();
-            let mut new_sig = wrapper_cell.borrow().get_signature();
-            new_sig
-                .iter_mut()
-                .for_each(|pd| pd.direction = pd.direction.reverse());
+            let new_sig = mem.make_signature(address_width);
 
             let wrapper_inst_ref = builder.add_component(
-                format!("wrap_{}", mem.mem_name),
-                mem.wrapper_name.to_string(),
+                format!("wrap_{}", mem.name),
+                mem.wrapper_name(),
                 new_sig,
             );
             let wrapper_inst = wrapper_inst_ref.borrow();
@@ -181,10 +186,20 @@ impl<'a> Visitor for MemFlat {
 
             // address line updates
             builder.component.for_each_assignment(|a| {
-                subs_mem(a, mem.mem_name, &wrapper_inst, &new_mem)
+                subs_mem(
+                    a,
+                    Id::from(mem.name.as_str()),
+                    &wrapper_inst,
+                    &new_mem,
+                )
             });
             builder.component.for_each_static_assignment(|a| {
-                subs_mem(a, mem.mem_name, &wrapper_inst, &new_mem)
+                subs_mem(
+                    a,
+                    Id::from(mem.name.as_str()),
+                    &wrapper_inst,
+                    &new_mem,
+                )
             });
 
             // tie wrapper address to new mem
@@ -195,6 +210,43 @@ impl<'a> Visitor for MemFlat {
             );
             builder.add_continuous_assignments(vec![a]);
         }
+        log::info!("inserting renames for {}: {:?}", comp.name, renames);
+        self.invoke_renames.insert(comp.name, renames);
+        Ok(Action::Continue)
+    }
+    fn invoke(
+        &mut self,
+        s: &mut calyx_ir::Invoke,
+        comp: &mut calyx_ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        // handle renames local to this component
+
+        for (_, cr) in s.ref_cells.iter_mut() {
+            let curr_name = &cr.borrow().name();
+            if self.local_renames.contains(curr_name) {
+                let corr_cell =
+                    comp.find_cell(format!("flat_{}", curr_name)).unwrap();
+                *cr = corr_cell.clone();
+            }
+        }
+
+        // potentially fix rewrites in other components
+        let CellType::Component { name: cname } = s.comp.borrow().prototype
+        else {
+            return Ok(Action::Continue);
+        };
+        let Some(rn) = self.invoke_renames.get(&cname) else {
+            return Ok(Action::Continue);
+        };
+
+        for (n, _) in s.ref_cells.iter_mut() {
+            if rn.contains(n) {
+                *n = Id::from(format!("flat_{}", n));
+            }
+        }
+
         Ok(Action::Continue)
     }
 }
