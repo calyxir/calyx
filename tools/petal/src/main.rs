@@ -37,7 +37,7 @@ fn read_bool(signal: SignalRef, values: &SignalValues) -> bool {
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    crate::control::AllControl::new(
+    let ctrl_info = crate::control::AllControl::new(
         args.tdcc_filename,
         args.path_descriptor_filename,
         args.control_pos_filename,
@@ -52,7 +52,7 @@ fn main() -> Result<()> {
         .with_context(|| format!("Failed to load {}", args.filename))?;
 
     // static tree
-    let design = Design::new(wav.hierarchy())?;
+    let design = Design::new(wav.hierarchy(), ctrl_info)?;
 
     // all probe signals we would need to track
     let signals = design.get_signals();

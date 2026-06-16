@@ -9,13 +9,12 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use crate::control;
+
 // ORIGINALLY FROM fileinfo_emitter tool
 // Obtaining the original line numbers of Calyx
 #[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 struct ControlCalyxPosInfo {
-    // TODO: Probably good to add filename as well in case the Calyx component
-    // TODO: Also we need to make sure that we pull out the line number from Calyx (check if file is .futil)
-    // pub filename: String,
     pub pos_num: u32,
     pub linenum: u32,
     pub ctrl_node: String,
@@ -114,8 +113,12 @@ struct ControlMeta {
 #[derive(Debug)]
 pub struct AllControl {
     // can we clean this up somehow?
-    component_to_controls: HashMap<String, HashMap<u32, ControlMeta>>,
-    component_to_group_parents: HashMap<String, HashMap<String, Vec<u32>>>,
+    pub component_to_controls: HashMap<String, HashMap<u32, ControlMeta>>,
+    // for each component, record a group's most immediate parent
+    pub component_to_group_parent:
+        HashMap<String, HashMap<String, Option<u32>>>,
+    // for each component, record the stack of control positions (starting from bottom)
+    pub component_to_ctrl_stack: HashMap<String, Vec<u32>>,
 }
 
 impl AllControl {
@@ -214,18 +217,22 @@ impl AllControl {
         let pd_file = File::open(pd_filename)?;
         let pd: BTreeMap<String, PathDescriptorInfo> =
             serde_json::from_reader(BufReader::new(pd_file))?;
-        let mut component_to_group_parents = HashMap::new();
+        let mut component_to_group_parent = HashMap::new();
+        let mut component_to_ctrl_stack = HashMap::new();
         for (component, comp_pd) in pd {
-            let group_to_parents = sort_path_descriptors(
+            let (group_to_parent, control_stack) = sort_path_descriptors(
                 comp_pd,
                 component_to_controls.get_mut(&component).unwrap(),
             );
-            component_to_group_parents.insert(component, group_to_parents);
+            component_to_group_parent
+                .insert(component.clone(), group_to_parent);
+            component_to_ctrl_stack.insert(component, control_stack);
         }
 
         let out = Self {
             component_to_controls,
-            component_to_group_parents,
+            component_to_group_parent,
+            component_to_ctrl_stack,
         };
 
         println!("{out:?}");
@@ -237,10 +244,10 @@ impl AllControl {
 fn sort_path_descriptors(
     pd: PathDescriptorInfo,
     comp_to_ctrl: &mut HashMap<u32, ControlMeta>,
-) -> HashMap<String, Vec<u32>> {
+) -> (HashMap<String, Option<u32>>, Vec<u32>) {
     // goal: Create a map from unique group name (unique call from control)
-    // to a list of parent control nodes pos.
-    let mut out: HashMap<String, Vec<u32>> = HashMap::new();
+    // to the immediate control parent of the group, if one exists.
+    let mut out: HashMap<String, Option<u32>> = HashMap::new();
 
     let desc_to_ctrl_pos: HashMap<String, u32> = pd
         .control_pos
@@ -255,21 +262,33 @@ fn sort_path_descriptors(
             }
         })
         .collect();
+
     let mut control_descriptors_sorted: Vec<&String> =
         desc_to_ctrl_pos.keys().collect();
     control_descriptors_sorted.sort();
+    // get positions in ascending order
+    let pos_orders = control_descriptors_sorted
+        .iter()
+        .map(|&k| *desc_to_ctrl_pos.get(k).unwrap())
+        .collect();
+    // reverse order to figure out groups' immediate predecessors
+    control_descriptors_sorted.reverse();
 
     // iterate through group descriptors and map keys
     for (g, d) in pd.enables.iter() {
-        // find all control descriptors that are prefixes of this group's descriptor
-        let mut prefix_controls: Vec<u32> = vec![];
+        // find the immediate control node parent
+        let mut found = false;
         for &cd in control_descriptors_sorted.iter() {
             if d.starts_with(cd) {
-                prefix_controls.push(*desc_to_ctrl_pos.get(cd).unwrap());
+                out.insert(g.clone(), Some(*desc_to_ctrl_pos.get(cd).unwrap()));
+                found = true;
+                break; // breaking because we found the first match
             }
         }
-        out.insert(g.clone(), prefix_controls);
+        if !found {
+            out.insert(g.clone(), None);
+        }
     }
 
-    out
+    (out, pos_orders)
 }

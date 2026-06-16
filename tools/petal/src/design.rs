@@ -6,6 +6,8 @@ use rustc_hash::FxHashMap;
 use smallvec::{SmallVec, smallvec};
 use wellen::{Hierarchy, Scope, ScopeRef, SignalRef, VarRef};
 
+use crate::control::AllControl;
+
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct CellId(u32);
 entity_impl!(CellId, "cell");
@@ -15,6 +17,9 @@ entity_impl!(CellId, "cell");
 struct Cell {
     /// The user-defined name of the cell.
     name: String,
+    /// Ids of control nodes that could be called from this cell, if it is a component.
+    /// NOTE: Primitive cells should have an empty vec here.
+    control: SmallVec<[ControlId; 6]>,
     /// Ids of groups that could be called from this cell, if it is a component.
     /// NOTE: Primitive cells should have an empty vec here.
     groups: SmallVec<[GroupId; 6]>,
@@ -68,6 +73,32 @@ impl Group {
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
+pub struct ControlId(u32);
+entity_impl!(ControlId, "control");
+
+#[derive(Debug, Clone)]
+/// Represents a control activation from a component.
+struct Control {
+    name: String,
+    probe: SignalRef,
+    invokes: SmallVec<[InvokeId; 6]>,
+    probe_idx: u32,
+    // deal with registers later?
+    pos: u32,
+    line_num: u32,
+    control_type: String,
+}
+
+impl Control {
+    pub fn display_name(&self) -> String {
+        format!(
+            "{} ~ L{}:{} (ctrl)",
+            self.name, self.line_num, self.control_type
+        )
+    }
+}
+
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct InvokeId(u32);
 entity_impl!(InvokeId, "invoke");
 
@@ -82,12 +113,14 @@ struct Invoke {
 }
 
 #[derive(Debug, Clone)]
-/// Represents a target of an invoke from a group
+/// Represents a target of an invoke from a group/control node
 enum InvokeTarget {
     // Group invokes a component/primitive cell
     Cell(CellId),
-    // Group invokes a group (structural enable)
+    // Control/Group invokes a group (structural enable)
     Group(GroupId),
+    // // Control invokes a control
+    // Control(ControlId),
 }
 
 #[derive(Clone, Debug)]
@@ -98,13 +131,14 @@ pub struct Design {
     /// NOTE: Does not include groups that are activated via structural enables.
     groups: PrimaryMap<GroupId, Group>,
     invokes: PrimaryMap<InvokeId, Invoke>,
+    control: PrimaryMap<ControlId, Control>,
     main: CellId,
     clk: SignalRef,
     signals: Vec<SignalRef>,
 }
 
 impl Design {
-    pub fn new(h: &wellen::Hierarchy) -> Result<Self> {
+    pub fn new(h: &wellen::Hierarchy, c: AllControl) -> Result<Self> {
         let main = h
             .lookup_scope(&[&"toplevel", &"main"])
             .with_context(|| "Failed to find main scope")?;
@@ -114,11 +148,13 @@ impl Design {
             cells: PrimaryMap::new(),
             groups: PrimaryMap::new(),
             invokes: PrimaryMap::new(),
+            control: PrimaryMap::new(),
             main: CellId(u32::MAX),
             clk,
             signals: vec![],
         };
-        out.populate(h)?;
+
+        out.populate(h, c)?;
         out.build_idx();
         Ok(out)
     }
@@ -348,7 +384,7 @@ impl Design {
     }
 
     /// Builds the static call tree by scanning through all probes to find tree edges.
-    fn populate(&mut self, h: &wellen::Hierarchy) -> Result<()> {
+    fn populate(&mut self, h: &wellen::Hierarchy, c: AllControl) -> Result<()> {
         let main_scope = h
             .lookup_scope(&[&"toplevel", &"main"])
             .with_context(|| "Failed to find main scope")?;
@@ -356,6 +392,7 @@ impl Design {
         let main_done = get_var(h, &h[main_scope], "done")?;
         let mut main_cell = Cell {
             name: "main".to_string(),
+            control: smallvec![],
             groups: smallvec![],
             probes: Some((h[main_go].signal_ref(), h[main_done].signal_ref())),
             _scope: main_scope,
@@ -364,6 +401,8 @@ impl Design {
             component: String::new(),
             probe_idxs: None,
         };
+        // add control nodes for main
+
         self.scan_probes(h, main_scope, &mut main_cell)?;
         self.main = self.cells.push(main_cell);
         Ok(())
@@ -522,6 +561,7 @@ impl Design {
                             let mut cell_instance = Cell {
                                 name: name.to_string(),
                                 groups: smallvec![],
+                                control: smallvec![],
                                 _scope: scope,
                                 is_primitive,
                                 instances: smallvec![],
