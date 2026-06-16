@@ -37,7 +37,7 @@ fn read_bool(signal: SignalRef, values: &SignalValues) -> bool {
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    crate::control::parse(
+    crate::control::AllControl::new(
         args.tdcc_filename,
         args.path_descriptor_filename,
         args.control_pos_filename,
