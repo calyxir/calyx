@@ -100,8 +100,8 @@ enum ControlRegister {
 }
 
 #[derive(Debug)]
-struct ControlMeta {
-    name: String, // name of the TDCC group (later changed into signal?)
+pub struct ControlMeta {
+    pub name: String, // name of the TDCC group (later changed into signal?)
     // groups: Vec<String>, // groups that are invoked under this control node
     component: String,
     control_type: String, // seq, par, etc. optimize into enum?
@@ -141,7 +141,6 @@ impl AllControl {
                     pos.pos_num,
                     ControlMeta {
                         name: "".to_string(), // will be filled in by tdcc_file
-                        // groups: vec![],       // will be filled in by pd_file
                         component: component.clone(),
                         control_type: pos.ctrl_node,
                         registers: None, // will be filled in by tdcc_file

@@ -1,3 +1,5 @@
+use core::panic;
+
 use anyhow::{Context, Result};
 
 use baa::{BitVecOps, BitVecValue};
@@ -80,9 +82,9 @@ entity_impl!(ControlId, "control");
 /// Represents a control activation from a component.
 struct Control {
     name: String,
-    probe: SignalRef,
+    go: SignalRef,
     invokes: SmallVec<[InvokeId; 6]>,
-    probe_idx: u32,
+    go_idx: u32,
     // deal with registers later?
     pos: u32,
     line_num: u32,
@@ -119,19 +121,17 @@ enum InvokeTarget {
     Cell(CellId),
     // Control/Group invokes a group (structural enable)
     Group(GroupId),
-    // // Control invokes a control
-    // Control(ControlId),
+    // Control invokes a control
+    Control(ControlId),
 }
 
 #[derive(Clone, Debug)]
 /// Represents the static call tree (all possible calls).
 pub struct Design {
     cells: PrimaryMap<CellId, Cell>,
-    /// groups that are activated from control
-    /// NOTE: Does not include groups that are activated via structural enables.
+    controls: PrimaryMap<ControlId, Control>,
     groups: PrimaryMap<GroupId, Group>,
     invokes: PrimaryMap<InvokeId, Invoke>,
-    control: PrimaryMap<ControlId, Control>,
     main: CellId,
     clk: SignalRef,
     signals: Vec<SignalRef>,
@@ -148,7 +148,7 @@ impl Design {
             cells: PrimaryMap::new(),
             groups: PrimaryMap::new(),
             invokes: PrimaryMap::new(),
-            control: PrimaryMap::new(),
+            controls: PrimaryMap::new(),
             main: CellId(u32::MAX),
             clk,
             signals: vec![],
@@ -381,6 +381,35 @@ impl Design {
         signals.sort();
         signals.dedup();
         signals
+    }
+
+    fn populate_control(
+        &mut self,
+        h: &Hierarchy,
+        s: ScopeRef,
+        c: AllControl,
+        component: String,
+    ) -> Result<()> {
+        if let Some(ctrl_stack) = c.component_to_ctrl_stack.get(&component) {
+            let component_meta_info = c.component_to_controls.get(&component).unwrap();
+
+            for ctrl_pos in ctrl_stack {
+                let meta_info = component_meta_info.get(ctrl_pos).unwrap();
+                let ctrl_group_scope = get_scope(h, &h[s], &meta_info.name)?;
+                let ctrl_group_go = get_var(h, &h[ctrl_group_scope], "go")?;
+                // create Control node
+                let ctrl_node = Control {
+                    name: "".to_string(),
+                    go: h[ctrl_group_go].signal_ref(),
+                    invokes: Default::default(),
+                    go_idx: u32::MAX,
+                    pos: 0,
+                    line_num: 0,
+                    control_type: "".to_string(),
+                };
+            }
+        }
+        Ok(())
     }
 
     /// Builds the static call tree by scanning through all probes to find tree edges.
