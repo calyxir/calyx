@@ -250,7 +250,7 @@ impl Design {
                 return vec![prefix];
             }
         }
-        if cell.groups.is_empty() {
+        if cell.groups.is_empty() && cell.control.is_empty() {
             // No more children, so this is a sink.
             return vec![prefix];
         }
@@ -263,9 +263,70 @@ impl Design {
                 out.append(&mut group_stacks);
             }
         }
-        // if the cell has groups but none of them are active, we still need to add the cell
+        for &control_idx in &cell.control {
+            let control = &self.controls[control_idx];
+            if value.is_bit_set(control.go_idx) {
+                let mut control_stacks =
+                    self.compute_control(value, control_idx, prefix.clone());
+                out.append(&mut control_stacks);
+            }
+        }
+
+        assert!(!out.is_empty());
+
+        out
+    }
+
+    /// Builds up all active tree paths this cycle from the group of group_id.
+    /// prefix is the state of the stack before this particular group.
+    /// NOTE: This function is co-recursive with compute_cell(), and only called when
+    /// the control group is active (otherwise this function would not be called.)
+    fn compute_control(
+        &self,
+        value: &BitVecValue,
+        control_id: ControlId,
+        mut prefix: Stack,
+    ) -> Vec<Stack> {
+        let control = &self.controls[control_id];
+        prefix.push(control.display_name());
+        if control.invokes.is_empty() {
+            return vec![prefix];
+        }
+        let mut out = vec![];
+        for &invoke_id in &control.invokes {
+            let mut this_thread_prefix = prefix.clone();
+            let invoke = &self.invokes[invoke_id];
+            if value.is_bit_set(invoke.probe_idx) {
+                match invoke.target {
+                    InvokeTarget::Cell(_) => {
+                        panic!(
+                            "Control node {} directly invokes cell (control nodes should only invoke control nodes and groups)",
+                            control.name
+                        )
+                    }
+                    InvokeTarget::Group(target_group_id) => {
+                        let mut group_stacks = self.compute_group(
+                            value,
+                            target_group_id,
+                            prefix.clone(),
+                        );
+                        out.append(&mut group_stacks);
+                    }
+                    InvokeTarget::Control(target_control_id) => {
+                        let mut control_stacks = self.compute_control(
+                            value,
+                            target_control_id,
+                            prefix.clone(),
+                        );
+                        out.append(&mut control_stacks);
+                    }
+                }
+            }
+        }
+        // if the control node invokes control nodes/groups but none of them are active,
+        // we still need to add the control node.
         // NOTE: this would be a control cycle.
-        if !cell.groups.is_empty() && out.is_empty() {
+        if !control.invokes.is_empty() && out.is_empty() {
             out.push(prefix);
         }
 
@@ -274,7 +335,7 @@ impl Design {
 
     /// Builds up all active tree paths this cycle from the group of group_id.
     /// prefix is the state of the stack before this particular group.
-    /// NOTE: This function is co-recursive with compute_cell(), and only called when
+    /// NOTE: This function is co-recursive with compute_cell() and compute_control(), and only called when
     /// the group is active (otherwise this function would not be called.)
     fn compute_group(
         &self,
@@ -413,11 +474,13 @@ impl Design {
             let (pretty, pos) = c.get_pretty(&pos_set)?;
             // any pos without an entry in tdcc was compiled away; we ignore these.
             if let Some(tdcc_info_vec) = c.get_tdcc(pos)? {
+                // pos is the entry to the Calyx-generated position of the control node,
+                // so there should only be one entry in the Vector.
                 assert_eq!(tdcc_info_vec.len(), 1);
                 let name = tdcc_info_vec.iter().next().unwrap().name.clone();
 
-                let ctrl_scope = get_scope(h, &h[s], &name)?;
-                let go_ref = get_var(h, &h[ctrl_scope], "go")?;
+                let ctrl_scope = get_scope(h, &h[s], &format!("{name}_go"))?;
+                let go_ref = get_var(h, &h[ctrl_scope], "out")?;
                 let go = h[go_ref].signal_ref();
 
                 let ctrl = Control {

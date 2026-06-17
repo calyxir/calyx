@@ -55,7 +55,6 @@ fn main() -> Result<()> {
     let design = Design::new(wav.hierarchy(), ctrl_info)?;
 
     println!("{design:?}");
-    panic!("done for now");
 
     // all probe signals we would need to track
     let signals = design.get_signals();
