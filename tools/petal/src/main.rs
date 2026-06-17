@@ -37,7 +37,7 @@ fn read_bool(signal: SignalRef, values: &SignalValues) -> bool {
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    let ctrl_info = crate::control::AllControl::new(
+    let ctrl_info = crate::control::ControlInfo::new(
         args.tdcc_filename,
         args.path_descriptor_filename,
         args.control_pos_filename,
@@ -55,6 +55,7 @@ fn main() -> Result<()> {
     let design = Design::new(wav.hierarchy(), ctrl_info)?;
 
     println!("{design:?}");
+    panic!("done for now");
 
     // all probe signals we would need to track
     let signals = design.get_signals();

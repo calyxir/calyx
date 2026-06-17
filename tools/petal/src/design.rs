@@ -1,15 +1,13 @@
 use anyhow::{Context, Result};
 use core::panic;
-use std::collections::HashMap;
 
 use baa::{BitVecOps, BitVecValue};
 use cranelift_entity::{PrimaryMap, entity_impl};
-use rustc_hash::{FxBuildHasher, FxHashMap};
+use rustc_hash::FxHashMap;
 use smallvec::{SmallVec, smallvec};
 use wellen::{Hierarchy, Scope, ScopeRef, SignalRef, VarRef};
 
-use crate::control::{AllControl, ControlInfo, PathDescriptorInfo};
-use crate::design::InvokeTarget::{Control, Group};
+use crate::control::{ControlInfo, PathDescriptorInfo};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct CellId(u32);
@@ -320,7 +318,9 @@ impl Design {
                         );
                         out.append(&mut group_stacks);
                     }
-                    InvokeTarget::Control(_) => {panic!("Group should not invoke a Control node!")}
+                    InvokeTarget::Control(_) => {
+                        panic!("Group should not invoke a Control node!")
+                    }
                 }
             }
         }
@@ -346,6 +346,10 @@ impl Design {
             }
         }
 
+        for (_, control) in self.controls.iter_mut() {
+            control.go_idx = to_index[&control.go];
+        }
+
         for (_, group) in self.groups.iter_mut() {
             group.probe_idx = to_index[&group.probe];
         }
@@ -363,6 +367,10 @@ impl Design {
                 signals.push(main_go_probe);
                 signals.push(main_done_probe);
             }
+        }
+
+        for control in self.controls.values() {
+            signals.push(control.go);
         }
 
         for group in self.groups.values() {
@@ -384,9 +392,10 @@ impl Design {
         &mut self,
         h: &Hierarchy,
         s: ScopeRef,
-        c: ControlInfo,
-        component: String,
+        c: &ControlInfo,
+        component: &String,
     ) -> Result<(FxHashMap<String, Option<ControlId>>, Option<ControlId>)> {
+        println!("component name: {component}");
         // Add Control into the tree, and return a map of groups with their control parent,
         // along with the top-level ControlId if one exists.
         // NOTE: If the component has a single-group control, the second entry will be None.
@@ -396,42 +405,44 @@ impl Design {
         let mut descriptor_to_id: FxHashMap<String, ControlId> =
             FxHashMap::default();
 
-        let descriptors = c.descriptors(&component);
+        let descriptors = c.descriptors(component);
         // let ctrl_map = descriptors.control_pos;
 
         // iterate through control par descriptors and construct Control nodes
         for (d, pos_set) in descriptors.control_pos.iter() {
             let (pretty, pos) = c.get_pretty(&pos_set)?;
-            let tdcc_info_vec = c.get_tdcc(pos)?;
-            assert_eq!(tdcc_info_vec.len(), 1);
-            let name = tdcc_info_vec.iter().next().unwrap().name.clone();
+            // any pos without an entry in tdcc was compiled away; we ignore these.
+            if let Some(tdcc_info_vec) = c.get_tdcc(pos)? {
+                assert_eq!(tdcc_info_vec.len(), 1);
+                let name = tdcc_info_vec.iter().next().unwrap().name.clone();
 
-            let ctrl_scope = get_scope(h, &h[s], &name)?;
-            let go_ref = get_var(h, &h[ctrl_scope], "go")?;
-            let go = h[go_ref].signal_ref();
+                let ctrl_scope = get_scope(h, &h[s], &name)?;
+                let go_ref = get_var(h, &h[ctrl_scope], "go")?;
+                let go = h[go_ref].signal_ref();
 
-            let ctrl = Control {
-                name,
-                go,
-                invokes: smallvec![],
-                go_idx: u32::MAX,
-                pos,
-                pretty,
-            };
-            let ctrl_id = self.controls.push(ctrl);
-            pos_to_id.insert(pos, ctrl_id);
-            descriptor_to_id.insert(d, ctrl_id);
+                let ctrl = Control {
+                    name,
+                    go,
+                    invokes: smallvec![],
+                    go_idx: u32::MAX,
+                    pos,
+                    pretty,
+                };
+                let ctrl_id = self.controls.push(ctrl);
+                pos_to_id.insert(pos, ctrl_id);
+                descriptor_to_id.insert(d.clone(), ctrl_id);
+            }
         }
 
         // compute groups' parent info (reverse sort for easier checking)
         let mut ctrl_desc_rev_sorted =
-            descriptors.control_pos.keys().collect::<Vec<_>>();
+            descriptor_to_id.keys().collect::<Vec<_>>();
         ctrl_desc_rev_sorted.sort();
         ctrl_desc_rev_sorted.reverse();
 
         for (idx, desc) in ctrl_desc_rev_sorted.iter().enumerate() {
             let ctrl_id = descriptor_to_id[*desc];
-            let control = self.controls[ctrl_id];
+            let control = self.controls.get(ctrl_id).unwrap();
             let mut found = false;
             let mut i = idx + 1;
             while i < ctrl_desc_rev_sorted.len() - 1 {
@@ -439,18 +450,20 @@ impl Design {
                 if desc.starts_with(maybe_parent) {
                     // maybe_parent --> desc invoke
                     let invoke = Invoke {
-                        _name: control.name,
+                        _name: control.name.clone(),
                         probe: control.go,
-                        target: Control(ctrl_id),
+                        target: InvokeTarget::Control(ctrl_id),
                         probe_idx: u32::MAX,
                     };
                     let invoke_id = self.invokes.push(invoke);
                     let parent_ctrl_id = descriptor_to_id[maybe_parent];
-                    let parent_ctrl = self.controls[parent_ctrl_id];
+                    let parent_ctrl =
+                        self.controls.get_mut(parent_ctrl_id).unwrap();
                     parent_ctrl.invokes.push(invoke_id);
                     found = true;
                     break;
                 }
+                i += 1;
             }
             if !found {
                 // the only ctrl node without a parent should be the toplevel control node
@@ -460,9 +473,9 @@ impl Design {
         }
 
         let out = Self::groups_to_ctrl_parent(
-            &mut descriptor_to_id,
+            &descriptor_to_id,
             descriptors,
-            &mut ctrl_desc_rev_sorted,
+            &ctrl_desc_rev_sorted,
         );
 
         Ok((out, toplevel_ctrl))
@@ -471,7 +484,7 @@ impl Design {
     fn groups_to_ctrl_parent(
         descriptor_to_id: &FxHashMap<String, ControlId>,
         descriptors: &PathDescriptorInfo,
-        ctrl_desc_sorted: &mut Vec<&String>,
+        ctrl_desc_sorted: &Vec<&String>,
     ) -> FxHashMap<String, Option<ControlId>> {
         let mut out: FxHashMap<String, Option<ControlId>> =
             FxHashMap::default();
@@ -518,7 +531,7 @@ impl Design {
             probe_idxs: None,
         };
         // add control nodes for main
-        self.scan_probes(h, main_scope, &mut main_cell)?;
+        self.scan_probes(h, main_scope, &mut main_cell, &c)?;
         self.main = self.cells.push(main_cell);
         Ok(())
     }
@@ -529,10 +542,10 @@ impl Design {
         h: &Hierarchy,
         cell_scope: ScopeRef,
         cell: &mut Cell,
-        c: ControlInfo,
+        c: &ControlInfo,
     ) -> Result<()> {
         let (group_to_ctrl_parent, top_ctrl_opt) =
-            self.populate_control(h, cell_scope, c, cell.name)?;
+            self.populate_control(h, cell_scope, c, &cell.name)?;
         if let Some(top_ctrl) = top_ctrl_opt {
             cell.control.push(top_ctrl);
         }
@@ -638,7 +651,7 @@ impl Design {
                         if !structurally_invoked_group_names.contains(&name) {
                             // only create a group entry if this group was not structurally enabled.
                             let groupid = self.groups.push(Group {
-                                name,
+                                name: name.clone(),
                                 probe,
                                 invokes,
                                 probe_idx: u32::MAX,
@@ -649,7 +662,7 @@ impl Design {
                                 let invokeid = self.invokes.push(Invoke {
                                     _name: name,
                                     probe,
-                                    target: Group(groupid),
+                                    target: InvokeTarget::Group(groupid),
                                     probe_idx: u32::MAX,
                                 });
                                 self.controls[*ctrl_parent]
@@ -705,7 +718,14 @@ impl Design {
                                 probes: None,
                                 probe_idxs: None,
                             };
-                            self.scan_probes(h, scope, &mut cell_instance)?;
+                            if !is_primitive {
+                                self.scan_probes(
+                                    h,
+                                    scope,
+                                    &mut cell_instance,
+                                    c,
+                                )?;
+                            }
                             let cell_id = self.cells.push(cell_instance);
                             cell.instances.push(cell_id);
                             cell_id

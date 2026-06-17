@@ -1,15 +1,11 @@
-use anyhow::{Context, Ok, Result, anyhow};
-use cranelift_entity::{PrimaryMap, entity_impl};
+use anyhow::{Ok, Result, anyhow};
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     fs::File,
     io::BufReader,
-    path::Component,
 };
-
-use crate::control;
 
 // ORIGINALLY FROM fileinfo_emitter tool
 // Obtaining the original line numbers of Calyx
@@ -93,22 +89,11 @@ struct FSMStateInfo {
 }
 
 /// Represents the registers that do the bookkeeping for a control group
-#[derive(Debug)]
-enum ControlRegister {
-    FSM(String),
-    PD(Vec<String>),
-}
-
-#[derive(Debug)]
-pub struct ControlMeta {
-    pub name: String, // name of the TDCC group (later changed into signal?)
-    // groups: Vec<String>, // groups that are invoked under this control node
-    component: String,
-    control_type: String, // seq, par, etc. optimize into enum?
-    registers: Option<ControlRegister>,
-    pos: u32,
-    line_num: u32,
-}
+// #[derive(Debug)]
+// enum ControlRegister {
+//     FSM(String),
+//     PD(Vec<String>),
+// }
 
 #[derive(Debug, Clone)]
 pub struct TdccInfo {
@@ -144,8 +129,8 @@ impl ControlInfo {
         Err(anyhow!("Positions in {:?} not found in pretty map", pos_set))
     }
 
-    pub fn get_tdcc(&self, pos: u32) -> Result<Vec<TdccInfo>> {
-
+    pub fn get_tdcc(&self, pos: u32) -> Result<Option<&Vec<TdccInfo>>> {
+        Ok(self.tdcc_map.get(&pos))
     }
 
     pub fn new(
@@ -183,7 +168,7 @@ impl ControlInfo {
                 }
                 ProfilingInfo::Par(par_info) => {
                     for pos in par_info.pos {
-                        tdcc_map.entry(pos).or_insert(vec![]).push(TdccInfo { name: par_info.par_group });
+                        tdcc_map.entry(pos).or_insert(vec![]).push(TdccInfo { name: par_info.par_group.clone() });
                     }
                 }
                 ProfilingInfo::SingleEnable(_single_enable_info) => { // do nothing since there is no control group
