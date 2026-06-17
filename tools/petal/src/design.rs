@@ -272,6 +272,7 @@ impl Design {
             }
         }
 
+        // either a group or a control must have been active this cycle.
         assert!(!out.is_empty());
 
         out
@@ -456,7 +457,6 @@ impl Design {
         c: &ControlInfo,
         component: &String,
     ) -> Result<(FxHashMap<String, Option<ControlId>>, Option<ControlId>)> {
-        println!("component name: {component}");
         // Add Control into the tree, and return a map of groups with their control parent,
         // along with the top-level ControlId if one exists.
         // NOTE: If the component has a single-group control, the second entry will be None.
@@ -508,7 +508,7 @@ impl Design {
             let control = self.controls.get(ctrl_id).unwrap();
             let mut found = false;
             let mut i = idx + 1;
-            while i < ctrl_desc_rev_sorted.len() - 1 {
+            while i < ctrl_desc_rev_sorted.len() {
                 let &maybe_parent = ctrl_desc_rev_sorted.get(i).unwrap();
                 if desc.starts_with(maybe_parent) {
                     // maybe_parent --> desc invoke

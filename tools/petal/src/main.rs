@@ -53,9 +53,7 @@ fn main() -> Result<()> {
 
     // static tree
     let design = Design::new(wav.hierarchy(), ctrl_info)?;
-
-    println!("{design:?}");
-
+    
     // all probe signals we would need to track
     let signals = design.get_signals();
 
