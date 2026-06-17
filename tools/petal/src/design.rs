@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use core::panic;
 
 use baa::{BitVecOps, BitVecValue};
@@ -272,8 +272,11 @@ impl Design {
             }
         }
 
-        // either a group or a control must have been active this cycle.
-        assert!(!out.is_empty());
+        // Edge case: if the cell is static, there could be cycles where
+        // no group or control is active!
+        if (out.is_empty()) {
+            out.push(prefix);
+        }
 
         out
     }
@@ -607,8 +610,9 @@ impl Design {
         cell: &mut Cell,
         c: &ControlInfo,
     ) -> Result<()> {
+        let component = get_component(h, cell_scope)?;
         let (group_to_ctrl_parent, top_ctrl_opt) =
-            self.populate_control(h, cell_scope, c, &cell.name)?;
+            self.populate_control(h, cell_scope, c, &component.to_string())?;
         if let Some(top_ctrl) = top_ctrl_opt {
             cell.control.push(top_ctrl);
         }
@@ -818,6 +822,20 @@ impl Design {
         }
         assert!(parentless_invokes.is_empty());
         Ok(())
+    }
+
+}
+
+pub fn get_component(h: &Hierarchy, cell_scope: ScopeRef) -> Result<&str> {
+    // brute-force hack to grab the name of the cell's component before computing control.
+    let probe_scope = h[cell_scope].scopes(h).filter(|s| h[*s].name(h).ends_with("_probe")).next().unwrap();
+    let name = h[probe_scope].name(h);
+    match parse_probe_name(name)? {
+        ProbeName::Group { component, .. } | ProbeName::InvokePrimitive { component, .. } |
+        ProbeName::InvokeCell { component, .. } |
+        ProbeName::InvokeGroup { component, .. } => {
+            return Ok(component)
+        }
     }
 }
 

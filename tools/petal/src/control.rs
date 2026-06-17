@@ -142,7 +142,7 @@ impl ControlInfo {
         let mut tdcc_map = FxHashMap::default();
 
         // need to process pos_file first because it gives us the Calyx positions of all control nodes.
-        println!("Parsing {}", pos_filename);
+        eprintln!("Parsing {}", pos_filename);
         let pos_file = File::open(pos_filename)?;
         let pos: HashMap<String, Vec<ControlCalyxPosInfo>> =
             serde_json::from_reader(BufReader::new(pos_file))?;
@@ -153,7 +153,7 @@ impl ControlInfo {
             }
         }
 
-        println!("Parsing {}", tdcc_filename);
+        eprintln!("Parsing {}", tdcc_filename);
         let tdcc_file = File::open(tdcc_filename)?;
         let tdcc_profiling_info: HashSet<ProfilingInfo> =
             serde_json::from_reader(BufReader::new(tdcc_file))?;
@@ -176,29 +176,16 @@ impl ControlInfo {
             }
         }
 
-        println!("Parsing {}", pd_filename);
+        eprintln!("Parsing {}", pd_filename);
         let pd_file = File::open(pd_filename)?;
         let pd: BTreeMap<String, PathDescriptorInfo> =
             serde_json::from_reader(BufReader::new(pd_file))?;
-        // let mut component_to_group_parent = HashMap::new();
-        // let mut component_to_ctrl_stack = HashMap::new();
-        // for (component, comp_pd) in pd {
-        //     let (group_to_parent, control_stack) = sort_path_descriptors(
-        //         comp_pd,
-        //         component_to_controls.get_mut(&component).unwrap(),
-        //     );
-        //     component_to_group_parent
-        //         .insert(component.clone(), group_to_parent);
-        //     component_to_ctrl_stack.insert(component, control_stack);
-        // }
 
         let out = Self {
             tdcc_map,
             pretty_map: pp_name_map,
             pd
         };
-
-        println!("{out:?}");
 
         Ok(out)
     }
