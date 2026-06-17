@@ -1,14 +1,15 @@
-use core::panic;
-
 use anyhow::{Context, Result};
+use core::panic;
+use std::collections::HashMap;
 
 use baa::{BitVecOps, BitVecValue};
 use cranelift_entity::{PrimaryMap, entity_impl};
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxBuildHasher, FxHashMap};
 use smallvec::{SmallVec, smallvec};
 use wellen::{Hierarchy, Scope, ScopeRef, SignalRef, VarRef};
 
-use crate::control::AllControl;
+use crate::control::{AllControl, ControlInfo, PathDescriptorInfo};
+use crate::design::InvokeTarget::{Control, Group};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct CellId(u32);
@@ -85,18 +86,14 @@ struct Control {
     go: SignalRef,
     invokes: SmallVec<[InvokeId; 6]>,
     go_idx: u32,
-    // deal with registers later?
     pos: u32,
-    line_num: u32,
-    control_type: String,
+    pretty: String,
+    // deal with registers later
 }
 
 impl Control {
     pub fn display_name(&self) -> String {
-        format!(
-            "{} ~ L{}:{} (ctrl)",
-            self.name, self.line_num, self.control_type
-        )
+        format!("{} ~ {} (ctrl)", self.name, self.pretty)
     }
 }
 
@@ -138,7 +135,7 @@ pub struct Design {
 }
 
 impl Design {
-    pub fn new(h: &wellen::Hierarchy, c: AllControl) -> Result<Self> {
+    pub fn new(h: &wellen::Hierarchy, c: ControlInfo) -> Result<Self> {
         let main = h
             .lookup_scope(&[&"toplevel", &"main"])
             .with_context(|| "Failed to find main scope")?;
@@ -153,7 +150,6 @@ impl Design {
             clk,
             signals: vec![],
         };
-
         out.populate(h, c)?;
         out.build_idx();
         Ok(out)
@@ -324,6 +320,7 @@ impl Design {
                         );
                         out.append(&mut group_stacks);
                     }
+                    InvokeTarget::Control(_) => {panic!("Group should not invoke a Control node!")}
                 }
             }
         }
@@ -387,33 +384,123 @@ impl Design {
         &mut self,
         h: &Hierarchy,
         s: ScopeRef,
-        c: AllControl,
+        c: ControlInfo,
         component: String,
-    ) -> Result<()> {
-        if let Some(ctrl_stack) = c.component_to_ctrl_stack.get(&component) {
-            let component_meta_info = c.component_to_controls.get(&component).unwrap();
+    ) -> Result<(FxHashMap<String, Option<ControlId>>, Option<ControlId>)> {
+        // Add Control into the tree, and return a map of groups with their control parent,
+        // along with the top-level ControlId if one exists.
+        // NOTE: If the component has a single-group control, the second entry will be None.
+        let mut toplevel_ctrl = None;
 
-            for ctrl_pos in ctrl_stack {
-                let meta_info = component_meta_info.get(ctrl_pos).unwrap();
-                let ctrl_group_scope = get_scope(h, &h[s], &meta_info.name)?;
-                let ctrl_group_go = get_var(h, &h[ctrl_group_scope], "go")?;
-                // create Control node
-                let ctrl_node = Control {
-                    name: "".to_string(),
-                    go: h[ctrl_group_go].signal_ref(),
-                    invokes: Default::default(),
-                    go_idx: u32::MAX,
-                    pos: 0,
-                    line_num: 0,
-                    control_type: "".to_string(),
-                };
+        let mut pos_to_id = FxHashMap::default();
+        let mut descriptor_to_id: FxHashMap<String, ControlId> =
+            FxHashMap::default();
+
+        let descriptors = c.descriptors(&component);
+        // let ctrl_map = descriptors.control_pos;
+
+        // iterate through control par descriptors and construct Control nodes
+        for (d, pos_set) in descriptors.control_pos.iter() {
+            let (pretty, pos) = c.get_pretty(&pos_set)?;
+            let tdcc_info_vec = c.get_tdcc(pos)?;
+            assert_eq!(tdcc_info_vec.len(), 1);
+            let name = tdcc_info_vec.iter().next().unwrap().name.clone();
+
+            let ctrl_scope = get_scope(h, &h[s], &name)?;
+            let go_ref = get_var(h, &h[ctrl_scope], "go")?;
+            let go = h[go_ref].signal_ref();
+
+            let ctrl = Control {
+                name,
+                go,
+                invokes: smallvec![],
+                go_idx: u32::MAX,
+                pos,
+                pretty,
+            };
+            let ctrl_id = self.controls.push(ctrl);
+            pos_to_id.insert(pos, ctrl_id);
+            descriptor_to_id.insert(d, ctrl_id);
+        }
+
+        // compute groups' parent info (reverse sort for easier checking)
+        let mut ctrl_desc_rev_sorted =
+            descriptors.control_pos.keys().collect::<Vec<_>>();
+        ctrl_desc_rev_sorted.sort();
+        ctrl_desc_rev_sorted.reverse();
+
+        for (idx, desc) in ctrl_desc_rev_sorted.iter().enumerate() {
+            let ctrl_id = descriptor_to_id[*desc];
+            let control = self.controls[ctrl_id];
+            let mut found = false;
+            let mut i = idx + 1;
+            while i < ctrl_desc_rev_sorted.len() - 1 {
+                let &maybe_parent = ctrl_desc_rev_sorted.get(i).unwrap();
+                if desc.starts_with(maybe_parent) {
+                    // maybe_parent --> desc invoke
+                    let invoke = Invoke {
+                        _name: control.name,
+                        probe: control.go,
+                        target: Control(ctrl_id),
+                        probe_idx: u32::MAX,
+                    };
+                    let invoke_id = self.invokes.push(invoke);
+                    let parent_ctrl_id = descriptor_to_id[maybe_parent];
+                    let parent_ctrl = self.controls[parent_ctrl_id];
+                    parent_ctrl.invokes.push(invoke_id);
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                // the only ctrl node without a parent should be the toplevel control node
+                assert_eq!(idx, ctrl_desc_rev_sorted.len() - 1);
+                toplevel_ctrl = Some(ctrl_id);
             }
         }
-        Ok(())
+
+        let out = Self::groups_to_ctrl_parent(
+            &mut descriptor_to_id,
+            descriptors,
+            &mut ctrl_desc_rev_sorted,
+        );
+
+        Ok((out, toplevel_ctrl))
+    }
+
+    fn groups_to_ctrl_parent(
+        descriptor_to_id: &FxHashMap<String, ControlId>,
+        descriptors: &PathDescriptorInfo,
+        ctrl_desc_sorted: &mut Vec<&String>,
+    ) -> FxHashMap<String, Option<ControlId>> {
+        let mut out: FxHashMap<String, Option<ControlId>> =
+            FxHashMap::default();
+        for (g, d) in descriptors.enables.iter() {
+            // find the immediate control node parent
+            let mut found = false;
+            for &cd in ctrl_desc_sorted.iter() {
+                if d.starts_with(cd) {
+                    out.insert(
+                        g.clone(),
+                        Some(*descriptor_to_id.get(cd).unwrap()),
+                    );
+                    found = true;
+                    break; // breaking because we found the first match
+                }
+            }
+            if !found {
+                out.insert(g.clone(), None);
+            }
+        }
+        out
     }
 
     /// Builds the static call tree by scanning through all probes to find tree edges.
-    fn populate(&mut self, h: &wellen::Hierarchy, c: AllControl) -> Result<()> {
+    fn populate(
+        &mut self,
+        h: &wellen::Hierarchy,
+        c: ControlInfo,
+    ) -> Result<()> {
         let main_scope = h
             .lookup_scope(&[&"toplevel", &"main"])
             .with_context(|| "Failed to find main scope")?;
@@ -431,7 +518,6 @@ impl Design {
             probe_idxs: None,
         };
         // add control nodes for main
-
         self.scan_probes(h, main_scope, &mut main_cell)?;
         self.main = self.cells.push(main_cell);
         Ok(())
@@ -443,7 +529,14 @@ impl Design {
         h: &Hierarchy,
         cell_scope: ScopeRef,
         cell: &mut Cell,
+        c: ControlInfo,
     ) -> Result<()> {
+        let (group_to_ctrl_parent, top_ctrl_opt) =
+            self.populate_control(h, cell_scope, c, cell.name)?;
+        if let Some(top_ctrl) = top_ctrl_opt {
+            cell.control.push(top_ctrl);
+        }
+
         // cell.groups should not contain any structurally enabled groups.
         // So, we will record all names of structurally invoked groups so later we can prevent cell.groups from
         // containing any groups with such names.
@@ -550,7 +643,21 @@ impl Design {
                                 invokes,
                                 probe_idx: u32::MAX,
                             });
-                            cell.groups.push(groupid);
+                            if let Some(Some(ctrl_parent)) =
+                                group_to_ctrl_parent.get(&name)
+                            {
+                                let invokeid = self.invokes.push(Invoke {
+                                    _name: name,
+                                    probe,
+                                    target: Group(groupid),
+                                    probe_idx: u32::MAX,
+                                });
+                                self.controls[*ctrl_parent]
+                                    .invokes
+                                    .push(invokeid);
+                            } else {
+                                cell.groups.push(groupid);
+                            }
                             all_groups.push(groupid);
                         }
                     }
