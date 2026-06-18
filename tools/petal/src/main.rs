@@ -1,12 +1,15 @@
 mod control;
 mod design;
+mod visuals;
 
 use anyhow::{Context, Ok, Result, anyhow};
 use baa::{BitVecMutOps, BitVecValue};
 use clap::Parser;
+use rustc_hash::FxHashMap;
 use wellen::{stream::SignalValues, *};
 
 use crate::design::Design;
+use crate::visuals::{compute_flame, write_flame, FlameCount};
 
 #[derive(Parser, Debug)]
 #[command(name = "petal")]
@@ -17,11 +20,15 @@ struct Args {
     #[arg(value_name = "WAV", index = 1)]
     filename: String,
     #[arg(value_name = "TDCC", index = 2)]
-    tdcc_filename: String,
+    tdcc_filename: String, // fsm.json
     #[arg(value_name = "PATH_DESC", index = 3)]
-    path_descriptor_filename: String,
+    path_descriptor_filename: String, // path-descriptor.json
     #[arg(value_name = "CTRL_POS", index = 4)]
-    control_pos_filename: String,
+    control_pos_filename: String, // ctrl-pos.json
+    #[arg(long)]
+    scaled_flame_out: Option<String>,
+    #[arg(long)]
+    flat_flame_out: Option<String>
 }
 
 /// Reads a boolean value from a signal.
@@ -91,18 +98,22 @@ fn main() -> Result<()> {
 
     // Compute the trace (stacks for each active cycle) from probe_values
     let mut cycle_count = -1;
+    let mut flame_info : FxHashMap<String, FlameCount> = FxHashMap::default();
     for value in probe_values.iter() {
-        // .take(15) // for debugging
         let stacks = design.compute_cycle_trace(value)?;
         if !stacks.is_empty() {
             cycle_count += 1;
             println!("{cycle_count}");
-            for stack in stacks {
+            for stack in stacks.iter() {
                 let stack_str = stack.join(", ");
                 println!("	[{stack_str}]");
             }
+        compute_flame(stacks, &mut flame_info)?;
         }
     }
+
+    write_flame(flame_info, args.scaled_flame_out, args.flat_flame_out)?;
+
 
     Ok(())
 }
