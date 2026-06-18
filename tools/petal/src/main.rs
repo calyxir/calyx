@@ -1,5 +1,6 @@
 mod control;
 mod design;
+mod shared_cells;
 mod visuals;
 
 use anyhow::{Context, Ok, Result, anyhow};
@@ -9,7 +10,7 @@ use rustc_hash::FxHashMap;
 use wellen::{stream::SignalValues, *};
 
 use crate::design::Design;
-use crate::visuals::{compute_flame, write_flame, FlameCount};
+use crate::visuals::{FlameCount, compute_flame, write_flame};
 
 #[derive(Parser, Debug)]
 #[command(name = "petal")]
@@ -28,7 +29,9 @@ struct Args {
     #[arg(long)]
     scaled_flame_out: Option<String>,
     #[arg(long)]
-    flat_flame_out: Option<String>
+    flat_flame_out: Option<String>,
+    #[arg(value_name = "SHARED_CELLS", index = 5)]
+    shared_cells: String,
 }
 
 /// Reads a boolean value from a signal.
@@ -50,6 +53,9 @@ fn main() -> Result<()> {
         args.control_pos_filename,
     )?;
 
+    let shared_cells =
+        crate::shared_cells::SharedCellsInfo::new(args.shared_cells)?;
+
     let opts = LoadOptions {
         multi_thread: true,
         remove_scopes_with_empty_name: false,
@@ -59,7 +65,7 @@ fn main() -> Result<()> {
         .with_context(|| format!("Failed to load {}", args.filename))?;
 
     // static tree
-    let design = Design::new(wav.hierarchy(), ctrl_info)?;
+    let design = Design::new(wav.hierarchy(), ctrl_info, shared_cells)?;
 
     // all probe signals we would need to track
     let signals = design.get_signals();
@@ -98,22 +104,21 @@ fn main() -> Result<()> {
 
     // Compute the trace (stacks for each active cycle) from probe_values
     let mut cycle_count = -1;
-    let mut flame_info : FxHashMap<String, FlameCount> = FxHashMap::default();
+    let mut flame_info: FxHashMap<String, FlameCount> = FxHashMap::default();
     for value in probe_values.iter() {
         let stacks = design.compute_cycle_trace(value)?;
         if !stacks.is_empty() {
-            cycle_count += 1;
-            println!("{cycle_count}");
-            for stack in stacks.iter() {
-                let stack_str = stack.join(", ");
-                println!("	[{stack_str}]");
-            }
-        compute_flame(stacks, &mut flame_info)?;
+            // cycle_count += 1;
+            // println!("{cycle_count}");
+            // for stack in stacks.iter() {
+            //     let stack_str = stack.join(", ");
+            //     println!("	[{stack_str}]");
+            // }
+            compute_flame(stacks, &mut flame_info)?;
         }
     }
 
     write_flame(flame_info, args.scaled_flame_out, args.flat_flame_out)?;
-
 
     Ok(())
 }

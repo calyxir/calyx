@@ -1,8 +1,8 @@
 use crate::design::Stack;
 use anyhow::{Ok, Result};
 use rustc_hash::FxHashMap;
-use std::fs::{self, File};
-use std::io::{BufReader, BufWriter, Write};
+use std::fs::{File};
+use std::io::{BufWriter, Write};
 
 pub struct FlameCount {
     scaled: f64,
@@ -21,7 +21,7 @@ pub fn compute_flame(
     stack_strings.sort();
     let mut acc = 0;
     for stack_string in stack_strings {
-        let scaled = if (acc == cycle_trace.len() - 1) {
+        let scaled = if acc == cycle_trace.len() - 1 {
             (1.0f64) - (normalizer * ((cycle_trace.iter().len() - 1) as f64))
         } else {
             normalizer
@@ -57,7 +57,7 @@ pub fn write_flame(
     scaled_flame_opt: Option<String>,
     folded_flame_opt: Option<String>,
 ) -> Result<()> {
-    let mut scaled_buffer = get_buffer(scaled_flame_opt)?;
+    let scaled_buffer = get_buffer(scaled_flame_opt)?;
     if let Some(mut buffer) = scaled_buffer {
         for (s, f) in flame_info.iter() {
             // scaled flame graphs should be multiplied by 1000 to prevent the flame graph script

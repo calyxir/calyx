@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use core::panic;
 
 use baa::{BitVecOps, BitVecValue};
@@ -8,6 +8,7 @@ use smallvec::{SmallVec, smallvec};
 use wellen::{Hierarchy, Scope, ScopeRef, SignalRef, VarRef};
 
 use crate::control::{ControlInfo, PathDescriptorInfo};
+use crate::shared_cells::SharedCellsInfo;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct CellId(u32);
@@ -25,7 +26,7 @@ struct Cell {
     /// NOTE: Primitive cells should have an empty vec here.
     groups: SmallVec<[GroupId; 6]>,
     /// The scope of the cell in the RTL trace.
-    _scope: ScopeRef,
+    _scope: Option<ScopeRef>,
     /// Is the cell a primitive?
     is_primitive: bool,
     /// If the cell is of the main component, contains a ref to main.go and main.done.
@@ -37,13 +38,20 @@ struct Cell {
     component: String,
     /// cells that are defined within the component
     instances: SmallVec<[CellId; 6]>,
+    /// Name of the replacement cell, if the cell was a shared primitive.
+    replacement: Option<String>,
 }
 
 impl Cell {
     /// String representation of cell for trace and visualizations
     pub fn display_name(&self) -> String {
         if self.is_primitive {
-            format!("{} (primitive)", self.name)
+            let s = format!("{} (primitive)", self.name);
+            if let Some(r) = &self.replacement {
+                format!("{s} -> {}", r)
+            } else {
+                s
+            }
         } else if self.component == "main" {
             self.name.clone()
         } else {
@@ -84,7 +92,7 @@ struct Control {
     go: SignalRef,
     invokes: SmallVec<[InvokeId; 6]>,
     go_idx: u32,
-    pos: u32,
+    _pos: u32,
     pretty: String,
     // deal with registers later
 }
@@ -133,7 +141,7 @@ pub struct Design {
 }
 
 impl Design {
-    pub fn new(h: &wellen::Hierarchy, c: ControlInfo) -> Result<Self> {
+    pub fn new(h: &wellen::Hierarchy, c: ControlInfo, s: SharedCellsInfo) -> Result<Self> {
         let main = h
             .lookup_scope(&[&"toplevel", &"main"])
             .with_context(|| "Failed to find main scope")?;
@@ -148,7 +156,7 @@ impl Design {
             clk,
             signals: vec![],
         };
-        out.populate(h, c)?;
+        out.populate(h, c, s)?;
         out.build_idx();
         Ok(out)
     }
@@ -274,7 +282,7 @@ impl Design {
 
         // Edge case: if the cell is static, there could be cycles where
         // no group or control is active!
-        if (out.is_empty()) {
+        if out.is_empty() {
             out.push(prefix);
         }
 
@@ -298,7 +306,6 @@ impl Design {
         }
         let mut out = vec![];
         for &invoke_id in &control.invokes {
-            let mut this_thread_prefix = prefix.clone();
             let invoke = &self.invokes[invoke_id];
             if value.is_bit_set(invoke.probe_idx) {
                 match invoke.target {
@@ -491,7 +498,7 @@ impl Design {
                     go,
                     invokes: smallvec![],
                     go_idx: u32::MAX,
-                    pos,
+                    _pos: pos,
                     pretty,
                 };
                 let ctrl_id = self.controls.push(ctrl);
@@ -579,6 +586,7 @@ impl Design {
         &mut self,
         h: &wellen::Hierarchy,
         c: ControlInfo,
+        s: SharedCellsInfo,
     ) -> Result<()> {
         let main_scope = h
             .lookup_scope(&[&"toplevel", &"main"])
@@ -590,14 +598,15 @@ impl Design {
             control: smallvec![],
             groups: smallvec![],
             probes: Some((h[main_go].signal_ref(), h[main_done].signal_ref())),
-            _scope: main_scope,
+            _scope: Some(main_scope),
             is_primitive: false,
             instances: smallvec![],
             component: String::new(),
             probe_idxs: None,
+            replacement: None,
         };
         // add control nodes for main
-        self.scan_probes(h, main_scope, &mut main_cell, &c)?;
+        self.scan_probes(h, main_scope, &mut main_cell, &c, &s)?;
         self.main = self.cells.push(main_cell);
         Ok(())
     }
@@ -609,8 +618,10 @@ impl Design {
         cell_scope: ScopeRef,
         cell: &mut Cell,
         c: &ControlInfo,
+        s: &SharedCellsInfo,
     ) -> Result<()> {
         let component = get_component(h, cell_scope)?;
+        cell.component = component.to_string();
         let (group_to_ctrl_parent, top_ctrl_opt) =
             self.populate_control(h, cell_scope, c, &component.to_string())?;
         if let Some(top_ctrl) = top_ctrl_opt {
@@ -695,7 +706,7 @@ impl Design {
         // iterate through all probes in this scope. Structural enable probes will be ignored as nodes for them were previously created.
         for probe_scope in h[cell_scope].scopes(h) {
             let name = h[probe_scope].name(h);
-            if name.ends_with("_probe") {
+            if name.ends_with("_probe") && !name.ends_with("_contprimitive_probe"){ // ignore continuous primitives for now
                 let out = get_var(h, &h[probe_scope], "out")?;
                 let probe = h[out].signal_ref();
                 let probe_name = parse_probe_name(name)?;
@@ -773,7 +784,11 @@ impl Design {
                         let target = if let Some(&t) = maybe_target {
                             t
                         } else {
-                            let scope = get_scope(h, &h[cell_scope], name)?;
+                            // TODO: Primitives would not have a scope if they are shared.
+                            let scope = get_scope(h, &h[cell_scope], name).ok();
+                            let replacement = if scope.is_none() {
+                                s.get_replacement(component.to_string(), name.to_string())
+                            } else { None };
                             let mut cell_instance = Cell {
                                 name: name.to_string(),
                                 groups: smallvec![],
@@ -784,13 +799,16 @@ impl Design {
                                 component: String::new(),
                                 probes: None,
                                 probe_idxs: None,
+                                replacement
                             };
                             if !is_primitive {
+                                assert!(scope.is_some());
                                 self.scan_probes(
                                     h,
-                                    scope,
+                                    scope.unwrap(),
                                     &mut cell_instance,
                                     c,
+                                    s
                                 )?;
                             }
                             let cell_id = self.cells.push(cell_instance);
@@ -823,19 +841,21 @@ impl Design {
         assert!(parentless_invokes.is_empty());
         Ok(())
     }
-
 }
 
 pub fn get_component(h: &Hierarchy, cell_scope: ScopeRef) -> Result<&str> {
     // brute-force hack to grab the name of the cell's component before computing control.
-    let probe_scope = h[cell_scope].scopes(h).filter(|s| h[*s].name(h).ends_with("_probe")).next().unwrap();
+    let probe_scope = h[cell_scope]
+        .scopes(h)
+        .filter(|s| h[*s].name(h).ends_with("_probe"))
+        .next()
+        .unwrap();
     let name = h[probe_scope].name(h);
     match parse_probe_name(name)? {
-        ProbeName::Group { component, .. } | ProbeName::InvokePrimitive { component, .. } |
-        ProbeName::InvokeCell { component, .. } |
-        ProbeName::InvokeGroup { component, .. } => {
-            return Ok(component)
-        }
+        ProbeName::Group { component, .. }
+        | ProbeName::InvokePrimitive { component, .. }
+        | ProbeName::InvokeCell { component, .. }
+        | ProbeName::InvokeGroup { component, .. } => return Ok(component),
     }
 }
 
