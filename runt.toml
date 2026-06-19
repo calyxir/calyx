@@ -730,7 +730,7 @@ svg=${petal_test_dir}/${basename}.svg && \
 petal_test_dir=${dirname}/${basename} && \
 fud2 {} -o ${svg} --through profiler -s sim.data={}.data --dir ${petal_test_dir} 2> /dev/null
 
-target/debug/petal ${petal_test_dir}/instrumented.vcd ${petal_test_dir}/fsm.json ${petal_test_dir}/path-descriptors.json ${petal_test_dir}/ctrl-pos.json 2> /dev/null
+target/debug/petal ${petal_test_dir}/instrumented.vcd ${petal_test_dir}/fsm.json ${petal_test_dir}/path-descriptors.json ${petal_test_dir}/ctrl-pos.json ${petal_test_dir}/shared-cells.json 2> /dev/null
 
 rm -rf ${petal_test_dir}
 """

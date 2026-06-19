@@ -32,6 +32,8 @@ struct Args {
     flat_flame_out: Option<String>,
     #[arg(value_name = "SHARED_CELLS", index = 5)]
     shared_cells: String,
+    #[arg(long, default_value_t = 100)]
+    num_print_cycles: i32,
 }
 
 /// Reads a boolean value from a signal.
@@ -103,17 +105,19 @@ fn main() -> Result<()> {
     println!("Number of clock ticks: {}", probe_values.len());
 
     // Compute the trace (stacks for each active cycle) from probe_values
-    let mut cycle_count = -1;
+    let mut cycle_count: i32 = -1;
     let mut flame_info: FxHashMap<String, FlameCount> = FxHashMap::default();
     for value in probe_values.iter() {
         let stacks = design.compute_cycle_trace(value)?;
         if !stacks.is_empty() {
-            // cycle_count += 1;
-            // println!("{cycle_count}");
-            // for stack in stacks.iter() {
-            //     let stack_str = stack.join(", ");
-            //     println!("	[{stack_str}]");
-            // }
+            cycle_count += 1;
+            if args.num_print_cycles >= cycle_count {
+                println!("{cycle_count}");
+                for stack in stacks.iter() {
+                    let stack_str = stack.join(", ");
+                    println!("	[{stack_str}]");
+                }
+            }
             compute_flame(stacks, &mut flame_info)?;
         }
     }
