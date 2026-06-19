@@ -1,5 +1,4 @@
 // -p validate -p comb-prop
-// -p no-opt -p comb-prop
 // comb-prop pass incorrectly inlines and elides assignment #2437
 // calyx -p no-opt -p comb-prop
 import "primitives/core.futil";
