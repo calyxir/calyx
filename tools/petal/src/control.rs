@@ -122,7 +122,6 @@ pub struct ControlInfo {
 }
 
 impl ControlInfo {
-
     pub fn descriptors(&self, c: &str) -> &PathDescriptorInfo {
         self.pd.get(c).unwrap()
     }
@@ -130,10 +129,13 @@ impl ControlInfo {
     pub fn get_pretty(&self, pos_set: &BTreeSet<u32>) -> Result<(String, u32)> {
         for pos in pos_set.iter() {
             if let Some(pretty) = self.pretty_map.get(pos) {
-                return Ok((pretty.clone(), *pos))
+                return Ok((pretty.clone(), *pos));
             }
         }
-        Err(anyhow!("Positions in {:?} not found in pretty map", pos_set))
+        Err(anyhow!(
+            "Positions in {:?} not found in pretty map",
+            pos_set
+        ))
     }
 
     pub fn get_tdcc(&self, pos: u32) -> Result<Option<&Vec<TdccInfo>>> {
@@ -170,12 +172,16 @@ impl ControlInfo {
             match control_group {
                 ProfilingInfo::Fsm(fsminfo) => {
                     for pos in fsminfo.pos {
-                        tdcc_map.entry(pos).or_insert(vec![]).push(TdccInfo { name: fsminfo.group.clone() });
+                        tdcc_map.entry(pos).or_insert(vec![]).push(TdccInfo {
+                            name: fsminfo.group.clone(),
+                        });
                     }
                 }
                 ProfilingInfo::Par(par_info) => {
                     for pos in par_info.pos {
-                        tdcc_map.entry(pos).or_insert(vec![]).push(TdccInfo { name: par_info.par_group.clone() });
+                        tdcc_map.entry(pos).or_insert(vec![]).push(TdccInfo {
+                            name: par_info.par_group.clone(),
+                        });
                     }
                 }
                 ProfilingInfo::SingleEnable(_single_enable_info) => { // do nothing since there is no control group
@@ -191,7 +197,7 @@ impl ControlInfo {
         let out = Self {
             tdcc_map,
             pretty_map: pp_name_map,
-            pd
+            pd,
         };
 
         Ok(out)

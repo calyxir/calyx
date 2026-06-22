@@ -33,9 +33,7 @@ pub fn compute_flame(
         } else {
             out.insert(
                 stack_string.to_string(),
-                FlameCount {
-                    scaled,
-                    flat: 1.0 },
+                FlameCount { scaled, flat: 1.0 },
             );
         }
     }

@@ -152,7 +152,11 @@ pub struct Design {
 }
 
 impl Design {
-    pub fn new(h: &wellen::Hierarchy, c: ControlInfo, s: SharedCellsInfo) -> Result<Self> {
+    pub fn new(
+        h: &wellen::Hierarchy,
+        c: ControlInfo,
+        s: SharedCellsInfo,
+    ) -> Result<Self> {
         let main = h
             .lookup_scope(&[&"toplevel", &"main"])
             .with_context(|| "Failed to find main scope")?;
@@ -561,7 +565,10 @@ impl Design {
             &ctrl_desc_rev_sorted,
         );
 
-        Ok(CellControl {group_to_parent, toplevel_control })
+        Ok(CellControl {
+            group_to_parent,
+            toplevel_control,
+        })
     }
 
     /// Helper function that returns a map from groups to their control parent in the tree.
@@ -634,8 +641,10 @@ impl Design {
         // Create control nodes and add an edge from a cell to the toplevel control.
         let component = get_component(h, cell_scope)?;
         cell.component = component.to_string();
-        let CellControl { group_to_parent, toplevel_control} =
-            self.populate_control(h, cell_scope, c, component)?;
+        let CellControl {
+            group_to_parent,
+            toplevel_control,
+        } = self.populate_control(h, cell_scope, c, component)?;
         if let Some(top_ctrl) = toplevel_control {
             cell.control.push(top_ctrl);
         }
@@ -718,7 +727,10 @@ impl Design {
         // iterate through all probes in this scope. Structural enable probes will be ignored as nodes for them were previously created.
         for probe_scope in h[cell_scope].scopes(h) {
             let name = h[probe_scope].name(h);
-            if name.ends_with("_probe") && !name.ends_with("_contprimitive_probe"){ // ignore continuous primitives for now
+            if name.ends_with("_probe")
+                && !name.ends_with("_contprimitive_probe")
+            {
+                // ignore continuous primitives for now
                 let out = get_var(h, &h[probe_scope], "out")?;
                 let probe = h[out].signal_ref();
                 let probe_name = parse_probe_name(name)?;
@@ -799,8 +811,13 @@ impl Design {
                             // TODO: Primitives would not have a scope if they are shared.
                             let scope = get_scope(h, &h[cell_scope], name).ok();
                             let replacement = if scope.is_none() {
-                                s.get_replacement(component.to_string(), name.to_string())
-                            } else { None };
+                                s.get_replacement(
+                                    component.to_string(),
+                                    name.to_string(),
+                                )
+                            } else {
+                                None
+                            };
                             let mut cell_instance = Cell {
                                 name: name.to_string(),
                                 groups: smallvec![],
@@ -811,7 +828,7 @@ impl Design {
                                 component: String::new(),
                                 probes: None,
                                 probe_idxs: None,
-                                replacement
+                                replacement,
                             };
                             if !is_primitive {
                                 assert!(scope.is_some());
@@ -820,7 +837,7 @@ impl Design {
                                     scope.unwrap(),
                                     &mut cell_instance,
                                     c,
-                                    s
+                                    s,
                                 )?;
                             }
                             let cell_id = self.cells.push(cell_instance);
