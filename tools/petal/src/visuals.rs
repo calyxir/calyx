@@ -1,7 +1,7 @@
 use crate::design::Stack;
 use anyhow::{Ok, Result};
 use rustc_hash::FxHashMap;
-use std::fs::{File};
+use std::fs::File;
 use std::io::{BufWriter, Write};
 
 /// Represents the flame graph values (how much for a single stack.
@@ -35,8 +35,7 @@ pub fn compute_flame(
                 stack_string.to_string(),
                 FlameCount {
                     scaled,
-                    flat: 1.0,
-                },
+                    flat: 1.0 },
             );
         }
     }
