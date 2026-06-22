@@ -71,7 +71,7 @@ class FlameTrace:
         Utility function for outputting a flame graph to file.
         """
         with open(flame_out_file, "w") as flame_out:
-            for stack in flame_map:
+            for stack in sorted(flame_map):
                 flame_out.write(f"{stack} {flame_map[stack]}\n")
 
 
