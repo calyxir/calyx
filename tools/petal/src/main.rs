@@ -26,12 +26,12 @@ struct Args {
     path_descriptor_filename: String, // path-descriptor.json
     #[arg(value_name = "CTRL_POS", index = 4)]
     control_pos_filename: String, // ctrl-pos.json
+    #[arg(value_name = "SHARED_CELLS", index = 5)]
+    shared_cells: String, // shared-cells.json
     #[arg(long)]
     scaled_flame_out: Option<String>,
     #[arg(long)]
     flat_flame_out: Option<String>,
-    #[arg(value_name = "SHARED_CELLS", index = 5)]
-    shared_cells: String,
     #[arg(long, default_value_t = 100)]
     num_print_cycles: i32,
 }

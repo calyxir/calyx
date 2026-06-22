@@ -60,16 +60,19 @@ pub fn write_flame(
     folded_flame_opt: Option<String>,
 ) -> Result<()> {
     let scaled_buffer = get_buffer(scaled_flame_opt)?;
+    // sort keys to get deterministic output.
+    let mut sorted_keys = flame_info.keys().collect::<Vec<_>>();
+    sorted_keys.sort();
     if let Some(mut buffer) = scaled_buffer {
-        for (s, f) in flame_info.iter() {
-            // scaled flame graphs should be multiplied by 1000 to prevent the flame graph script
-            // erroring out. (A script later divides by 1000)
+        for &s in sorted_keys.iter() {
+            let f = flame_info.get(s).unwrap();
             writeln!(buffer, "{s} {:.1}", (f.scaled * 1000.0))?;
         }
     }
     let folded_buffer = get_buffer(folded_flame_opt)?;
     if let Some(mut buffer) = folded_buffer {
-        for (s, f) in flame_info.iter() {
+        for &s in sorted_keys.iter() {
+            let f = flame_info.get(s).unwrap();
             writeln!(buffer, "{s} {}", f.flat)?;
         }
     }

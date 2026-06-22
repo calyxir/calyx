@@ -97,3 +97,13 @@ Number of clock ticks: 41
 	[main, tdcc ~ L68:seq (ctrl), cond, lt (primitive)]
 36
 	[main, tdcc ~ L68:seq (ctrl)]
+====FLAT FLAME OUTPUT====
+main;tdcc ~ L68:seq (ctrl) 3
+main;tdcc ~ L68:seq (ctrl);cond;lt (primitive) 9
+main;tdcc ~ L68:seq (ctrl);incr;add2 (primitive) 8
+main;tdcc ~ L68:seq (ctrl);incr;counter (primitive) 8
+main;tdcc ~ L68:seq (ctrl);init;counter (primitive) 1
+main;tdcc ~ L68:seq (ctrl);read;val (primitive) 8
+main;tdcc ~ L68:seq (ctrl);upd;add (primitive) 8
+main;tdcc ~ L68:seq (ctrl);upd;val (primitive) 8
+main;tdcc ~ L68:seq (ctrl);write;mem (primitive) 8

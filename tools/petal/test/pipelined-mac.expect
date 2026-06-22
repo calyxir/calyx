@@ -243,3 +243,30 @@ Number of clock ticks: 96
 	[main, tdcc ~ L156:seq (ctrl), save_out, out (primitive)]
 91
 	[main, tdcc ~ L156:seq (ctrl)]
+====FLAT FLAME OUTPUT====
+main;tdcc ~ L156:seq (ctrl) 4
+main;tdcc ~ L156:seq (ctrl);in_range;lt0 (primitive) 10
+main;tdcc ~ L156:seq (ctrl);incr_idx;add0 (primitive) 10
+main;tdcc ~ L156:seq (ctrl);incr_idx;idx0 (primitive) 10
+main;tdcc ~ L156:seq (ctrl);init_all;idx0 (primitive) 1
+main;tdcc ~ L156:seq (ctrl);invoke_mac0;mac [pipelined_mac];set_stage2_valid;stage2_valid (primitive) 1
+main;tdcc ~ L156:seq (ctrl);invoke_mac0;mac [pipelined_mac];stage1;mult_pipe (primitive) 3
+main;tdcc ~ L156:seq (ctrl);invoke_mac0;mac [pipelined_mac];stage1;pipe1 (primitive) 1
+main;tdcc ~ L156:seq (ctrl);invoke_mac0;mac [pipelined_mac];unset_out_valid;out_valid (primitive) 1
+main;tdcc ~ L156:seq (ctrl);invoke_mac0;mac [pipelined_mac];write_data_valid;data_valid_reg (primitive) 1
+main;tdcc ~ L156:seq (ctrl);invoke_mac1;mac [pipelined_mac];set_out_valid;out_valid (primitive) 9
+main;tdcc ~ L156:seq (ctrl);invoke_mac1;mac [pipelined_mac];set_stage2_valid;stage2_valid (primitive) 9
+main;tdcc ~ L156:seq (ctrl);invoke_mac1;mac [pipelined_mac];stage1;mult_pipe (primitive) 27
+main;tdcc ~ L156:seq (ctrl);invoke_mac1;mac [pipelined_mac];stage1;pipe1 (primitive) 9
+main;tdcc ~ L156:seq (ctrl);invoke_mac1;mac [pipelined_mac];stage2;add (primitive) 9
+main;tdcc ~ L156:seq (ctrl);invoke_mac1;mac [pipelined_mac];stage2;pipe2 (primitive) 9
+main;tdcc ~ L156:seq (ctrl);invoke_mac1;mac [pipelined_mac];write_data_valid;data_valid_reg (primitive) 9
+main;tdcc ~ L156:seq (ctrl);invoke_mac2;mac [pipelined_mac] 3
+main;tdcc ~ L156:seq (ctrl);invoke_mac2;mac [pipelined_mac];set_out_valid;out_valid (primitive) 1
+main;tdcc ~ L156:seq (ctrl);invoke_mac2;mac [pipelined_mac];stage2;add (primitive) 1
+main;tdcc ~ L156:seq (ctrl);invoke_mac2;mac [pipelined_mac];stage2;pipe2 (primitive) 1
+main;tdcc ~ L156:seq (ctrl);invoke_mac2;mac [pipelined_mac];unset_stage2_valid;stage2_valid (primitive) 1
+main;tdcc ~ L156:seq (ctrl);invoke_mac2;mac [pipelined_mac];write_data_valid;data_valid_reg (primitive) 1
+main;tdcc ~ L156:seq (ctrl);save_out;out (primitive) 1
+main;tdcc ~ L156:seq (ctrl);store_a;read_a (primitive) 10
+main;tdcc ~ L156:seq (ctrl);store_b;read_b (primitive) 10
