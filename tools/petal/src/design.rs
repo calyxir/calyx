@@ -140,6 +140,13 @@ pub struct Design {
     signals: Vec<SignalRef>,
 }
 
+pub struct CellControl {
+    group_to_parent: FxHashMap<String, Option<ControlId>>,
+    /// The outermost control node, if one exists.
+    /// Will be None when there are no control nodes in the component.
+    toplevel_control: Option<ControlId>,
+}
+
 impl Design {
     pub fn new(h: &wellen::Hierarchy, c: ControlInfo, s: SharedCellsInfo) -> Result<Self> {
         let main = h
@@ -465,12 +472,12 @@ impl Design {
         h: &Hierarchy,
         s: ScopeRef,
         c: &ControlInfo,
-        component: &String,
-    ) -> Result<(FxHashMap<String, Option<ControlId>>, Option<ControlId>)> {
+        component: &str,
+    ) -> Result<CellControl> {
         // Add Control into the tree, and return a map of groups with their control parent,
         // along with the top-level ControlId if one exists.
         // NOTE: If the component has a single-group control, the second entry will be None.
-        let mut toplevel_ctrl = None;
+        let mut toplevel_control = None;
 
         let mut pos_to_id = FxHashMap::default();
         let mut descriptor_to_id: FxHashMap<String, ControlId> =
@@ -481,7 +488,7 @@ impl Design {
 
         // iterate through control par descriptors and construct Control nodes
         for (d, pos_set) in descriptors.control_pos.iter() {
-            let (pretty, pos) = c.get_pretty(&pos_set)?;
+            let (pretty, pos) = c.get_pretty(pos_set)?;
             // any pos without an entry in tdcc was compiled away; we ignore these.
             if let Some(tdcc_info_vec) = c.get_tdcc(pos)? {
                 // pos is the entry to the Calyx-generated position of the control node,
@@ -541,17 +548,17 @@ impl Design {
             if !found {
                 // the only ctrl node without a parent should be the toplevel control node
                 assert_eq!(idx, ctrl_desc_rev_sorted.len() - 1);
-                toplevel_ctrl = Some(ctrl_id);
+                toplevel_control = Some(ctrl_id);
             }
         }
 
-        let out = Self::groups_to_ctrl_parent(
+        let group_to_parent = Self::groups_to_ctrl_parent(
             &descriptor_to_id,
             descriptors,
             &ctrl_desc_rev_sorted,
         );
 
-        Ok((out, toplevel_ctrl))
+        Ok(CellControl {group_to_parent, toplevel_control })
     }
 
     fn groups_to_ctrl_parent(
@@ -622,9 +629,9 @@ impl Design {
     ) -> Result<()> {
         let component = get_component(h, cell_scope)?;
         cell.component = component.to_string();
-        let (group_to_ctrl_parent, top_ctrl_opt) =
-            self.populate_control(h, cell_scope, c, &component.to_string())?;
-        if let Some(top_ctrl) = top_ctrl_opt {
+        let CellControl { group_to_parent, toplevel_control} =
+            self.populate_control(h, cell_scope, c, component)?;
+        if let Some(top_ctrl) = toplevel_control {
             cell.control.push(top_ctrl);
         }
 
@@ -735,7 +742,7 @@ impl Design {
                                 probe_idx: u32::MAX,
                             });
                             if let Some(Some(ctrl_parent)) =
-                                group_to_ctrl_parent.get(&name)
+                                group_to_parent.get(&name)
                             {
                                 let invokeid = self.invokes.push(Invoke {
                                     _name: name,
@@ -847,15 +854,14 @@ pub fn get_component(h: &Hierarchy, cell_scope: ScopeRef) -> Result<&str> {
     // brute-force hack to grab the name of the cell's component before computing control.
     let probe_scope = h[cell_scope]
         .scopes(h)
-        .filter(|s| h[*s].name(h).ends_with("_probe"))
-        .next()
+        .find(|s| h[*s].name(h).ends_with("_probe"))
         .unwrap();
     let name = h[probe_scope].name(h);
     match parse_probe_name(name)? {
         ProbeName::Group { component, .. }
         | ProbeName::InvokePrimitive { component, .. }
         | ProbeName::InvokeCell { component, .. }
-        | ProbeName::InvokeGroup { component, .. } => return Ok(component),
+        | ProbeName::InvokeGroup { component, .. } => Ok(component),
     }
 }
 

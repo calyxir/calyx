@@ -116,14 +116,14 @@ pub struct ControlInfo {
 
 impl ControlInfo {
 
-    pub fn descriptors(&self, c: &String) -> &PathDescriptorInfo {
-        self.pd.get(c.as_str()).unwrap()
+    pub fn descriptors(&self, c: &str) -> &PathDescriptorInfo {
+        self.pd.get(c).unwrap()
     }
 
     pub fn get_pretty(&self, pos_set: &BTreeSet<u32>) -> Result<(String, u32)> {
         for pos in pos_set.iter() {
-            if let Some(pretty) = self.pretty_map.get(&pos) {
-                return Ok((pretty.clone(), pos.clone()))
+            if let Some(pretty) = self.pretty_map.get(pos) {
+                return Ok((pretty.clone(), *pos))
             }
         }
         Err(anyhow!("Positions in {:?} not found in pretty map", pos_set))

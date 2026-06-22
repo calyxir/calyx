@@ -19,26 +19,24 @@ pub fn compute_flame(
     let mut stack_strings: Vec<String> =
         cycle_trace.iter().map(|stack| stack.join(";")).collect();
     stack_strings.sort();
-    let mut acc = 0;
-    for stack_string in stack_strings {
+    for (acc, stack_string) in stack_strings.iter().enumerate() {
         let scaled = if acc == cycle_trace.len() - 1 {
             (1.0f64) - (normalizer * ((cycle_trace.iter().len() - 1) as f64))
         } else {
             normalizer
         };
-        if let Some(curr) = out.get_mut(&stack_string) {
+        if let Some(curr) = out.get_mut(stack_string) {
             curr.scaled += scaled;
             curr.flat += 1.0;
         } else {
             out.insert(
-                stack_string,
+                stack_string.to_string(),
                 FlameCount {
                     scaled,
                     flat: 1.0,
                 },
             );
         }
-        acc += 1;
     }
     Ok(())
 }
