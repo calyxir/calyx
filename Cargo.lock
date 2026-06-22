@@ -2582,6 +2582,7 @@ dependencies = [
  "baa",
  "clap 4.6.1",
  "cranelift-entity 0.128.4",
+ "log",
  "rustc-hash",
  "serde",
  "serde_json",

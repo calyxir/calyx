@@ -5,15 +5,16 @@ use std::collections::BTreeMap;
 use std::fs::File;
 
 #[derive(PartialEq, Eq, Hash, Clone, Deserialize)]
+/// An instance of a cell being shared; obtained from cell-share compiler pass.
 struct ShareEntry {
     original: String, // cell to be replaced
     new: String,      // replacement cell (shared)
     cell_type: String,
 }
 
-// shared_cells: BTreeMap<String, Vec<ShareEntry>>
-
+/// Maps shared cells in each component.
 pub struct SharedCellsInfo {
+    /// component --> {original cell --> new cell}
     shared_map: FxHashMap<String, FxHashMap<String, String>>,
 }
 
@@ -37,6 +38,7 @@ impl SharedCellsInfo {
         Ok(Self { shared_map })
     }
 
+    /// Returns the replacement (new) cell for a potentially shared cell, if one exists.
     pub fn get_replacement(
         &self,
         component: String,

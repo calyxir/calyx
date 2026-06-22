@@ -89,6 +89,7 @@ struct FSMStateInfo {
 }
 
 /// Represents the registers that do the bookkeeping for a control group
+/// NOTE: Will be necessary for the timeline view, but not for the flame graph.
 // #[derive(Debug)]
 // enum ControlRegister {
 //     FSM(String),
@@ -96,21 +97,27 @@ struct FSMStateInfo {
 // }
 
 #[derive(Debug, Clone)]
+/// Information for the control group obtained from the TDCC compiler pass.
+/// NOTE: More will be added for the timeline view.
 pub struct TdccInfo {
     pub name: String,
 }
 
 #[derive(Debug)]
+/// Represents all statically obtained information (from compiler passes & external tools)
+/// about control nodes (ex. seq, par) and the control groups (ex. tdcc*) used to manage them.
 pub struct ControlInfo {
-    // Note: If the original program was written in an ADL, there would be multiple entries
-    // for the same TDCC group (for each position from the ADL)
-    // We also use a vector because multiple control nodes may map to the same position in the ADL
+    /// Obtained from the TDCC pass that converts control nodes to control groups.
+    /// Note: If the original program was written in an ADL, there would be multiple entries
+    /// for the same TDCC group (for each position from the ADL)
+    /// We also use a vector because multiple control nodes may map to the same position in the ADL
     tdcc_map: FxHashMap<u32, Vec<TdccInfo>>,
 
-    // names for pretty printing
+    /// names for pretty printing (from control-pos file)
     pretty_map: FxHashMap<u32, String>,
 
-    // info taken straight from the path-descriptors file
+    /// info taken straight from the path-descriptors file (for computing parent-child relationships
+    /// between control groups & groups.
     pd: BTreeMap<String, PathDescriptorInfo>,
 }
 
@@ -142,7 +149,7 @@ impl ControlInfo {
         let mut tdcc_map = FxHashMap::default();
 
         // need to process pos_file first because it gives us the Calyx positions of all control nodes.
-        eprintln!("Parsing {}", pos_filename);
+        log::debug!("Parsing {}", pos_filename);
         let pos_file = File::open(pos_filename)?;
         let pos: HashMap<String, Vec<ControlCalyxPosInfo>> =
             serde_json::from_reader(BufReader::new(pos_file))?;
@@ -153,7 +160,7 @@ impl ControlInfo {
             }
         }
 
-        eprintln!("Parsing {}", tdcc_filename);
+        log::debug!("Parsing {}", tdcc_filename);
         let tdcc_file = File::open(tdcc_filename)?;
         let tdcc_profiling_info: HashSet<ProfilingInfo> =
             serde_json::from_reader(BufReader::new(tdcc_file))?;
@@ -176,7 +183,7 @@ impl ControlInfo {
             }
         }
 
-        eprintln!("Parsing {}", pd_filename);
+        log::debug!("Parsing {}", pd_filename);
         let pd_file = File::open(pd_filename)?;
         let pd: BTreeMap<String, PathDescriptorInfo> =
             serde_json::from_reader(BufReader::new(pd_file))?;
@@ -190,55 +197,3 @@ impl ControlInfo {
         Ok(out)
     }
 }
-
-// fn sort_path_descriptors(
-//     pd: PathDescriptorInfo,
-//     comp_to_ctrl: &mut HashMap<u32, ControlMeta>,
-// ) -> (HashMap<String, Option<u32>>) {
-//     // goal: Create a map from unique group name (unique call from control)
-//     // to the immediate control parent of the group, if one exists.
-//     let mut out: HashMap<String, Option<u32>> = HashMap::new();
-//
-//     let desc_to_ctrl_pos: HashMap<String, u32> = pd
-//         .control_pos
-//         .into_iter()
-//         .filter_map(|(d, ps)| {
-//             if let Some(p) =
-//                 ps.iter().filter(|p| comp_to_ctrl.contains_key(p)).next()
-//             {
-//                 Some((d, *p))
-//             } else {
-//                 None
-//             }
-//         })
-//         .collect();
-//
-//     let mut control_descriptors_sorted: Vec<&String> =
-//         desc_to_ctrl_pos.keys().collect();
-//     control_descriptors_sorted.sort();
-//     // get positions in ascending order
-//     let pos_orders = control_descriptors_sorted
-//         .iter()
-//         .map(|&k| *desc_to_ctrl_pos.get(k).unwrap())
-//         .collect();
-//     // reverse order to figure out groups' immediate predecessors
-//     control_descriptors_sorted.reverse();
-//
-//     // iterate through group descriptors and map keys
-//     for (g, d) in pd.enables.iter() {
-//         // find the immediate control node parent
-//         let mut found = false;
-//         for &cd in control_descriptors_sorted.iter() {
-//             if d.starts_with(cd) {
-//                 out.insert(g.clone(), Some(*desc_to_ctrl_pos.get(cd).unwrap()));
-//                 found = true;
-//                 break; // breaking because we found the first match
-//             }
-//         }
-//         if !found {
-//             out.insert(g.clone(), None);
-//         }
-//     }
-//
-//     (out, pos_orders)
-// }

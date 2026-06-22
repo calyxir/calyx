@@ -4,11 +4,13 @@ use rustc_hash::FxHashMap;
 use std::fs::{File};
 use std::io::{BufWriter, Write};
 
+/// Represents the flame graph values (how much for a single stack.
 pub struct FlameCount {
     scaled: f64,
     flat: f64,
 }
 
+/// Update the flame graph count given the trace for a single cycle.
 pub fn compute_flame(
     cycle_trace: Vec<Stack>,
     out: &mut FxHashMap<String, FlameCount>,
@@ -41,6 +43,7 @@ pub fn compute_flame(
     Ok(())
 }
 
+/// Helper function to write_flame() that returns a BufWriter for a flame graph if requested.
 fn get_buffer(path_opt: Option<String>) -> Result<Option<BufWriter<File>>> {
     if let Some(path) = path_opt {
         let sf = File::create_new(path)?;
@@ -50,6 +53,7 @@ fn get_buffer(path_opt: Option<String>) -> Result<Option<BufWriter<File>>> {
     }
 }
 
+/// Writes a scaled/flattened flame graph to scaled_flame_opt/folded_flame_opt if requested.
 pub fn write_flame(
     flame_info: FxHashMap<String, FlameCount>,
     scaled_flame_opt: Option<String>,
@@ -59,7 +63,7 @@ pub fn write_flame(
     if let Some(mut buffer) = scaled_buffer {
         for (s, f) in flame_info.iter() {
             // scaled flame graphs should be multiplied by 1000 to prevent the flame graph script
-            // erroring out.
+            // erroring out. (A script later divides by 1000)
             writeln!(buffer, "{s} {:.1}", (f.scaled * 1000.0))?;
         }
     }

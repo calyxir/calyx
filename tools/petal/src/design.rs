@@ -128,6 +128,17 @@ enum InvokeTarget {
     Control(ControlId),
 }
 
+#[derive(Debug, Clone)]
+/// Information necessary to "stitch" Control nodes in the appropriate spot within a Cell.
+pub struct CellControl {
+    /// Map from group to their Control parent (so we know where in the tree to add groups to.)
+    group_to_parent: FxHashMap<String, Option<ControlId>>,
+    /// The outermost control node, if one exists.
+    /// Will be None when there are no control nodes in the component.
+    /// (ex. a component with a single-group control)
+    toplevel_control: Option<ControlId>,
+}
+
 #[derive(Clone, Debug)]
 /// Represents the static call tree (all possible calls).
 pub struct Design {
@@ -138,13 +149,6 @@ pub struct Design {
     main: CellId,
     clk: SignalRef,
     signals: Vec<SignalRef>,
-}
-
-pub struct CellControl {
-    group_to_parent: FxHashMap<String, Option<ControlId>>,
-    /// The outermost control node, if one exists.
-    /// Will be None when there are no control nodes in the component.
-    toplevel_control: Option<ControlId>,
 }
 
 impl Design {
@@ -467,6 +471,8 @@ impl Design {
         signals
     }
 
+    /// Construct control nodes and the edges between them, and returns information necessary
+    /// to "stitch" the control nodes into the tree.
     fn populate_control(
         &mut self,
         h: &Hierarchy,
@@ -474,9 +480,6 @@ impl Design {
         c: &ControlInfo,
         component: &str,
     ) -> Result<CellControl> {
-        // Add Control into the tree, and return a map of groups with their control parent,
-        // along with the top-level ControlId if one exists.
-        // NOTE: If the component has a single-group control, the second entry will be None.
         let mut toplevel_control = None;
 
         let mut pos_to_id = FxHashMap::default();
@@ -561,6 +564,7 @@ impl Design {
         Ok(CellControl {group_to_parent, toplevel_control })
     }
 
+    /// Helper function that returns a map from groups to their control parent in the tree.
     fn groups_to_ctrl_parent(
         descriptor_to_id: &FxHashMap<String, ControlId>,
         descriptors: &PathDescriptorInfo,
@@ -627,6 +631,7 @@ impl Design {
         c: &ControlInfo,
         s: &SharedCellsInfo,
     ) -> Result<()> {
+        // Create control nodes and add an edge from a cell to the toplevel control.
         let component = get_component(h, cell_scope)?;
         cell.component = component.to_string();
         let CellControl { group_to_parent, toplevel_control} =
@@ -677,16 +682,16 @@ impl Design {
                                 })
                                 .map(|(_, ii)| ii)
                                 .collect();
-                            let groupid = self.groups.push(Group {
+                            let group_id = self.groups.push(Group {
                                 name: name.to_string(),
                                 probe,
                                 invokes,
                                 probe_idx: u32::MAX,
                             });
-                            all_groups.push(groupid);
+                            all_groups.push(group_id);
                             structurally_invoked_group_names
                                 .push(name.to_string());
-                            groupid
+                            group_id
                         };
                         let invoke_id = self.invokes.push(Invoke {
                             _name: name.to_string(),
@@ -850,8 +855,9 @@ impl Design {
     }
 }
 
+/// Called to grab the name of the cell's component before computing control.
 pub fn get_component(h: &Hierarchy, cell_scope: ScopeRef) -> Result<&str> {
-    // brute-force hack to grab the name of the cell's component before computing control.
+    // brute-force approach: Grab a probe signal in the cell's scope, parse and return the component name.
     let probe_scope = h[cell_scope]
         .scopes(h)
         .find(|s| h[*s].name(h).ends_with("_probe"))
