@@ -1,8 +1,10 @@
+use std::fs;
 use crate::design::Stack;
 use anyhow::{Ok, Result};
 use rustc_hash::FxHashMap;
 use std::fs::File;
 use std::io::{BufWriter, Write};
+use std::path::Path;
 
 /// Represents the flame graph values (how much for a single stack.
 pub struct FlameCount {
@@ -42,8 +44,12 @@ pub fn compute_flame(
 
 /// Helper function to write_flame() that returns a BufWriter for a flame graph if requested.
 fn get_buffer(path_opt: Option<String>) -> Result<Option<BufWriter<File>>> {
-    if let Some(path) = path_opt {
-        let sf = File::create_new(path)?;
+    if let Some(path_str) = path_opt {
+        let path = Path::new(&path_str);
+        if let Some(d) = path.parent() {
+            fs::create_dir_all(d)?;
+        }
+        let sf = File::create(path)?;
         Ok(Some(BufWriter::new(sf)))
     } else {
         Ok(None)
