@@ -411,172 +411,172 @@ fn log2_exact(x: &BigUint) -> Option<u32> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use proptest::prelude::*;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use proptest::prelude::*;
 
-    #[test]
-    fn test_unroll_float() {
-        let float = -0.5;
+//     #[test]
+//     fn test_unroll_float() {
+//         let float = -0.5;
 
-        let signed = true;
-        let int_width = 16;
-        let frac_width = 16;
+//         let signed = true;
+//         let int_width = 16;
+//         let frac_width = 16;
 
-        let format = cider::serialization::FormatInfo::Fixed {
-            signed,
-            int_width,
-            frac_width,
-        };
+//         let format = cider::serialization::FormatInfo::Fixed {
+//             signed,
+//             int_width,
+//             frac_width,
+//         };
 
-        let result = unroll_float(float, &format, true);
-        BigInt::from_signed_bytes_le(&result);
-        let parsed_res =
-            parse_bytes_fixed(&result, int_width, frac_width, signed);
-        println!(
-            " exact {}\n approx {}",
-            parsed_res,
-            parsed_res.to_f64().unwrap()
-        );
+//         let result = unroll_float(float, &format, true);
+//         BigInt::from_signed_bytes_le(&result);
+//         let parsed_res =
+//             parse_bytes_fixed(&result, int_width, frac_width, signed);
+//         println!(
+//             " exact {}\n approx {}",
+//             parsed_res,
+//             parsed_res.to_f64().unwrap()
+//         );
 
-        assert_eq!(parsed_res.to_f64().unwrap(), float)
-    }
+//         assert_eq!(parsed_res.to_f64().unwrap(), float)
+//     }
 
-    prop_compose! {
-        fn arb_format_info_bitnum()(width in 1_u32..=128, signed in any::<bool>()) -> crate::json_data::FormatInfo {
-            let width = if signed && width == 1 {
-                width + 1
-            } else {
-                width
-            };
-            crate::json_data::FormatInfo {
-                width: Some(width),
-                is_signed: signed,
-                numeric_type: NumericType::Bitnum,
-                int_width: None,
-                frac_width: None,
-            }
-        }
-    }
+//     prop_compose! {
+//         fn arb_format_info_bitnum()(width in 1_u32..=128, signed in any::<bool>()) -> crate::json_data::FormatInfo {
+//             let width = if signed && width == 1 {
+//                 width + 1
+//             } else {
+//                 width
+//             };
+//             crate::json_data::FormatInfo {
+//                 width: Some(width),
+//                 is_signed: signed,
+//                 numeric_type: NumericType::Bitnum,
+//                 int_width: None,
+//                 frac_width: None,
+//             }
+//         }
+//     }
 
-    prop_compose! {
-        fn arb_format_info_fixed()(int_width in 1_u32..=128, frac_width in 1_u32..=128, signed in any::<bool>()) -> crate::json_data::FormatInfo {
-            let int_width = if signed && int_width == 1 {
-                int_width + 1
-            } else {
-                int_width
-            };
-            crate::json_data::FormatInfo {
-                width: None,
-                is_signed: signed,
-                numeric_type: NumericType::Fixed,
-                int_width: Some(int_width),
-                frac_width: Some(frac_width),
-            }
-        }
-    }
+//     prop_compose! {
+//         fn arb_format_info_fixed()(int_width in 1_u32..=128, frac_width in 1_u32..=128, signed in any::<bool>()) -> crate::json_data::FormatInfo {
+//             let int_width = if signed && int_width == 1 {
+//                 int_width + 1
+//             } else {
+//                 int_width
+//             };
+//             crate::json_data::FormatInfo {
+//                 width: None,
+//                 is_signed: signed,
+//                 numeric_type: NumericType::Fixed,
+//                 int_width: Some(int_width),
+//                 frac_width: Some(frac_width),
+//             }
+//         }
+//     }
 
-    fn format_info_generator()
-    -> impl Strategy<Value = crate::json_data::FormatInfo> {
-        prop_oneof![arb_format_info_bitnum(), arb_format_info_fixed()]
-    }
+//     fn format_info_generator()
+//     -> impl Strategy<Value = crate::json_data::FormatInfo> {
+//         prop_oneof![arb_format_info_bitnum(), arb_format_info_fixed()]
+//     }
 
-    fn dim_generator() -> impl Strategy<Value = Dimensions> {
-        prop_oneof![
-            (1_usize..=32).prop_map(Dimensions::D1),
-            (1_usize..=32, 1_usize..=32)
-                .prop_map(|(d1, d2)| Dimensions::D2(d1, d2)),
-            (1_usize..=16, 1_usize..=16, 1_usize..=32)
-                .prop_map(|(d1, d2, d3)| Dimensions::D3(d1, d2, d3)),
-            (1_usize..=16, 1_usize..=16, 1_usize..=16, 1_usize..=16)
-                .prop_map(|(d1, d2, d3, d4)| Dimensions::D4(d1, d2, d3, d4)),
-        ]
-    }
+//     fn dim_generator() -> impl Strategy<Value = Dimensions> {
+//         prop_oneof![
+//             (1_usize..=32).prop_map(Dimensions::D1),
+//             (1_usize..=32, 1_usize..=32)
+//                 .prop_map(|(d1, d2)| Dimensions::D2(d1, d2)),
+//             (1_usize..=16, 1_usize..=16, 1_usize..=32)
+//                 .prop_map(|(d1, d2, d3)| Dimensions::D3(d1, d2, d3)),
+//             (1_usize..=16, 1_usize..=16, 1_usize..=16, 1_usize..=16)
+//                 .prop_map(|(d1, d2, d3, d4)| Dimensions::D4(d1, d2, d3, d4)),
+//         ]
+//     }
 
-    prop_compose! {
-        fn arb_bigint(width: u32, signed: bool)(mut data in prop::collection::vec(any::<u8>(), width.div_ceil(8) as usize)) -> BigInt {
-            let last = data.last_mut().unwrap();
-            let mask = 0b1111_1111u8
-                >> (if width.is_multiple_of(8) { 0 } else { 8 - width % 8 });
-            *last &= mask;
+//     prop_compose! {
+//         fn arb_bigint(width: u32, signed: bool)(mut data in prop::collection::vec(any::<u8>(), width.div_ceil(8) as usize)) -> BigInt {
+//             let last = data.last_mut().unwrap();
+//             let mask = 0b1111_1111u8
+//                 >> (if width.is_multiple_of(8) { 0 } else { 8 - width % 8 });
+//             *last &= mask;
 
-            if signed {
-                parse_bytes(data.as_slice(), width, signed)
+//             if signed {
+//                 parse_bytes(data.as_slice(), width, signed)
 
-            } else {
-                BigInt::from_bytes_le(num_bigint::Sign::Plus, data.as_slice())
-            }
+//             } else {
+//                 BigInt::from_bytes_le(num_bigint::Sign::Plus, data.as_slice())
+//             }
 
-        }
-    }
+//         }
+//     }
 
-    prop_compose! {
-        fn arb_data(format: crate::json_data::FormatInfo, dimensions: Dimensions, signed: bool)(data in prop::collection::vec(arb_bigint(format.get_width(), signed), dimensions.size())) -> ParseVec {
-            let data = data.into_iter().map(|x| {
-                if format.is_fixedpt() {
-                    let rat = BigRational::new(x.clone(), BigInt::from(1) << format.frac_width().unwrap());
-                    Number::from_f64(rat.to_f64().unwrap()).unwrap()
-                } else {
-                    Number::from_str(&x.to_str_radix(10)).unwrap()
-                }
-            });
+//     prop_compose! {
+//         fn arb_data(format: crate::json_data::FormatInfo, dimensions: Dimensions, signed: bool)(data in prop::collection::vec(arb_bigint(format.get_width(), signed), dimensions.size())) -> ParseVec {
+//             let data = data.into_iter().map(|x| {
+//                 if format.is_fixedpt() {
+//                     let rat = BigRational::new(x.clone(), BigInt::from(1) << format.frac_width().unwrap());
+//                     Number::from_f64(rat.to_f64().unwrap()).unwrap()
+//                 } else {
+//                     Number::from_str(&x.to_str_radix(10)).unwrap()
+//                 }
+//             });
 
-            match dimensions {
-                Dimensions::D1(_) => data.collect_vec().into(),
-                Dimensions::D2(_d0, d1) => data.into_iter().chunks(d1).into_iter().map(|v| v.collect_vec()).collect_vec().into(),
-                Dimensions::D3(_d0, d1, d2) => data.into_iter().chunks(d1 * d2).into_iter().map(|v1| v1.chunks(d2).into_iter().map(|v2| v2.collect_vec()).collect_vec()).collect_vec().into(),
-                Dimensions::D4(_d0, d1, d2, d3) => data.into_iter().chunks(d1 * d2 * d3).into_iter().map(|v1| v1.chunks(d2 * d3).into_iter().map(|v2| v2.chunks(d3).into_iter().map(|v3| v3.collect_vec()).collect_vec()).collect_vec()).collect_vec().into(),
-            }
-        }
-    }
+//             match dimensions {
+//                 Dimensions::D1(_) => data.collect_vec().into(),
+//                 Dimensions::D2(_d0, d1) => data.into_iter().chunks(d1).into_iter().map(|v| v.collect_vec()).collect_vec().into(),
+//                 Dimensions::D3(_d0, d1, d2) => data.into_iter().chunks(d1 * d2).into_iter().map(|v1| v1.chunks(d2).into_iter().map(|v2| v2.collect_vec()).collect_vec()).collect_vec().into(),
+//                 Dimensions::D4(_d0, d1, d2, d3) => data.into_iter().chunks(d1 * d2 * d3).into_iter().map(|v1| v1.chunks(d2 * d3).into_iter().map(|v2| v2.chunks(d3).into_iter().map(|v3| v3.collect_vec()).collect_vec()).collect_vec()).collect_vec().into(),
+//             }
+//         }
+//     }
 
-    fn arb_json_entry() -> impl Strategy<Value = JsonDataEntry> {
-        let arb_format_info = format_info_generator();
-        let dim = dim_generator();
-        (arb_format_info, dim).prop_flat_map(|(format, dimensions)| {
-            arb_data(format.clone(), dimensions, format.is_signed).prop_map(
-                move |x| JsonDataEntry {
-                    data: x,
-                    format: format.clone(),
-                },
-            )
-        })
-    }
+//     fn arb_json_entry() -> impl Strategy<Value = JsonDataEntry> {
+//         let arb_format_info = format_info_generator();
+//         let dim = dim_generator();
+//         (arb_format_info, dim).prop_flat_map(|(format, dimensions)| {
+//             arb_data(format.clone(), dimensions, format.is_signed).prop_map(
+//                 move |x| JsonDataEntry {
+//                     data: x,
+//                     format: format.clone(),
+//                 },
+//             )
+//         })
+//     }
 
-    fn arb_bigint_with_info() -> impl Strategy<Value = (BigInt, u32, bool)> {
-        let width = prop_oneof![1..=128_u32];
-        let signed = any::<bool>();
+//     fn arb_bigint_with_info() -> impl Strategy<Value = (BigInt, u32, bool)> {
+//         let width = prop_oneof![1..=128_u32];
+//         let signed = any::<bool>();
 
-        (width, signed).prop_flat_map(|(width, signed)| {
-            let data = arb_bigint(width, signed);
-            data.prop_map(move |x| (x, width, signed))
-        })
-    }
+//         (width, signed).prop_flat_map(|(width, signed)| {
+//             let data = arb_bigint(width, signed);
+//             data.prop_map(move |x| (x, width, signed))
+//         })
+//     }
 
-    proptest! {
-        #[test]
-        fn test_json_roundtrip(map in prop::collection::hash_map(any::<String>(), arb_json_entry(), 1..4)) {
-            let json_data = JsonData(map);
+//     proptest! {
+//         #[test]
+//         fn test_json_roundtrip(map in prop::collection::hash_map(any::<String>(), arb_json_entry(), 1..4)) {
+//             let json_data = JsonData(map);
 
-            let dump = convert_to_data_dump(&json_data, true);
+//             let dump = convert_to_data_dump(&json_data, true);
 
-            let json_print_dump = convert_from_data_dump(&dump, false);
+//             let json_print_dump = convert_from_data_dump(&dump, false);
 
-            for (name, entry) in &json_data.0 {
-                prop_assert_eq!(&entry.data, json_print_dump.as_normal().unwrap().get(name).unwrap())
-            }
-        }
+//             for (name, entry) in &json_data.0 {
+//                 prop_assert_eq!(&entry.data, json_print_dump.as_normal().unwrap().get(name).unwrap())
+//             }
+//         }
 
-        #[test]
-        fn sign_extend(data in arb_bigint_with_info()) {
-            let (data, width, signed) = data;
-            let vec = sign_extend_vec(data.to_signed_bytes_le(), width, signed);
+//         #[test]
+//         fn sign_extend(data in arb_bigint_with_info()) {
+//             let (data, width, signed) = data;
+//             let vec = sign_extend_vec(data.to_signed_bytes_le(), width, signed);
 
-            let parsed_back = parse_bytes(&vec, width, signed);
+//             let parsed_back = parse_bytes(&vec, width, signed);
 
-            prop_assert_eq!(data, parsed_back);
-        }
+//             prop_assert_eq!(data, parsed_back);
+//         }
 
-    }
-}
+//     }
+// }

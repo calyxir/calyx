@@ -657,6 +657,7 @@ version = "0.1.0"
 dependencies = [
  "argh",
  "cider",
+ "data-conv-lib",
  "itertools 0.14.0",
  "nom 7.1.3",
  "num-bigint",
@@ -1100,6 +1101,21 @@ dependencies = [
  "lock_api",
  "once_cell",
  "parking_lot_core",
+]
+
+[[package]]
+name = "data-conv-lib"
+version = "0.1.0"
+dependencies = [
+ "argh",
+ "cider",
+ "itertools 0.14.0",
+ "nom 7.1.3",
+ "num-traits",
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

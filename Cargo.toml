@@ -22,6 +22,7 @@ members = [
     "tools/data-conversion",
     "tools/calyx-pass-explorer",
     "tools/cider-data-converter",
+    "tools/cider-data-converter/conv",
     "tools/component_cells",
     "tools/fileinfo_emitter",
     "tools/yxi",
