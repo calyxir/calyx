@@ -1,15 +1,15 @@
 use anyhow::{Ok, Result, anyhow};
 use rustc_hash::FxHashMap;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize};
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    collections::{BTreeSet, HashMap, HashSet},
     fs::File,
     io::BufReader,
 };
 
 // ORIGINALLY FROM fileinfo_emitter tool
 // Obtaining the original line numbers of Calyx
-#[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+#[derive(Deserialize)]
 struct ControlCalyxPosInfo {
     pub pos_num: u32,
     pub linenum: u32,
@@ -19,19 +19,19 @@ struct ControlCalyxPosInfo {
 // ORIGINALLY FROM uniquefy_enables Calyx pass
 // path_descriptor_infos: BTreeMap<String, PathDescriptorInfo>,
 /// Information to serialize for locating path descriptors
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
 pub struct PathDescriptorInfo {
     /// enable id --> descriptor
-    pub enables: BTreeMap<String, String>,
+    pub enables: FxHashMap<String, String>,
     /// descriptor --> position set
     /// (Ideally I'd do a position set --> descriptor mapping but
     /// a set shouldn't be a key.)
-    pub control_pos: BTreeMap<String, BTreeSet<u32>>,
+    pub control_pos: FxHashMap<String, BTreeSet<u32>>,
 }
 
 /// ORIGINALLY FROM TDCC Calyx pass; replaced all instances of Id with String
 /// Information to serialize for profiling purposes
-#[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+#[derive(Hash, Eq, PartialEq, Deserialize)]
 enum ProfilingInfo {
     Fsm(FSMInfo),
     Par(ParInfo),
@@ -41,14 +41,14 @@ enum ProfilingInfo {
 /// ORIGINALLY FROM TDCC Calyx pass; replaced all instances of Id with String
 /// Information to be serialized for a group that isn't managed by a FSM
 /// This can happen if the group is the only group in a control block or a par arm
-#[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+#[derive(Hash, Eq, PartialEq, Deserialize)]
 struct SingleEnableInfo {
     pub component: String,
     pub group: String,
 }
 
 /// ORIGINALLY FROM TDCC Calyx pass; replaced all instances of Id with String
-#[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+#[derive(Hash, Eq, PartialEq, Deserialize)]
 struct ParInfo {
     pub component: String,
     pub par_group: String,
@@ -59,7 +59,7 @@ struct ParInfo {
 }
 
 /// ORIGINALLY FROM TDCC Calyx pass; replaced all instances of Id with String
-#[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+#[derive(Hash, Eq, PartialEq, Deserialize)]
 struct ParChildInfo {
     pub group: String,
     pub register: String,
@@ -67,7 +67,7 @@ struct ParChildInfo {
 
 /// ORIGINALLY FROM TDCC Calyx pass; replaced all instances of Id with String
 /// Information to be serialized for a single FSM
-#[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+#[derive(Hash, Eq, PartialEq, Deserialize)]
 struct FSMInfo {
     pub component: String,
     pub group: String,
@@ -80,9 +80,7 @@ struct FSMInfo {
 
 /// ORIGINALLY FROM TDCC Calyx pass; replaced all instances of Id with String
 /// Mapping of FSM state ids to corresponding group names
-#[derive(
-    PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize,
-)]
+#[derive(Hash, Eq, PartialEq, Deserialize)]
 struct FSMStateInfo {
     id: u64,
     group: String,
@@ -118,7 +116,7 @@ pub struct ControlInfo {
 
     /// info taken straight from the path-descriptors file (for computing parent-child relationships
     /// between control groups & groups.
-    pd: BTreeMap<String, PathDescriptorInfo>,
+    pd: FxHashMap<String, PathDescriptorInfo>,
 }
 
 impl ControlInfo {
@@ -191,7 +189,7 @@ impl ControlInfo {
 
         log::debug!("Parsing {}", pd_filename);
         let pd_file = File::open(pd_filename)?;
-        let pd: BTreeMap<String, PathDescriptorInfo> =
+        let pd: FxHashMap<String, PathDescriptorInfo> =
             serde_json::from_reader(BufReader::new(pd_file))?;
 
         let out = Self {
