@@ -1,6 +1,6 @@
 use anyhow::{Ok, Result, anyhow};
 use rustc_hash::FxHashMap;
-use serde::{Deserialize};
+use serde::Deserialize;
 use std::{
     collections::{BTreeSet, HashMap, HashSet},
     fs::File,
