@@ -1,245 +1,272 @@
 Number of clock ticks: 96
 0
-	[main, init_all, idx0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), init_all, idx0 (primitive)]
 1
-	[main, store_a, read_a (primitive)]
-	[main, store_b, read_b (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), store_a, read_a (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), store_b, read_b (primitive)]
 2
-	[main, incr_idx, add0 (primitive)]
-	[main, incr_idx, idx0 (primitive)]
-	[main, invoke_mac0, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), incr_idx, add0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), incr_idx, idx0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac0, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
 3
-	[main, invoke_mac0, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac0, mac [pipelined_mac], stage1, mult_pipe (primitive)]
 4
-	[main, invoke_mac0, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac0, mac [pipelined_mac], stage1, mult_pipe (primitive)]
 5
-	[main, invoke_mac0, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac0, mac [pipelined_mac], stage1, mult_pipe (primitive)]
 6
-	[main, invoke_mac0, mac [pipelined_mac], stage1, pipe1 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac0, mac [pipelined_mac], stage1, pipe1 (primitive)]
 7
-	[main, invoke_mac0, mac [pipelined_mac], set_stage2_valid, stage2_valid (primitive)]
-	[main, invoke_mac0, mac [pipelined_mac], unset_out_valid, out_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac0, mac [pipelined_mac], set_stage2_valid, stage2_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac0, mac [pipelined_mac], unset_out_valid, out_valid (primitive)]
 8
-	[main]
+	[main, tdcc ~ L156:seq (ctrl)]
 9
-	[main, in_range, lt0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), in_range, lt0 (primitive)]
 10
-	[main]
+	[main, tdcc ~ L156:seq (ctrl)]
 11
-	[main, store_a, read_a (primitive)]
-	[main, store_b, read_b (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), store_a, read_a (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), store_b, read_b (primitive)]
 12
-	[main, incr_idx, add0 (primitive)]
-	[main, incr_idx, idx0 (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), incr_idx, add0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), incr_idx, idx0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
 13
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], stage2, add (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], stage2, pipe2 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage2, add (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage2, pipe2 (primitive)]
 14
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
 15
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
 16
-	[main, invoke_mac1, mac [pipelined_mac], stage1, pipe1 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, pipe1 (primitive)]
 17
-	[main, invoke_mac1, mac [pipelined_mac], set_out_valid, out_valid (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], set_stage2_valid, stage2_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], set_out_valid, out_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], set_stage2_valid, stage2_valid (primitive)]
 18
-	[main, in_range, lt0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), in_range, lt0 (primitive)]
 19
-	[main, store_a, read_a (primitive)]
-	[main, store_b, read_b (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), store_a, read_a (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), store_b, read_b (primitive)]
 20
-	[main, incr_idx, add0 (primitive)]
-	[main, incr_idx, idx0 (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), incr_idx, add0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), incr_idx, idx0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
 21
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], stage2, add (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], stage2, pipe2 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage2, add (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage2, pipe2 (primitive)]
 22
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
 23
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
 24
-	[main, invoke_mac1, mac [pipelined_mac], stage1, pipe1 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, pipe1 (primitive)]
 25
-	[main, invoke_mac1, mac [pipelined_mac], set_out_valid, out_valid (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], set_stage2_valid, stage2_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], set_out_valid, out_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], set_stage2_valid, stage2_valid (primitive)]
 26
-	[main, in_range, lt0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), in_range, lt0 (primitive)]
 27
-	[main, store_a, read_a (primitive)]
-	[main, store_b, read_b (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), store_a, read_a (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), store_b, read_b (primitive)]
 28
-	[main, incr_idx, add0 (primitive)]
-	[main, incr_idx, idx0 (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), incr_idx, add0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), incr_idx, idx0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
 29
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], stage2, add (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], stage2, pipe2 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage2, add (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage2, pipe2 (primitive)]
 30
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
 31
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
 32
-	[main, invoke_mac1, mac [pipelined_mac], stage1, pipe1 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, pipe1 (primitive)]
 33
-	[main, invoke_mac1, mac [pipelined_mac], set_out_valid, out_valid (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], set_stage2_valid, stage2_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], set_out_valid, out_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], set_stage2_valid, stage2_valid (primitive)]
 34
-	[main, in_range, lt0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), in_range, lt0 (primitive)]
 35
-	[main, store_a, read_a (primitive)]
-	[main, store_b, read_b (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), store_a, read_a (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), store_b, read_b (primitive)]
 36
-	[main, incr_idx, add0 (primitive)]
-	[main, incr_idx, idx0 (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), incr_idx, add0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), incr_idx, idx0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
 37
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], stage2, add (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], stage2, pipe2 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage2, add (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage2, pipe2 (primitive)]
 38
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
 39
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
 40
-	[main, invoke_mac1, mac [pipelined_mac], stage1, pipe1 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, pipe1 (primitive)]
 41
-	[main, invoke_mac1, mac [pipelined_mac], set_out_valid, out_valid (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], set_stage2_valid, stage2_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], set_out_valid, out_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], set_stage2_valid, stage2_valid (primitive)]
 42
-	[main, in_range, lt0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), in_range, lt0 (primitive)]
 43
-	[main, store_a, read_a (primitive)]
-	[main, store_b, read_b (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), store_a, read_a (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), store_b, read_b (primitive)]
 44
-	[main, incr_idx, add0 (primitive)]
-	[main, incr_idx, idx0 (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), incr_idx, add0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), incr_idx, idx0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
 45
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], stage2, add (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], stage2, pipe2 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage2, add (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage2, pipe2 (primitive)]
 46
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
 47
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
 48
-	[main, invoke_mac1, mac [pipelined_mac], stage1, pipe1 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, pipe1 (primitive)]
 49
-	[main, invoke_mac1, mac [pipelined_mac], set_out_valid, out_valid (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], set_stage2_valid, stage2_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], set_out_valid, out_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], set_stage2_valid, stage2_valid (primitive)]
 50
-	[main, in_range, lt0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), in_range, lt0 (primitive)]
 51
-	[main, store_a, read_a (primitive)]
-	[main, store_b, read_b (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), store_a, read_a (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), store_b, read_b (primitive)]
 52
-	[main, incr_idx, add0 (primitive)]
-	[main, incr_idx, idx0 (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), incr_idx, add0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), incr_idx, idx0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
 53
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], stage2, add (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], stage2, pipe2 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage2, add (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage2, pipe2 (primitive)]
 54
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
 55
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
 56
-	[main, invoke_mac1, mac [pipelined_mac], stage1, pipe1 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, pipe1 (primitive)]
 57
-	[main, invoke_mac1, mac [pipelined_mac], set_out_valid, out_valid (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], set_stage2_valid, stage2_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], set_out_valid, out_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], set_stage2_valid, stage2_valid (primitive)]
 58
-	[main, in_range, lt0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), in_range, lt0 (primitive)]
 59
-	[main, store_a, read_a (primitive)]
-	[main, store_b, read_b (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), store_a, read_a (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), store_b, read_b (primitive)]
 60
-	[main, incr_idx, add0 (primitive)]
-	[main, incr_idx, idx0 (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), incr_idx, add0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), incr_idx, idx0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
 61
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], stage2, add (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], stage2, pipe2 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage2, add (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage2, pipe2 (primitive)]
 62
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
 63
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
 64
-	[main, invoke_mac1, mac [pipelined_mac], stage1, pipe1 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, pipe1 (primitive)]
 65
-	[main, invoke_mac1, mac [pipelined_mac], set_out_valid, out_valid (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], set_stage2_valid, stage2_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], set_out_valid, out_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], set_stage2_valid, stage2_valid (primitive)]
 66
-	[main, in_range, lt0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), in_range, lt0 (primitive)]
 67
-	[main, store_a, read_a (primitive)]
-	[main, store_b, read_b (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), store_a, read_a (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), store_b, read_b (primitive)]
 68
-	[main, incr_idx, add0 (primitive)]
-	[main, incr_idx, idx0 (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), incr_idx, add0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), incr_idx, idx0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
 69
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], stage2, add (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], stage2, pipe2 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage2, add (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage2, pipe2 (primitive)]
 70
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
 71
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
 72
-	[main, invoke_mac1, mac [pipelined_mac], stage1, pipe1 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, pipe1 (primitive)]
 73
-	[main, invoke_mac1, mac [pipelined_mac], set_out_valid, out_valid (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], set_stage2_valid, stage2_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], set_out_valid, out_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], set_stage2_valid, stage2_valid (primitive)]
 74
-	[main, in_range, lt0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), in_range, lt0 (primitive)]
 75
-	[main, store_a, read_a (primitive)]
-	[main, store_b, read_b (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), store_a, read_a (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), store_b, read_b (primitive)]
 76
-	[main, incr_idx, add0 (primitive)]
-	[main, incr_idx, idx0 (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), incr_idx, add0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), incr_idx, idx0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
 77
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], stage2, add (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], stage2, pipe2 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage2, add (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage2, pipe2 (primitive)]
 78
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
 79
-	[main, invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, mult_pipe (primitive)]
 80
-	[main, invoke_mac1, mac [pipelined_mac], stage1, pipe1 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], stage1, pipe1 (primitive)]
 81
-	[main, invoke_mac1, mac [pipelined_mac], set_out_valid, out_valid (primitive)]
-	[main, invoke_mac1, mac [pipelined_mac], set_stage2_valid, stage2_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], set_out_valid, out_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac1, mac [pipelined_mac], set_stage2_valid, stage2_valid (primitive)]
 82
-	[main, in_range, lt0 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), in_range, lt0 (primitive)]
 83
-	[main]
+	[main, tdcc ~ L156:seq (ctrl)]
 84
-	[main, invoke_mac2, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac2, mac [pipelined_mac], write_data_valid, data_valid_reg (primitive)]
 85
-	[main, invoke_mac2, mac [pipelined_mac], stage2, add (primitive)]
-	[main, invoke_mac2, mac [pipelined_mac], stage2, pipe2 (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac2, mac [pipelined_mac], stage2, add (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac2, mac [pipelined_mac], stage2, pipe2 (primitive)]
 86
-	[main, invoke_mac2, mac [pipelined_mac]]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac2, mac [pipelined_mac]]
 87
-	[main, invoke_mac2, mac [pipelined_mac]]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac2, mac [pipelined_mac]]
 88
-	[main, invoke_mac2, mac [pipelined_mac]]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac2, mac [pipelined_mac]]
 89
-	[main, invoke_mac2, mac [pipelined_mac], set_out_valid, out_valid (primitive)]
-	[main, invoke_mac2, mac [pipelined_mac], unset_stage2_valid, stage2_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac2, mac [pipelined_mac], set_out_valid, out_valid (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), invoke_mac2, mac [pipelined_mac], unset_stage2_valid, stage2_valid (primitive)]
 90
-	[main, save_out, out (primitive)]
+	[main, tdcc ~ L156:seq (ctrl), save_out, out (primitive)]
 91
-	[main]
+	[main, tdcc ~ L156:seq (ctrl)]
+====FLAT FLAME OUTPUT====
+main;tdcc ~ L156:seq (ctrl) 4
+main;tdcc ~ L156:seq (ctrl);in_range;lt0 (primitive) 10
+main;tdcc ~ L156:seq (ctrl);incr_idx;add0 (primitive) 10
+main;tdcc ~ L156:seq (ctrl);incr_idx;idx0 (primitive) 10
+main;tdcc ~ L156:seq (ctrl);init_all;idx0 (primitive) 1
+main;tdcc ~ L156:seq (ctrl);invoke_mac0;mac [pipelined_mac];set_stage2_valid;stage2_valid (primitive) 1
+main;tdcc ~ L156:seq (ctrl);invoke_mac0;mac [pipelined_mac];stage1;mult_pipe (primitive) 3
+main;tdcc ~ L156:seq (ctrl);invoke_mac0;mac [pipelined_mac];stage1;pipe1 (primitive) 1
+main;tdcc ~ L156:seq (ctrl);invoke_mac0;mac [pipelined_mac];unset_out_valid;out_valid (primitive) 1
+main;tdcc ~ L156:seq (ctrl);invoke_mac0;mac [pipelined_mac];write_data_valid;data_valid_reg (primitive) 1
+main;tdcc ~ L156:seq (ctrl);invoke_mac1;mac [pipelined_mac];set_out_valid;out_valid (primitive) 9
+main;tdcc ~ L156:seq (ctrl);invoke_mac1;mac [pipelined_mac];set_stage2_valid;stage2_valid (primitive) 9
+main;tdcc ~ L156:seq (ctrl);invoke_mac1;mac [pipelined_mac];stage1;mult_pipe (primitive) 27
+main;tdcc ~ L156:seq (ctrl);invoke_mac1;mac [pipelined_mac];stage1;pipe1 (primitive) 9
+main;tdcc ~ L156:seq (ctrl);invoke_mac1;mac [pipelined_mac];stage2;add (primitive) 9
+main;tdcc ~ L156:seq (ctrl);invoke_mac1;mac [pipelined_mac];stage2;pipe2 (primitive) 9
+main;tdcc ~ L156:seq (ctrl);invoke_mac1;mac [pipelined_mac];write_data_valid;data_valid_reg (primitive) 9
+main;tdcc ~ L156:seq (ctrl);invoke_mac2;mac [pipelined_mac] 3
+main;tdcc ~ L156:seq (ctrl);invoke_mac2;mac [pipelined_mac];set_out_valid;out_valid (primitive) 1
+main;tdcc ~ L156:seq (ctrl);invoke_mac2;mac [pipelined_mac];stage2;add (primitive) 1
+main;tdcc ~ L156:seq (ctrl);invoke_mac2;mac [pipelined_mac];stage2;pipe2 (primitive) 1
+main;tdcc ~ L156:seq (ctrl);invoke_mac2;mac [pipelined_mac];unset_stage2_valid;stage2_valid (primitive) 1
+main;tdcc ~ L156:seq (ctrl);invoke_mac2;mac [pipelined_mac];write_data_valid;data_valid_reg (primitive) 1
+main;tdcc ~ L156:seq (ctrl);save_out;out (primitive) 1
+main;tdcc ~ L156:seq (ctrl);store_a;read_a (primitive) 10
+main;tdcc ~ L156:seq (ctrl);store_b;read_b (primitive) 10

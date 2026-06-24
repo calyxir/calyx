@@ -1,10 +1,14 @@
 use anyhow::{Context, Result};
+use core::panic;
 
 use baa::{BitVecOps, BitVecValue};
 use cranelift_entity::{PrimaryMap, entity_impl};
 use rustc_hash::FxHashMap;
 use smallvec::{SmallVec, smallvec};
 use wellen::{Hierarchy, Scope, ScopeRef, SignalRef, VarRef};
+
+use crate::control::{ControlInfo, PathDescriptorInfo};
+use crate::shared_cells::SharedCellsInfo;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct CellId(u32);
@@ -15,11 +19,14 @@ entity_impl!(CellId, "cell");
 struct Cell {
     /// The user-defined name of the cell.
     name: String,
+    /// Ids of control nodes that could be called from this cell, if it is a component.
+    /// NOTE: Primitive cells should have an empty vec here.
+    control: SmallVec<[ControlId; 6]>,
     /// Ids of groups that could be called from this cell, if it is a component.
     /// NOTE: Primitive cells should have an empty vec here.
     groups: SmallVec<[GroupId; 6]>,
     /// The scope of the cell in the RTL trace.
-    _scope: ScopeRef,
+    _scope: Option<ScopeRef>,
     /// Is the cell a primitive?
     is_primitive: bool,
     /// If the cell is of the main component, contains a ref to main.go and main.done.
@@ -31,13 +38,20 @@ struct Cell {
     component: String,
     /// cells that are defined within the component
     instances: SmallVec<[CellId; 6]>,
+    /// Name of the replacement cell, if the cell was a shared primitive.
+    replacement: Option<String>,
 }
 
 impl Cell {
     /// String representation of cell for trace and visualizations
     pub fn display_name(&self) -> String {
         if self.is_primitive {
-            format!("{} (primitive)", self.name)
+            let s = format!("{} (primitive)", self.name);
+            if let Some(r) = &self.replacement {
+                format!("{s} -> {}", r)
+            } else {
+                s
+            }
         } else if self.component == "main" {
             self.name.clone()
         } else {
@@ -68,6 +82,28 @@ impl Group {
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
+pub struct ControlId(u32);
+entity_impl!(ControlId, "control");
+
+#[derive(Debug, Clone)]
+/// Represents a control activation from a component.
+struct Control {
+    name: String,
+    go: SignalRef,
+    invokes: SmallVec<[InvokeId; 6]>,
+    go_idx: u32,
+    _pos: u32,
+    pretty: String,
+    // deal with registers later
+}
+
+impl Control {
+    pub fn display_name(&self) -> String {
+        format!("{} ~ {} (ctrl)", self.name, self.pretty)
+    }
+}
+
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct InvokeId(u32);
 entity_impl!(InvokeId, "invoke");
 
@@ -82,20 +118,32 @@ struct Invoke {
 }
 
 #[derive(Debug, Clone)]
-/// Represents a target of an invoke from a group
+/// Represents a target of an invoke from a group/control node
 enum InvokeTarget {
     // Group invokes a component/primitive cell
     Cell(CellId),
-    // Group invokes a group (structural enable)
+    // Control/Group invokes a group (structural enable)
     Group(GroupId),
+    // Control invokes a control
+    Control(ControlId),
+}
+
+#[derive(Debug, Clone)]
+/// Information necessary to "stitch" Control nodes in the appropriate spot within a Cell.
+pub struct CellControl {
+    /// Map from group to their Control parent (so we know where in the tree to add groups to.)
+    group_to_parent: FxHashMap<String, Option<ControlId>>,
+    /// The outermost control node, if one exists.
+    /// Will be None when there are no control nodes in the component.
+    /// (ex. a component with a single-group control)
+    toplevel_control: Option<ControlId>,
 }
 
 #[derive(Clone, Debug)]
 /// Represents the static call tree (all possible calls).
 pub struct Design {
     cells: PrimaryMap<CellId, Cell>,
-    /// groups that are activated from control
-    /// NOTE: Does not include groups that are activated via structural enables.
+    controls: PrimaryMap<ControlId, Control>,
     groups: PrimaryMap<GroupId, Group>,
     invokes: PrimaryMap<InvokeId, Invoke>,
     main: CellId,
@@ -104,7 +152,11 @@ pub struct Design {
 }
 
 impl Design {
-    pub fn new(h: &wellen::Hierarchy) -> Result<Self> {
+    pub fn new(
+        h: &wellen::Hierarchy,
+        c: ControlInfo,
+        s: SharedCellsInfo,
+    ) -> Result<Self> {
         let main = h
             .lookup_scope(&[&"toplevel", &"main"])
             .with_context(|| "Failed to find main scope")?;
@@ -114,11 +166,12 @@ impl Design {
             cells: PrimaryMap::new(),
             groups: PrimaryMap::new(),
             invokes: PrimaryMap::new(),
+            controls: PrimaryMap::new(),
             main: CellId(u32::MAX),
             clk,
             signals: vec![],
         };
-        out.populate(h)?;
+        out.populate(h, c, s)?;
         out.build_idx();
         Ok(out)
     }
@@ -220,7 +273,7 @@ impl Design {
                 return vec![prefix];
             }
         }
-        if cell.groups.is_empty() {
+        if cell.groups.is_empty() && cell.control.is_empty() {
             // No more children, so this is a sink.
             return vec![prefix];
         }
@@ -233,9 +286,18 @@ impl Design {
                 out.append(&mut group_stacks);
             }
         }
-        // if the cell has groups but none of them are active, we still need to add the cell
-        // NOTE: this would be a control cycle.
-        if !cell.groups.is_empty() && out.is_empty() {
+        for &control_idx in &cell.control {
+            let control = &self.controls[control_idx];
+            if value.is_bit_set(control.go_idx) {
+                let mut control_stacks =
+                    self.compute_control(value, control_idx, prefix.clone());
+                out.append(&mut control_stacks);
+            }
+        }
+
+        // Edge case: if the cell is static, there could be cycles where
+        // no group or control is active!
+        if out.is_empty() {
             out.push(prefix);
         }
 
@@ -245,6 +307,61 @@ impl Design {
     /// Builds up all active tree paths this cycle from the group of group_id.
     /// prefix is the state of the stack before this particular group.
     /// NOTE: This function is co-recursive with compute_cell(), and only called when
+    /// the control group is active (otherwise this function would not be called.)
+    fn compute_control(
+        &self,
+        value: &BitVecValue,
+        control_id: ControlId,
+        mut prefix: Stack,
+    ) -> Vec<Stack> {
+        let control = &self.controls[control_id];
+        prefix.push(control.display_name());
+        if control.invokes.is_empty() {
+            return vec![prefix];
+        }
+        let mut out = vec![];
+        for &invoke_id in &control.invokes {
+            let invoke = &self.invokes[invoke_id];
+            if value.is_bit_set(invoke.probe_idx) {
+                match invoke.target {
+                    InvokeTarget::Cell(_) => {
+                        panic!(
+                            "Control node {} directly invokes cell (control nodes should only invoke control nodes and groups)",
+                            control.name
+                        )
+                    }
+                    InvokeTarget::Group(target_group_id) => {
+                        let mut group_stacks = self.compute_group(
+                            value,
+                            target_group_id,
+                            prefix.clone(),
+                        );
+                        out.append(&mut group_stacks);
+                    }
+                    InvokeTarget::Control(target_control_id) => {
+                        let mut control_stacks = self.compute_control(
+                            value,
+                            target_control_id,
+                            prefix.clone(),
+                        );
+                        out.append(&mut control_stacks);
+                    }
+                }
+            }
+        }
+        // if the control node invokes control nodes/groups but none of them are active,
+        // we still need to add the control node.
+        // NOTE: this would be a control cycle.
+        if !control.invokes.is_empty() && out.is_empty() {
+            out.push(prefix);
+        }
+
+        out
+    }
+
+    /// Builds up all active tree paths this cycle from the group of group_id.
+    /// prefix is the state of the stack before this particular group.
+    /// NOTE: This function is co-recursive with compute_cell() and compute_control(), and only called when
     /// the group is active (otherwise this function would not be called.)
     fn compute_group(
         &self,
@@ -288,6 +405,9 @@ impl Design {
                         );
                         out.append(&mut group_stacks);
                     }
+                    InvokeTarget::Control(_) => {
+                        panic!("Group should not invoke a Control node!")
+                    }
                 }
             }
         }
@@ -313,6 +433,10 @@ impl Design {
             }
         }
 
+        for (_, control) in self.controls.iter_mut() {
+            control.go_idx = to_index[&control.go];
+        }
+
         for (_, group) in self.groups.iter_mut() {
             group.probe_idx = to_index[&group.probe];
         }
@@ -332,6 +456,10 @@ impl Design {
             }
         }
 
+        for control in self.controls.values() {
+            signals.push(control.go);
+        }
+
         for group in self.groups.values() {
             signals.push(group.probe);
         }
@@ -347,8 +475,137 @@ impl Design {
         signals
     }
 
+    /// Construct control nodes and the edges between them, and returns information necessary
+    /// to "stitch" the control nodes into the tree.
+    fn populate_control(
+        &mut self,
+        h: &Hierarchy,
+        s: ScopeRef,
+        c: &ControlInfo,
+        component: &str,
+    ) -> Result<CellControl> {
+        let mut toplevel_control = None;
+
+        let mut pos_to_id = FxHashMap::default();
+        let mut descriptor_to_id: FxHashMap<String, ControlId> =
+            FxHashMap::default();
+
+        let descriptors = c.descriptors(component);
+        // let ctrl_map = descriptors.control_pos;
+
+        // iterate through control par descriptors and construct Control nodes
+        for (d, pos_set) in descriptors.control_pos.iter() {
+            let (pretty, pos) = c.get_pretty(pos_set)?;
+            // any pos without an entry in tdcc was compiled away; we ignore these.
+            if let Some(tdcc_info_vec) = c.get_tdcc(pos)? {
+                // pos is the entry to the Calyx-generated position of the control node,
+                // so there should only be one entry in the Vector.
+                assert_eq!(tdcc_info_vec.len(), 1);
+                let name = tdcc_info_vec.iter().next().unwrap().name.clone();
+
+                let ctrl_scope = get_scope(h, &h[s], &format!("{name}_go"))?;
+                let go_ref = get_var(h, &h[ctrl_scope], "out")?;
+                let go = h[go_ref].signal_ref();
+
+                let ctrl = Control {
+                    name,
+                    go,
+                    invokes: smallvec![],
+                    go_idx: u32::MAX,
+                    _pos: pos,
+                    pretty,
+                };
+                let ctrl_id = self.controls.push(ctrl);
+                pos_to_id.insert(pos, ctrl_id);
+                descriptor_to_id.insert(d.clone(), ctrl_id);
+            }
+        }
+
+        // compute groups' parent info (reverse sort for easier checking)
+        let mut ctrl_desc_rev_sorted =
+            descriptor_to_id.keys().collect::<Vec<_>>();
+        ctrl_desc_rev_sorted.sort();
+        ctrl_desc_rev_sorted.reverse();
+
+        for (idx, desc) in ctrl_desc_rev_sorted.iter().enumerate() {
+            let ctrl_id = descriptor_to_id[*desc];
+            let control = self.controls.get(ctrl_id).unwrap();
+            let mut found = false;
+            let mut i = idx + 1;
+            while i < ctrl_desc_rev_sorted.len() {
+                let &maybe_parent = ctrl_desc_rev_sorted.get(i).unwrap();
+                if desc.starts_with(maybe_parent) {
+                    // maybe_parent --> desc invoke
+                    let invoke = Invoke {
+                        _name: control.name.clone(),
+                        probe: control.go,
+                        target: InvokeTarget::Control(ctrl_id),
+                        probe_idx: u32::MAX,
+                    };
+                    let invoke_id = self.invokes.push(invoke);
+                    let parent_ctrl_id = descriptor_to_id[maybe_parent];
+                    let parent_ctrl =
+                        self.controls.get_mut(parent_ctrl_id).unwrap();
+                    parent_ctrl.invokes.push(invoke_id);
+                    found = true;
+                    break;
+                }
+                i += 1;
+            }
+            if !found {
+                // the only ctrl node without a parent should be the toplevel control node
+                assert_eq!(idx, ctrl_desc_rev_sorted.len() - 1);
+                toplevel_control = Some(ctrl_id);
+            }
+        }
+
+        let group_to_parent = Self::groups_to_ctrl_parent(
+            &descriptor_to_id,
+            descriptors,
+            &ctrl_desc_rev_sorted,
+        );
+
+        Ok(CellControl {
+            group_to_parent,
+            toplevel_control,
+        })
+    }
+
+    /// Helper function that returns a map from groups to their control parent in the tree.
+    fn groups_to_ctrl_parent(
+        descriptor_to_id: &FxHashMap<String, ControlId>,
+        descriptors: &PathDescriptorInfo,
+        ctrl_desc_sorted: &Vec<&String>,
+    ) -> FxHashMap<String, Option<ControlId>> {
+        let mut out: FxHashMap<String, Option<ControlId>> =
+            FxHashMap::default();
+        for (g, d) in descriptors.enables.iter() {
+            // find the immediate control node parent
+            let mut found = false;
+            for &cd in ctrl_desc_sorted.iter() {
+                if d.starts_with(cd) {
+                    out.insert(
+                        g.clone(),
+                        Some(*descriptor_to_id.get(cd).unwrap()),
+                    );
+                    found = true;
+                    break; // breaking because we found the first match
+                }
+            }
+            if !found {
+                out.insert(g.clone(), None);
+            }
+        }
+        out
+    }
+
     /// Builds the static call tree by scanning through all probes to find tree edges.
-    fn populate(&mut self, h: &wellen::Hierarchy) -> Result<()> {
+    fn populate(
+        &mut self,
+        h: &wellen::Hierarchy,
+        c: ControlInfo,
+        s: SharedCellsInfo,
+    ) -> Result<()> {
         let main_scope = h
             .lookup_scope(&[&"toplevel", &"main"])
             .with_context(|| "Failed to find main scope")?;
@@ -356,15 +613,18 @@ impl Design {
         let main_done = get_var(h, &h[main_scope], "done")?;
         let mut main_cell = Cell {
             name: "main".to_string(),
+            control: smallvec![],
             groups: smallvec![],
             probes: Some((h[main_go].signal_ref(), h[main_done].signal_ref())),
-            _scope: main_scope,
+            _scope: Some(main_scope),
             is_primitive: false,
             instances: smallvec![],
             component: String::new(),
             probe_idxs: None,
+            replacement: None,
         };
-        self.scan_probes(h, main_scope, &mut main_cell)?;
+        // add control nodes for main
+        self.scan_probes(h, main_scope, &mut main_cell, &c, &s)?;
         self.main = self.cells.push(main_cell);
         Ok(())
     }
@@ -375,7 +635,20 @@ impl Design {
         h: &Hierarchy,
         cell_scope: ScopeRef,
         cell: &mut Cell,
+        c: &ControlInfo,
+        s: &SharedCellsInfo,
     ) -> Result<()> {
+        // Create control nodes and add an edge from a cell to the toplevel control.
+        let component = get_component(h, cell_scope)?;
+        cell.component = component.to_string();
+        let CellControl {
+            group_to_parent,
+            toplevel_control,
+        } = self.populate_control(h, cell_scope, c, component)?;
+        if let Some(top_ctrl) = toplevel_control {
+            cell.control.push(top_ctrl);
+        }
+
         // cell.groups should not contain any structurally enabled groups.
         // So, we will record all names of structurally invoked groups so later we can prevent cell.groups from
         // containing any groups with such names.
@@ -418,16 +691,16 @@ impl Design {
                                 })
                                 .map(|(_, ii)| ii)
                                 .collect();
-                            let groupid = self.groups.push(Group {
+                            let group_id = self.groups.push(Group {
                                 name: name.to_string(),
                                 probe,
                                 invokes,
                                 probe_idx: u32::MAX,
                             });
-                            all_groups.push(groupid);
+                            all_groups.push(group_id);
                             structurally_invoked_group_names
                                 .push(name.to_string());
-                            groupid
+                            group_id
                         };
                         let invoke_id = self.invokes.push(Invoke {
                             _name: name.to_string(),
@@ -454,7 +727,10 @@ impl Design {
         // iterate through all probes in this scope. Structural enable probes will be ignored as nodes for them were previously created.
         for probe_scope in h[cell_scope].scopes(h) {
             let name = h[probe_scope].name(h);
-            if name.ends_with("_probe") {
+            if name.ends_with("_probe")
+                && !name.ends_with("_contprimitive_probe")
+            {
+                // ignore continuous primitives for now
                 let out = get_var(h, &h[probe_scope], "out")?;
                 let probe = h[out].signal_ref();
                 let probe_name = parse_probe_name(name)?;
@@ -477,12 +753,26 @@ impl Design {
                         if !structurally_invoked_group_names.contains(&name) {
                             // only create a group entry if this group was not structurally enabled.
                             let groupid = self.groups.push(Group {
-                                name,
+                                name: name.clone(),
                                 probe,
                                 invokes,
                                 probe_idx: u32::MAX,
                             });
-                            cell.groups.push(groupid);
+                            if let Some(Some(ctrl_parent)) =
+                                group_to_parent.get(&name)
+                            {
+                                let invokeid = self.invokes.push(Invoke {
+                                    _name: name,
+                                    probe,
+                                    target: InvokeTarget::Group(groupid),
+                                    probe_idx: u32::MAX,
+                                });
+                                self.controls[*ctrl_parent]
+                                    .invokes
+                                    .push(invokeid);
+                            } else {
+                                cell.groups.push(groupid);
+                            }
                             all_groups.push(groupid);
                         }
                     }
@@ -518,18 +808,38 @@ impl Design {
                         let target = if let Some(&t) = maybe_target {
                             t
                         } else {
-                            let scope = get_scope(h, &h[cell_scope], name)?;
+                            // TODO: Primitives would not have a scope if they are shared.
+                            let scope = get_scope(h, &h[cell_scope], name).ok();
+                            let replacement = if scope.is_none() {
+                                s.get_replacement(
+                                    component.to_string(),
+                                    name.to_string(),
+                                )
+                            } else {
+                                None
+                            };
                             let mut cell_instance = Cell {
                                 name: name.to_string(),
                                 groups: smallvec![],
+                                control: smallvec![],
                                 _scope: scope,
                                 is_primitive,
                                 instances: smallvec![],
                                 component: String::new(),
                                 probes: None,
                                 probe_idxs: None,
+                                replacement,
                             };
-                            self.scan_probes(h, scope, &mut cell_instance)?;
+                            if !is_primitive {
+                                assert!(scope.is_some());
+                                self.scan_probes(
+                                    h,
+                                    scope.unwrap(),
+                                    &mut cell_instance,
+                                    c,
+                                    s,
+                                )?;
+                            }
                             let cell_id = self.cells.push(cell_instance);
                             cell.instances.push(cell_id);
                             cell_id
@@ -559,6 +869,22 @@ impl Design {
         }
         assert!(parentless_invokes.is_empty());
         Ok(())
+    }
+}
+
+/// Called to grab the name of the cell's component before computing control.
+pub fn get_component(h: &Hierarchy, cell_scope: ScopeRef) -> Result<&str> {
+    // brute-force approach: Grab a probe signal in the cell's scope, parse and return the component name.
+    let probe_scope = h[cell_scope]
+        .scopes(h)
+        .find(|s| h[*s].name(h).ends_with("_probe"))
+        .unwrap();
+    let name = h[probe_scope].name(h);
+    match parse_probe_name(name)? {
+        ProbeName::Group { component, .. }
+        | ProbeName::InvokePrimitive { component, .. }
+        | ProbeName::InvokeCell { component, .. }
+        | ProbeName::InvokeGroup { component, .. } => Ok(component),
     }
 }
 

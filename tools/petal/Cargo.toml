@@ -20,3 +20,6 @@ baa.workspace = true
 rustc-hash = "2.1.2"
 cranelift-entity = "0.128.4"
 smallvec.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+log.workspace = true

@@ -1,99 +1,109 @@
 Number of clock ticks: 41
 0
-	[main, init, counter (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), init, counter (primitive)]
 1
-	[main]
+	[main, tdcc ~ L68:seq (ctrl)]
 2
-	[main, cond, lt (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), cond, lt (primitive)]
 3
-	[main]
+	[main, tdcc ~ L68:seq (ctrl)]
 4
-	[main, incr, add2 (primitive)]
-	[main, incr, counter (primitive)]
-	[main, read, val (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), incr, add2 (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), incr, counter (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), read, val (primitive)]
 5
-	[main, upd, add (primitive)]
-	[main, upd, val (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), upd, add (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), upd, val (primitive)]
 6
-	[main, write, mem (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), write, mem (primitive)]
 7
-	[main, cond, lt (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), cond, lt (primitive)]
 8
-	[main, incr, add2 (primitive)]
-	[main, incr, counter (primitive)]
-	[main, read, val (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), incr, add2 (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), incr, counter (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), read, val (primitive)]
 9
-	[main, upd, add (primitive)]
-	[main, upd, val (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), upd, add (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), upd, val (primitive)]
 10
-	[main, write, mem (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), write, mem (primitive)]
 11
-	[main, cond, lt (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), cond, lt (primitive)]
 12
-	[main, incr, add2 (primitive)]
-	[main, incr, counter (primitive)]
-	[main, read, val (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), incr, add2 (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), incr, counter (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), read, val (primitive)]
 13
-	[main, upd, add (primitive)]
-	[main, upd, val (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), upd, add (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), upd, val (primitive)]
 14
-	[main, write, mem (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), write, mem (primitive)]
 15
-	[main, cond, lt (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), cond, lt (primitive)]
 16
-	[main, incr, add2 (primitive)]
-	[main, incr, counter (primitive)]
-	[main, read, val (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), incr, add2 (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), incr, counter (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), read, val (primitive)]
 17
-	[main, upd, add (primitive)]
-	[main, upd, val (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), upd, add (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), upd, val (primitive)]
 18
-	[main, write, mem (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), write, mem (primitive)]
 19
-	[main, cond, lt (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), cond, lt (primitive)]
 20
-	[main, incr, add2 (primitive)]
-	[main, incr, counter (primitive)]
-	[main, read, val (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), incr, add2 (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), incr, counter (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), read, val (primitive)]
 21
-	[main, upd, add (primitive)]
-	[main, upd, val (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), upd, add (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), upd, val (primitive)]
 22
-	[main, write, mem (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), write, mem (primitive)]
 23
-	[main, cond, lt (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), cond, lt (primitive)]
 24
-	[main, incr, add2 (primitive)]
-	[main, incr, counter (primitive)]
-	[main, read, val (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), incr, add2 (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), incr, counter (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), read, val (primitive)]
 25
-	[main, upd, add (primitive)]
-	[main, upd, val (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), upd, add (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), upd, val (primitive)]
 26
-	[main, write, mem (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), write, mem (primitive)]
 27
-	[main, cond, lt (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), cond, lt (primitive)]
 28
-	[main, incr, add2 (primitive)]
-	[main, incr, counter (primitive)]
-	[main, read, val (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), incr, add2 (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), incr, counter (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), read, val (primitive)]
 29
-	[main, upd, add (primitive)]
-	[main, upd, val (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), upd, add (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), upd, val (primitive)]
 30
-	[main, write, mem (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), write, mem (primitive)]
 31
-	[main, cond, lt (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), cond, lt (primitive)]
 32
-	[main, incr, add2 (primitive)]
-	[main, incr, counter (primitive)]
-	[main, read, val (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), incr, add2 (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), incr, counter (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), read, val (primitive)]
 33
-	[main, upd, add (primitive)]
-	[main, upd, val (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), upd, add (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), upd, val (primitive)]
 34
-	[main, write, mem (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), write, mem (primitive)]
 35
-	[main, cond, lt (primitive)]
+	[main, tdcc ~ L68:seq (ctrl), cond, lt (primitive)]
 36
-	[main]
+	[main, tdcc ~ L68:seq (ctrl)]
+====FLAT FLAME OUTPUT====
+main;tdcc ~ L68:seq (ctrl) 3
+main;tdcc ~ L68:seq (ctrl);cond;lt (primitive) 9
+main;tdcc ~ L68:seq (ctrl);incr;add2 (primitive) 8
+main;tdcc ~ L68:seq (ctrl);incr;counter (primitive) 8
+main;tdcc ~ L68:seq (ctrl);init;counter (primitive) 1
+main;tdcc ~ L68:seq (ctrl);read;val (primitive) 8
+main;tdcc ~ L68:seq (ctrl);upd;add (primitive) 8
+main;tdcc ~ L68:seq (ctrl);upd;val (primitive) 8
+main;tdcc ~ L68:seq (ctrl);write;mem (primitive) 8
