@@ -4332,9 +4332,9 @@ dependencies = [
 
 [[package]]
 name = "wellen"
-version = "0.25.3"
+version = "0.25.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30b16cbe9ccd81bfc2f62cf8bf721956f715c56918d2bae16af749740a639db6"
+checksum = "1eb98fdd7bc6d16eb3f23afe4a1251c52b4445125c2b083bbd15c0075b42fd4e"
 dependencies = [
  "fst-reader",
  "indexmap 2.13.0",
