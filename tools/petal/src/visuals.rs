@@ -1,12 +1,12 @@
-use std::fs;
 use crate::design::Stack;
 use anyhow::{Ok, Result};
 use rustc_hash::FxHashMap;
+use std::fs;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
-/// Represents the flame graph values (how much for a single stack.
+/// Represents the flame graph values (how much for a single stack).
 pub struct FlameCount {
     scaled: f64,
     flat: f64,
