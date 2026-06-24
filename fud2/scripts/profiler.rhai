@@ -53,6 +53,10 @@ fn profiler_non_synth_setup(e) {
     e.rule("parse-vcd", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json $path-descriptors-json profiler-out $out --print-trace-threshold 100 --ctrl-pos-file $ctrl-pos-json");
     e.rule("parse-vcd-from-adl", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json $path-descriptors-json profiler-out $out --ctrl-pos-file $ctrl-pos-json --adl-mapping-file $adl-metadata-json --print-trace-threshold 100");
     e.rule("parse-vcd-from-dahlia", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json $path-descriptors-json profiler-out $out --ctrl-pos-file $ctrl-pos-json --dahlia-parent-map $parent-map --adl-mapping-file $adl-metadata-json --print-trace-threshold 100");
+
+    // rust re-implementation
+    e.config_var_or("rusted_petal", "rusted_petal", "$calyx-base/target/debug/petal");
+    e.rule("rusted-petal-parse-vcd", "$rusted_petal $in $fsm-json $path-descriptors-json $ctrl-pos-json $cell-share-json --scaled-flame-out profiler-out/scaled-flame.folded --flat-flame-out $out");
 }
 
 fn profiler_synth_setup(e) {
@@ -115,7 +119,7 @@ fn py_to_profiled(e, input, output) {
     e.build_cmd([output], "create-visuals", [flamegraph_folded], []);
 }
 
-fn dahlia_to_profiled(e, input, output) {
+fn dahlia_to_profiled(e, input, output) { 
     // compile Dahlia with extra args to give us the hierarchy
     let calyx = "calyx.futil";
     e.build_cmd([calyx], "dahlia-to-calyx", [input], []);
@@ -162,11 +166,11 @@ fn dahlia_to_profiled(e, input, output) {
     // vcd --> flamegraph
     let elems_profiled_json = "elems-profiled.json";
     let flamegraph_folded = "flamegraph.folded";
-    e.build_cmd([flamegraph_folded], "parse-vcd-from-dahlia", [instrumented_vcd], ["$cell-json", "$adl-metadata-json"]);
+        e.build_cmd([flamegraph_folded], "parse-vcd-from-dahlia", [instrumented_vcd], ["$cell-json", "$adl-metadata-json"]);
     e.build_cmd([output], "create-visuals", [flamegraph_folded], []);
 }
 
-fn calyx_to_flamegraph(e, input, output) {
+fn calyx_to_flamegraph(e, input, output, python_impl) {
     // First pass: obtain control metadata information by running metadata-table-generation
     // on the original program and then running the metadata tool on it.
     let metadata_calyx = "metadata-calyx.futil";
@@ -210,16 +214,28 @@ fn calyx_to_flamegraph(e, input, output) {
     // vcd --> flamegraph
     let elems_profiled_json = "elems-profiled.json";
     let flamegraph_folded = "flamegraph.folded";
-    e.build_cmd([flamegraph_folded], "parse-vcd", [instrumented_vcd], ["$cell-json", "$ctrl-pos-json"]);
+    if python_impl {
+        e.build_cmd([flamegraph_folded], "parse-vcd", [instrumented_vcd], ["$cell-json", "$ctrl-pos-json"]);
+    } else {
+        e.build_cmd([flamegraph_folded], "rusted-petal-parse-vcd", [instrumented_vcd], ["$cell-json", "$ctrl-pos-json"]);
+    }
     e.build_cmd([output], "create-visuals", [flamegraph_folded], []);
 }
+
+op(
+    "rusted-petal",
+    [c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
+    c::calyx_state,
+    flamegraph,
+    |e, input, output| calyx_to_flamegraph(e, input, output, false)
+);
 
 op(
     "profiler",
     [c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
     c::calyx_state,
     flamegraph,
-    |e, input, output| calyx_to_flamegraph(e, input, output)
+    |e, input, output| calyx_to_flamegraph(e, input, output, true)
 );
 
 op(
@@ -227,7 +243,7 @@ op(
     [c::calyx_setup, profiling_setup, profiler_synth_setup, v::verilator_setup, sim::sim_setup],
     c::calyx_state,
     flamegraph,
-    |e, input, output| calyx_to_flamegraph(e, input, output)
+    |e, input, output| calyx_to_flamegraph(e, input, output, true)
 );
 
 op("calyx-py-profiler",
