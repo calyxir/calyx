@@ -7,7 +7,7 @@ use anyhow::{Context, Ok, Result, anyhow};
 use baa::{BitVecMutOps, BitVecValue};
 use clap::Parser;
 use rustc_hash::FxHashMap;
-use wellen::{stream::SignalValues, *};
+use wellen::*;
 
 use crate::design::Design;
 use crate::visuals::{FlameCount, compute_flame, write_flame};
@@ -34,16 +34,6 @@ struct Args {
     flat_flame_out: Option<String>,
     #[arg(long, default_value_t = 100)]
     num_print_cycles: i32,
-}
-
-/// Reads a boolean value from a signal.
-fn read_bool(signal: SignalRef, values: &SignalValues) -> bool {
-    let value_ref: SignalValueRef = values.get(&signal).unwrap();
-    if let SignalValueRef::BitVec(b) = value_ref {
-        b.get_bit(0).as_ascii() == '1'
-    } else {
-        panic!("Signal needs to be a bitvector!");
-    }
 }
 
 fn main() -> Result<()> {
@@ -81,17 +71,32 @@ fn main() -> Result<()> {
     let mut probe_values: Vec<BitVecValue> = vec![];
 
     // populate probe_values on the clock's falling edge
-    wav.stream_time_steps(filter, |_time, values, _changed| {
-        let c = read_bool(design.clk(), &values);
-        if c && !clock_previous {
-            let mut value = BitVecValue::zero(signals.len() as u32);
-            for (idx, &signal) in signals.iter().enumerate() {
-                let probe_value = read_bool(signal, &values);
+    let clock_signal_ref = design.clk();
+    let signal_bits = FxHashMap::from_iter(
+        signals
+            .iter()
+            .enumerate()
+            .map(|(idx, &signal)| (signal, idx as u32)),
+    );
+    let mut value = BitVecValue::zero(signals.len() as u32);
+    wav.stream_time_steps(filter, |_time, values, changed| {
+        let c: bool =
+            values.get(&clock_signal_ref).unwrap().try_into().unwrap();
+        if c && !clock_previous && !changed.is_empty() {
+            for signal in changed {
+                let probe_value: bool = values
+                    .get(signal)
+                    .unwrap()
+                    .try_into()
+                    .expect("Signal needs to be a bitvector!");
+                let idx = signal_bits[signal];
                 if probe_value {
-                    value.set_bit(idx as u32);
+                    value.set_bit(idx);
+                } else {
+                    value.clear_bit(idx);
                 }
             }
-            probe_values.push(value);
+            probe_values.push(value.clone());
         }
         clock_previous = c;
         Ok(())
