@@ -65,7 +65,7 @@ fn print_stacks(
         .iter()
         .map(|v| &all_stacks[v].1)
         .filter(|s| !s.is_empty())
-        .take(num_print_cycles as usize)
+        .take(num_print_cycles as usize + 1)
         .enumerate()
     {
         println!("{cycle}");
