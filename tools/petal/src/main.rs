@@ -6,11 +6,12 @@ mod visuals;
 use anyhow::{Context, Ok, Result, anyhow};
 use baa::{BitVecMutOps, BitVecValue};
 use clap::Parser;
+use indexmap::IndexMap;
 use rustc_hash::FxHashMap;
 use wellen::*;
 
-use crate::design::Design;
-use crate::visuals::{FlameCount, compute_flame, write_flame};
+use crate::design::{Design, Stack};
+use crate::visuals::{compute_flame, write_flame};
 
 #[derive(Parser, Debug)]
 #[command(name = "petal")]
@@ -33,7 +34,46 @@ struct Args {
     #[arg(long)]
     flat_flame_out: Option<String>,
     #[arg(long, default_value_t = 100)]
-    num_print_cycles: i32,
+    num_print_cycles: u64,
+}
+
+pub type Stacks = IndexMap<BitVecValue, (u64, Vec<Stack>)>;
+
+fn collect_stacks(
+    design: &Design,
+    probe_values: &[BitVecValue],
+) -> Result<Stacks> {
+    // Compute the trace (stacks for each active cycle) from probe_values
+    let mut out = IndexMap::default();
+    for value in probe_values {
+        if let Some((count, _)) = out.get_mut(value) {
+            *count += 1;
+        } else {
+            let stacks = design.compute_cycle_trace(value)?;
+            out.insert(value.clone(), (1, stacks));
+        };
+    }
+    Ok(out)
+}
+
+fn print_stacks(
+    probe_values: &[BitVecValue],
+    all_stacks: &Stacks,
+    num_print_cycles: u64,
+) {
+    for (cycle, stacks) in probe_values
+        .iter()
+        .map(|v| &all_stacks[v].1)
+        .filter(|s| !s.is_empty())
+        .take(num_print_cycles as usize + 1)
+        .enumerate()
+    {
+        println!("{cycle}");
+        for stack in stacks {
+            let stack_str = stack.join(", ");
+            println!("	[{stack_str}]");
+        }
+    }
 }
 
 fn main() -> Result<()> {
@@ -109,33 +149,10 @@ fn main() -> Result<()> {
     })?;
     println!("Number of clock ticks: {}", probe_values.len());
 
-    // Compute the trace (stacks for each active cycle) from probe_values
-    let mut cycle_count: i32 = -1;
-    let mut flame_info: FxHashMap<String, FlameCount> = FxHashMap::default();
-    let mut cache = FxHashMap::default();
-    for value in probe_values.iter() {
-        let stacks = match cache.get(value) {
-            Some(stacks) => stacks,
-            None => {
-                let stacks = design.compute_cycle_trace(value)?;
-                cache.insert(value.clone(), stacks);
-                &cache[value]
-            }
-        };
-        if !stacks.is_empty() {
-            cycle_count += 1;
-            if args.num_print_cycles >= cycle_count {
-                println!("{cycle_count}");
-                for stack in stacks.iter() {
-                    let stack_str = stack.join(", ");
-                    println!("	[{stack_str}]");
-                }
-            }
-            compute_flame(stacks, &mut flame_info)?;
-        }
-    }
-
-    write_flame(flame_info, args.scaled_flame_out, args.flat_flame_out)?;
+    let stacks = collect_stacks(&design, &probe_values)?;
+    print_stacks(&probe_values, &stacks, args.num_print_cycles);
+    let flame_info = compute_flame(&stacks)?;
+    write_flame(&flame_info, args.scaled_flame_out, args.flat_flame_out)?;
 
     Ok(())
 }

@@ -85,6 +85,7 @@ slog-term = "2.8"
 slog-async = "2.7"
 ahash = "0.8"
 baa = { version = "0.17", features = ["bigint", "serde1", "fraction1"] }
+indexmap = "2.14.0"
 
 [workspace.dependencies.petgraph]
 version = "0.6"
