@@ -112,8 +112,16 @@ fn main() -> Result<()> {
     // Compute the trace (stacks for each active cycle) from probe_values
     let mut cycle_count: i32 = -1;
     let mut flame_info: FxHashMap<String, FlameCount> = FxHashMap::default();
+    let mut cache = FxHashMap::default();
     for value in probe_values.iter() {
-        let stacks = design.compute_cycle_trace(value)?;
+        let stacks = match cache.get(value) {
+            Some(stacks) => stacks,
+            None => {
+                let stacks = design.compute_cycle_trace(value)?;
+                cache.insert(value.clone(), stacks);
+                &cache[value]
+            }
+        };
         if !stacks.is_empty() {
             cycle_count += 1;
             if args.num_print_cycles >= cycle_count {
