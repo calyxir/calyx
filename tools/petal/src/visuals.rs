@@ -14,7 +14,7 @@ pub struct FlameCount {
 
 /// Update the flame graph count given the trace for a single cycle.
 pub fn compute_flame(
-    cycle_trace: Vec<Stack>,
+    cycle_trace: &[Stack],
     out: &mut FxHashMap<String, FlameCount>,
 ) -> Result<()> {
     let mut normalizer = (1.0f64) / (cycle_trace.len() as f64);
