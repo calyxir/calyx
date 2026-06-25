@@ -16,7 +16,7 @@ pub struct FlameCount {
 pub fn compute_flame(stacks: &Stacks) -> Result<Vec<(String, FlameCount)>> {
     let mut out = IndexMap::<String, FlameCount>::with_capacity(stacks.len());
     // now we only look at the stacks for each unique value
-    for (count, stacks) in stacks.values().filter(|(_, s)| !s.is_empty()) {
+    for (count, stacks) in stacks.iter().filter(|(_, s)| !s.is_empty()) {
         let factor = *count as f64;
         let mut stack_strings: Vec<String> =
             stacks.iter().map(|stack| stack.join(";")).collect();

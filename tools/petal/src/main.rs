@@ -6,7 +6,7 @@ mod visuals;
 use anyhow::{Context, Ok, Result, anyhow};
 use baa::{BitVecMutOps, BitVecValue};
 use clap::Parser;
-use indexmap::IndexMap;
+use indexmap::IndexSet;
 use rustc_hash::FxHashMap;
 use wellen::*;
 
@@ -37,33 +37,16 @@ struct Args {
     num_print_cycles: u64,
 }
 
-pub type Stacks = IndexMap<BitVecValue, (u64, Vec<Stack>)>;
-
-fn collect_stacks(
-    design: &Design,
-    probe_values: &[BitVecValue],
-) -> Result<Stacks> {
-    // Compute the trace (stacks for each active cycle) from probe_values
-    let mut out = IndexMap::default();
-    for value in probe_values {
-        if let Some((count, _)) = out.get_mut(value) {
-            *count += 1;
-        } else {
-            let stacks = design.compute_cycle_trace(value)?;
-            out.insert(value.clone(), (1, stacks));
-        };
-    }
-    Ok(out)
-}
+pub type Stacks = Vec<(u64, Vec<Stack>)>;
 
 fn print_stacks(
-    probe_values: &[BitVecValue],
+    probe_values: &[usize],
     all_stacks: &Stacks,
     num_print_cycles: u64,
 ) {
     for (cycle, stacks) in probe_values
         .iter()
-        .map(|v| &all_stacks[v].1)
+        .map(|v| &all_stacks[*v].1)
         .filter(|s| !s.is_empty())
         .take(num_print_cycles as usize + 1)
         .enumerate()
@@ -106,10 +89,6 @@ fn main() -> Result<()> {
 
     let mut clock_previous = true;
 
-    // One bit vector for each cycle. Each index in the BitVecValue corresponds to a probe.
-    // If it is active, the index will contain 1.
-    let mut probe_values: Vec<BitVecValue> = vec![];
-
     // populate probe_values on the clock's falling edge
     let clock_signal_ref = design.clk();
     let signal_bits = FxHashMap::from_iter(
@@ -118,7 +97,18 @@ fn main() -> Result<()> {
             .enumerate()
             .map(|(idx, &signal)| (signal, idx as u32)),
     );
-    let mut value = BitVecValue::zero(signals.len() as u32);
+
+    // One bit vector for each cycle. Each index in the BitVecValue corresponds to a probe.
+    // If it is active, the index will contain 1.
+    let mut probe_values = BitVecValue::zero(signals.len() as u32);
+
+    // record which unique probe_value we observe each cycle
+    let mut unique_probe_values = IndexSet::<BitVecValue>::default();
+    let mut probe_values_in_cycle = vec![];
+
+    // compute the trace (stacks for each active cycle) from probe_values
+    let mut stacks = vec![];
+
     wav.stream_time_steps(filter, |_time, values, changed| {
         let c: bool =
             values.get(&clock_signal_ref).unwrap().try_into().unwrap();
@@ -131,12 +121,28 @@ fn main() -> Result<()> {
                     .expect("Signal needs to be a bitvector!");
                 let idx = signal_bits[signal];
                 if probe_value {
-                    value.set_bit(idx);
+                    probe_values.set_bit(idx);
                 } else {
-                    value.clear_bit(idx);
+                    probe_values.clear_bit(idx);
                 }
             }
-            probe_values.push(value.clone());
+
+            // have we seen this value before?
+            let probe_values_idx = if let Some(idx) =
+                unique_probe_values.get_index_of(&probe_values)
+            {
+                idx
+            } else {
+                let new_idx =
+                    unique_probe_values.insert_full(probe_values.clone()).0;
+                assert_eq!(new_idx, stacks.len());
+                let local_stacks = design.compute_cycle_trace(&probe_values)?;
+                stacks.push((0, local_stacks));
+                new_idx
+            };
+
+            probe_values_in_cycle.push(probe_values_idx);
+            stacks[probe_values_idx].0 += 1;
         }
         clock_previous = c;
         Ok(())
@@ -147,10 +153,9 @@ fn main() -> Result<()> {
         }
         stream::StreamError::Callback(e) => e,
     })?;
-    println!("Number of clock ticks: {}", probe_values.len());
+    println!("Number of clock ticks: {}", probe_values_in_cycle.len());
 
-    let stacks = collect_stacks(&design, &probe_values)?;
-    print_stacks(&probe_values, &stacks, args.num_print_cycles);
+    print_stacks(&probe_values_in_cycle, &stacks, args.num_print_cycles);
     let flame_info = compute_flame(&stacks)?;
     write_flame(&flame_info, args.scaled_flame_out, args.flat_flame_out)?;
 
