@@ -110,7 +110,7 @@ fn main() -> Result<()> {
     // If it is active, the index will contain 1.
     let mut probe_values: Vec<BitVecValue> = vec![];
 
-    // populate probe_values on the clock's falling edge
+    // populate probe_values on the clock's rising edge
     let clock_signal_ref = design.clk();
     let signal_bits = FxHashMap::from_iter(
         signals
