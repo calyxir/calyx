@@ -44,7 +44,7 @@ during handshakes.
 - `i_valid: 1` - The one bit input valid signal. Indicates that the data
   provided on the `in` wire is valid.
 - `i_ready: 1` - The one bit input ready signal. Indicates that the follower is
-  ready to recieve data from the `out` wire.
+  ready to receive data from the `out` wire.
 
 **Outputs:**
 
@@ -52,7 +52,7 @@ during handshakes.
 - `o_valid: 1` - The one bit output valid signal. Indicates that the data
   provided on the `out` wire is valid.
 - `o_ready: 1` - The one bit output ready signal. Indicates that the skid buffer
-  is ready to recieve data on the `in` wire.
+  is ready to receive data on the `in` wire.
 
 ---
 
