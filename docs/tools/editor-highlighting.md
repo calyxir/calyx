@@ -2,7 +2,7 @@
 
 ## Language Server
 
-There is a Calyx language server that provides jump-to-definition and completion support. Instructions for intsalling it are [here](./language-server.md).
+There is a Calyx language server that provides jump-to-definition and completion support. Instructions for installing it are [here](./language-server.md).
 
 If you are using any of the `unsyn-*` primitives, you will need to tell the language server to use the Calyx repo as the library location instead of the default `~/.calyx`. Below, there are instructions on how to do this for each editor.
 

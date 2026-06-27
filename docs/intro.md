@@ -187,6 +187,7 @@ Congratulations! You've simulated your first hardware design with Calyx.
 [homebrew]: https://brew.sh
 [fud-icarus]: ./running-calyx/fud/index.md#icarus-verilog
 [fud-verilator]: ./running-calyx/fud/index.md#verilator
+[fud2]: ./running-calyx/fud2/index.md
 [icarus-install-source]: https://iverilog.fandom.com/wiki/Installation_Guide#Installation_From_Source
 [calyx-crate]: https://crates.io/crates/calyx
 [core-lib]: https://github.com/calyxir/calyx/blob/master/primitives/core.futil
