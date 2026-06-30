@@ -3,19 +3,45 @@
 // when printing / writing out binary, use Untypednum.as_bytes() or similar
 pub type BinRep = u64;
 
-pub struct DataSet<T: ReprType> {
-    data: Vec<BinRep>,          // container for the data elements
+#[derive(Debug)]
+pub struct DataSet<T: ReprType + Sized> {
+    pub data: Vec<BinRep>, // container for the data elements
     pub dimensions: [usize; 4], // begrudgingly, multi-dimensional memories are supported
     pub num_dimensions: usize,
-    pub dtype: T, // separate from data for space efficiency
+    // [dtype] is not within every element of the data vec for space efficiency
+    pub dtype: std::marker::PhantomData<T>,
     pub end: Endian,
 }
 
-// TODO: impl for checked conversion of DataSet<T> to DataSet<S>: wrap try_conv
+pub trait DataTrait {
+    fn test_f(self) -> Box<dyn DataTrait>;
+}
 
+impl<T: ReprType> DataTrait for DataSet<T> {}
+
+// probably some unnecessary allocs here, but alas
+impl<T: ReprType> DataSet<T> {
+    pub fn checked_cast<O: ReprType>(
+        &self,
+    ) -> Result<DataSet<O>, CheckedConvErr>
+    where
+        O: CheckedFrom<T>,
+    {
+        let new_data: Result<Vec<BinRep>, _> =
+            self.data.iter().map(|br| O::ckd_from(*br)).collect();
+        Ok(DataSet::<O> {
+            data: new_data?,
+            dimensions: self.dimensions,
+            num_dimensions: self.num_dimensions,
+            dtype: std::marker::PhantomData::<O>,
+            end: self.end.clone(),
+        })
+    }
+}
 /*
     endianness conversions can happen without knowledge of type
 */
+#[derive(Clone, Debug)]
 pub enum Endian {
     Little,
     Big,
@@ -28,73 +54,75 @@ pub enum Endian {
 
 */
 
+#[derive(Clone, Debug)]
+pub enum ReprAs {
+    Bits,
+    Int { signed: bool },
+    Float,
+    Fixed { signed: bool, exp_width: u32 },
+    Unknown(String),
+}
+
 pub type CheckedConvErr = String;
 
 pub trait ReprType {
-    const WIDTH: u32;
-    const NUM_BYTES: u32 = Self::WIDTH.div_ceil(8);
+    const WIDTH: usize;
+    const NUM_BYTES: usize = Self::WIDTH.div_ceil(8);
+
+    fn repr_as() -> ReprAs;
 
     /// conversion from bytes is lossless by default.
     /// [len] should generally be the same as NUM_BYTES
     /// it is the responsibility of the implementer to confirm that [len] is correct.
+    /// data must be byte aligned.
     /// [BinRep] is distinct from the input bytes [b] to discourage conversions 'through' an untyped
-    fn try_from_bytes(b: &[u8], len: u32) -> Result<BinRep, CheckedConvErr>;
+    fn try_from_bytes(
+        b: &[u8],
+        len: usize,
+        end: Endian,
+    ) -> Result<BinRep, CheckedConvErr>;
 
     /// conversion from a string is lossy by default.
     /// hopefully going [b.from_str(a.to_str())] is perverse enough that people realise something is up.
-    fn from_string(s: &str) -> BinRep;
+    fn from_string_lossy(s: &str, end: Endian) -> BinRep;
 
-    fn to_str(b: &BinRep) -> String;
+    fn to_str(b: &BinRep, end: Endian) -> String;
 }
 
-/// opt-in traits for infalliable conversion.
-/// if a conversion cannot take place, these will do some sort of known rounding behaviour
-
 /// opt-in trait for lossy byte conversion
+/// if a conversion cannot take place, these will do some sort of known rounding behaviour
 pub trait LossyFromBytes: ReprType {
-    fn from_bytes_lossy(b: &[u8], len: u32) -> BinRep;
+    fn from_bytes_lossy(b: &[u8], len: usize, end: Endian) -> BinRep;
 }
 
 // opt-in trait for lossless string conversion
 // attempts to be 'bit precise', treating the string as if it is 'really representable'
 pub trait LosslessFromStr: ReprType {
-    fn from_string(s: String) -> Result<BinRep, CheckedConvErr>;
-}
-
-/// [try_conv] should be used for potentially lossy conversions between types
-pub trait CheckedConv<T: ReprType, S: ReprType> {
-    fn try_conv(
-        itype: S,
-        i: BinRep,
-        otype: T,
+    fn try_from_string(
+        s: String,
+        end: Endian,
     ) -> Result<BinRep, CheckedConvErr>;
 }
 
-pub fn msb(width: u32) -> u8 {
-    let rem = width % 8;
-    1u8 << (if rem != 0 { rem - 1 } else { 7 }) // shift to the right by between 0 and 7
+/// [ckd_from] should be used for potentially lossy conversions between types
+/// [O] is the output type, [I] is the input type (defaults to self)
+
+// not sure if using TryFrom here would be acceptable. in case it breaks things, this is what we use.
+pub trait CheckedFrom<O: ReprType, I: ReprType = Self> {
+    fn ckd_from(i: BinRep) -> Result<BinRep, CheckedConvErr>;
 }
 
-/// attempt to sign extend the input data from in_width to out_width
-/// this function assumes that you are 'okay' with treating the contents of the Untypednum as a signed number.
-pub fn sign_extend_untyped(
-    i: &BinRep,
-    in_width: u32,
-    out_width: u32,
-) -> BinRep {
-    let msb_idx = in_width.saturating_sub(1);
-    let should_extend = (i) & (1 << msb_idx);
-    if should_extend == 0 {
-        return *i;
-    }
-    // otherwise, need to extend
-    let pad_bits = out_width - in_width;
-    if pad_bits > 64 {
-        panic!(
-            "sign extension error on input {:#x}: from {} to {}",
-            i, in_width, out_width
-        )
-    }
-    let mask_bits = ((1 << in_width) - 1) << msb_idx;
-    mask_bits | *i
+/// given a string, try to infer its type from a set of 'common defaults'
+/// integers are put into u64/i64, decimals into f64, hex strings into Bits
+/// otherwise, panic
+pub enum InferredRes {
+    Fail,
+    I(crate::numimpl::Int64),
+    FP(crate::numimpl::Float64),
+}
+
+pub fn TryInferString(
+    inp: &String,
+) -> Result<(InferredRes, BinRep), CheckedConvErr> {
+    unimplemented!()
 }
