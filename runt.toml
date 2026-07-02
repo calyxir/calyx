@@ -734,7 +734,7 @@ fud2 {} -o ${svg} --through profiler -s sim.data={}.data --dir ${petal_test_dir}
 target/debug/petal ${petal_test_dir}/instrumented.vcd ${petal_test_dir}/fsm.json ${petal_test_dir}/path-descriptors.json ${petal_test_dir}/ctrl-pos.json ${petal_test_dir}/shared-cells.json --flat-flame-out ${flame} 2> /dev/null
 
 echo ====FLAT FLAME OUTPUT==== 
-cat ${flame}
+sort ${flame}
 
 rm -rf ${petal_test_dir}
 """
