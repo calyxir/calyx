@@ -71,6 +71,10 @@ WORKDIR /home
 RUN curl -L https://github.com/llvm/circt/releases/download/firtool-1.75.0/firrtl-bin-linux-x64.tar.gz | tar -xz \
     && chmod +x /home/firtool-1.75.0/bin/firtool
 
+# Install flame graph library for running Petal
+WORKDIR /home
+RUN git clone https://github.com/brendangregg/FlameGraph.git
+
 COPY --from=verilator-install /home/verilator/ /home/verilator
 COPY --from=dahlia-install /home/dahlia/fuse /home/dahlia/fuse
 COPY --from=icarus-install /home/iverilog /home/iverilog
@@ -108,6 +112,7 @@ RUN mkdir ~/.config
 RUN printf "dahlia = \"/home/dahlia/fuse\"\n" >> ~/.config/fud2.toml
 RUN printf "[calyx]\nbase = \"/home/calyx\"\n" >> ~/.config/fud2.toml
 RUN printf "[firrtl]\nfirtool = \"/home/firtool-1.75.0/bin/firtool\"\n" >> ~/.config/fud2.toml
+RUN printf "[flamegraph]\nscript = \"/home/FlameGraph/flamegraph.pl\"\n" >> ~/.config/fud2.toml
 
 RUN fud2 env init
 # NOTE(griffin): Hardcoding this is not ideal but I currently don't have any
