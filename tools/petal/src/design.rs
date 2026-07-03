@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use core::panic;
 
 use baa::{BitVecOps, BitVecValue};
@@ -151,15 +151,22 @@ pub struct Design {
     signals: Vec<SignalRef>,
 }
 
+/// Returns the main scope if one exists.
+/// NOTE: Some versions of Verilator/OSs have a different sequence of toplevel scopes.
+/// (ex. TOP.toplevel.main vs toplevel.main)
+fn find_main_scope(h: &wellen::Hierarchy) -> Result<ScopeRef> {
+    h.all_scopes()
+        .find(|s| h[*s].name(h) == "main")
+        .ok_or(anyhow!("Failed to find main scope"))
+}
+
 impl Design {
     pub fn new(
         h: &wellen::Hierarchy,
         c: ControlInfo,
         s: SharedCellsInfo,
     ) -> Result<Self> {
-        let main = h
-            .lookup_scope(&[&"toplevel", &"main"])
-            .with_context(|| "Failed to find main scope")?;
+        let main = find_main_scope(h)?;
         let clk = get_var(h, &h[main], "clk")?;
         let clk = h[clk].signal_ref();
         let mut out = Self {
