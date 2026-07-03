@@ -493,7 +493,6 @@ fn get_control_name(control: &ir::Control) -> CalyxResult<Option<&str>> {
     };
     Ok(out_str)
 }
-
 fn gen_control_info_helper(
     control: &ir::Control,
     calyx_posids_to_linenums: &HashMap<u32, u32>,
@@ -556,7 +555,7 @@ fn gen_control_info_helper(
                 control_pos_infos,
             )?;
         }
-        ir::Control::Static(_) => todo!(),
+        ir::Control::Static(_) => (), // static control nodes will not appear in control track, so we don't need to track them.
         _ => (),
     }
 
