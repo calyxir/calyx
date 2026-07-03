@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::collections::HashMap;
 
 use cider::serialization as cs;
 use cider::serialization::MemoryDeclaration;
@@ -6,16 +6,13 @@ use cider::serialization::MemoryDeclaration;
 use crate::filerep as fr;
 use crate::numrep as nr;
 
-fn as_cider_dims<T: nr::ReprType>(inp: &nr::DataSet<T>) -> cs::Dimensions {
+fn as_cider_dims(inp: &nr::SingleMem) -> cs::Dimensions {
+    use cs::Dimensions as Dim;
     match inp.num_dimensions {
-        1 => cs::Dimensions::D1(inp.dimensions[0]),
-        2 => cs::Dimensions::D2(inp.dimensions[0], inp.dimensions[1]),
-        3 => cs::Dimensions::D3(
-            inp.dimensions[0],
-            inp.dimensions[1],
-            inp.dimensions[2],
-        ),
-        4 => cs::Dimensions::D4(
+        1 => Dim::D1(inp.dimensions[0]),
+        2 => Dim::D2(inp.dimensions[0], inp.dimensions[1]),
+        3 => Dim::D3(inp.dimensions[0], inp.dimensions[1], inp.dimensions[2]),
+        4 => Dim::D4(
             inp.dimensions[0],
             inp.dimensions[1],
             inp.dimensions[2],
@@ -25,71 +22,148 @@ fn as_cider_dims<T: nr::ReprType>(inp: &nr::DataSet<T>) -> cs::Dimensions {
     }
 }
 
-fn as_cider_formatinfo(v: nr::ReprAs, width: u32) -> cs::FormatInfo {
-    match v {
-        nr::ReprAs::Bits => cs::FormatInfo::Bitnum {
-            signed: false,
-            width,
-        },
-        nr::ReprAs::Int { signed } => cs::FormatInfo::Bitnum { signed, width },
-        nr::ReprAs::Float => cs::FormatInfo::IEEFloat {
-            signed: true,
-            width,
-        },
-        nr::ReprAs::Fixed { signed, exp_width } => cs::FormatInfo::Fixed {
-            signed,
-            int_width: exp_width,
-            frac_width: width - exp_width,
-        },
-        _ => panic!("unknown"),
+impl TryFrom<nr::TypeSpec> for cs::FormatInfo {
+    type Error = fr::FileFmtErr;
+    fn try_from(value: nr::TypeSpec) -> Result<Self, Self::Error> {
+        use cs::FormatInfo as cider_t;
+
+        let res = match value.class {
+            nr::TypeClass::Bits => cider_t::Bitnum {
+                signed: false,
+                width: value.width as u32,
+            },
+            nr::TypeClass::Int => cider_t::Bitnum {
+                signed: value.signed,
+                width: value.width as u32,
+            },
+            nr::TypeClass::Float => cider_t::IEEFloat {
+                signed: value.signed,
+                width: value.width as u32,
+            },
+            nr::TypeClass::Fixed { exp_width } => cider_t::Fixed {
+                signed: value.signed,
+                int_width: exp_width as u32,
+                frac_width: ((value.width) - exp_width) as u32,
+            },
+            _ => return Err(String::from("bad format")),
+        };
+        Ok(res)
     }
 }
 
-impl<T: nr::ReprType> fr::TryFromIR<T, cs::DataDump> for cs::DataDump {
+impl TryFrom<&cs::FormatInfo> for nr::TypeSpec {
+    type Error = fr::FileFmtErr;
+    fn try_from(value: &cs::FormatInfo) -> Result<Self, Self::Error> {
+        use cs::FormatInfo;
+        let res = match *value {
+            FormatInfo::Bitnum { signed, width } => Self {
+                width: width as usize,
+                signed,
+                class: nr::TypeClass::Int,
+            },
+            FormatInfo::IEEFloat { signed, width } => Self {
+                width: width as usize,
+                signed,
+                class: nr::TypeClass::Int,
+            },
+            FormatInfo::Fixed {
+                signed,
+                int_width,
+                frac_width,
+            } => Self {
+                width: (frac_width + int_width) as usize,
+                signed,
+                class: nr::TypeClass::Fixed {
+                    exp_width: int_width as usize,
+                },
+            },
+        };
+        Ok(res)
+    }
+}
+
+impl fr::TryFromIR for cs::DataDump {
     fn try_from_ir(
-        inp: &nr::DataSet<T>,
+        inp: &fr::FileMems,
+        _typeprops: &crate::numimpl::TypePropsMap,
     ) -> Result<cs::DataDump, fr::FileFmtErr> {
         let mut out_res = cs::DataDump::new_empty();
-        let meminfo = MemoryDeclaration::new(
-            String::from("place"),
-            as_cider_dims(inp),
-            as_cider_formatinfo(T::repr_as(), T::WIDTH as u32),
-        );
-        // TODO: below should trim values to size
-        out_res.push_memory(
-            meminfo,
-            inp.data.iter().flat_map(|e| e.to_le_bytes()),
-        );
+        for (k, v) in inp.mems.iter() {
+            let meminfo = MemoryDeclaration::new(
+                k.clone(),
+                as_cider_dims(v),
+                v.dtype.clone().try_into()?,
+            );
+            // TODO: below should trim values to size
+            out_res.push_memory(
+                meminfo,
+                v.iter_data().flat_map(|e| e.to_le_bytes()),
+            );
+        }
+
         Ok(out_res)
     }
 }
 
 impl fr::TryToIR for cs::DataDump {
-    fn try_to_ir<T: nr::ReprType>(
-        inp: Self,
-    ) -> Result<nr::DataSet<T>, fr::FileFmtErr> {
-        let first = inp.header.memories.first().unwrap();
-        let byte_data = inp.get_data(&first.name).unwrap();
-        assert!(byte_data.len() % T::NUM_BYTES == 0);
-        let c: Result<Vec<nr::BinRep>, _> = byte_data
-            .chunks(T::NUM_BYTES)
-            .into_iter()
-            .map(|e| T::try_from_bytes(e, T::NUM_BYTES, nr::Endian::Little))
-            .collect();
-        let data = c?;
-        let (dimensions, num_dimensions) = match first.dimensions {
-            cs::Dimensions::D1(d1) => ([d1, 0, 0, 0], 1),
-            cs::Dimensions::D2(d1, d2) => ([d1, d2, 0, 0], 2),
-            cs::Dimensions::D3(d1, d2, d3) => ([d1, d2, d3, 0], 3),
-            cs::Dimensions::D4(d1, d2, d3, d4) => ([d1, d2, d3, d4], 4),
+    fn try_to_ir(
+        self,
+        types: &HashMap<String, nr::TypeSpec>,
+        _typeprops: &crate::numimpl::TypePropsMap,
+    ) -> Result<fr::FileMems, fr::FileFmtErr> {
+        let mut res = fr::FileMems {
+            mems: HashMap::new(),
         };
+        for mem in self.header.memories.iter() {
+            let byte_data = self.get_data(&mem.name).unwrap();
+            let assoc_type = types.get(&mem.name).unwrap();
+            assert!(byte_data.len() % assoc_type.num_bytes() == 0);
+            let c: Result<Vec<nr::BinRep>, _> = byte_data
+                .chunks(assoc_type.num_bytes())
+                .into_iter()
+                .map(|e| {
+                    crate::numimpl::try_from_bytes(
+                        e,
+                        assoc_type.num_bytes(),
+                        assoc_type.width,
+                        nr::Endian::Little,
+                    )
+                })
+                .collect();
+            let data = c?;
+            let (dimensions, num_dimensions) = match mem.dimensions {
+                cs::Dimensions::D1(d1) => ([d1, 0, 0, 0], 1),
+                cs::Dimensions::D2(d1, d2) => ([d1, d2, 0, 0], 2),
+                cs::Dimensions::D3(d1, d2, d3) => ([d1, d2, d3, 0], 3),
+                cs::Dimensions::D4(d1, d2, d3, d4) => ([d1, d2, d3, d4], 4),
+            };
+            res.mems.insert(
+                mem.name.clone(),
+                nr::SingleMem {
+                    data,
+                    dimensions,
+                    num_dimensions,
+                    dtype: assoc_type.clone(),
+                    end: nr::Endian::Little,
+                },
+            );
+        }
 
-        Ok(nr::DataSet::<T> {
-            data,
-            dimensions,
-            num_dimensions,
-            dtype: PhantomData::<T>,
-            end: nr::Endian::Little,
-        })
+        Ok(res)
     }
 }
+
+impl fr::ExtractType for cs::DataDump {
+    fn extract_types(
+        &self,
+    ) -> Result<HashMap<String, nr::TypeSpec>, fr::FileFmtErr> {
+        let mut res = HashMap::new();
+        for mem in self.header.memories.iter() {
+            let new_spec = nr::TypeSpec::try_from(&mem.format)?;
+            res.insert(mem.name.clone(), new_spec);
+        }
+        Ok(res)
+    }
+}
+
+impl fr::HintedTryToIR for cs::DataDump {}

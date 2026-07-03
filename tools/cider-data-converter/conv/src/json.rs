@@ -1,12 +1,10 @@
 use serde::{self, Deserialize, Serialize, Serializer};
 use serde_json::Value;
 use std::collections::BTreeMap;
-use std::marker::PhantomData;
 use std::{collections::HashMap, num::ParseFloatError};
 use thiserror::Error;
 
-use crate::filerep::{self, FileMems};
-use crate::numimpl::Bits;
+use crate::filerep::{self, FileFmtErr, FileMems};
 use crate::numrep as nr;
 
 #[derive(Debug, Error)]
@@ -23,12 +21,19 @@ pub enum JsonParseError {
     MalformedFixed,
     #[error("No width / equivalent!")]
     NoWidth,
+    #[error("Unknown type")]
+    BadType,
+}
+
+impl From<JsonParseError> for String {
+    fn from(value: JsonParseError) -> Self {
+        format!("{}", value)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, Eq, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum JsonTypes {
-    Untyped,
     Bitnum,
     #[serde(alias = "fixed_point")]
     Fixed,
@@ -58,86 +63,79 @@ impl FormatInfo {
     // returns fixed-point as (overall width, exp_width)
     // a bit verbose, but roughly self-documenting
     #[inline]
-    fn normalise_fixed(&self) -> Result<(u32, u32), JsonParseError> {
+    fn normalise_fixed(&self) -> Result<(usize, usize), JsonParseError> {
         if let Some(w) = self.width {
             if w > 64 {
                 return Err(JsonParseError::MalformedFixed);
             }
             match (self.int_width, self.frac_width) {
-                (Some(i), Some(f)) if i + f == w => Ok((w, i)),
-                (None, Some(f)) if f < w => Ok((w, w - f)),
-                (Some(i), None) if i < w => Ok((w, i)),
+                (Some(i), Some(f)) if i + f == w => {
+                    Ok((w as usize, i as usize))
+                }
+                (None, Some(f)) if f < w => Ok((w as usize, (w - f) as usize)),
+                (Some(i), None) if i < w => Ok((w as usize, i as usize)),
                 _ => Err(JsonParseError::MalformedFixed),
             }
         } else {
             match (self.int_width, self.frac_width) {
-                (Some(i), Some(f)) if i + f <= 64 => Ok((i + f, i)),
+                (Some(i), Some(f)) if i + f <= 64 => {
+                    Ok(((i + f) as usize, i as usize))
+                }
                 _ => Err(JsonParseError::MalformedFixed),
             }
         }
     }
+}
 
-    fn from_ir_repr(t: nr::ReprAs, width: usize) -> Self {
-        let mut ty = JsonTypes::Bitnum;
-        let mut is_signed = false;
+impl TryFrom<nr::TypeSpec> for FormatInfo {
+    type Error = JsonParseError;
+
+    fn try_from(value: nr::TypeSpec) -> Result<Self, Self::Error> {
+        use nr::TypeClass as tc;
         let mut exp_width = None;
-        match t {
-            nr::ReprAs::Bits => (),
-            nr::ReprAs::Int { signed: s } => {
-                is_signed = s;
+        let numeric_type = match value.class {
+            tc::Bits => JsonTypes::Bitnum,
+            tc::Int => JsonTypes::Bitnum,
+            tc::Float => JsonTypes::IEEE754Float,
+            tc::Fixed { exp_width: e } => {
+                exp_width = Some(e as u32);
+                JsonTypes::Fixed
             }
-            nr::ReprAs::Float => ty = JsonTypes::IEEE754Float,
-            nr::ReprAs::Fixed {
-                signed: s,
-                exp_width: e,
-            } => {
-                is_signed = s;
-                exp_width = Some(e)
-            }
-            _ => panic!("unknown type!"),
+            _ => return Err(JsonParseError::BadType),
         };
-        Self {
-            numeric_type: ty,
-            is_signed,
-            width: Some(width as u32),
+        Ok(FormatInfo {
+            numeric_type,
+            is_signed: value.signed,
+            width: Some(value.width as u32),
             int_width: exp_width,
             frac_width: None,
-        }
+        })
     }
 }
 
-impl<T: nr::ReprType> From<PhantomData<T>> for FormatInfo {
-    fn from(_value: PhantomData<T>) -> Self {
-        Self {
-            numeric_type: JsonTypes::IEEE754Float,
-            is_signed: false,
-            width: Some(64),
-            int_width: None,
-            frac_width: None,
-        }
+impl TryFrom<&FormatInfo> for nr::TypeSpec {
+    type Error = JsonParseError;
+    fn try_from(value: &FormatInfo) -> Result<Self, Self::Error> {
+        use nr::TypeClass as tc;
+
+        use JsonTypes::*;
+        let mut total_width = value.width;
+        let class = match value.numeric_type {
+            Bitnum => tc::Int,
+            IEEE754Float => tc::Float,
+            Fixed => {
+                let (t, exp_width) = value.normalise_fixed()?;
+                total_width = Some(t as u32);
+                tc::Fixed { exp_width }
+            }
+        };
+        Ok(nr::TypeSpec {
+            width: total_width.unwrap() as usize,
+            signed: value.is_signed,
+            class,
+        })
     }
 }
-
-// NOTE: width stuff gets kinda dropped here. probably best to defer checking.
-
-// operates on reference b/c the FormatInfo is used to fill fields in DataSet and DataType
-// impl TryFrom<&FormatInfo> for repr::DataType {
-//     type Error = JsonParseError;
-
-//     fn try_from(value: &FormatInfo) -> Result<Self, Self::Error> {
-//         match value.numeric_type {
-//             JsonTypes::Untyped => Ok(repr::DataType::Untyped),
-//             JsonTypes::Bitnum => Ok(repr::DataType::Int {
-//                 is_signed: value.is_signed,
-//             }),
-//             JsonTypes::Fixed => Ok(repr::DataType::Fixed {
-//                 frac_width: value.normalise_fixed()?.1,
-//                 is_signed: value.is_signed,
-//             }),
-//             JsonTypes::IEEE754Float => Ok(repr::DataType::Float),
-//         }
-//     }
-// }
 
 /*
     NOTE: as implemented, some fixed point numbers which exceed the precision of f64 but are still valid fixed-point may not work.
@@ -209,17 +207,25 @@ fn reshape(inp: Vec<Value>, shape: [usize; 4], dims: usize) -> Vec<Value> {
     }
 }
 
-impl filerep::TryToIR for JsonDataEntry {
-    fn try_to_ir<T: nr::ReprType>(
-        inp: Self,
-    ) -> Result<nr::DataSet<T>, filerep::FileFmtErr> {
-        let Ok((vals, dimensions, num_dimensions)) = destructure(&inp.data)
+impl JsonDataEntry {
+    fn try_entry_to_ir(
+        self,
+        t: &nr::TypeSpec,
+        type_props_map: &crate::numimpl::TypePropsMap,
+    ) -> Result<nr::SingleMem, filerep::FileFmtErr> {
+        let Ok((vals, dimensions, num_dimensions)) = destructure(&self.data)
         else {
             return Err(String::from("bad flattening"));
         };
+        let corr_props = type_props_map.get_props(t);
         let data: Vec<u64> = vals
             .iter()
-            .map(|e| T::from_string_lossy(&e.to_string(), nr::Endian::Little))
+            .map(|e| {
+                (corr_props.from_string_rounding)(
+                    e.to_string(),
+                    nr::Endian::Little,
+                )
+            })
             .collect();
         assert_eq!(
             dimensions
@@ -228,58 +234,30 @@ impl filerep::TryToIR for JsonDataEntry {
                 .product::<usize>(),
             data.len()
         );
-        Ok(nr::DataSet::<T> {
+        Ok(nr::SingleMem {
             data,
             dimensions,
             num_dimensions,
-            dtype: PhantomData::<T>,
+            dtype: t.clone(),
             end: nr::Endian::Little,
         })
     }
-}
-
-impl JsonDataEntry {
-    fn to_dyn_ir(self) -> Box<dyn nr::DataTrait> {
-        use crate::filerep::*;
-        match self.format.numeric_type {
-            JsonTypes::Untyped => Box::new(
-                JsonDataEntry::try_to_ir::<crate::numimpl::UInt64>(self)
-                    .unwrap(),
-            ),
-            JsonTypes::Fixed => Box::new(
-                JsonDataEntry::try_to_ir::<crate::numimpl::IFixed32E16>(self)
-                    .unwrap(),
-            ),
-            JsonTypes::Bitnum => Box::new(
-                JsonDataEntry::try_to_ir::<crate::numimpl::UInt64>(self)
-                    .unwrap(),
-            ),
-            JsonTypes::IEEE754Float => Box::new(
-                JsonDataEntry::try_to_ir::<crate::numimpl::Float64>(self)
-                    .unwrap(),
-            ),
-        }
-    }
-}
-
-impl<T: nr::ReprType> filerep::TryFromIR<T, JsonDataEntry> for JsonDataEntry {
-    fn try_from_ir(
-        inp: &nr::DataSet<T>,
+    fn try_entry_from_ir(
+        inp: &nr::SingleMem,
+        type_props_map: &crate::numimpl::TypePropsMap,
     ) -> Result<JsonDataEntry, filerep::FileFmtErr> {
-        use crate::numimpl;
-        use crate::numrep::ReprType;
+        let assoc_props = type_props_map.get_props(&inp.dtype);
 
-        let as_num = inp
-            .data
-            .iter()
-            .map(|e| {
-                serde_json::Value::Number(
-                    serde_json::Number::from_string_unchecked(
-                        numimpl::Float64::to_str(e, nr::Endian::Little),
-                    ),
-                )
-            })
-            .collect();
+        let as_num =
+            inp.iter_data()
+                .map(|e| {
+                    serde_json::Value::Number(
+                        serde_json::Number::from_string_unchecked(
+                            (assoc_props.to_str)(e, nr::Endian::Little),
+                        ),
+                    )
+                })
+                .collect();
         Ok(JsonDataEntry {
             data: serde_json::to_value(reshape(
                 as_num,
@@ -287,7 +265,7 @@ impl<T: nr::ReprType> filerep::TryFromIR<T, JsonDataEntry> for JsonDataEntry {
                 inp.num_dimensions,
             ))
             .unwrap(),
-            format: FormatInfo::from_ir_repr(T::repr_as(), T::WIDTH),
+            format: FormatInfo::try_from(inp.dtype.clone())?,
         })
     }
 }
@@ -298,28 +276,54 @@ impl<T: nr::ReprType> filerep::TryFromIR<T, JsonDataEntry> for JsonDataEntry {
 #[serde(transparent)]
 pub struct JsonData(pub HashMap<String, JsonDataEntry>);
 
-impl JsonData {
-    fn to_filemems(self) -> filerep::FileMems {
-        let mut new_mems = FileMems {
-            store: HashMap::new(),
-        };
-
-        // let mut json_data: JsonData = serde_json::from_str(data).unwrap();
-        // let nested_data = json_data.0.remove("in").unwrap();
-
-        // let t: nr::DataSet<crate::numimpl::Float64> =
-        //     JsonDataEntry::try_to_ir(nested_data).unwrap();
-
-        // use filerep::TryToIR;
-
-        // let x: Box<dyn nr::DataTrait> = Box::new(t);
-        // new_mems.store.insert(String::from("aa"), x);
-        for (k, v) in self.0.into_iter() {
-            new_mems.store.insert(k, JsonDataEntry::to_dyn_ir(v));
+impl filerep::TryFromIR for JsonData {
+    fn try_from_ir(
+        inp: &FileMems,
+        typeprops: &crate::numimpl::TypePropsMap,
+    ) -> Result<Self, filerep::FileFmtErr> {
+        let mut res = HashMap::new();
+        for (k, v) in inp.mems.iter() {
+            res.insert(
+                k.clone(),
+                JsonDataEntry::try_entry_from_ir(v, typeprops)?,
+            );
         }
-        return new_mems;
+        Ok(JsonData(res))
     }
 }
+
+impl filerep::TryToIR for JsonData {
+    fn try_to_ir(
+        self,
+        types: &HashMap<String, nr::TypeSpec>,
+        typeprops: &crate::numimpl::TypePropsMap,
+    ) -> Result<FileMems, filerep::FileFmtErr> {
+        let mut new_mems = FileMems {
+            mems: HashMap::new(),
+        };
+
+        for (k, v) in self.0.into_iter() {
+            let ty = types.get(&k).unwrap();
+            new_mems.mems.insert(k, v.try_entry_to_ir(ty, typeprops)?);
+        }
+        return Ok(new_mems);
+    }
+}
+
+impl filerep::ExtractType for JsonData {
+    fn extract_types(
+        &self,
+    ) -> Result<HashMap<String, nr::TypeSpec>, FileFmtErr> {
+        let mut res = HashMap::new();
+        for (k, v) in self.0.iter() {
+            let new_spec = nr::TypeSpec::try_from(&v.format)?;
+            res.insert(k.clone(), new_spec);
+        }
+        Ok(res)
+    }
+}
+
+impl filerep::HintedTryToIR for JsonData {}
 
 struct JsonDataDestructor {
     pub dimensions: [usize; 4], // maps dimension : dimension size
@@ -401,7 +405,7 @@ where
 mod tests {
     use std::borrow;
 
-    use crate::{numimpl, numrep::DataSet};
+    use crate::numimpl;
 
     use super::*;
     use filerep::*;
@@ -424,7 +428,7 @@ mod tests {
     ],
     
     "format": {
-      "numeric_type": "bitnum",
+      "numeric_type": "ieee754_float",
       "is_signed": false,
       "width": 32
     }
@@ -442,39 +446,39 @@ mod tests {
 }"#;
 
         let json_data: JsonData = serde_json::from_str(data).unwrap();
-        let fm = json_data.to_filemems();
-        for (k, v) in fm.store {
-            // println!("{json_data:?}");
-            // let nested_data = json_data.0.get("in").unwrap();
-            // println!("dest: {:?}", destructure(nested_data));
+        use filerep::HintedTryToIR;
+        let mut typeprops = crate::numimpl::TypePropsMap::default();
+        typeprops.init();
 
-            // let t: DataSet<numimpl::Float64> =
-            //     JsonDataEntry::try_to_ir(v).unwrap();
-            let m = v.as_ref();
-            println!("ir: {:?}", m);
-            // let as_str = t
-            //     .data
-            //     .iter()
-            //     .map(|e| {
-            //         serde_json::Value::Number(
-            //             serde_json::Number::from_string_unchecked(
-            //                 numimpl::Float64::to_str(e, nr::Endian::Little),
-            //             ),
-            //         )
-            //     })
-            //     .collect();
-            // println!("{:?}", t.dimensions);
-            // println!("{:?}", reshape(as_str, t.dimensions, t.num_dimensions));
-            // // for e in t.data {
-            // //     use nr::ReprType;
-            // //     println!(
-            // //         "{}",
-            // //         numimpl::Float64::to_str(&e, nr::Endian::Little)
-            // //     );
-            // // }
-            // let njs = JsonDataEntry::try_from_ir(&t);
-            // println!("{:?}", njs)
+        let fm = json_data.hinted_try_to_ir(&typeprops).unwrap();
+        for (k, v) in fm.mems.iter() {
+            let as_str = v
+                .data
+                .iter()
+                .map(|e| {
+                    serde_json::Value::Number(
+                        serde_json::Number::from_string_unchecked(
+                            crate::numimpl::float32_to_st(
+                                e,
+                                nr::Endian::Little,
+                            ),
+                        ),
+                    )
+                })
+                .collect();
+            println!("{:?}", v.dimensions);
+            println!("{:?}", reshape(as_str, v.dimensions, v.num_dimensions));
+            // for e in t.data {
+            //     use nr::ReprType;
+            //     println!(
+            //         "{}",
+            //         numimpl::Float64::to_str(&e, nr::Endian::Little)
+            //     );
+            // }
         }
+        // use crate::filerep::TryFromIR;
+        // let njs = JsonData::try_from_ir(&fm, &typeprops).unwrap();
+        // println!("{:?}", njs)
 
         // println!("{}", serde_json::to_string_pretty(&json_data).unwrap());
     }
