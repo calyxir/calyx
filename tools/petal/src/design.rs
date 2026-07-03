@@ -613,9 +613,7 @@ impl Design {
         c: ControlInfo,
         s: SharedCellsInfo,
     ) -> Result<()> {
-        let main_scope = h
-            .lookup_scope(&[&"toplevel", &"main"])
-            .with_context(|| "Failed to find main scope")?;
+        let main_scope = find_main_scope(h)?;
         let main_go = get_var(h, &h[main_scope], "go")?;
         let main_done = get_var(h, &h[main_scope], "done")?;
         let mut main_cell = Cell {
