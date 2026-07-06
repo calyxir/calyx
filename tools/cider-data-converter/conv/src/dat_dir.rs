@@ -5,84 +5,76 @@ use crate::dat_parser::*;
 use crate::filerep::*;
 use cider::serialization as cs;
 
-pub struct DataDir {
-    base_path: PathBuf,
-    file_extension: String,
-    output_path: PathBuf,
-}
-
 const DAT_EXTENSION: &str = "dat";
 
 const HEADER_FILENAME: &str = "header";
 
-impl DataDir {
-    fn load(&self) -> Result<cs::DataDump, FileFmtErr> {
-        if self.base_path.is_dir() {
-            // we are converting from a dat directory rather than a
-            // dump
+impl From<std::io::Error> for FileFmtErr {
+    fn from(value: std::io::Error) -> Self {
+        Self::from(value.to_string())
+    }
+}
 
-            let header = {
-                let mut header_file =
-                    File::open(self.base_path.join(HEADER_FILENAME))?;
-                let mut raw_header = vec![];
-                header_file.read_to_end(&mut raw_header)?;
+// in the original cider data converter code, directory I/O was bolted onto the cider datadump format, this is retained.
 
-                cs::DataHeader::deserialize(&raw_header)?
-            };
+impl DirIO for cs::DataDump {
+    fn read_into(src: PathBuf) -> Result<Self, FileFmtErr> {
+        if !src.is_dir() {
+            return Err(FileFmtErr::from("not a directory"));
+        }
 
-            let mut data: Vec<u8> = vec![];
+        let header = {
+            let mut header_file = File::open(src.join(HEADER_FILENAME))?;
+            let mut raw_header = vec![];
+            header_file.read_to_end(&mut raw_header)?;
 
-            for mem_dec in &header.memories {
-                let starting_len = data.len();
-                let mem_file =
-                    BufReader::new(File::open(self.base_path.join(format!(
-                        "{}.{}",
-                        mem_dec.name, self.file_extension
-                    )))?);
+            cs::DataHeader::deserialize(&raw_header)?
+        };
+        let mut data: Vec<u8> = vec![];
 
-                for line in mem_file.lines() {
-                    let line = line?;
-                    if let Some(line_data) = unwrap_line_or_comment(&line) {
-                        assert!(
-                            line_data.len()
-                                <= mem_dec.bytes_per_entry() as usize,
-                            "line data too long"
-                        );
+        for mem_dec in &header.memories {
+            let starting_len = data.len();
+            let mem_file = BufReader::new(File::open(
+                src.join(format!("{}.{}", mem_dec.name, DAT_EXTENSION)),
+            )?);
 
-                        let padding = (mem_dec.bytes_per_entry() as usize)
-                            - line_data.len();
+            for line in mem_file.lines() {
+                let line = line?;
+                if let Some(line_data) = unwrap_line_or_comment(&line) {
+                    assert!(
+                        line_data.len() <= mem_dec.bytes_per_entry() as usize,
+                        "line data too long"
+                    );
 
-                        data.extend(line_data.into_iter().rev());
-                        data.extend(std::iter::repeat_n(0u8, padding))
-                    }
+                    let padding =
+                        (mem_dec.bytes_per_entry() as usize) - line_data.len();
+
+                    data.extend(line_data.into_iter().rev());
+                    data.extend(std::iter::repeat_n(0u8, padding))
                 }
-
-                assert_eq!(data.len() - starting_len, mem_dec.byte_count());
             }
 
-            Ok(cs::DataDump { header, data })
-        } else {
-            Err(String::from("not directory"))
+            assert_eq!(data.len() - starting_len, mem_dec.byte_count());
         }
+
+        Ok(cs::DataDump { header, data })
     }
-
-    fn store(&self, data: cs::DataDump) -> Result<(), FileFmtErr> {
-        if self.output_path.exists() && !self.output_path.is_dir() {
-            return Err(String::from("outpath not dir"));
-        } else if !self.output_path.exists() {
-            std::fs::create_dir(&self.output_path)?;
+    fn write_out(&self, dest: PathBuf) -> Result<(), FileFmtErr> {
+        if dest.exists() && !dest.is_dir() {
+            return Err(FileFmtErr::from("not a directory"));
+        } else if !dest.exists() {
+            std::fs::create_dir(&dest)?;
         }
 
-        let mut header_output =
-            File::create(self.output_path.join(HEADER_FILENAME))?;
-        header_output.write_all(&data.header.serialize()?)?;
+        let mut header_output = File::create(dest.join(HEADER_FILENAME))?;
+        header_output.write_all(&self.header.serialize()?)?;
 
-        for memory in &data.header.memories {
+        for memory in &self.header.memories {
             let file = File::create(
-                path.join(format!("{}.{}", memory.name, self.file_extension)),
+                dest.join(format!("{}.{}", memory.name, DAT_EXTENSION)),
             )?;
             let mut writer = BufWriter::new(file);
-            for bytes in data
+            for bytes in self
                 .get_data(&memory.name)
                 .unwrap()
                 .chunks_exact(memory.bytes_per_entry() as usize)
