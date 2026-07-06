@@ -1,14 +1,16 @@
 use std::collections::HashMap;
 
-use crate::{numimpl::OpFnTypes::Nop, numrep::*};
+use crate::numrep::*;
 use fixed::{FixedI32, FixedI64, FixedU32, FixedU64};
 
+// implementation of additional features relating to number representation
+
+// TODO: below should probably be falliable in both directions..
+/// basic display / 'niceties' for handling string formats
 pub struct TypeProps {
     pub from_string_rounding: fn(s: String, end: Endian) -> BinRep,
     pub to_str: fn(b: &BinRep, end: Endian) -> String,
 }
-
-type SpecID = u32;
 
 pub enum OpTypes {
     Truncate,
@@ -19,14 +21,15 @@ pub enum OpTypes {
 
 #[derive(PartialEq, Eq, Hash)]
 pub enum OpCastTypes {
-    SatCast,
-    WrapCast,
-    OverflowCast,
-    LosslessCast,
+    SatCast, // saturating cast: i.e. if over/underflow, retains max or min value
+    WrapCast, // if over/underflows, treats 'remaining' part as valid
+    OverflowCast, // falliable cast which errors on overflow
+    LosslessCast, // falliable cast which attempts to preserve interpreted '=value' (i.e. -1.0_f32 -> -1_i32), and errors if not possible to represent value.
 }
 
 pub type OpError = String;
 
+/// enum of possible functions between types
 #[derive(Clone)]
 pub enum OpFnTypes {
     Falliable(fn(&BinRep, &TypeSpec, &TypeSpec) -> Result<BinRep, OpError>),
@@ -34,20 +37,26 @@ pub enum OpFnTypes {
     Nop,
 }
 
+// adds a level of indirection to TypePropsMap, so hopefully hash table sizes are reduced.
+type SpecID = u32;
+
 #[derive(Default)]
 pub struct TypePropsMap {
     // hashmap will be Very Bad and insufficiently general to begin with, but is a start
     lookup: HashMap<TypeSpec, SpecID>,
 
-    m: HashMap<TypeSpec, TypeProps>,
+    props: HashMap<TypeSpec, TypeProps>,
 
     // mapping of (in_t, out_t, cast_t) to a function
-    pub casts: HashMap<(SpecID, SpecID, OpCastTypes), OpFnTypes>,
+    casts: HashMap<(SpecID, SpecID, OpCastTypes), OpFnTypes>,
 }
 
 impl TypePropsMap {
     pub fn init(&mut self) {
-        self.m.insert(
+        /*due to laziness in testing, only a few props are added here. theoretically possible to add more, but probably want to
+        figure out a better structure for these data.
+        */
+        self.props.insert(
             TypeSpec {
                 width: 32,
                 signed: false,
@@ -58,7 +67,7 @@ impl TypePropsMap {
                 to_str: crate::numimpl::float32_to_st,
             },
         );
-        self.m.insert(
+        self.props.insert(
             TypeSpec {
                 width: 32,
                 signed: false,
@@ -72,7 +81,7 @@ impl TypePropsMap {
     }
 
     pub fn get_props(&self, t: &TypeSpec) -> &TypeProps {
-        self.m.get(t).unwrap()
+        self.props.get(t).unwrap()
     }
 
     fn get_spec_id(&self, t: &TypeSpec) -> SpecID {
@@ -113,7 +122,7 @@ impl TypePropsMap {
                         Err(String::from("tried to sign-extend unsigned"))
                     }
                 } else {
-                    Err(String::from("truncate on bad widths"))
+                    Err(String::from("sign-extend on bad widths"))
                 }
             }
             OpTypes::Cast(c) => {
@@ -138,31 +147,8 @@ impl TypePropsMap {
         out_type: &TypeSpec,
         op: OpTypes,
     ) -> Result<SingleMem, CheckedConvErr> {
-        let opfun = self.fun_for_op(&in_mem.dtype, out_type, op)?;
-        let out_data = match opfun {
-            OpFnTypes::Nop => {
-                // modify type in place and return
-                // return with only type changed
-
-                return Ok(SingleMem {
-                    dtype: out_type.clone(),
-                    ..in_mem
-                });
-            }
-            OpFnTypes::Falliable(f) => in_mem
-                .iter_data()
-                .map(|e| f(e, &in_mem.dtype, out_type))
-                .collect::<Result<_, _>>()?,
-            OpFnTypes::Infalliable(f2) => in_mem
-                .iter_data()
-                .map(|e| f2(e, &in_mem.dtype, out_type))
-                .collect(),
-        };
-        Ok(SingleMem {
-            data: out_data,
-            dtype: out_type.clone(),
-            ..in_mem
-        })
+        let opfun = self.fun_for_op(&in_mem.ty(), out_type, op)?;
+        in_mem.apply_opfun(opfun, out_type)
     }
 }
 
@@ -190,8 +176,7 @@ pub fn generic_signextend(
     }
 }
 
-pub struct IntProps;
-
+// we can't always tell from bytes alone whether a number is 'correctly' typed, so instead just use same byteslice-based Thing for all of them
 pub fn try_from_bytes(
     b: &[u8],
     len: usize,

@@ -4,6 +4,7 @@ use cider::serialization as cs;
 use cider::serialization::MemoryDeclaration;
 
 use crate::filerep as fr;
+use crate::filerep::FileFmtErr;
 use crate::numrep as nr;
 
 fn as_cider_dims(inp: &nr::SingleMem) -> cs::Dimensions {
@@ -45,7 +46,7 @@ impl TryFrom<nr::TypeSpec> for cs::FormatInfo {
                 int_width: exp_width as u32,
                 frac_width: ((value.width) - exp_width) as u32,
             },
-            _ => return Err(String::from("bad format")),
+            _ => return Err(FileFmtErr::from("bad format")),
         };
         Ok(res)
     }
@@ -89,15 +90,18 @@ impl fr::TryFromIR for cs::DataDump {
     ) -> Result<cs::DataDump, fr::FileFmtErr> {
         let mut out_res = cs::DataDump::new_empty();
         for (k, v) in inp.mems.iter() {
+            let t = v.ty();
+            let omask = crate::util::mask_n_bits(t.width);
+
             let meminfo = MemoryDeclaration::new(
                 k.clone(),
                 as_cider_dims(v),
-                v.dtype.clone().try_into()?,
+                t.try_into()?,
             );
-            // TODO: below should trim values to size
+
             out_res.push_memory(
                 meminfo,
-                v.iter_data().flat_map(|e| e.to_le_bytes()),
+                v.iter_data().flat_map(|e| (e & omask).to_le_bytes()),
             );
         }
 
@@ -139,17 +143,39 @@ impl fr::TryToIR for cs::DataDump {
             };
             res.mems.insert(
                 mem.name.clone(),
-                nr::SingleMem {
+                nr::SingleMem::new(
                     data,
                     dimensions,
                     num_dimensions,
-                    dtype: assoc_type.clone(),
-                    end: nr::Endian::Little,
-                },
+                    assoc_type.clone(),
+                    nr::Endian::Little,
+                ),
             );
         }
 
         Ok(res)
+    }
+}
+
+impl From<cs::SerializationError> for fr::FileFmtErr {
+    fn from(value: cs::SerializationError) -> Self {
+        fr::FileFmtErr::from(value.to_string())
+    }
+}
+
+impl fr::FileIO for cs::DataDump {
+    fn read_into(
+        src: Box<dyn std::io::prelude::Read>,
+    ) -> Result<Self, FileFmtErr> {
+        let res = cs::DataDump::deserialize(src)?;
+        Ok(res)
+    }
+    fn write_out(
+        &self,
+        dest: Box<dyn std::io::prelude::Write>,
+    ) -> Result<(), FileFmtErr> {
+        self.serialize(dest)?;
+        Ok(())
     }
 }
 
