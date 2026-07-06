@@ -1,6 +1,9 @@
 // format-agnostic file interface
 
 use std::collections::HashMap;
+use std::io::Read;
+use std::io::Write;
+use std::path::PathBuf;
 
 use super::numimpl::*;
 use super::numrep as nr;
@@ -17,6 +20,25 @@ pub trait TryToIR {
     ) -> Result<FileMems, FileFmtErr>;
 }
 
+// TODO: this may not need to be dyn?? maybe?
+// TODO: also these interfaces are pretty Bad, in particular the DirIO one: implementer may have to do a lot of work.
+pub trait FileIO
+where
+    Self: Sized,
+{
+    fn read_into(src: Box<dyn Read>) -> Result<Self, FileFmtErr>;
+    fn write_out(&self, dest: Box<dyn Write>) -> Result<(), FileFmtErr>;
+}
+
+// equivalent of FileIO but for formats which output to a directory
+pub trait DirIO
+where
+    Self: Sized,
+{
+    fn read_into(src: PathBuf) -> Result<Self, FileFmtErr>;
+    fn write_out(&self, dest: PathBuf) -> Result<(), FileFmtErr>;
+}
+
 pub trait TryFromIR
 where
     Self: Sized,
@@ -27,7 +49,22 @@ where
     ) -> Result<Self, FileFmtErr>;
 }
 
-pub type FileFmtErr = String;
+#[derive(Debug)]
+pub enum FileFmtErr {
+    FileSpecific(String),
+}
+
+impl From<String> for FileFmtErr {
+    fn from(value: String) -> Self {
+        FileFmtErr::FileSpecific(value)
+    }
+}
+
+impl From<&str> for FileFmtErr {
+    fn from(value: &str) -> Self {
+        FileFmtErr::FileSpecific(String::from(value))
+    }
+}
 
 pub struct FileMems {
     pub mems: HashMap<String, nr::SingleMem>,

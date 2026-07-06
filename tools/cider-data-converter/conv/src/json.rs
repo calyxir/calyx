@@ -25,9 +25,9 @@ pub enum JsonParseError {
     BadType,
 }
 
-impl From<JsonParseError> for String {
+impl From<JsonParseError> for filerep::FileFmtErr {
     fn from(value: JsonParseError) -> Self {
-        format!("{}", value)
+        FileFmtErr::from(value.to_string())
     }
 }
 
@@ -151,6 +151,7 @@ pub struct JsonDataEntry {
     pub format: FormatInfo,
 }
 
+// split array into sub-arrays of [size] length
 fn chunks_size_n(inp: Vec<Value>, size: usize) -> Vec<Value> {
     inp.chunks(size)
         .into_iter()
@@ -158,6 +159,7 @@ fn chunks_size_n(inp: Vec<Value>, size: usize) -> Vec<Value> {
         .collect()
 }
 
+// this is awful!
 fn reshape(inp: Vec<Value>, shape: [usize; 4], dims: usize) -> Vec<Value> {
     match dims {
         1 => inp
@@ -215,7 +217,9 @@ impl JsonDataEntry {
     ) -> Result<nr::SingleMem, filerep::FileFmtErr> {
         let Ok((vals, dimensions, num_dimensions)) = destructure(&self.data)
         else {
-            return Err(String::from("bad flattening"));
+            return Err(FileFmtErr::FileSpecific(String::from(
+                "bad flattening",
+            )));
         };
         let corr_props = type_props_map.get_props(t);
         let data: Vec<u64> = vals
@@ -234,19 +238,19 @@ impl JsonDataEntry {
                 .product::<usize>(),
             data.len()
         );
-        Ok(nr::SingleMem {
+        Ok(nr::SingleMem::new(
             data,
             dimensions,
             num_dimensions,
-            dtype: t.clone(),
-            end: nr::Endian::Little,
-        })
+            t.clone(),
+            nr::Endian::Little,
+        ))
     }
     fn try_entry_from_ir(
         inp: &nr::SingleMem,
         type_props_map: &crate::numimpl::TypePropsMap,
     ) -> Result<JsonDataEntry, filerep::FileFmtErr> {
-        let assoc_props = type_props_map.get_props(&inp.dtype);
+        let assoc_props = type_props_map.get_props(&inp.ty());
 
         let as_num =
             inp.iter_data()
@@ -265,7 +269,7 @@ impl JsonDataEntry {
                 inp.num_dimensions,
             ))
             .unwrap(),
-            format: FormatInfo::try_from(inp.dtype.clone())?,
+            format: FormatInfo::try_from(inp.ty())?,
         })
     }
 }
@@ -307,6 +311,26 @@ impl filerep::TryToIR for JsonData {
             new_mems.mems.insert(k, v.try_entry_to_ir(ty, typeprops)?);
         }
         return Ok(new_mems);
+    }
+}
+
+impl From<serde_json::Error> for FileFmtErr {
+    fn from(value: serde_json::Error) -> Self {
+        FileFmtErr::FileSpecific(value.to_string())
+    }
+}
+
+impl filerep::FileIO for JsonData {
+    fn read_into(src: Box<dyn std::io::Read>) -> Result<JsonData, FileFmtErr> {
+        let res: JsonData = serde_json::from_reader(src)?;
+        Ok(res)
+    }
+    fn write_out(
+        &self,
+        dest: Box<dyn std::io::Write>,
+    ) -> Result<(), FileFmtErr> {
+        serde_json::to_writer_pretty(dest, self)?;
+        Ok(())
     }
 }
 
@@ -403,12 +427,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::borrow;
-
-    use crate::numimpl;
 
     use super::*;
-    use filerep::*;
 
     #[test]
     fn test_json_data() {
@@ -451,10 +471,9 @@ mod tests {
         typeprops.init();
 
         let fm = json_data.hinted_try_to_ir(&typeprops).unwrap();
-        for (k, v) in fm.mems.iter() {
+        for (_, v) in fm.mems.iter() {
             let as_str = v
-                .data
-                .iter()
+                .iter_data()
                 .map(|e| {
                     serde_json::Value::Number(
                         serde_json::Number::from_string_unchecked(
