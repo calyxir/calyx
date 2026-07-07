@@ -153,13 +153,13 @@ fn gen_component_info(
             .attributes
             .get_set(SetAttribute::Set(SetAttr::Pos))
             .unwrap();
-        let comb_group_pos = comb_group_set_attr
-            .iter()
-            .find(|x| adl_posids.contains(x))
-            .unwrap();
-        component_pos_id
-            .groups
-            .insert(comb_group.borrow().name(), *comb_group_pos);
+        if let Some(comb_group_pos) =
+            comb_group_set_attr.iter().find(|x| adl_posids.contains(x))
+        {
+            component_pos_id
+                .groups
+                .insert(comb_group.borrow().name(), *comb_group_pos);
+        }
     }
 
     // get pos for cell
@@ -410,13 +410,16 @@ fn create_file_map(
 ) -> HashMap<String, Vec<String>> {
     let mut toplevel_file_map: HashMap<String, Vec<String>> = HashMap::new();
     for (_, path) in source_info_table.iter_file_map() {
-        let file_lines: Vec<String> = read_to_string(path)
-            .unwrap()
-            .lines()
-            .map(String::from)
-            .collect();
-        let filename = path.as_path().to_str().unwrap().to_string();
-        toplevel_file_map.insert(filename, file_lines);
+        if path.exists() {
+            let file_lines: Vec<String> = read_to_string(path)
+                .unwrap()
+                .lines()
+                .map(String::from)
+                .collect();
+            let filename = path.as_path().to_str().unwrap().to_string();
+            toplevel_file_map.insert(filename, file_lines);
+        }
+        // message for else case given in create_lang_to_posid_map
     }
     toplevel_file_map
 }
@@ -437,6 +440,13 @@ fn create_lang_to_posid_map(
         if let Some(path_ext) = path.extension()
             && let Some(path_ext_str) = path_ext.to_str()
         {
+            if !path.exists() {
+                println!(
+                    "[fileinfo_emitter] File does not exist: {}. Petal will ignore this file during ADL analysis.",
+                    path.to_str().unwrap()
+                );
+                continue;
+            }
             match path_ext_str {
                 "futil" => {
                     fileid_to_lang.insert(*fileid, Adl::Calyx);
@@ -483,7 +493,6 @@ fn get_control_name(control: &ir::Control) -> CalyxResult<Option<&str>> {
     };
     Ok(out_str)
 }
-
 fn gen_control_info_helper(
     control: &ir::Control,
     calyx_posids_to_linenums: &HashMap<u32, u32>,
@@ -546,7 +555,7 @@ fn gen_control_info_helper(
                 control_pos_infos,
             )?;
         }
-        ir::Control::Static(_) => todo!(),
+        ir::Control::Static(_) => (), // static control nodes will not appear in control track, so we don't need to track them.
         _ => (),
     }
 
