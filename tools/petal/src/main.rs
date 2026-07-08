@@ -1,17 +1,30 @@
 mod control;
 mod design;
 mod shared_cells;
+mod timeline;
 mod visuals;
 
+use crate::design::{Design, Stack};
+use crate::visuals::{compute_flame, write_flame};
 use anyhow::{Context, Ok, Result, anyhow};
 use baa::{BitVecMutOps, BitVecValue};
 use clap::Parser;
 use indexmap::IndexMap;
+use perfetto_trace_proto::clock_snapshot::clock::BuiltinClocks;
+use perfetto_trace_proto::trace_packet::{
+    Data, OptionalTrustedPacketSequenceId,
+};
+use perfetto_trace_proto::track_descriptor::StaticOrDynamicName;
+use perfetto_trace_proto::track_event::{NameField, Timestamp, Type};
+use perfetto_trace_proto::{
+    ClockSnapshot, Trace, TracePacket, TrackDescriptor, TrackEvent,
+};
+use prost::Message;
+use prost::bytes::BytesMut;
 use rustc_hash::FxHashMap;
+use std::fs::File;
+use std::io::Write;
 use wellen::*;
-
-use crate::design::{Design, Stack};
-use crate::visuals::{compute_flame, write_flame};
 
 #[derive(Parser, Debug)]
 #[command(name = "petal")]
@@ -78,6 +91,8 @@ fn print_stacks(
 
 fn main() -> Result<()> {
     let args = Args::parse();
+
+    write_pftrace_attempt()?;
 
     let ctrl_info = crate::control::ControlInfo::new(
         args.tdcc_filename,
