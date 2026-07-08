@@ -213,7 +213,6 @@ impl JsonDataEntry {
     fn try_entry_to_ir(
         self,
         t: &nr::TypeSpec,
-        type_props_map: &crate::numimpl::TypePropsMap,
     ) -> Result<nr::SingleMem, filerep::FileFmtErr> {
         let Ok((vals, dimensions, num_dimensions)) = destructure(&self.data)
         else {
@@ -221,16 +220,11 @@ impl JsonDataEntry {
                 "bad flattening",
             )));
         };
-        let corr_props = type_props_map.get_props(t);
         let data: Vec<u64> = vals
             .iter()
-            .map(|e| {
-                (corr_props.from_string_rounding)(
-                    e.to_string(),
-                    nr::Endian::Little,
-                )
-            })
-            .collect();
+            .map(|e| t.read_string(e.to_string(), nr::Endian::Little))
+            .collect::<Result<_, _>>()?;
+
         assert_eq!(
             dimensions
                 .into_iter()
@@ -238,30 +232,27 @@ impl JsonDataEntry {
                 .product::<usize>(),
             data.len()
         );
-        Ok(nr::SingleMem::new(
+        return Ok(nr::SingleMem::new(
             data,
             dimensions,
             num_dimensions,
             t.clone(),
             nr::Endian::Little,
-        ))
+        ));
     }
     fn try_entry_from_ir(
         inp: &nr::SingleMem,
-        type_props_map: &crate::numimpl::TypePropsMap,
     ) -> Result<JsonDataEntry, filerep::FileFmtErr> {
-        let assoc_props = type_props_map.get_props(&inp.ty());
-
-        let as_num =
-            inp.iter_data()
-                .map(|e| {
-                    serde_json::Value::Number(
-                        serde_json::Number::from_string_unchecked(
-                            (assoc_props.to_str)(e, nr::Endian::Little),
-                        ),
-                    )
-                })
-                .collect();
+        let as_num = inp
+            .iter_data()
+            .map(|e| {
+                serde_json::Value::Number(
+                    serde_json::Number::from_string_unchecked(
+                        inp.ty().write_string(*e, nr::Endian::Little),
+                    ),
+                )
+            })
+            .collect();
         Ok(JsonDataEntry {
             data: serde_json::to_value(reshape(
                 as_num,
@@ -278,19 +269,29 @@ impl JsonDataEntry {
 // for now that's probably fine
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct JsonData(pub HashMap<String, JsonDataEntry>);
+pub struct JsonData(
+    #[serde(serialize_with = "ordered_map")] pub HashMap<String, JsonDataEntry>,
+);
+
+// impl<T: nr::ReprType> StringFormat<T> for JsonDataEntry {}
+/// For use with serde's [serialize_with] attribute
+/// see: https://stackoverflow.com/questions/42723065/how-to-sort-hashmap-keys-when-serializing-with-serde
+fn ordered_map<S, K: Ord + Serialize, V: Serialize>(
+    value: &HashMap<K, V>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let ordered: BTreeMap<_, _> = value.iter().collect();
+    ordered.serialize(serializer)
+}
 
 impl filerep::TryFromIR for JsonData {
-    fn try_from_ir(
-        inp: &FileMems,
-        typeprops: &crate::numimpl::TypePropsMap,
-    ) -> Result<Self, filerep::FileFmtErr> {
+    fn try_from_ir(inp: &FileMems) -> Result<Self, filerep::FileFmtErr> {
         let mut res = HashMap::new();
         for (k, v) in inp.mems.iter() {
-            res.insert(
-                k.clone(),
-                JsonDataEntry::try_entry_from_ir(v, typeprops)?,
-            );
+            res.insert(k.clone(), JsonDataEntry::try_entry_from_ir(v)?);
         }
         Ok(JsonData(res))
     }
@@ -300,7 +301,6 @@ impl filerep::TryToIR for JsonData {
     fn try_to_ir(
         self,
         types: &HashMap<String, nr::TypeSpec>,
-        typeprops: &crate::numimpl::TypePropsMap,
     ) -> Result<FileMems, filerep::FileFmtErr> {
         let mut new_mems = FileMems {
             mems: HashMap::new(),
@@ -308,7 +308,7 @@ impl filerep::TryToIR for JsonData {
 
         for (k, v) in self.0.into_iter() {
             let ty = types.get(&k).unwrap();
-            new_mems.mems.insert(k, v.try_entry_to_ir(ty, typeprops)?);
+            new_mems.mems.insert(k, v.try_entry_to_ir(ty)?);
         }
         return Ok(new_mems);
     }
@@ -411,20 +411,6 @@ fn destructure(
     }
 }
 
-// impl<T: nr::ReprType> StringFormat<T> for JsonDataEntry {}
-/// For use with serde's [serialize_with] attribute
-/// see: https://stackoverflow.com/questions/42723065/how-to-sort-hashmap-keys-when-serializing-with-serde
-fn ordered_map<S, K: Ord + Serialize, V: Serialize>(
-    value: &HashMap<K, V>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    let ordered: BTreeMap<_, _> = value.iter().collect();
-    ordered.serialize(serializer)
-}
-
 #[cfg(test)]
 mod tests {
 
@@ -467,26 +453,26 @@ mod tests {
 
         let json_data: JsonData = serde_json::from_str(data).unwrap();
         use filerep::HintedTryToIR;
-        let mut typeprops = crate::numimpl::TypePropsMap::default();
-        typeprops.init();
 
-        let fm = json_data.hinted_try_to_ir(&typeprops).unwrap();
+        let fm = json_data.hinted_try_to_ir().unwrap();
         for (_, v) in fm.mems.iter() {
             let as_str = v
                 .iter_data()
                 .map(|e| {
                     serde_json::Value::Number(
                         serde_json::Number::from_string_unchecked(
-                            crate::numimpl::float32_to_st(
-                                e,
+                            crate::numimpl::float_write(
+                                *e,
                                 nr::Endian::Little,
+                                32,
                             ),
                         ),
                     )
                 })
-                .collect();
+                .collect::<Vec<Value>>();
             println!("{:?}", v.dimensions);
-            println!("{:?}", reshape(as_str, v.dimensions, v.num_dimensions));
+            println!("{:?}", as_str);
+            // println!("{:?}", reshape(as_str, v.dimensions, v.num_dimensions));
             // for e in t.data {
             //     use nr::ReprType;
             //     println!(
