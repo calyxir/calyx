@@ -1,8 +1,10 @@
-mod cider_dump;
-mod dat_dir;
+pub mod cider_dump;
+pub mod dat_dir;
 mod dat_parser;
-mod filerep;
-mod json;
-mod numimpl;
-mod numrep;
-mod util;
+pub mod filerep;
+pub mod json;
+pub mod numimpl;
+pub mod numrep;
+pub mod util;
+
+// pub mod cast;

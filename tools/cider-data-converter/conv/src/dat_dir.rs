@@ -18,7 +18,7 @@ impl From<std::io::Error> for FileFmtErr {
 // in the original cider data converter code, directory I/O was bolted onto the cider datadump format, this is retained.
 
 impl DirIO for cs::DataDump {
-    fn read_into(src: PathBuf) -> Result<Self, FileFmtErr> {
+    fn read_into_dir(src: PathBuf) -> Result<Self, FileFmtErr> {
         if !src.is_dir() {
             return Err(FileFmtErr::from("not a directory"));
         }
@@ -59,7 +59,7 @@ impl DirIO for cs::DataDump {
 
         Ok(cs::DataDump { header, data })
     }
-    fn write_out(&self, dest: PathBuf) -> Result<(), FileFmtErr> {
+    fn write_out_dir(&self, dest: PathBuf) -> Result<(), FileFmtErr> {
         if dest.exists() && !dest.is_dir() {
             return Err(FileFmtErr::from("not a directory"));
         } else if !dest.exists() {

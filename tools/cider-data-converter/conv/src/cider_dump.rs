@@ -65,7 +65,7 @@ impl TryFrom<&cs::FormatInfo> for nr::TypeSpec {
             FormatInfo::IEEFloat { signed, width } => Self {
                 width: width as usize,
                 signed,
-                class: nr::TypeClass::Int,
+                class: nr::TypeClass::Float,
             },
             FormatInfo::Fixed {
                 signed,
@@ -84,13 +84,12 @@ impl TryFrom<&cs::FormatInfo> for nr::TypeSpec {
 }
 
 impl fr::TryFromIR for cs::DataDump {
-    fn try_from_ir(
-        inp: &fr::FileMems,
-        _typeprops: &crate::numimpl::TypePropsMap,
-    ) -> Result<cs::DataDump, fr::FileFmtErr> {
+    fn try_from_ir(inp: &fr::FileMems) -> Result<cs::DataDump, fr::FileFmtErr> {
         let mut out_res = cs::DataDump::new_empty();
         for (k, v) in inp.mems.iter() {
             let t = v.ty();
+            let num_bytes = t.num_bytes();
+
             let omask = crate::util::mask_n_bits(t.width);
 
             let meminfo = MemoryDeclaration::new(
@@ -99,9 +98,14 @@ impl fr::TryFromIR for cs::DataDump {
                 t.try_into()?,
             );
 
+            // below is exceptionally evil
             out_res.push_memory(
                 meminfo,
-                v.iter_data().flat_map(|e| (e & omask).to_le_bytes()),
+                v.iter_data().flat_map(|e| {
+                    let r = e & omask;
+                    let whole = &r.to_le_bytes()[..num_bytes];
+                    whole.to_vec()
+                }),
             );
         }
 
@@ -113,7 +117,6 @@ impl fr::TryToIR for cs::DataDump {
     fn try_to_ir(
         self,
         types: &HashMap<String, nr::TypeSpec>,
-        _typeprops: &crate::numimpl::TypePropsMap,
     ) -> Result<fr::FileMems, fr::FileFmtErr> {
         let mut res = fr::FileMems {
             mems: HashMap::new(),
