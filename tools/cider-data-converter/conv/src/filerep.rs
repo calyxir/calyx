@@ -5,10 +5,8 @@ use std::io::Read;
 use std::io::Write;
 use std::path::PathBuf;
 
-use super::numimpl::*;
 use super::numrep as nr;
-
-/// if a type is provided with store S, then it must be either kept in the Result or fail
+use crate::numrep::ReadStringErr;
 
 /// string formats should at least perform cursory input validation on their I/O, bin formats are allowed to but not required to.
 
@@ -16,12 +14,16 @@ pub trait TryToIR {
     fn try_to_ir(
         self,
         types: &HashMap<String, nr::TypeSpec>,
-        typeprops: &TypePropsMap,
     ) -> Result<FileMems, FileFmtErr>;
 }
 
-// TODO: this may not need to be dyn?? maybe?
-// TODO: also these interfaces are pretty Bad, in particular the DirIO one: implementer may have to do a lot of work.
+/*
+TODO:
+- FileIO most likely doesn't need to be dyn
+- DirIO could probably be more structured, s.t. implementer has to do less work.
+
+*/
+
 pub trait FileIO
 where
     Self: Sized,
@@ -35,18 +37,15 @@ pub trait DirIO
 where
     Self: Sized,
 {
-    fn read_into(src: PathBuf) -> Result<Self, FileFmtErr>;
-    fn write_out(&self, dest: PathBuf) -> Result<(), FileFmtErr>;
+    fn read_into_dir(src: PathBuf) -> Result<Self, FileFmtErr>;
+    fn write_out_dir(&self, dest: PathBuf) -> Result<(), FileFmtErr>;
 }
 
 pub trait TryFromIR
 where
     Self: Sized,
 {
-    fn try_from_ir(
-        inp: &FileMems,
-        typeprops: &TypePropsMap,
-    ) -> Result<Self, FileFmtErr>;
+    fn try_from_ir(inp: &FileMems) -> Result<Self, FileFmtErr>;
 }
 
 #[derive(Debug)]
@@ -66,6 +65,14 @@ impl From<&str> for FileFmtErr {
     }
 }
 
+impl From<ReadStringErr> for FileFmtErr {
+    fn from(value: ReadStringErr) -> Self {
+        let ReadStringErr::BadValue(s) = value;
+        FileFmtErr::FileSpecific(s)
+    }
+}
+
+#[derive(Debug)]
 pub struct FileMems {
     pub mems: HashMap<String, nr::SingleMem>,
 }
@@ -83,11 +90,8 @@ pub trait HintedTryToIR
 where
     Self: ExtractType + TryToIR + Sized,
 {
-    fn hinted_try_to_ir(
-        self,
-        typeprops: &TypePropsMap,
-    ) -> Result<FileMems, FileFmtErr> {
+    fn hinted_try_to_ir(self) -> Result<FileMems, FileFmtErr> {
         let types = self.extract_types()?;
-        self.try_to_ir(&types, typeprops)
+        self.try_to_ir(&types)
     }
 }

@@ -1,12 +1,10 @@
 use argh::FromArgs;
-use cider::serialization::{self, DataDump, SerializationError};
-use cider_data_converter::{
-    converter, dat_parser::unwrap_line_or_comment, json_data::JsonData,
-};
+use cider::serialization::{DataDump, SerializationError};
 use core::str;
+use data_conv_lib::{filerep::HintedTryToIR, *};
 use std::{
     fs::File,
-    io::{self, BufRead, BufReader, BufWriter, Read, Write},
+    io::{self, Read, Write},
     path::PathBuf,
     str::FromStr,
 };
@@ -14,9 +12,6 @@ use thiserror::Error;
 
 const JSON_EXTENSION: &str = "data";
 const CIDER_EXTENSION: &str = "dump";
-const DAT_EXTENSION: &str = "dat";
-
-const HEADER_FILENAME: &str = "header";
 
 #[derive(Error)]
 enum CiderDataConverterError {
@@ -25,6 +20,12 @@ enum CiderDataConverterError {
 
     #[error("Failed to parse \"to\" argument: {0}")]
     BadToArgument(String),
+
+    #[error("internal: {0}")]
+    BadInternal(String),
+
+    #[error("Bad input target. Specify manually?")]
+    BadInTarget,
 
     #[error(
         "Unable to guess the conversion target. Please specify the target using the \"--to\" argument"
@@ -41,9 +42,8 @@ enum CiderDataConverterError {
         "Missing output path. This is required for the \"to dat\" conversion"
     )]
     MissingDatOutputPath,
-
-    #[error("Output path for \"to dat\" exists but it is a file")]
-    DatOutputPathIsFile,
+    // #[error("Output path for \"to dat\" exists but it is a file")]
+    // DatOutputPathIsFile,
 }
 
 impl std::fmt::Debug for CiderDataConverterError {
@@ -52,9 +52,17 @@ impl std::fmt::Debug for CiderDataConverterError {
     }
 }
 
+impl From<filerep::FileFmtErr> for CiderDataConverterError {
+    fn from(value: filerep::FileFmtErr) -> Self {
+        let filerep::FileFmtErr::FileSpecific(f) = value;
+
+        Self::BadInternal(f)
+    }
+}
+
 /// What are we converting the input to
 #[derive(Debug, Clone, Copy)]
-enum Target {
+enum Formats {
     /// Cider's Single-file DataDump format
     DataDump,
     /// Verilator/icarus directory format
@@ -63,15 +71,15 @@ enum Target {
     Json,
 }
 
-impl FromStr for Target {
+impl FromStr for Formats {
     type Err = CiderDataConverterError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "json" => Ok(Target::Json),
-            "cider" | "dump" | "data-dump" => Ok(Target::DataDump),
+            "json" => Ok(Formats::Json),
+            "cider" | "dump" | "data-dump" => Ok(Formats::DataDump),
             "dat" | "verilog-dat" | "verilog" | "verilator" | "icarus" => {
-                Ok(Target::Dat)
+                Ok(Formats::Dat)
             }
             _ => Err(CiderDataConverterError::BadToArgument(s.to_string())),
         }
@@ -84,219 +92,109 @@ struct Opts {
     /// the input file to be converted. If not provided, it will read from stdin
     #[argh(positional)]
     input_path: Option<PathBuf>,
+
+    #[argh(option, short = 'f', long = "from")]
+    /// format of input
+    input_format: Option<Formats>,
+
     /// the output file to be written. If not provided, it will write to stdout
     #[argh(option, short = 'o')]
     output_path: Option<PathBuf>,
 
-    /// whether to round un-representable floating point instantiations rather than
-    /// throwing an error
-    #[argh(switch, short = 'r', long = "round-float")]
-    round_float: bool,
-
-    /// optional specification of what action to perform. Can be "cider" or
-    /// "json". If not provided, the converter will try to guess based on file names
+    /// format of desired output
     #[argh(option, short = 't', long = "to")]
-    action: Option<Target>,
+    output_format: Option<Formats>,
+}
 
-    /// whether to use quotes around floating point numbers in the output. This
-    /// exists solely for backwards compatibility with the old display format.
-    #[argh(switch, long = "legacy-quotes")]
-    use_quotes: bool,
+// TODO: not having round_float may present problems
+// TODO: not having use_quotes may present problems
+// TODO: ``file_extension`` support for .dat files was dropped
 
-    /// the file extension to use for the output/input file when parsing to and
-    /// from the dat target. If not provided, the extension is assumed to be .dat
-    #[argh(option, short = 'e', long = "dat-file-extension")]
-    #[argh(default = "String::from(DAT_EXTENSION)")]
-    file_extension: String,
+fn infer_format(path: &PathBuf) -> Option<Formats> {
+    if path.is_dir() {
+        Some(Formats::Dat)
+    } else if path.extension().is_some_and(|x| x == JSON_EXTENSION) {
+        Some(Formats::Json)
+    } else if path.extension().is_some_and(|x| x == CIDER_EXTENSION) {
+        Some(Formats::DataDump)
+    } else {
+        None
+    }
 }
 
 fn main() -> Result<(), CiderDataConverterError> {
     let mut opts: Opts = argh::from_env();
 
-    // if no action is specified, try to guess based on file extensions
-    if opts.action.is_none()
-        // input is .json
-        && (opts.input_path.as_ref().is_some_and(|x| {
-            x.extension().is_some_and(|y| y == JSON_EXTENSION)
-        })
-        // output is .dump
-        || opts.output_path.as_ref().is_some_and(|x| {
-            x.extension().is_some_and(|y| y == CIDER_EXTENSION)
-        }))
-    {
-        opts.action = Some(Target::DataDump);
-    } else if opts.action.is_none()
-        // output is .json
-        && (opts.output_path.as_ref().is_some_and(|x| {
-            x.extension().is_some_and(|x| x == JSON_EXTENSION)
-        })
-        // input is .dump
-        || opts.input_path.as_ref().is_some_and(|x| {
-            x.extension().is_some_and(|x| x == CIDER_EXTENSION)
-        })
-        // input is a directory (suggesting a deserialization from dat)
-        || opts.input_path.as_ref().is_some_and(|x| x.is_dir()))
-    {
-        opts.action = Some(Target::Json);
+    if opts.input_format.is_none() {
+        let Some(ref p) = opts.input_path else {
+            return Err(CiderDataConverterError::BadInTarget);
+        };
+        opts.input_format = infer_format(p);
+    }
+    if opts.output_format.is_none() {
+        let Some(ref p) = opts.output_path else {
+            return Err(CiderDataConverterError::UnknownTarget);
+        };
+        opts.output_format = infer_format(p);
     }
 
-    if let Some(action) = opts.action {
-        match action {
-            Target::DataDump => {
-                let (mut input, mut output) = get_io_handles(&opts)?;
+    use filerep::{FileIO, TryFromIR};
 
-                let parsed_json: JsonData =
-                    serde_json::from_reader(&mut input)?;
-                converter::convert_to_data_dump(&parsed_json, opts.round_float)
-                    .serialize(&mut output)?;
-            }
-            Target::Json => {
-                let data_dump = if let Some(path) = &opts.input_path {
-                    if path.is_dir() {
-                        // we are converting from a dat directory rather than a
-                        // dump
+    let Some(in_fmt) = opts.input_format else {
+        return Err(CiderDataConverterError::BadInTarget);
+    };
 
-                        let header = {
-                            let mut header_file =
-                                File::open(path.join(HEADER_FILENAME))?;
-                            let mut raw_header = vec![];
-                            header_file.read_to_end(&mut raw_header)?;
-
-                            serialization::DataHeader::deserialize(&raw_header)?
-                        };
-
-                        let mut data: Vec<u8> = vec![];
-
-                        for mem_dec in &header.memories {
-                            let starting_len = data.len();
-                            let mem_file = BufReader::new(File::open(
-                                path.join(format!(
-                                    "{}.{}",
-                                    mem_dec.name, opts.file_extension
-                                )),
-                            )?);
-
-                            for line in mem_file.lines() {
-                                let line = line?;
-                                if let Some(line_data) =
-                                    unwrap_line_or_comment(&line)
-                                {
-                                    assert!(
-                                        line_data.len()
-                                            <= mem_dec.bytes_per_entry()
-                                                as usize,
-                                        "line data too long"
-                                    );
-
-                                    let padding = (mem_dec.bytes_per_entry()
-                                        as usize)
-                                        - line_data.len();
-
-                                    data.extend(line_data.into_iter().rev());
-                                    data.extend(std::iter::repeat_n(
-                                        0u8, padding,
-                                    ))
-                                }
-                            }
-
-                            assert_eq!(
-                                data.len() - starting_len,
-                                mem_dec.byte_count()
-                            );
-                        }
-
-                        DataDump { header, data }
-                    } else {
-                        // we are converting from a dump file
-                        serialization::DataDump::deserialize(
-                            &mut get_read_handle(&opts)?,
-                        )?
-                    }
-                } else {
-                    // we are converting from a dump file
-                    serialization::DataDump::deserialize(&mut get_read_handle(
-                        &opts,
-                    )?)?
-                };
-
-                let mut output = get_output_handle(&opts)?;
-
-                let json_data = converter::convert_from_data_dump(
-                    &data_dump,
-                    opts.use_quotes,
-                );
-                writeln!(
-                    &mut output,
-                    "{}",
-                    serde_json::to_string_pretty(&json_data)?
-                )?;
-            }
-            Target::Dat => {
-                let mut input = get_read_handle(&opts)?;
-                let parsed_json: JsonData =
-                    serde_json::from_reader(&mut input)?;
-                let data = converter::convert_to_data_dump(
-                    &parsed_json,
-                    opts.round_float,
-                );
-
-                if let Some(path) = opts.output_path {
-                    if path.exists() && !path.is_dir() {
-                        return Err(
-                            CiderDataConverterError::DatOutputPathIsFile,
-                        );
-                    } else if !path.exists() {
-                        std::fs::create_dir(&path)?;
-                    }
-
-                    let mut header_output =
-                        File::create(path.join(HEADER_FILENAME))?;
-                    header_output.write_all(&data.header.serialize()?)?;
-
-                    for memory in &data.header.memories {
-                        let file = File::create(path.join(format!(
-                            "{}.{}",
-                            memory.name, opts.file_extension
-                        )))?;
-                        let mut writer = BufWriter::new(file);
-                        for bytes in data
-                            .get_data(&memory.name)
-                            .unwrap()
-                            .chunks_exact(memory.bytes_per_entry() as usize)
-                        {
-                            // data file seems to expect lsb on the right
-                            // for the moment electing to print out every byte
-                            // and do so with two hex digits per byte rather
-                            // than truncating leading zeroes. No need to do
-                            // anything fancy here.
-                            for byte in bytes.iter().rev() {
-                                write!(writer, "{byte:02X}")?;
-                            }
-
-                            writeln!(writer)?;
-                        }
-                    }
-                } else {
-                    return Err(CiderDataConverterError::MissingDatOutputPath);
-                }
-            }
+    let loaded_ir = match in_fmt {
+        Formats::Json => {
+            let input = get_read_handle(&opts)?;
+            let parsed_json = json::JsonData::read_into(input)?;
+            parsed_json.hinted_try_to_ir()?
         }
-    } else {
-        // Since we can't guess based on input/output file names and no target
-        // was specified, we just error out.
+        Formats::Dat => {
+            // TODO: default 'dat' into untyped
+            // NOTE: if a header does not exist, this will fail!
+            let Some(ref path) = opts.input_path else {
+                return Err(CiderDataConverterError::UnknownTarget);
+            };
+            use filerep::DirIO;
+            let dump = DataDump::read_into_dir(path.clone())?;
+            dump.hinted_try_to_ir()?
+        }
+        Formats::DataDump => {
+            let input = get_read_handle(&opts)?;
+            let parsed_dump = DataDump::read_into(input)?;
+            parsed_dump.hinted_try_to_ir()?
+        }
+    };
+
+    let Some(out_fmt) = opts.output_format else {
         return Err(CiderDataConverterError::UnknownTarget);
+    };
+
+    match out_fmt {
+        Formats::Json => {
+            let output = get_output_handle(&opts)?;
+            let jd = json::JsonData::try_from_ir(&loaded_ir)?;
+            jd.write_out(output)?;
+        }
+        Formats::Dat => {
+            // let output = get_output_handle(&opts)?;
+            if opts.output_path.is_none() {
+                return Err(CiderDataConverterError::MissingDatOutputPath);
+            }
+            let dd = DataDump::try_from_ir(&loaded_ir)?;
+            use filerep::DirIO;
+            dd.write_out_dir(opts.output_path.unwrap())?;
+        }
+        Formats::DataDump => {
+            let output = get_output_handle(&opts)?;
+            let dd = DataDump::try_from_ir(&loaded_ir)?;
+
+            dd.write_out(output)?;
+        }
     }
 
     Ok(())
-}
-
-#[allow(clippy::type_complexity)]
-fn get_io_handles(
-    opts: &Opts,
-) -> Result<(Box<dyn Read>, Box<dyn Write>), CiderDataConverterError> {
-    let input = get_read_handle(opts)?;
-    let output = get_output_handle(opts)?;
-    Ok((input, output))
 }
 
 fn get_output_handle(
