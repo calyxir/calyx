@@ -30,7 +30,7 @@ pub enum TypeClass {
     Int,
     Float,
     Fixed {
-        exp_width: usize,
+        exp_mag: i32, // {equivalent_fp} = (Binrep) * (2^ (-exp_mag))
     },
     Unknown(usize), // just needs to contain something for future expansion
 }
@@ -69,8 +69,8 @@ impl TypeSpec {
                 numimpl::int_read(s, _end, self.width, self.signed)
             }
             TypeClass::Float => numimpl::float_read(s, _end, self.width),
-            TypeClass::Fixed { exp_width } => {
-                numimpl::fixed_read(s, _end, self.width, self.signed, exp_width)
+            TypeClass::Fixed { exp_mag } => {
+                numimpl::fixed_read(s, _end, self.width, self.signed, exp_mag)
             }
             TypeClass::Unknown(u) => {
                 Err(ReadStringErr::from(format!("unknown {u}")))
@@ -85,13 +85,9 @@ impl TypeSpec {
                 numimpl::int_write(b, _end, self.width, self.signed)
             }
             TypeClass::Float => numimpl::float_write(b, _end, self.width),
-            TypeClass::Fixed { exp_width } => numimpl::fixed_write(
-                b,
-                _end,
-                self.width,
-                self.signed,
-                exp_width,
-            ),
+            TypeClass::Fixed { exp_mag } => {
+                numimpl::fixed_write(b, _end, self.width, self.signed, exp_mag)
+            }
             TypeClass::Unknown(_) => {
                 panic!("unimplemented write type")
             }

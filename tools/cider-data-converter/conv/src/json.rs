@@ -60,26 +60,26 @@ pub struct FormatInfo {
     ideally would also check for overspecified format (i.e. non-fixed_point with frac_width defined)
 */
 impl FormatInfo {
-    // returns fixed-point as (overall width, exp_width)
+    // returns fixed-point as (overall width, frac_width)
     // a bit verbose, but roughly self-documenting
     #[inline]
-    fn normalise_fixed(&self) -> Result<(usize, usize), JsonParseError> {
+    fn normalise_fixed(&self) -> Result<(usize, i32), JsonParseError> {
         if let Some(w) = self.width {
             if w > 64 {
                 return Err(JsonParseError::MalformedFixed);
             }
             match (self.int_width, self.frac_width) {
-                (Some(i), Some(f)) if i + f == w => {
-                    Ok((w as usize, i as usize))
+                (Some(i), Some(f)) if i + f == w => Ok((w as usize, f as i32)),
+                (None, Some(f)) if f < w => Ok((w as usize, f as i32)),
+                (Some(i), None) if i < w => {
+                    Ok((w as usize, (w as i32 - (i as i32))))
                 }
-                (None, Some(f)) if f < w => Ok((w as usize, (w - f) as usize)),
-                (Some(i), None) if i < w => Ok((w as usize, i as usize)),
                 _ => Err(JsonParseError::MalformedFixed),
             }
         } else {
             match (self.int_width, self.frac_width) {
                 (Some(i), Some(f)) if i + f <= 64 => {
-                    Ok(((i + f) as usize, i as usize))
+                    Ok(((i + f) as usize, f as i32))
                 }
                 _ => Err(JsonParseError::MalformedFixed),
             }
@@ -92,13 +92,13 @@ impl TryFrom<nr::TypeSpec> for FormatInfo {
 
     fn try_from(value: nr::TypeSpec) -> Result<Self, Self::Error> {
         use nr::TypeClass as tc;
-        let mut exp_width = None;
+        let mut frac_width = None;
         let numeric_type = match value.class {
             tc::Bits => JsonTypes::Bitnum,
             tc::Int => JsonTypes::Bitnum,
             tc::Float => JsonTypes::IEEE754Float,
-            tc::Fixed { exp_width: e } => {
-                exp_width = Some(e as u32);
+            tc::Fixed { exp_mag: e } => {
+                frac_width = Some(if e < 0 { 0 } else { e } as u32);
                 JsonTypes::Fixed
             }
             _ => return Err(JsonParseError::BadType),
@@ -107,8 +107,8 @@ impl TryFrom<nr::TypeSpec> for FormatInfo {
             numeric_type,
             is_signed: value.signed,
             width: Some(value.width as u32),
-            int_width: exp_width,
-            frac_width: None,
+            int_width: None,
+            frac_width,
         })
     }
 }
@@ -124,9 +124,11 @@ impl TryFrom<&FormatInfo> for nr::TypeSpec {
             Bitnum => tc::Int,
             IEEE754Float => tc::Float,
             Fixed => {
-                let (t, exp_width) = value.normalise_fixed()?;
+                let (t, frac_width) = value.normalise_fixed()?;
                 total_width = Some(t as u32);
-                tc::Fixed { exp_width }
+                tc::Fixed {
+                    exp_mag: frac_width,
+                }
             }
         };
         Ok(nr::TypeSpec {

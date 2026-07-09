@@ -41,11 +41,15 @@ impl TryFrom<nr::TypeSpec> for cs::FormatInfo {
                 signed: value.signed,
                 width: value.width as u32,
             },
-            nr::TypeClass::Fixed { exp_width } => cider_t::Fixed {
-                signed: value.signed,
-                int_width: exp_width as u32,
-                frac_width: ((value.width) - exp_width) as u32,
-            },
+            nr::TypeClass::Fixed { exp_mag } => {
+                let frac_width =
+                    (if exp_mag <= 0 { 0 } else { exp_mag }) as u32;
+                cider_t::Fixed {
+                    signed: value.signed,
+                    int_width: (value.width as u32) - frac_width,
+                    frac_width,
+                }
+            }
             _ => return Err(FileFmtErr::from("bad format")),
         };
         Ok(res)
@@ -75,7 +79,7 @@ impl TryFrom<&cs::FormatInfo> for nr::TypeSpec {
                 width: (frac_width + int_width) as usize,
                 signed,
                 class: nr::TypeClass::Fixed {
-                    exp_width: int_width as usize,
+                    exp_mag: frac_width as i32,
                 },
             },
         };
