@@ -37,8 +37,15 @@ pub trait DirIO
 where
     Self: Sized,
 {
-    fn read_into_dir(src: PathBuf) -> Result<Self, FileFmtErr>;
-    fn write_out_dir(&self, dest: PathBuf) -> Result<(), FileFmtErr>;
+    fn read_into_dir(
+        src: PathBuf,
+        ext: String,
+    ) -> Result<Self, FileFmtErr>;
+    fn write_out_dir(
+        &self,
+        dest: PathBuf,
+        ext: String,
+    ) -> Result<(), FileFmtErr>;
 }
 
 pub trait TryFromIR

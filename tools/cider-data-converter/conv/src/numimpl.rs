@@ -124,7 +124,6 @@ pub fn fixed_write(
     };
 
     let r = fixed_equiv.to_fp_rounded(&b, signed);
-    println!("{:#x} -> {}", b, r);
     format!("{}", r)
 }
 
@@ -151,6 +150,7 @@ mod tests {
     // use crate::numrep::ReprType;
 
     use super::*;
+    // TODO: rewrite fixed-point benchmarks
 
     #[test]
     fn test_fixed_from_string() {
