@@ -1,14 +1,7 @@
 use crate::numrep::*;
-use fixed::{FixedI32, FixedI64, FixedU32, FixedU64};
+use crate::vbfp::*;
 
 // implementation of additional features relating to number representation
-
-pub type UFI32_16 = FixedU32<fixed::types::extra::U16>;
-pub type IFI32_16 = FixedI32<fixed::types::extra::U16>;
-pub type UFI64_32 = FixedU64<fixed::types::extra::U32>;
-pub type IFI64_32 = FixedI64<fixed::types::extra::U32>;
-
-pub type IFI32_24 = FixedI32<fixed::types::extra::U8>;
 
 // the below is to make the implementations in TypeSpec more manageable
 // TODO: is it worth making specific, static variants of these?
@@ -36,42 +29,60 @@ pub fn float_write(b: BinRep, _end: Endian, width: usize) -> String {
     }
 }
 
+// TODO: this conditional-heavy thing can probably be simplified
+// TODO: probably needs range checks
 pub fn int_read(
     s: String,
     _end: Endian,
     width: usize,
     signed: bool,
 ) -> Result<BinRep, ReadStringErr> {
-    let r = match (width, signed) {
-        (32, false) => s.parse::<u32>()? as u64,
-        (32, true) => s.parse::<i32>()? as u64,
-        (64, false) => s.parse::<u64>()?,
-        (64, true) => s.parse::<i64>()? as u64,
-        _ => {
-            return Err(ReadStringErr::from(format!(
-                "undefined width-signedness pair {}, {} for int. use bits instead?",
-                width, signed
-            )));
-        }
-    };
-    Ok(r)
+    if width <= 32 {
+        let r = if signed {
+            s.parse::<i32>()? as u64
+        } else {
+            s.parse::<u32>()? as u64
+        };
+        return Ok(r);
+    } else if width <= 64 {
+        let r = if signed {
+            s.parse::<i64>()? as u64
+        } else {
+            s.parse::<u64>()? as u64
+        };
+        return Ok(r);
+    } else {
+        return Err(ReadStringErr::from(format!(
+            "undefined width-signedness pair {}, {} for int. use bits instead?",
+            width, signed
+        )));
+    }
 }
 
+// TODO: 'cheating' things out by extending to 64-bits might be problematic.
+// this doesn't have the guarantee of masking out unnecessary bits which the 'as u32/i32' approach does
+// TODO: maybe easier with tryfrom?
+
+// not 'directly' bit lossless as before
 pub fn int_write(
     b: BinRep,
     _end: Endian,
     width: usize,
     signed: bool,
 ) -> String {
-    match (width, signed) {
-        (32, false) => format!("{}", b as u32),
-        (32, true) => format!("{}", b as i32),
-        (64, false) => format!("{}", b as u64),
-        (64, true) => format!("{}", b as i64),
-        _ => {
-            panic!("unknown width when writing out an int");
+    if signed {
+        let msb_mask = 1 << (width - 1);
+        let sgn_mask =
+            !crate::util::mask_n_bits(width) & crate::util::mask_n_bits(64); // maximum width
+        let extended = if b & msb_mask != 0 { sgn_mask | b } else { b };
+
+        return format!("{}", extended as i64);
+    } else {
+        if width <= 64 {
+            return format!("{}", b as u64);
         }
     }
+    panic!("unknown width when writing out an int");
 }
 
 pub fn bits_read(s: String, _end: Endian) -> Result<BinRep, ReadStringErr> {
@@ -88,24 +99,15 @@ pub fn fixed_read(
     _end: Endian,
     width: usize,
     signed: bool,
-    exp_width: usize,
+    exp_mag: i32,
 ) -> Result<BinRep, ReadStringErr> {
     let tmp_b = float_read(s, _end, 64)?;
     let tmp_f = f64::from_bits(tmp_b);
-    let r = match (width, signed, exp_width) {
-        (32, false, 16) => (UFI32_16::from_num(tmp_f).to_bits()) as u64,
-        (32, true, 16) => (IFI32_16::from_num(tmp_f).to_bits()) as u64,
-        (32, true, 24) => (IFI32_24::from_num(tmp_f).to_bits()) as u64,
-
-        (64, false, 32) => (UFI64_32::from_num(tmp_f).to_bits()) as u64,
-        (64, true, 32) => (IFI64_32::from_num(tmp_f).to_bits()) as u64,
-        _ => {
-            return Err(ReadStringErr::from(format!(
-                "bad params for fixed: {} {} {}",
-                width, signed, exp_width
-            )));
-        }
+    let fixed_equiv = FixedDef {
+        total_size: width,
+        exp_mag,
     };
+    let r = fixed_equiv.from_fp_rounded(tmp_f, signed)?;
     Ok(r)
 }
 
@@ -114,18 +116,16 @@ pub fn fixed_write(
     _end: Endian,
     width: usize,
     signed: bool,
-    exp_width: usize,
+    exp_mag: i32,
 ) -> String {
-    match (width, signed, exp_width) {
-        (32, false, 16) => format!("{:.10}", UFI32_16::from_bits(b as u32)),
-        (32, true, 16) => format!("{:.10}", IFI32_16::from_bits(b as i32)),
-        (32, true, 24) => format!("{:.10}", IFI32_24::from_bits(b as i32)),
-        (64, false, 16) => format!("{:.10}", UFI64_32::from_bits(b)),
-        (64, true, 16) => format!("{:.10}", IFI64_32::from_bits(b as i64)),
-        _ => {
-            panic!("bad params for fixed: {} {} {}", width, signed, exp_width);
-        }
-    }
+    let fixed_equiv = FixedDef {
+        total_size: width,
+        exp_mag,
+    };
+
+    let r = fixed_equiv.to_fp_rounded(&b, signed);
+    println!("{:#x} -> {}", b, r);
+    format!("{}", r)
 }
 
 // we can't always tell from bytes alone whether a number is 'correctly' typed, so instead just use same byteslice-based Thing for all of them
