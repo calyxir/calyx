@@ -12,6 +12,7 @@ use thiserror::Error;
 
 const JSON_EXTENSION: &str = "data";
 const CIDER_EXTENSION: &str = "dump";
+const DAT_EXTENSION: &str = "dat";
 
 #[derive(Error)]
 enum CiderDataConverterError {
@@ -104,11 +105,16 @@ struct Opts {
     /// format of desired output
     #[argh(option, short = 't', long = "to")]
     output_format: Option<Formats>,
+
+    /// the file extension to use for the output/input file when parsing to and
+    /// from the dat target. If not provided, the extension is assumed to be .dat
+    #[argh(option, short = 'e', long = "dat-file-extension")]
+    #[argh(default = "String::from(DAT_EXTENSION)")]
+    file_extension: String,
 }
 
 // TODO: not having round_float may present problems
 // TODO: not having use_quotes may present problems
-// TODO: ``file_extension`` support for .dat files was dropped
 
 fn infer_format(path: &PathBuf) -> Option<Formats> {
     if path.is_dir() {
@@ -157,7 +163,10 @@ fn main() -> Result<(), CiderDataConverterError> {
                 return Err(CiderDataConverterError::UnknownTarget);
             };
             use filerep::DirIO;
-            let dump = DataDump::read_into_dir(path.clone())?;
+            let dump = DataDump::read_into_dir(
+                path.clone(),
+                opts.file_extension.clone(),
+            )?;
             dump.hinted_try_to_ir()?
         }
         Formats::DataDump => {
@@ -184,7 +193,7 @@ fn main() -> Result<(), CiderDataConverterError> {
             }
             let dd = DataDump::try_from_ir(&loaded_ir)?;
             use filerep::DirIO;
-            dd.write_out_dir(opts.output_path.unwrap())?;
+            dd.write_out_dir(opts.output_path.unwrap(), opts.file_extension)?;
         }
         Formats::DataDump => {
             let output = get_output_handle(&opts)?;

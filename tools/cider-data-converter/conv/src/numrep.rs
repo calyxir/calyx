@@ -30,7 +30,7 @@ pub enum TypeClass {
     Int,
     Float,
     Fixed {
-        exp_mag: i32, // {equivalent_fp} = (Binrep) * (2^ (-exp_mag))
+        exp_mag: i32, // {fixed_val} = (Binrep) * (2^ (-exp_mag))
     },
     Unknown(usize), // just needs to contain something for future expansion
 }

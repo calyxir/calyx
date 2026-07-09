@@ -5,8 +5,6 @@ use crate::dat_parser::*;
 use crate::filerep::*;
 use cider::serialization as cs;
 
-const DAT_EXTENSION: &str = "dat";
-
 const HEADER_FILENAME: &str = "header";
 
 impl From<std::io::Error> for FileFmtErr {
@@ -18,7 +16,7 @@ impl From<std::io::Error> for FileFmtErr {
 // in the original cider data converter code, directory I/O was bolted onto the cider datadump format, this is retained.
 
 impl DirIO for cs::DataDump {
-    fn read_into_dir(src: PathBuf) -> Result<Self, FileFmtErr> {
+    fn read_into_dir(src: PathBuf, ext: String) -> Result<Self, FileFmtErr> {
         if !src.is_dir() {
             return Err(FileFmtErr::from("not a directory"));
         }
@@ -35,7 +33,7 @@ impl DirIO for cs::DataDump {
         for mem_dec in &header.memories {
             let starting_len = data.len();
             let mem_file = BufReader::new(File::open(
-                src.join(format!("{}.{}", mem_dec.name, DAT_EXTENSION)),
+                src.join(format!("{}.{}", mem_dec.name, ext)),
             )?);
 
             for line in mem_file.lines() {
@@ -59,7 +57,11 @@ impl DirIO for cs::DataDump {
 
         Ok(cs::DataDump { header, data })
     }
-    fn write_out_dir(&self, dest: PathBuf) -> Result<(), FileFmtErr> {
+    fn write_out_dir(
+        &self,
+        dest: PathBuf,
+        ext: String,
+    ) -> Result<(), FileFmtErr> {
         if dest.exists() && !dest.is_dir() {
             return Err(FileFmtErr::from("not a directory"));
         } else if !dest.exists() {
@@ -70,9 +72,8 @@ impl DirIO for cs::DataDump {
         header_output.write_all(&self.header.serialize()?)?;
 
         for memory in &self.header.memories {
-            let file = File::create(
-                dest.join(format!("{}.{}", memory.name, DAT_EXTENSION)),
-            )?;
+            let file =
+                File::create(dest.join(format!("{}.{}", memory.name, ext)))?;
             let mut writer = BufWriter::new(file);
             for bytes in self
                 .get_data(&memory.name)
