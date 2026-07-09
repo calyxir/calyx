@@ -7,4 +7,6 @@ pub mod numimpl;
 pub mod numrep;
 pub mod util;
 
+pub mod vbfp;
+
 // pub mod cast;
