@@ -180,6 +180,7 @@ impl Design {
         };
         out.populate(h, c, s)?;
         out.build_idx();
+        println!("{out:?}");
         Ok(out)
     }
 
@@ -353,7 +354,16 @@ impl Design {
             }
         }
 
-        for group in cell.groups.iter() {}
+        for group in cell.groups.iter() {
+            self.build_group_tracks(
+                group,
+                &cell.component,
+                &cell.full_path,
+                t,
+                par_tracks,
+                &thread_tracks,
+            )?;
+        }
 
         // Create control
         if !cell.control.is_empty() {

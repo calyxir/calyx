@@ -219,6 +219,9 @@ impl Timeline {
         }
 
         for &group in diff.groups.iter() {
+            if !self.group_to_info.contains_key(&group) {
+                println!("Group without info: {group:?}");
+            }
             let (group_uuid, group_name) =
                 self.group_to_info.get(&group).unwrap();
             self.register_event(

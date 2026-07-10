@@ -88,11 +88,11 @@ struct FSMStateInfo {
 
 /// Represents the registers that do the bookkeeping for a control group
 /// NOTE: Will be necessary for the timeline view, but not for the flame graph.
-// #[derive(Debug)]
-// enum ControlRegister {
-//     FSM(String),
-//     PD(Vec<String>),
-// }
+#[derive(Debug)]
+enum ControlRegister {
+    FSM(String),
+    PD(Vec<String>),
+}
 
 #[derive(Debug, Clone)]
 /// Information for the control group obtained from the TDCC compiler pass.
