@@ -5,6 +5,7 @@ mod timeline;
 mod visuals;
 
 use crate::design::{Design, Stack};
+use crate::timeline::Timeline;
 use crate::visuals::{compute_flame, write_flame};
 use anyhow::{Context, Ok, Result, anyhow};
 use baa::{BitVecMutOps, BitVecValue};
@@ -33,6 +34,8 @@ struct Args {
     control_pos_filename: String, // ctrl-pos.json
     #[arg(value_name = "SHARED_CELLS", index = 5)]
     shared_cells: String, // shared-cells.json
+    #[arg(value_name = "PAR_TRACKS", index = 6)]
+    par_tracks_filename: String, // enable-par-track.json
     #[arg(long)]
     scaled_flame_out: Option<String>,
     #[arg(long)]
@@ -83,8 +86,6 @@ fn print_stacks(
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    timeline::write_pftrace_attempt()?;
-
     let ctrl_info = crate::control::ControlInfo::new(
         args.tdcc_filename,
         args.path_descriptor_filename,
@@ -104,6 +105,10 @@ fn main() -> Result<()> {
 
     // static tree
     let design = Design::new(wav.hierarchy(), ctrl_info, shared_cells)?;
+
+    // create tracks in the timeline
+    let timeline = Timeline::new(args.par_tracks_filename, &design)?;
+    // timeline::write_pftrace_attempt()?;
 
     // all probe signals we would need to track
     let signals = design.get_signals();
