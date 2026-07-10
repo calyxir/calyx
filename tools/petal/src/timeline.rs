@@ -84,7 +84,7 @@ pub struct Timeline {
     /// Cell/Control Group/Group name to track UUID
     // name_to_uuid: FxHashMap<String, u64>,
     used_uuids: FxHashSet<u64>,
-    cell_to_info: FxHashMap<CellId, (UUID, String)>,
+    cell_to_info: FxHashMap<CellId, (UUID, String, UUID)>,
     control_to_info: FxHashMap<ControlId, (UUID, String)>,
     group_to_info: FxHashMap<GroupId, (UUID, String)>,
     current_active: CurrentlyActive,
@@ -119,8 +119,13 @@ impl Timeline {
         name: String,
     ) -> Result<UUID> {
         let cell_uuid = self.register_descriptor(name.clone(), None)?;
+        // register "Control Register Updates" track and keep track of its UUID
+        let registers_uuid = self.register_descriptor(
+            "Control Register Updates".to_string(),
+            Some(cell_uuid),
+        )?;
         self.cell_to_info
-            .insert(cell_id, (cell_uuid, name.to_string()));
+            .insert(cell_id, (cell_uuid, name.to_string(), registers_uuid));
         Ok(cell_uuid)
     }
 
@@ -198,7 +203,8 @@ impl Timeline {
         event_type: Type,
     ) {
         for &cell in diff.cells.iter() {
-            let (cell_uuid, cell_name) = self.cell_to_info.get(&cell).unwrap();
+            let (cell_uuid, cell_name, _registers_uuid) =
+                self.cell_to_info.get(&cell).unwrap();
             self.register_event(
                 cell_name.clone(),
                 *cell_uuid,

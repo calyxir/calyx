@@ -7,7 +7,7 @@ use smallvec::{SmallVec, smallvec};
 use std::io::SeekFrom::Current;
 use wellen::{Hierarchy, Scope, ScopeRef, SignalRef, Time, VarRef};
 
-use crate::control::{ControlInfo, PathDescriptorInfo};
+use crate::control::{ControlInfo, ControlRegister, PathDescriptorInfo};
 use crate::shared_cells::SharedCellsInfo;
 use crate::timeline::{CurrentlyActive, Timeline};
 
@@ -110,6 +110,18 @@ impl Control {
     }
 }
 
+#[derive(Debug, Clone)]
+/// Represents a Control Register within a component.
+struct CRegister {
+    name: String,
+    signal: SignalRef,
+    signal_idx: u32,
+}
+
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
+pub struct RegisterId(u32);
+entity_impl!(RegisterId, "register");
+
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct InvokeId(u32);
 entity_impl!(InvokeId, "invoke");
@@ -144,6 +156,8 @@ pub struct CellControl {
     /// Will be None when there are no control nodes in the component.
     /// (ex. a component with a single-group control)
     toplevel_control: Option<ControlId>,
+    /// Necessary for timeline view tracking (not used for constructing the call tree)
+    registers: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -153,9 +167,11 @@ pub struct Design {
     controls: PrimaryMap<ControlId, Control>,
     groups: PrimaryMap<GroupId, Group>,
     invokes: PrimaryMap<InvokeId, Invoke>,
+    control_registers: PrimaryMap<RegisterId, CRegister>,
     main: CellId,
     clk: SignalRef,
     signals: Vec<SignalRef>,
+    register_signals: Vec<SignalRef>,
 }
 
 impl Design {
@@ -174,12 +190,15 @@ impl Design {
             groups: PrimaryMap::new(),
             invokes: PrimaryMap::new(),
             controls: PrimaryMap::new(),
+            control_registers: PrimaryMap::new(),
             main: CellId(u32::MAX),
             clk,
             signals: vec![],
+            register_signals: vec![],
         };
         out.populate(h, c, s)?;
         out.build_idx();
+        out.build_register_idx();
         println!("{out:?}");
         Ok(out)
     }
@@ -663,6 +682,16 @@ impl Design {
         }
     }
 
+    /// Same thing as build_idx, but with control registers (can't store them in a BitVector)
+    fn build_register_idx(&mut self) {
+        for (idx, (_, register)) in
+            self.control_registers.iter_mut().enumerate()
+        {
+            self.register_signals.push(register.signal);
+            register.signal_idx = idx as u32;
+        }
+    }
+
     /// Helper for build_idx() to obtain all probe signals.
     fn probe_signals(&self) -> Vec<SignalRef> {
         let mut signals = vec![];
@@ -710,6 +739,8 @@ impl Design {
         let descriptors = c.descriptors(component);
         // let ctrl_map = descriptors.control_pos;
 
+        let mut registers = Vec::new();
+
         // iterate through control par descriptors and construct Control nodes
         for (d, pos_set) in descriptors.control_pos.iter() {
             let (pretty, pos) = c.get_pretty(pos_set)?;
@@ -718,7 +749,15 @@ impl Design {
                 // pos is the entry to the Calyx-generated position of the control node,
                 // so there should only be one entry in the Vector.
                 assert_eq!(tdcc_info_vec.len(), 1);
-                let name = tdcc_info_vec.iter().next().unwrap().name.clone();
+                let tdcc_info = tdcc_info_vec.iter().next().unwrap();
+                let name = tdcc_info.name.clone();
+
+                registers = match &tdcc_info.control_register {
+                    ControlRegister::FSM(f) => {
+                        vec![f.clone()]
+                    }
+                    ControlRegister::PD(p) => p.clone(),
+                };
 
                 let ctrl_scope = get_scope(h, &h[s], &format!("{name}_go"))?;
                 let go_ref = get_var(h, &h[ctrl_scope], "out")?;
@@ -785,6 +824,7 @@ impl Design {
         Ok(CellControl {
             group_to_parent,
             toplevel_control,
+            registers,
         })
     }
 
@@ -863,9 +903,24 @@ impl Design {
         let CellControl {
             group_to_parent,
             toplevel_control,
+            registers,
         } = self.populate_control(h, cell_scope, c, component)?;
         if let Some(top_ctrl) = toplevel_control {
             cell.control.push(top_ctrl);
+        }
+
+        // add entries for CRegisters
+        for register_scope in h[cell_scope]
+            .scopes(h)
+            .filter(|p| registers.contains(&h[*p].name(h).to_string()))
+        {
+            let out = get_var(h, &h[register_scope], "out")?;
+            let signalref = h[out].signal_ref();
+            self.control_registers.push(CRegister {
+                name: h[register_scope].name(h).to_string(),
+                signal: signalref,
+                signal_idx: u32::MAX,
+            });
         }
 
         // cell.groups should not contain any structurally enabled groups.
