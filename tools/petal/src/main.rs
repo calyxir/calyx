@@ -5,7 +5,7 @@ mod timeline;
 mod visuals;
 
 use crate::design::{Design, Stack};
-use crate::timeline::Timeline;
+use crate::timeline::{CurrentlyActive, Timeline};
 use crate::visuals::{compute_flame, write_flame};
 use anyhow::{Context, Ok, Result, anyhow};
 use baa::{BitVecMutOps, BitVecValue};
@@ -44,22 +44,43 @@ struct Args {
     num_print_cycles: u64,
 }
 
-pub type Stacks = IndexMap<BitVecValue, (u64, Vec<Stack>)>;
+pub type Stacks = IndexMap<BitVecValue, (u64, Vec<Stack>, CurrentlyActive)>;
 
 fn collect_stacks(
     design: &Design,
+    timeline: &mut Timeline,
     probe_values: &[BitVecValue],
 ) -> Result<Stacks> {
     // Compute the trace (stacks for each active cycle) from probe_values
-    let mut out = IndexMap::default();
-    for value in probe_values {
-        if let Some((count, _)) = out.get_mut(value) {
+    let mut out: Stacks = IndexMap::default();
+    // NOTE: Can't just use enumerate because we want to skip the warmup cycles before main starts.
+    // either we accumulate when main is active, or subtract the cycle where main started from the enumeration.
+    let mut cycle_count = 0;
+    for value in probe_values.iter() {
+        let active_this_cycle = if let Some((count, s, active)) =
+            out.get_mut(value)
+        {
+            if !s.is_empty() {
+                cycle_count += 1;
+            }
             *count += 1;
+            active
         } else {
-            let stacks = design.compute_cycle_trace(value)?;
-            out.insert(value.clone(), (1, stacks));
+            let (stacks, active_this_cycle) =
+                design.compute_cycle_trace(value)?;
+            println!("stacks: {stacks:?}");
+            if !stacks.is_empty() {
+                cycle_count += 1;
+            }
+            out.insert(value.clone(), (1, stacks, active_this_cycle.clone()));
+            &mut active_this_cycle.clone()
         };
+        println!("Cycle {cycle_count}: {active_this_cycle:?}");
+        timeline.update_timeline(active_this_cycle, cycle_count)?;
     }
+    // close out the timeline view
+    let end = CurrentlyActive::new();
+    timeline.update_timeline(&end, cycle_count)?;
     Ok(out)
 }
 
@@ -107,8 +128,9 @@ fn main() -> Result<()> {
     let design = Design::new(wav.hierarchy(), ctrl_info, shared_cells)?;
 
     // create tracks in the timeline
-    let timeline = Timeline::new(args.par_tracks_filename, &design)?;
-    // timeline::write_pftrace_attempt()?;
+    let par_tracks = timeline::read_par_tracks(args.par_tracks_filename)?;
+    let mut timeline = Timeline::new(&design)?;
+    design.build_timeline_tracks(&mut timeline, &par_tracks)?;
 
     // all probe signals we would need to track
     let signals = design.get_signals();
@@ -160,10 +182,12 @@ fn main() -> Result<()> {
     })?;
     println!("Number of clock ticks: {}", probe_values.len());
 
-    let stacks = collect_stacks(&design, &probe_values)?;
+    let stacks = collect_stacks(&design, &mut timeline, &probe_values)?;
     print_stacks(&probe_values, &stacks, args.num_print_cycles);
     let flame_info = compute_flame(&stacks)?;
     write_flame(&flame_info, args.scaled_flame_out, args.flat_flame_out)?;
+
+    timeline.output_timeline("timeline_test.pftrace")?;
 
     Ok(())
 }

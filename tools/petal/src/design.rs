@@ -1,15 +1,15 @@
 use anyhow::{Context, Result};
-use core::panic;
-
 use baa::{BitVecOps, BitVecValue};
+use core::panic;
 use cranelift_entity::{PrimaryMap, entity_impl};
 use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::{SmallVec, smallvec};
+use std::io::SeekFrom::Current;
 use wellen::{Hierarchy, Scope, ScopeRef, SignalRef, Time, VarRef};
 
 use crate::control::{ControlInfo, PathDescriptorInfo};
 use crate::shared_cells::SharedCellsInfo;
-use crate::timeline::Timeline;
+use crate::timeline::{CurrentlyActive, Timeline};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct CellId(u32);
@@ -20,6 +20,8 @@ entity_impl!(CellId, "cell");
 struct Cell {
     /// The user-defined name of the cell.
     name: String,
+    /// Full path of the cell using component cell names (ex. toplevel.main.mac)
+    full_path: String,
     /// Ids of control nodes that could be called directly from this cell, if it is a component.
     /// NOTE: Primitive cells should have an empty vec here.
     control: SmallVec<[ControlId; 6]>,
@@ -194,18 +196,25 @@ impl Design {
     pub fn compute_cycle_trace(
         &self,
         values: &BitVecValue,
-    ) -> Result<Vec<Stack>> {
+    ) -> Result<(Vec<Stack>, CurrentlyActive)> {
         let main = &self.cells[self.main];
         let (main_go, main_done) = main.probe_idxs.unwrap();
         let main_active =
             values.is_bit_set(main_go) & !values.is_bit_set(main_done);
         let mut stacks = vec![];
+        let mut current_active = CurrentlyActive::new();
         if main_active {
-            stacks = self.compute_cell(values, self.main, vec![]);
+            stacks = self.compute_cell(
+                values,
+                self.main,
+                vec![],
+                &mut current_active,
+            );
             stacks.sort();
             stacks.dedup();
         }
-        Ok(stacks)
+        println!("stacks: {stacks:?}");
+        Ok((stacks, current_active))
     }
 
     fn build_control_tracks(
@@ -222,7 +231,12 @@ impl Design {
         // create a descriptor for control group
         let control = &self.controls[*c];
         let name = format!("Control Group: {}", control.pretty());
-        t.register_control(name, *c, control_groups_uuid);
+        t.register_control(
+            name,
+            control.pretty.to_string(),
+            *c,
+            control_groups_uuid,
+        )?;
 
         // recurse on any control/group that we find
         for &invoke_id in control.invokes.iter() {
@@ -278,7 +292,7 @@ impl Design {
         let thread_id = par_tracks[component][&group.name];
         assert!(thread_tracks.contains_key(&thread_id));
         let uuid = thread_tracks[&thread_id];
-        t.register_group(*g, uuid);
+        t.register_group(*g, uuid, &group.display_name())?;
 
         // call build_cell_tracks on any non-primitive cell we find.
         for &invoke_id in group.invokes.iter() {
@@ -318,10 +332,8 @@ impl Design {
         par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
     ) -> Result<()> {
         let cell = &self.cells[*c];
-        let name = format!("{prefix}.{}", cell.name);
         // All component cells get their own top-level track
-        let cell_uuid = t.register_cell(*c, name.clone())?;
-        // let cell_uuid = t.register_descriptor(name, None, true)?;
+        let cell_uuid = t.register_cell(*c, cell.full_path.to_string())?;
 
         // par_track --> track uuid for groups
         // these still need to be passed into build_control_tracks because control
@@ -355,7 +367,7 @@ impl Design {
                     control,
                     control_groups_uuid,
                     &cell.component,
-                    &name,
+                    &cell.full_path,
                     t,
                     par_tracks,
                     &thread_tracks,
@@ -439,8 +451,10 @@ impl Design {
         value: &BitVecValue,
         cell_id: CellId,
         mut prefix: Stack,
+        active_this_cycle: &mut CurrentlyActive,
     ) -> Vec<Stack> {
         let cell = &self.cells[cell_id];
+        active_this_cycle.add_active_cell(cell_id);
         if let Some((main_go_idx, main_done_idx)) = cell.probe_idxs {
             // the main component cell is the only one to have a probe_idx.
             if value.is_bit_set(main_go_idx) && !value.is_bit_set(main_done_idx)
@@ -458,16 +472,24 @@ impl Design {
         for &group_idx in &cell.groups {
             let group = &self.groups[group_idx];
             if value.is_bit_set(group.probe_idx) {
-                let mut group_stacks =
-                    self.compute_group(value, group_idx, prefix.clone());
+                let mut group_stacks = self.compute_group(
+                    value,
+                    group_idx,
+                    prefix.clone(),
+                    active_this_cycle,
+                );
                 out.append(&mut group_stacks);
             }
         }
         for &control_idx in &cell.control {
             let control = &self.controls[control_idx];
             if value.is_bit_set(control.go_idx) {
-                let mut control_stacks =
-                    self.compute_control(value, control_idx, prefix.clone());
+                let mut control_stacks = self.compute_control(
+                    value,
+                    control_idx,
+                    prefix.clone(),
+                    active_this_cycle,
+                );
                 out.append(&mut control_stacks);
             }
         }
@@ -490,9 +512,11 @@ impl Design {
         value: &BitVecValue,
         control_id: ControlId,
         mut prefix: Stack,
+        active_this_cycle: &mut CurrentlyActive,
     ) -> Vec<Stack> {
         let control = &self.controls[control_id];
         prefix.push(control.display_name());
+        active_this_cycle.add_active_control(control_id);
         if control.invokes.is_empty() {
             return vec![prefix];
         }
@@ -512,6 +536,7 @@ impl Design {
                             value,
                             target_group_id,
                             prefix.clone(),
+                            active_this_cycle,
                         );
                         out.append(&mut group_stacks);
                     }
@@ -520,6 +545,7 @@ impl Design {
                             value,
                             target_control_id,
                             prefix.clone(),
+                            active_this_cycle,
                         );
                         out.append(&mut control_stacks);
                     }
@@ -545,9 +571,11 @@ impl Design {
         value: &BitVecValue,
         group_id: GroupId,
         mut prefix: Stack,
+        active_this_cycle: &mut CurrentlyActive,
     ) -> Vec<Stack> {
         let group = &self.groups[group_id];
         prefix.push(group.display_name());
+        active_this_cycle.add_active_group(group_id);
         if group.invokes.is_empty() {
             return vec![prefix];
         }
@@ -569,6 +597,7 @@ impl Design {
                                 value,
                                 target_cell_id,
                                 this_thread_prefix.clone(),
+                                active_this_cycle,
                             );
                             out.append(&mut cell_stacks);
                         }
@@ -579,6 +608,7 @@ impl Design {
                             value,
                             target_group_id,
                             this_thread_prefix.clone(),
+                            active_this_cycle,
                         );
                         out.append(&mut group_stacks);
                     }
@@ -790,6 +820,7 @@ impl Design {
         let main_done = get_var(h, &h[main_scope], "done")?;
         let mut main_cell = Cell {
             name: "main".to_string(),
+            full_path: "main".to_string(),
             control: smallvec![],
             groups: smallvec![],
             probes: Some((h[main_go].signal_ref(), h[main_done].signal_ref())),
@@ -801,7 +832,7 @@ impl Design {
             replacement: None,
         };
         // add control nodes for main
-        self.scan_probes(h, main_scope, &mut main_cell, &c, &s)?;
+        self.scan_probes(h, main_scope, &mut main_cell, &c, &s, &"main")?;
         self.main = self.cells.push(main_cell);
         Ok(())
     }
@@ -814,6 +845,7 @@ impl Design {
         cell: &mut Cell,
         c: &ControlInfo,
         s: &SharedCellsInfo,
+        path_prefix: &str,
     ) -> Result<()> {
         // Create control nodes and add an edge from a cell to the toplevel control.
         let component = get_component(h, cell_scope)?;
@@ -995,8 +1027,11 @@ impl Design {
                             } else {
                                 None
                             };
+                            let full_path =
+                                format!("{}.{name}", cell.full_path);
                             let mut cell_instance = Cell {
                                 name: name.to_string(),
+                                full_path: full_path.clone(),
                                 groups: smallvec![],
                                 control: smallvec![],
                                 _scope: scope,
@@ -1015,6 +1050,7 @@ impl Design {
                                     &mut cell_instance,
                                     c,
                                     s,
+                                    &full_path,
                                 )?;
                             }
                             let cell_id = self.cells.push(cell_instance);
