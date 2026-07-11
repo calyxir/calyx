@@ -17,6 +17,12 @@ pub trait TryToIR {
     ) -> Result<FileMems, FileFmtErr>;
 }
 
+/// a structure for passing options to the string file interfaces.
+pub struct OutputOpts {
+    // a struct so other output options can be added in the future
+    pub print_hex: bool,
+}
+
 /*
 TODO:
 - FileIO most likely doesn't need to be dyn
@@ -37,10 +43,7 @@ pub trait DirIO
 where
     Self: Sized,
 {
-    fn read_into_dir(
-        src: PathBuf,
-        ext: String,
-    ) -> Result<Self, FileFmtErr>;
+    fn read_into_dir(src: PathBuf, ext: String) -> Result<Self, FileFmtErr>;
     fn write_out_dir(
         &self,
         dest: PathBuf,

@@ -57,7 +57,13 @@ impl From<filerep::FileFmtErr> for CiderDataConverterError {
     fn from(value: filerep::FileFmtErr) -> Self {
         let filerep::FileFmtErr::FileSpecific(f) = value;
 
-        Self::BadInternal(f)
+        Self::BadInternal(format!("filefmt: {f}"))
+    }
+}
+
+impl From<numrep::CheckedConvErr> for CiderDataConverterError {
+    fn from(value: numrep::CheckedConvErr) -> Self {
+        Self::BadInternal(format!("conversion: {value}"))
     }
 }
 
@@ -106,6 +112,14 @@ struct Opts {
     #[argh(option, short = 't', long = "to")]
     output_format: Option<Formats>,
 
+    /// operation to perform
+    #[argh(option, short = 'p', long = "op")]
+    op: Option<numrep::OpTypes>,
+
+    /// whether to output everything as hex, not erasing types
+    #[argh(switch, short = 'x')]
+    hex: bool,
+
     /// the file extension to use for the output/input file when parsing to and
     /// from the dat target. If not provided, the extension is assumed to be .dat
     #[argh(option, short = 'e', long = "dat-file-extension")]
@@ -150,7 +164,7 @@ fn main() -> Result<(), CiderDataConverterError> {
         return Err(CiderDataConverterError::BadInTarget);
     };
 
-    let loaded_ir = match in_fmt {
+    let mut loaded_ir = match in_fmt {
         Formats::Json => {
             let input = get_read_handle(&opts)?;
             let parsed_json = json::JsonData::read_into(input)?;
@@ -176,14 +190,35 @@ fn main() -> Result<(), CiderDataConverterError> {
         }
     };
 
+    if let Some(ref o) = opts.op {
+        match o {
+            numrep::OpTypes::Truncate => unimplemented!(),
+            numrep::OpTypes::Bitcast => {
+                for (_, v) in loaded_ir.mems.iter_mut() {
+                    let mut old_t = v.ty().clone();
+                    old_t.class = numrep::TypeClass::Bits;
+                    v.bitcast(old_t)?
+                }
+            }
+            numrep::OpTypes::SignExtend => unimplemented!(),
+        }
+    }
+
     let Some(out_fmt) = opts.output_format else {
         return Err(CiderDataConverterError::UnknownTarget);
     };
 
     match out_fmt {
         Formats::Json => {
+            let jd = if opts.hex {
+                json::JsonData::try_from_ir_fmt(
+                    &loaded_ir,
+                    &filerep::OutputOpts { print_hex: true },
+                )?
+            } else {
+                json::JsonData::try_from_ir(&loaded_ir)?
+            };
             let output = get_output_handle(&opts)?;
-            let jd = json::JsonData::try_from_ir(&loaded_ir)?;
             jd.write_out(output)?;
         }
         Formats::Dat => {
