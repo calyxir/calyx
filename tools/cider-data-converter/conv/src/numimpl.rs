@@ -6,6 +6,34 @@ use crate::vbfp::*;
 // the below is to make the implementations in TypeSpec more manageable
 // TODO: is it worth making specific, static variants of these?
 
+#[inline]
+pub fn is_hexstring(s: &str) -> bool {
+    s.starts_with("0x")
+}
+
+pub fn read_hexstring(
+    s: &str,
+    _end: Endian,
+    width: usize,
+) -> Result<BinRep, ReadStringErr> {
+    let Some(cleaned_str) = s.trim_start().strip_prefix("0x") else {
+        return Err(ReadStringErr::from(format!(
+            "could not strip prefix from {}",
+            s
+        )));
+    };
+    let val = u64::from_str_radix(cleaned_str, 16)?;
+
+    // check upper bits: if fewer leading zeroes than expected, we have a problem!
+    if val.leading_zeros() < (64 - width) as u32 {
+        return Err(ReadStringErr::from(format!(
+            "bad hexstring {}: incorrect width, not {}",
+            s, width
+        )));
+    }
+    Ok(val)
+}
+
 pub fn float_read(
     s: String,
     _end: Endian,
@@ -37,25 +65,36 @@ pub fn int_read(
     width: usize,
     signed: bool,
 ) -> Result<BinRep, ReadStringErr> {
-    if width <= 32 {
-        let r = if signed {
-            s.parse::<i32>()? as u64
+    // TODO: could be simplified a lot
+    if signed {
+        let r = s.parse::<i64>()?;
+        if r < 0 {
+            let sign_mask = !crate::util::mask_n_bits(width);
+            if (r as u64) & sign_mask != sign_mask {
+                return Err(ReadStringErr::from(format!(
+                    "signed int {} exceeds width {}",
+                    s, width
+                )));
+            }
         } else {
-            s.parse::<u32>()? as u64
-        };
-        return Ok(r);
-    } else if width <= 64 {
-        let r = if signed {
-            s.parse::<i64>()? as u64
-        } else {
-            s.parse::<u64>()? as u64
-        };
-        return Ok(r);
+            let upper_mask = !crate::util::mask_n_bits(width);
+            if (r as u64) & upper_mask != 0 {
+                return Err(ReadStringErr::from(format!(
+                    "signed int {} exceeds width {}",
+                    s, width
+                )));
+            }
+        }
+        return Ok(r as u64);
     } else {
-        return Err(ReadStringErr::from(format!(
-            "undefined width-signedness pair {}, {} for int. use bits instead?",
-            width, signed
-        )));
+        let r = s.parse::<u64>()?;
+        if r & !(crate::util::mask_n_bits(width)) != 0 {
+            return Err(ReadStringErr::from(format!(
+                "uint {} exceeds width {}",
+                s, width
+            )));
+        }
+        return Ok(r);
     }
 }
 
@@ -106,8 +145,10 @@ pub fn fixed_read(
     let fixed_equiv = FixedDef {
         total_size: width,
         exp_mag,
+
+        signed,
     };
-    let r = fixed_equiv.from_fp_rounded(tmp_f, signed)?;
+    let r = fixed_equiv.from_fp_rounded(tmp_f)?;
     Ok(r)
 }
 
@@ -121,9 +162,10 @@ pub fn fixed_write(
     let fixed_equiv = FixedDef {
         total_size: width,
         exp_mag,
+        signed,
     };
 
-    let r = fixed_equiv.to_fp_rounded(&b, signed);
+    let r = fixed_equiv.to_fp_rounded(&b);
     format!("{}", r)
 }
 

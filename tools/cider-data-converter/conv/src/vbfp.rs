@@ -2,33 +2,33 @@
 
 use crate::numrep::*;
 
+/// only supports sign via two's complement
+/// signed-magnitude fixed-point is not supported.
 pub struct FixedDef {
     pub total_size: usize,
     pub exp_mag: i32,
+    pub signed: bool,
 }
 
 impl FixedDef {
     // TODO: below could accept a closure for behaviour in either direction
     // https://en.wikipedia.org/wiki/Fixed-point_arithmetic#Conversion_to_and_from_floating-point
 
-    pub fn from_fp_rounded(
-        &self,
-        inp: f64,
-        signed: bool,
-    ) -> Result<BinRep, ReadStringErr> {
+    pub fn from_fp_rounded(&self, inp: f64) -> Result<BinRep, ReadStringErr> {
         let scale: f64 = f64::powi(2., self.exp_mag);
         let scaled_inp = inp * scale;
-        if signed {
+        if self.signed {
             let corr_int = scaled_inp.round_ties_even() as i64;
-            Ok(corr_int as u64)
+            let size_mask = crate::util::mask_n_bits(self.total_size);
+            Ok((corr_int as u64) & size_mask)
         } else {
             Ok(scaled_inp.round_ties_even() as u64)
         }
     }
 
     // TODO: make a generic 'to_fp_closure'
-    pub fn to_fp_rounded(&self, inp: &BinRep, signed: bool) -> f64 {
-        if signed {
+    pub fn to_fp_rounded(&self, inp: &BinRep) -> f64 {
+        if self.signed {
             let in_raw = *inp as u64;
             let msb_mask = 1 << (self.total_size - 1);
             let sgn_mask = !crate::util::mask_n_bits(self.total_size)
