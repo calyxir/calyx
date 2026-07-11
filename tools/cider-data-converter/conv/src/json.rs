@@ -5,7 +5,7 @@ use std::{collections::HashMap, num::ParseFloatError};
 use thiserror::Error;
 
 use crate::filerep::{self, FileFmtErr, FileMems};
-use crate::numrep as nr;
+use crate::numrep::{self as nr, TypeClass};
 
 #[derive(Debug, Error)]
 pub enum JsonParseError {
@@ -224,7 +224,15 @@ impl JsonDataEntry {
         };
         let data: Vec<u64> = vals
             .iter()
-            .map(|e| t.read_string(e.to_string(), nr::Endian::Little))
+            .map(|e| match e {
+                Value::Number(_) => {
+                    t.read_string(e.to_string(), nr::Endian::Little)
+                }
+                Value::String(s) => {
+                    t.read_string(s.to_string(), nr::Endian::Little)
+                }
+                _ => panic!("unknown type"),
+            })
             .collect::<Result<_, _>>()?;
 
         assert_eq!(
@@ -244,15 +252,28 @@ impl JsonDataEntry {
     }
     fn try_entry_from_ir(
         inp: &nr::SingleMem,
+        opts: Option<&filerep::OutputOpts>,
     ) -> Result<JsonDataEntry, filerep::FileFmtErr> {
+        let is_bin = inp.ty().class == TypeClass::Bits;
+        let is_hex = opts.is_some_and(|x| x.print_hex);
         let as_num = inp
             .iter_data()
             .map(|e| {
-                serde_json::Value::Number(
-                    serde_json::Number::from_string_unchecked(
-                        inp.ty().write_string(*e, nr::Endian::Little),
-                    ),
-                )
+                if is_hex {
+                    serde_json::Value::String(format!("{:#x}", *e))
+                } else {
+                    if is_bin {
+                        serde_json::Value::String(
+                            inp.ty().write_string(*e, nr::Endian::Little),
+                        )
+                    } else {
+                        serde_json::Value::Number(
+                            serde_json::Number::from_string_unchecked(
+                                inp.ty().write_string(*e, nr::Endian::Little),
+                            ),
+                        )
+                    }
+                }
             })
             .collect();
         Ok(JsonDataEntry {
@@ -293,7 +314,23 @@ impl filerep::TryFromIR for JsonData {
     fn try_from_ir(inp: &FileMems) -> Result<Self, filerep::FileFmtErr> {
         let mut res = HashMap::new();
         for (k, v) in inp.mems.iter() {
-            res.insert(k.clone(), JsonDataEntry::try_entry_from_ir(v)?);
+            res.insert(k.clone(), JsonDataEntry::try_entry_from_ir(v, None)?);
+        }
+        Ok(JsonData(res))
+    }
+}
+
+impl JsonData {
+    pub fn try_from_ir_fmt(
+        inp: &FileMems,
+        opts: &filerep::OutputOpts,
+    ) -> Result<Self, FileFmtErr> {
+        let mut res = HashMap::new();
+        for (k, v) in inp.mems.iter() {
+            res.insert(
+                k.clone(),
+                JsonDataEntry::try_entry_from_ir(v, Some(opts))?,
+            );
         }
         Ok(JsonData(res))
     }
@@ -385,7 +422,7 @@ fn destructure_helper(
         return Vec::new();
     }
     match arr.first().unwrap() {
-        Value::Number(_) => arr.clone(),
+        Value::Number(_) | Value::String(_) => arr.clone(),
         Value::Array(_) => arr
             .iter()
             .flat_map(|v: &Value| destructure_helper(destr, v, level + 1))

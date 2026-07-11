@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use crate::numimpl::{self};
 
 /// relevant Stuff for describing the representation(s) of numbers
@@ -10,6 +12,19 @@ pub enum OpTypes {
     Bitcast,
     SignExtend,
     // Cast(OpCastTypes),
+}
+
+impl FromStr for OpTypes {
+    type Err = OpError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "trunc" => Ok(OpTypes::Truncate),
+            "bitcast" => Ok(OpTypes::Bitcast),
+            "sgn-ext" => Ok(OpTypes::SignExtend),
+            _ => Err(format!("unknown op {}", s)),
+        }
+    }
 }
 
 /// enum of possible functions between types
@@ -63,22 +78,29 @@ impl TypeSpec {
         s: String,
         _end: Endian,
     ) -> Result<BinRep, ReadStringErr> {
-        match self.class {
-            TypeClass::Bits => numimpl::bits_read(s, _end),
+        if numimpl::is_hexstring(&s) {
+            return numimpl::read_hexstring(&s, _end, self.width);
+        }
+        let r = match self.class {
+            TypeClass::Bits => numimpl::bits_read(s, _end)?,
             TypeClass::Int => {
-                numimpl::int_read(s, _end, self.width, self.signed)
+                numimpl::int_read(s, _end, self.width, self.signed)?
             }
-            TypeClass::Float => numimpl::float_read(s, _end, self.width),
+            TypeClass::Float => numimpl::float_read(s, _end, self.width)?,
             TypeClass::Fixed { exp_mag } => {
-                numimpl::fixed_read(s, _end, self.width, self.signed, exp_mag)
+                numimpl::fixed_read(s, _end, self.width, self.signed, exp_mag)?
             }
             TypeClass::Unknown(u) => {
-                Err(ReadStringErr::from(format!("unknown {u}")))
+                return Err(ReadStringErr::from(format!("unknown {u}")));
             }
-        }
+        };
+        debug_assert!(r & !crate::util::mask_n_bits(self.width) == 0);
+        Ok(r)
     }
 
     pub fn write_string(&self, b: BinRep, _end: Endian) -> String {
+        debug_assert!(b & !crate::util::mask_n_bits(self.width) == 0);
+
         match self.class {
             TypeClass::Bits => numimpl::bits_write(b, _end),
             TypeClass::Int => {
@@ -92,6 +114,10 @@ impl TypeSpec {
                 panic!("unimplemented write type")
             }
         }
+    }
+
+    pub fn write_hexstring(&self, b: BinRep, _end: Endian) -> String {
+        format!("{:#x}", b)
     }
 
     // try from bytes should be a 'blanket' part of TypeSpec

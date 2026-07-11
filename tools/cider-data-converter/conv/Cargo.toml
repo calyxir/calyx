@@ -18,6 +18,7 @@ nom = "7.1"
 
 
 num-traits = { version = "0.2" }
+baa.workspace = true
 
 [dev-dependencies]
 proptest = "1.0.0"
