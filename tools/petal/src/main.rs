@@ -222,8 +222,8 @@ fn main() -> Result<()> {
                     continue;
                 }
                 let register_value: u64 =
-                    values.get(&signal).unwrap().try_into().unwrap();
-                let register_id = register_signals_map.get(&signal).unwrap();
+                    values.get(signal).unwrap().try_into().unwrap();
+                let register_id = register_signals_map.get(signal).unwrap();
                 diffs.insert(*register_id, register_value);
             }
             acc += 1;

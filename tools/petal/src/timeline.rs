@@ -14,12 +14,12 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
-/// Trusted Packet Sequence ID; a number necessary
+/// Trusted Packet Sequence ID; a number necessary for constructing the timeline protobuf
 const TPSI: u32 = 8008;
 
-pub type UUID = u64;
+pub type Uuid = u64;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct CurrentlyActive {
     groups: FxHashSet<GroupId>,
     cells: FxHashSet<CellId>,
@@ -51,30 +51,14 @@ impl CurrentlyActive {
     /// Returns (Ended cells/control/groups, Started cells/control/groups)
     pub fn resolve(&self, new: &Self) -> Result<(Self, Self)> {
         let ended = Self {
-            groups: self.groups.difference(&new.groups).map(|&g| g).collect(),
-            cells: self.cells.difference(&new.cells).map(|&c| c).collect(),
-            control: self
-                .control
-                .difference(&new.control)
-                .map(|&c| c)
-                .collect(),
+            groups: self.groups.difference(&new.groups).copied().collect(),
+            cells: self.cells.difference(&new.cells).copied().collect(),
+            control: self.control.difference(&new.control).copied().collect(),
         };
         let started = Self {
-            groups: new
-                .groups
-                .difference(&self.groups)
-                .map(|&g| g.clone())
-                .collect(),
-            cells: new
-                .cells
-                .difference(&self.cells)
-                .map(|&c| c.clone())
-                .collect(),
-            control: new
-                .control
-                .difference(&self.control)
-                .map(|&c| c.clone())
-                .collect(),
+            groups: new.groups.difference(&self.groups).copied().collect(),
+            cells: new.cells.difference(&self.cells).copied().collect(),
+            control: new.control.difference(&self.control).copied().collect(),
         };
         Ok((ended, started))
     }
@@ -84,10 +68,10 @@ pub struct Timeline {
     packets: Vec<TracePacket>,
     /// Cell/Control Group/Group name to track UUID
     used_uuids: FxHashSet<u64>,
-    cell_to_info: FxHashMap<CellId, (UUID, String)>,
-    control_to_info: FxHashMap<ControlId, (UUID, String)>,
-    group_to_info: FxHashMap<GroupId, (UUID, String)>,
-    register_to_uuid: FxHashMap<RegisterId, UUID>,
+    cell_to_info: FxHashMap<CellId, (Uuid, String)>,
+    control_to_info: FxHashMap<ControlId, (Uuid, String)>,
+    group_to_info: FxHashMap<GroupId, (Uuid, String)>,
+    register_to_uuid: FxHashMap<RegisterId, Uuid>,
     current_active: CurrentlyActive,
 }
 
@@ -107,7 +91,7 @@ impl Timeline {
     pub fn register_group(
         &mut self,
         group_id: GroupId,
-        uuid: UUID,
+        uuid: Uuid,
         name: &str,
     ) -> Result<()> {
         self.group_to_info
@@ -119,20 +103,20 @@ impl Timeline {
         &mut self,
         cell_id: CellId,
         name: String,
-    ) -> Result<UUID> {
+    ) -> Result<Uuid> {
         let cell_uuid = self.register_descriptor(name.clone(), None)?;
         self.cell_to_info
             .insert(cell_id, (cell_uuid, name.to_string()));
         Ok(cell_uuid)
     }
 
-    pub fn control_register_uuid(&self, register: &RegisterId) -> &UUID {
+    pub fn control_register_uuid(&self, register: &RegisterId) -> &Uuid {
         self.register_to_uuid.get(register).unwrap()
     }
 
     pub fn register_control_registers(
         &mut self,
-        cell_uuid: UUID,
+        cell_uuid: Uuid,
         register_ids: &SmallVec<[RegisterId; 6]>,
     ) -> Result<()> {
         // register "Control Register Updates" track and keep track of its UUID
@@ -158,8 +142,8 @@ impl Timeline {
         track_name: String,
         name: String,
         control_id: ControlId,
-        control_groups_uuid: UUID,
-    ) -> Result<UUID> {
+        control_groups_uuid: Uuid,
+    ) -> Result<Uuid> {
         let control_uuid = self.register_descriptor(
             track_name.clone(),
             Some(control_groups_uuid),
@@ -172,13 +156,13 @@ impl Timeline {
     pub fn register_descriptor(
         &mut self,
         name: String,
-        parent_uuid: Option<UUID>,
-    ) -> Result<UUID> {
+        parent_uuid: Option<Uuid>,
+    ) -> Result<Uuid> {
         let uuid = generate_uuid(&self.used_uuids);
         self.used_uuids.insert(uuid);
 
         let descriptor = TrackDescriptor {
-            uuid: Some(uuid.clone()),
+            uuid: Some(uuid),
             static_or_dynamic_name: Some(StaticOrDynamicName::Name(name)),
             parent_uuid,
             ..Default::default()
@@ -191,7 +175,7 @@ impl Timeline {
     pub fn register_event(
         &mut self,
         name: String,
-        uuid: UUID,
+        uuid: Uuid,
         timestamp: u64,
         event_type: Type,
     ) {

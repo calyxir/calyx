@@ -9,7 +9,7 @@ use wellen::{Hierarchy, Scope, ScopeRef, SignalRef, VarRef};
 
 use crate::control::{ControlInfo, ControlRegister, PathDescriptorInfo};
 use crate::shared_cells::SharedCellsInfo;
-use crate::timeline::{CurrentlyActive, Timeline, UUID};
+use crate::timeline::{CurrentlyActive, Timeline, Uuid};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct CellId(u32);
@@ -231,7 +231,7 @@ impl Design {
                 // accounting for zero indexing
                 continue;
             }
-            let mut uuid_to_out_string: FxHashMap<UUID, String> =
+            let mut uuid_to_out_string: FxHashMap<Uuid, String> =
                 FxHashMap::default();
 
             for (id, new_value) in diff_map {
@@ -413,11 +413,9 @@ impl Design {
             for thread in component_par_tracks.values() {
                 if !thread_tracks.contains_key(thread) {
                     let thread_name = format!("Thread {:03}", thread);
-                    let thread_uuid = t.register_descriptor(
-                        thread_name,
-                        Some(cell_uuid.clone()),
-                    )?;
-                    thread_tracks.insert(thread.clone(), thread_uuid);
+                    let thread_uuid =
+                        t.register_descriptor(thread_name, Some(cell_uuid))?;
+                    thread_tracks.insert(*thread, thread_uuid);
                 }
             }
         }
@@ -437,7 +435,7 @@ impl Design {
             // create "Control Groups" track
             let control_groups_uuid = t.register_descriptor(
                 "Control Groups".to_string(),
-                Some(cell_uuid.clone()),
+                Some(cell_uuid),
             )?;
             for control in cell.control.iter() {
                 self.build_control_tracks(
