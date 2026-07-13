@@ -1,11 +1,14 @@
 use std::collections::HashMap;
 
+use baa::BitVecOps;
 use cider::serialization as cs;
 use cider::serialization::MemoryDeclaration;
 
 use crate::filerep as fr;
 use crate::filerep::FileFmtErr;
 use crate::numrep as nr;
+
+use crate::typing::*;
 
 fn as_cider_dims(inp: &nr::SingleMem) -> cs::Dimensions {
     use cs::Dimensions as Dim;
@@ -23,25 +26,25 @@ fn as_cider_dims(inp: &nr::SingleMem) -> cs::Dimensions {
     }
 }
 
-impl TryFrom<nr::TypeSpec> for cs::FormatInfo {
+impl TryFrom<TypeSpec> for cs::FormatInfo {
     type Error = fr::FileFmtErr;
-    fn try_from(value: nr::TypeSpec) -> Result<Self, Self::Error> {
+    fn try_from(value: TypeSpec) -> Result<Self, Self::Error> {
         use cs::FormatInfo as cider_t;
 
         let res = match value.class {
-            nr::TypeClass::Bits => cider_t::Bitnum {
+            TypeClass::Bits => cider_t::Bitnum {
                 signed: false,
                 width: value.width as u32,
             },
-            nr::TypeClass::Int => cider_t::Bitnum {
+            TypeClass::Int => cider_t::Bitnum {
                 signed: value.signed,
                 width: value.width as u32,
             },
-            nr::TypeClass::Float => cider_t::IEEFloat {
+            TypeClass::Float => cider_t::IEEFloat {
                 signed: value.signed,
                 width: value.width as u32,
             },
-            nr::TypeClass::Fixed { exp_mag } => {
+            TypeClass::Fixed { exp_mag } => {
                 let frac_width =
                     (if exp_mag <= 0 { 0 } else { exp_mag }) as u32;
                 cider_t::Fixed {
@@ -56,7 +59,7 @@ impl TryFrom<nr::TypeSpec> for cs::FormatInfo {
     }
 }
 
-impl TryFrom<&cs::FormatInfo> for nr::TypeSpec {
+impl TryFrom<&cs::FormatInfo> for TypeSpec {
     type Error = fr::FileFmtErr;
     fn try_from(value: &cs::FormatInfo) -> Result<Self, Self::Error> {
         use cs::FormatInfo;
@@ -64,12 +67,12 @@ impl TryFrom<&cs::FormatInfo> for nr::TypeSpec {
             FormatInfo::Bitnum { signed, width } => Self {
                 width: width as usize,
                 signed,
-                class: nr::TypeClass::Int,
+                class: TypeClass::Int,
             },
             FormatInfo::IEEFloat { signed, width } => Self {
                 width: width as usize,
                 signed,
-                class: nr::TypeClass::Float,
+                class: TypeClass::Float,
             },
             FormatInfo::Fixed {
                 signed,
@@ -78,7 +81,7 @@ impl TryFrom<&cs::FormatInfo> for nr::TypeSpec {
             } => Self {
                 width: (frac_width + int_width) as usize,
                 signed,
-                class: nr::TypeClass::Fixed {
+                class: TypeClass::Fixed {
                     exp_mag: frac_width as i32,
                 },
             },
@@ -92,9 +95,6 @@ impl fr::TryFromIR for cs::DataDump {
         let mut out_res = cs::DataDump::new_empty();
         for (k, v) in inp.mems.iter() {
             let t = v.ty();
-            let num_bytes = t.num_bytes();
-
-            let omask = crate::util::mask_n_bits(t.width);
 
             let meminfo = MemoryDeclaration::new(
                 k.clone(),
@@ -106,8 +106,7 @@ impl fr::TryFromIR for cs::DataDump {
             out_res.push_memory(
                 meminfo,
                 v.iter_data().flat_map(|e| {
-                    let r = e & omask;
-                    let whole = &r.to_le_bytes()[..num_bytes];
+                    let whole = &e.to_bytes_le();
                     whole.to_vec()
                 }),
             );
@@ -120,7 +119,7 @@ impl fr::TryFromIR for cs::DataDump {
 impl fr::TryToIR for cs::DataDump {
     fn try_to_ir(
         self,
-        types: &HashMap<String, nr::TypeSpec>,
+        types: &HashMap<String, TypeSpec>,
     ) -> Result<fr::FileMems, fr::FileFmtErr> {
         let mut res = fr::FileMems {
             mems: HashMap::new(),
@@ -129,13 +128,12 @@ impl fr::TryToIR for cs::DataDump {
             let byte_data = self.get_data(&mem.name).unwrap();
             let assoc_type = types.get(&mem.name).unwrap();
             assert!(byte_data.len() % assoc_type.num_bytes() == 0);
-            let c: Result<Vec<nr::BinRep>, _> = byte_data
+            let c: Result<Vec<baa::BitVecValue>, _> = byte_data
                 .chunks(assoc_type.num_bytes())
                 .into_iter()
                 .map(|e| {
                     crate::numimpl::try_from_bytes(
                         e,
-                        assoc_type.num_bytes(),
                         assoc_type.width,
                         nr::Endian::Little,
                     )
@@ -189,10 +187,10 @@ impl fr::FileIO for cs::DataDump {
 impl fr::ExtractType for cs::DataDump {
     fn extract_types(
         &self,
-    ) -> Result<HashMap<String, nr::TypeSpec>, fr::FileFmtErr> {
+    ) -> Result<HashMap<String, TypeSpec>, fr::FileFmtErr> {
         let mut res = HashMap::new();
         for mem in self.header.memories.iter() {
-            let new_spec = nr::TypeSpec::try_from(&mem.format)?;
+            let new_spec = TypeSpec::try_from(&mem.format)?;
             res.insert(mem.name.clone(), new_spec);
         }
         Ok(res)

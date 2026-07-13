@@ -114,7 +114,7 @@ struct Opts {
 
     /// operation to perform
     #[argh(option, short = 'p', long = "op")]
-    op: Option<numrep::OpTypes>,
+    op: Option<typing::OpTypes>,
 
     /// whether to output everything as hex, not erasing types
     #[argh(switch, short = 'x')]
@@ -167,7 +167,7 @@ fn main() -> Result<(), CiderDataConverterError> {
     let mut loaded_ir = match in_fmt {
         Formats::Json => {
             let input = get_read_handle(&opts)?;
-            let parsed_json = json::JsonData::read_into(input)?;
+            let parsed_json = formats::json::JsonData::read_into(input)?;
             parsed_json.hinted_try_to_ir()?
         }
         Formats::Dat => {
@@ -192,15 +192,15 @@ fn main() -> Result<(), CiderDataConverterError> {
 
     if let Some(ref o) = opts.op {
         match o {
-            numrep::OpTypes::Truncate => unimplemented!(),
-            numrep::OpTypes::Bitcast => {
+            typing::OpTypes::Truncate => unimplemented!(),
+            typing::OpTypes::Bitcast => {
                 for (_, v) in loaded_ir.mems.iter_mut() {
                     let mut old_t = v.ty().clone();
-                    old_t.class = numrep::TypeClass::Bits;
+                    old_t.class = typing::TypeClass::Bits;
                     v.bitcast(old_t)?
                 }
             }
-            numrep::OpTypes::SignExtend => unimplemented!(),
+            typing::OpTypes::SignExtend => unimplemented!(),
         }
     }
 
@@ -211,12 +211,12 @@ fn main() -> Result<(), CiderDataConverterError> {
     match out_fmt {
         Formats::Json => {
             let jd = if opts.hex {
-                json::JsonData::try_from_ir_fmt(
+                formats::json::JsonData::try_from_ir_fmt(
                     &loaded_ir,
                     &filerep::OutputOpts { print_hex: true },
                 )?
             } else {
-                json::JsonData::try_from_ir(&loaded_ir)?
+                formats::json::JsonData::try_from_ir(&loaded_ir)?
             };
             let output = get_output_handle(&opts)?;
             jd.write_out(output)?;

@@ -1,3 +1,4 @@
+use baa::{BitVecOps, BitVecValue};
 use serde::{self, Deserialize, Serialize, Serializer};
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -5,7 +6,8 @@ use std::{collections::HashMap, num::ParseFloatError};
 use thiserror::Error;
 
 use crate::filerep::{self, FileFmtErr, FileMems};
-use crate::numrep::{self as nr, TypeClass};
+use crate::numrep::*;
+use crate::typing::*;
 
 #[derive(Debug, Error)]
 pub enum JsonParseError {
@@ -87,11 +89,11 @@ impl FormatInfo {
     }
 }
 
-impl TryFrom<nr::TypeSpec> for FormatInfo {
+impl TryFrom<TypeSpec> for FormatInfo {
     type Error = JsonParseError;
 
-    fn try_from(value: nr::TypeSpec) -> Result<Self, Self::Error> {
-        use nr::TypeClass as tc;
+    fn try_from(value: TypeSpec) -> Result<Self, Self::Error> {
+        use TypeClass as tc;
         let mut frac_width = None;
         let numeric_type = match value.class {
             tc::Bits => JsonTypes::Bitnum,
@@ -113,10 +115,10 @@ impl TryFrom<nr::TypeSpec> for FormatInfo {
     }
 }
 
-impl TryFrom<&FormatInfo> for nr::TypeSpec {
+impl TryFrom<&FormatInfo> for TypeSpec {
     type Error = JsonParseError;
     fn try_from(value: &FormatInfo) -> Result<Self, Self::Error> {
-        use nr::TypeClass as tc;
+        use TypeClass as tc;
 
         use JsonTypes::*;
         let mut total_width = value.width;
@@ -131,7 +133,7 @@ impl TryFrom<&FormatInfo> for nr::TypeSpec {
                 }
             }
         };
-        Ok(nr::TypeSpec {
+        Ok(TypeSpec {
             width: total_width.unwrap() as usize,
             signed: value.is_signed,
             class,
@@ -214,22 +216,22 @@ fn reshape(inp: Vec<Value>, shape: [usize; 4], dims: usize) -> Vec<Value> {
 impl JsonDataEntry {
     fn try_entry_to_ir(
         self,
-        t: &nr::TypeSpec,
-    ) -> Result<nr::SingleMem, filerep::FileFmtErr> {
+        t: &TypeSpec,
+    ) -> Result<SingleMem, filerep::FileFmtErr> {
         let Ok((vals, dimensions, num_dimensions)) = destructure(&self.data)
         else {
             return Err(FileFmtErr::FileSpecific(String::from(
                 "bad flattening",
             )));
         };
-        let data: Vec<u64> = vals
+        let data: Vec<BitVecValue> = vals
             .iter()
             .map(|e| match e {
                 Value::Number(_) => {
-                    t.read_string(e.to_string(), nr::Endian::Little)
+                    t.read_string(e.to_string(), Endian::Little)
                 }
                 Value::String(s) => {
-                    t.read_string(s.to_string(), nr::Endian::Little)
+                    t.read_string(s.to_string(), Endian::Little)
                 }
                 _ => panic!("unknown type"),
             })
@@ -242,16 +244,16 @@ impl JsonDataEntry {
                 .product::<usize>(),
             data.len()
         );
-        return Ok(nr::SingleMem::new(
+        return Ok(SingleMem::new(
             data,
             dimensions,
             num_dimensions,
             t.clone(),
-            nr::Endian::Little,
+            Endian::Little,
         ));
     }
     fn try_entry_from_ir(
-        inp: &nr::SingleMem,
+        inp: &SingleMem,
         opts: Option<&filerep::OutputOpts>,
     ) -> Result<JsonDataEntry, filerep::FileFmtErr> {
         let is_bin = inp.ty().class == TypeClass::Bits;
@@ -260,16 +262,16 @@ impl JsonDataEntry {
             .iter_data()
             .map(|e| {
                 if is_hex {
-                    serde_json::Value::String(format!("{:#x}", *e))
+                    serde_json::Value::String(format!("0x{}", e.to_hex_str()))
                 } else {
                     if is_bin {
                         serde_json::Value::String(
-                            inp.ty().write_string(*e, nr::Endian::Little),
+                            inp.ty().write_string(e, Endian::Little),
                         )
                     } else {
                         serde_json::Value::Number(
                             serde_json::Number::from_string_unchecked(
-                                inp.ty().write_string(*e, nr::Endian::Little),
+                                inp.ty().write_string(e, Endian::Little),
                             ),
                         )
                     }
@@ -339,7 +341,7 @@ impl JsonData {
 impl filerep::TryToIR for JsonData {
     fn try_to_ir(
         self,
-        types: &HashMap<String, nr::TypeSpec>,
+        types: &HashMap<String, TypeSpec>,
     ) -> Result<FileMems, filerep::FileFmtErr> {
         let mut new_mems = FileMems {
             mems: HashMap::new(),
@@ -374,12 +376,10 @@ impl filerep::FileIO for JsonData {
 }
 
 impl filerep::ExtractType for JsonData {
-    fn extract_types(
-        &self,
-    ) -> Result<HashMap<String, nr::TypeSpec>, FileFmtErr> {
+    fn extract_types(&self) -> Result<HashMap<String, TypeSpec>, FileFmtErr> {
         let mut res = HashMap::new();
         for (k, v) in self.0.iter() {
-            let new_spec = nr::TypeSpec::try_from(&v.format)?;
+            let new_spec = TypeSpec::try_from(&v.format)?;
             res.insert(k.clone(), new_spec);
         }
         Ok(res)
@@ -404,7 +404,7 @@ fn destructure_helper(
     v: &Value,
     level: usize,
 ) -> Vec<Value> {
-    use crate::json::JsonParseError::*;
+    use JsonParseError::*;
 
     let Value::Array(arr) = v else {
         destr.status = Some(NonNumError(v.to_string()));
@@ -500,11 +500,7 @@ mod tests {
                 .map(|e| {
                     serde_json::Value::Number(
                         serde_json::Number::from_string_unchecked(
-                            crate::numimpl::float_write(
-                                *e,
-                                nr::Endian::Little,
-                                32,
-                            ),
+                            crate::numimpl::float_write(e, Endian::Little, 32),
                         ),
                     )
                 })

@@ -1,8 +1,8 @@
 use std::io::{BufRead, BufWriter, Read, Write};
 use std::{fs::File, io::BufReader, path::PathBuf};
 
-use crate::dat_parser::*;
 use crate::filerep::*;
+use crate::formats::dat_parser::*;
 use cider::serialization as cs;
 
 const HEADER_FILENAME: &str = "header";

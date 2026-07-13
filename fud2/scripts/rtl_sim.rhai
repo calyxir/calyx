@@ -13,6 +13,23 @@ fn sim_setup(e) {
     e.rule("hex-data", "$python json-dat.py --from-json $in $out");
     e.rule("json-data", "$python json-dat.py --to-json $out $in");
 
+    e.config_var_or(
+        "conv",
+        "conv.exe",
+        "$calyx-base/target/debug/cider-data-converter"
+    );
+    e.rule("hex-data-new",
+        "$conv $in --from json --to dat -o $out"
+    );
+    e.rule("json-data-new",
+        "$conv -e out $in --from dat --to json -o $out"
+    );
+
+    e.rsrc("legacy_data.jq");
+    e.rule("json-data-cleanup",
+        "awk '/Simulated/ {print $$2}' $log | xargs jq -f legacy_data.jq $in --argjson cycles > $out"
+    );
+    
     // The input data file. `sim.data` is required.
     let data_name = e.config_val("sim.data");
     let data_path = e.external_path(data_name);
@@ -22,9 +39,9 @@ fn sim_setup(e) {
     e.var_("datadir", "sim_data");
     e.build_cmd(
         ["$datadir"],
-        "hex-data",
+        "hex-data-new",
         ["$sim_data"],
-        ["json-dat.py"],
+        [],//["json-dat.py"],
     );
 
     // Rule for simulation execution.
@@ -49,11 +66,18 @@ op(
         e.arg("bin", input);
         e.arg("args", "+NOTRACE=1");
         e.build_cmd(
-            [output],
-            "json-data",
-            ["$datadir", "sim.log"],
-            ["json-dat.py"],
+            ["im.json"],
+            "json-data-new",
+            ["$datadir"],
+            ["sim.log"], //["json-dat.py"],
         );
+        e.build_cmd(
+            [output],
+            "json-data-cleanup",
+            ["im.json"],
+            ["sim.log", "legacy_data.jq"],
+        );
+        e.arg("log", "sim.log");
     },
 );
 
