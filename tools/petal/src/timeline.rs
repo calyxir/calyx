@@ -14,6 +14,7 @@ use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs::File;
 use std::io::Write;
+use std::path::{Path, PathBuf};
 
 /// Trusted Packet Sequence ID; a number necessary
 const tpsi: u32 = 8008;
@@ -210,7 +211,7 @@ impl Timeline {
         self.packets.push(packet);
     }
 
-    pub fn output_timeline(self, file_name: &str) -> Result<()> {
+    pub fn output_timeline(self, out_dir: &str) -> Result<()> {
         // we can move self.packets because we will no longer add any information to it.
         let trace = Trace {
             packet: self.packets,
@@ -218,7 +219,9 @@ impl Timeline {
         let encoded_len = trace.encoded_len();
         let mut buf = BytesMut::with_capacity(encoded_len);
         trace.encode(&mut buf)?;
-        let mut file = File::create(file_name)?;
+        let mut path = PathBuf::from(out_dir);
+        path.push("timeline_trace.pftrace");
+        let mut file = File::create(path)?;
         file.write_all(&buf)?;
         Ok(())
     }

@@ -14,6 +14,7 @@ use indexmap::IndexMap;
 use prost::Message;
 use prost::bytes::BytesMut;
 use rustc_hash::FxHashMap;
+use std::fs;
 use std::fs::File;
 use std::io::Write;
 use wellen::*;
@@ -36,6 +37,8 @@ struct Args {
     shared_cells: String, // shared-cells.json
     #[arg(value_name = "PAR_TRACKS", index = 6)]
     par_tracks_filename: String, // enable-par-track.json
+    #[arg(value_name = "OUT_DIR", index = 7)]
+    out_dir: String,
     #[arg(long)]
     scaled_flame_out: Option<String>,
     #[arg(long)]
@@ -125,6 +128,7 @@ fn print_stacks(
 
 fn main() -> Result<()> {
     let args = Args::parse();
+    fs::create_dir_all(&args.out_dir)?;
 
     let ctrl_info = crate::control::ControlInfo::new(
         args.tdcc_filename,
@@ -257,7 +261,7 @@ fn main() -> Result<()> {
         num_cycles,
     )?;
 
-    timeline.output_timeline("timeline_test.pftrace")?;
+    timeline.output_timeline(&args.out_dir)?;
 
     Ok(())
 }
