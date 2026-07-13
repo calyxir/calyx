@@ -156,13 +156,25 @@ fn main() -> Result<()> {
 
     // all probe signals we would need to track
     let signals = design.get_signals();
-    let filter = wellen::stream::Filter::include_signals(&signals);
+    let register_signals_map: FxHashMap<SignalRef, RegisterId> =
+        design.get_register_signals();
+    let mut register_signals: Vec<SignalRef> =
+        register_signals_map.keys().cloned().collect();
+    let mut signals_to_track = signals.clone();
+    signals_to_track
+        .append(&mut register_signals_map.keys().cloned().collect());
+
+    let filter = wellen::stream::Filter::include_signals(&signals_to_track);
 
     let mut clock_previous = true;
 
     // One bit vector for each cycle. Each index in the BitVecValue corresponds to a probe.
     // If it is active, the index will contain 1.
     let mut probe_values: Vec<BitVecValue> = vec![];
+
+    let mut register_value_diffs: FxHashMap<u64, FxHashMap<RegisterId, u64>> =
+        FxHashMap::default();
+    let mut acc: u64 = 0;
 
     // populate probe_values on the clock's rising edge
     let clock_signal_ref = design.clk();
@@ -177,19 +189,30 @@ fn main() -> Result<()> {
     wav.stream_time_steps(filter, |_time, values, changed| {
         let c: bool =
             values.get(&clock_signal_ref).unwrap().try_into().unwrap();
+        let mut control_register_diffs = FxHashMap::default();
         if c && !clock_previous && !changed.is_empty() {
             for signal in changed {
-                let probe_value: bool = values
-                    .get(signal)
-                    .unwrap()
-                    .try_into()
-                    .expect("Signal needs to be a bitvector!");
-                let idx = signal_bits[signal];
-                if probe_value {
-                    value.set_bit(idx);
+                if let Some(register_id) = register_signals_map.get(&signal) {
+                    let register_value: u64 =
+                        values.get(signal).unwrap().try_into().unwrap();
+                    control_register_diffs.insert(*register_id, register_value);
                 } else {
-                    value.clear_bit(idx);
+                    let probe_value: bool = values
+                        .get(signal)
+                        .unwrap()
+                        .try_into()
+                        .expect("Signal needs to be a bitvector!");
+                    let idx = signal_bits[signal];
+                    if probe_value {
+                        value.set_bit(idx);
+                    } else {
+                        value.clear_bit(idx);
+                    }
                 }
+            }
+            acc += 1; // tracking clock ticks for control register diffs
+            if !control_register_diffs.is_empty() {
+                register_value_diffs.insert(acc, control_register_diffs);
             }
             probe_values.push(value.clone());
         }
@@ -204,51 +227,8 @@ fn main() -> Result<()> {
     })?;
     println!("Number of clock ticks: {}", probe_values.len());
 
-    let register_signals_map: FxHashMap<SignalRef, RegisterId> =
-        design.get_register_signals();
-    let mut register_signals: Vec<SignalRef> =
-        register_signals_map.keys().cloned().collect();
-    register_signals.push(clock_signal_ref);
-    let register_filter =
-        wellen::stream::Filter::include_signals(&register_signals);
-
-    // Track all changes in registers
-    let mut register_value_diffs: FxHashMap<u64, FxHashMap<RegisterId, u64>> =
-        FxHashMap::default();
-    let mut acc: u64 = 0;
-    clock_previous = true;
-    wav.stream_time_steps(register_filter, |_time, values, changed| {
-        let c: bool =
-            values.get(&clock_signal_ref).unwrap().try_into().unwrap();
-        let mut diffs = FxHashMap::default();
-        if c && !clock_previous && !changed.is_empty() {
-            for signal in changed {
-                if *signal == clock_signal_ref {
-                    continue;
-                }
-                let register_value: u64 =
-                    values.get(signal).unwrap().try_into().unwrap();
-                let register_id = register_signals_map.get(signal).unwrap();
-                diffs.insert(*register_id, register_value);
-            }
-            acc += 1;
-        }
-        if !diffs.is_empty() {
-            register_value_diffs.insert(acc, diffs);
-        }
-        clock_previous = c;
-        Ok(())
-    })
-    .map_err(|e| match e {
-        stream::StreamError::Wellen(wellen_error) => {
-            anyhow!(wellen_error)
-        }
-        stream::StreamError::Callback(e) => e,
-    })?;
-
     let (stacks, starting_cycle, num_cycles) =
         collect_stacks(&design, &mut timeline, &probe_values)?;
-
     print_stacks(&probe_values, &stacks, args.num_print_cycles);
     let flame_info = compute_flame(&stacks)?;
     write_flame(&flame_info, args.scaled_flame_out, args.flat_flame_out)?;
