@@ -133,7 +133,7 @@ RUN fud config --create global.root /home/calyx && \
     fud register icarus-verilog -p '/home/calyx/fud/icarus/icarus.py'
 
 # cocotb stuff
-RUN uv pip install numpy==1.26.4 cocotb==1.6.2 \
+RUN uv pip install numpy==2.0.0 cocotb==1.6.2 \
     git+https://github.com/cocotb/cocotb-bus.git cocotbext-axi
 
 # pytest stuff
