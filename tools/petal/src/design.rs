@@ -816,11 +816,9 @@ impl Design {
                 let tdcc_info = tdcc_info_vec.iter().next().unwrap();
                 let name = tdcc_info.name.clone();
 
-                registers = match &tdcc_info.control_register {
-                    ControlRegister::FSM(f) => {
-                        vec![f.clone()]
-                    }
-                    ControlRegister::PD(p) => p.clone(),
+                match &tdcc_info.control_register {
+                    ControlRegister::FSM(f) => registers.push(f.clone()),
+                    ControlRegister::PD(p) => registers.append(&mut p.clone()),
                 };
 
                 let ctrl_scope = get_scope(h, &h[s], &format!("{name}_go"))?;
@@ -973,6 +971,7 @@ impl Design {
         if let Some(top_ctrl) = toplevel_control {
             cell.control.push(top_ctrl);
         }
+        println!("Control registers for cell {}: {registers:?}", cell.name);
 
         // add entries for CRegisters
         for register_scope in h[cell_scope]
