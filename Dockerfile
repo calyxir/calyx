@@ -32,7 +32,7 @@ WORKDIR /home
 ## NOTE(rachit): Not ideal. We have to clone the entire history of the main branch instead of just a tag.
 RUN git clone --single-branch https://github.com/apache/tvm.git tvm
 WORKDIR /home/tvm
-RUN git checkout v0.10.dev0 && \
+RUN git checkout v0.11.dev0 && \
     git submodule init && git submodule update
 RUN mkdir build
 WORKDIR /home/tvm/build
