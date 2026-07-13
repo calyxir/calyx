@@ -7,7 +7,7 @@ ver = "0.4.1"
 name = "unit"
 paths = ["unit/*.futil"]
 cmd = """
-../../target/debug/cider {} -l ../../ --dump-registers | ../../target/debug/cider-data-converter --to json
+../../target/debug/cider {} -l ../../ --dump-registers | ../../target/debug/cider-data-converter -f dump --to json | jq -f new_conv_adapt.jq
 """
 timeout = 10
 expect_dir = "unit"
@@ -19,7 +19,7 @@ cmd = """
 fud2 --from calyx --to dat \
          --through cider \
          -s cider.flags="--dump-registers --check-data-race" \
-         {}
+         {} | jq -f new_conv_adapt.jq
 """
 timeout = 10
 
@@ -48,7 +48,7 @@ cmd = """
 fud2 --from calyx --to dat \
          --through cider \
          -s cider.flags="--dump-registers --check-data-race" \
-         {}
+         {}| jq -f new_conv_adapt.jq
 """
 timeout = 10
 expect_dir = "complex"
@@ -61,7 +61,7 @@ fud2 --from calyx --to dat \
          --through cider \
          -s calyx.args="--log off" \
          -s cider.flags="--dump-registers" \
-         {}
+         {}| jq -f new_conv_adapt.jq
 """
 timeout = 10
 expect_dir = "primitives"
@@ -70,7 +70,7 @@ expect_dir = "primitives"
 name = "par to seq"
 paths = ["control/par_reg.futil", "control/par_mem.futil"]
 cmd = """
-../../target/debug/calyx {} -p par-to-seq -l ../../ | ../../target/debug/cider -l ../../  --dump-registers | ../../target/debug/cider-data-converter --to json
+../../target/debug/calyx {} -p par-to-seq -l ../../ | ../../target/debug/cider -l ../../  --dump-registers | ../../target/debug/cider-data-converter --from dump --to json | jq -f new_conv_adapt.jq
 """
 timeout = 10
 expect_dir = "par-to-seq"
@@ -86,7 +86,7 @@ cmd = """
 fud2 --from calyx --to dat \
          --through cider \
          -s cider.flags="--dump-registers" \
-         {}
+         {}| jq -f new_conv_adapt.jq
 """
 timeout = 10
 expect_dir = "control"
@@ -95,7 +95,7 @@ expect_dir = "control"
 name = "invoke"
 paths = ["control/invoke/*.futil"]
 cmd = """
-fud2 {} --from calyx --to dat --through cider -s sim.data={}.data -s calyx.args="--log off" -s cider.flags="--check-data-race"
+fud2 {} --from calyx --to dat --through cider -s sim.data={}.data -s calyx.args="--log off" -s cider.flags="--check-data-race"| jq -f new_conv_adapt.jq
 """
 timeout = 10
 
@@ -106,14 +106,14 @@ cmd = """
 fud2 {} --from calyx --to dat --through cider \
  -s cider.calyx-passes=" -p compile-invoke" \
  -s sim.data={}.data -s calyx.args="--log off" \
- -s cider.flags="--check-data-race"
+ -s cider.flags="--check-data-race"| jq -f new_conv_adapt.jq
 """
 
 [[tests]]
 name = "fully structural"
 paths = ["control/*.futil", "control/iteration/*.futil"]
 cmd = """
-../../target/debug/calyx {} -d pre-opt -d post-opt -p simplify-with-control -l ../../ --log off | ../../target/debug/cider -l ../../  --dump-registers | ../../target/debug/cider-data-converter --to json
+../../target/debug/calyx {} -d pre-opt -d post-opt -p simplify-with-control -l ../../ --log off | ../../target/debug/cider -l ../../  --dump-registers | ../../target/debug/cider-data-converter --from dump --to json| jq -f new_conv_adapt.jq
 """
 expect_dir = "control"
 # timeout = 10
@@ -135,7 +135,7 @@ fud2 --from calyx --to dat \
          --through cider \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
-         {}
+         {} | jq -f new_conv_adapt.jq
 """
 
 [[tests]]
@@ -155,7 +155,7 @@ fud2 --from calyx --to dat \
          -s calyx.args="--log off" \
          -s cider.calyx-passes="-p all" \
          -s cider.flags="--no-verify" \
-         {}
+         {}| jq -f new_conv_adapt.jq
 """
 timeout = 60
 
@@ -167,7 +167,7 @@ fud2 --from calyx --to dat \
          --through cider \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
-         {}
+         {}| jq -f new_conv_adapt.jq
 """
 
 [[tests]]
@@ -179,7 +179,7 @@ fud2 --from calyx --to dat \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
          -s cider.flags="--check-data-race" \
-         {}
+         {}| jq -f new_conv_adapt.jq
 """
 
 [[tests]]
@@ -192,7 +192,7 @@ fud2 --from calyx --to dat \
          -s calyx.args="--log off" \
          -s cider.calyx-passes=" -p compile-invoke" \
          -s cider.flags="--check-data-race" \
-         {}
+         {}| jq -f new_conv_adapt.jq
 """
 
 [[tests]]
@@ -207,8 +207,7 @@ fud2 --from calyx --to dat \
          --through cider \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
-         -s cider.converter-flags="-r --legacy-quotes" \
-         {}
+         {}| jq -f new_conv_adapt.jq
 """
 
 [[tests]]
@@ -220,7 +219,7 @@ fud2 --from calyx --to dat \
       -s calyx.args="--log off" \
       -s sim.data={}.data \
       -s cider.flags="--check-data-race" \
-      {}
+      {}| jq -f new_conv_adapt.jq
 """
 
 [[tests]]
@@ -232,7 +231,7 @@ fud2 --from calyx --to dat \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
          -s cider.flags="--check-data-race" \
-         {}
+         {}| jq -f new_conv_adapt.jq
 """
 
 [[tests]]
@@ -244,7 +243,7 @@ fud2 --from dahlia --to dat \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
          -s cider.flags="--check-data-race" \
-         {}
+         {}| jq -f new_conv_adapt.jq
 """
 timeout = 180
 

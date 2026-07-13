@@ -1,9 +1,9 @@
+// abstractions for describing representation(s) of numbers
+
 use baa::BitVecOps;
 
 use crate::numimpl::{self};
 use crate::typing::*;
-
-/// relevant Stuff for describing the representation(s) of numbers
 
 // TODO: the below is probably quite bad but. works
 
@@ -102,11 +102,11 @@ impl SingleMem {
     /// tries to truncate the input to a certain number of bits.
     pub fn truncate(&mut self, num_bits: usize) -> Result<(), CheckedConvErr> {
         if num_bits > self.dtype.width {
-            return Err(String::from("truncation to size larger than input"));
+            Err(String::from("truncation to size larger than input"))
         } else if num_bits == self.dtype.width {
             // effectively nops
             self.dtype.class = TypeClass::Bits;
-            return Ok(());
+            Ok(())
         } else {
             self.dtype.class = TypeClass::Bits;
             self.dtype.width = num_bits;
@@ -114,7 +114,7 @@ impl SingleMem {
             for e in self.data.iter_mut() {
                 *e = e.slice(num_bits as u32, 0);
             }
-            return Ok(());
+            Ok(())
         }
     }
 
@@ -123,29 +123,29 @@ impl SingleMem {
         num_bits: usize,
     ) -> Result<(), CheckedConvErr> {
         if num_bits < self.dtype.width {
-            return Err(String::from(
+            Err(String::from(
                 "trying to sign-extend to width less than current width. use truncate instead.",
-            ));
+            ))
         } else if num_bits == self.dtype.width {
             // effectively nops
             self.dtype.class = TypeClass::Bits;
-            return Ok(());
+            Ok(())
         } else {
             for e in self.data.iter_mut() {
                 *e = e.sign_extend((num_bits - self.dtype.width) as u32);
             }
-            return Ok(());
+            Ok(())
         }
     }
 
     pub fn bitcast(&mut self, out_t: TypeSpec) -> Result<(), CheckedConvErr> {
         if out_t.width < self.dtype.width {
-            return Err(String::from(
+            Err(String::from(
                 "attempted bitcast to width smaller than current size. use a truncate first if this is intended.",
-            ));
+            ))
         } else {
             self.dtype = out_t;
-            return Ok(());
+            Ok(())
         }
     }
 

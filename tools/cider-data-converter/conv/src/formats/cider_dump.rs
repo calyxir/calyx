@@ -127,10 +127,9 @@ impl fr::TryToIR for cs::DataDump {
         for mem in self.header.memories.iter() {
             let byte_data = self.get_data(&mem.name).unwrap();
             let assoc_type = types.get(&mem.name).unwrap();
-            assert!(byte_data.len() % assoc_type.num_bytes() == 0);
+            assert!(byte_data.len().is_multiple_of(assoc_type.num_bytes()));
             let c: Result<Vec<baa::BitVecValue>, _> = byte_data
                 .chunks(assoc_type.num_bytes())
-                .into_iter()
                 .map(|e| {
                     crate::numimpl::try_from_bytes(
                         e,

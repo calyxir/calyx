@@ -158,7 +158,6 @@ pub struct JsonDataEntry {
 // split array into sub-arrays of [size] length
 fn chunks_size_n(inp: Vec<Value>, size: usize) -> Vec<Value> {
     inp.chunks(size)
-        .into_iter()
         .map(|e| serde_json::to_value(Vec::from(e)).unwrap())
         .collect()
 }
@@ -174,7 +173,6 @@ fn reshape(inp: Vec<Value>, shape: [usize; 4], dims: usize) -> Vec<Value> {
             let d2_size = shape.get(1).unwrap();
 
             inp.chunks(*d2_size)
-                .into_iter()
                 .map(|e| serde_json::to_value(Vec::from(e)).unwrap())
                 .collect()
         }
@@ -182,7 +180,6 @@ fn reshape(inp: Vec<Value>, shape: [usize; 4], dims: usize) -> Vec<Value> {
             let d2_size: usize = shape[1..3].iter().product();
             let d3_size = shape.get(2).unwrap();
             inp.chunks(d2_size)
-                .into_iter()
                 .map(|e| {
                     serde_json::to_value(chunks_size_n(Vec::from(e), *d3_size))
                         .unwrap()
@@ -194,10 +191,8 @@ fn reshape(inp: Vec<Value>, shape: [usize; 4], dims: usize) -> Vec<Value> {
             let d3_size: usize = shape[2..4].iter().product();
             let d4_size = shape.get(3).unwrap();
             inp.chunks(d2_size)
-                .into_iter()
                 .map(|e| {
                     e.chunks(d3_size)
-                        .into_iter()
                         .map(|e2| {
                             serde_json::to_value(chunks_size_n(
                                 Vec::from(e2),
@@ -244,13 +239,13 @@ impl JsonDataEntry {
                 .product::<usize>(),
             data.len()
         );
-        return Ok(SingleMem::new(
+        Ok(SingleMem::new(
             data,
             dimensions,
             num_dimensions,
             t.clone(),
             Endian::Little,
-        ));
+        ))
     }
     fn try_entry_from_ir(
         inp: &SingleMem,
@@ -351,7 +346,7 @@ impl filerep::TryToIR for JsonData {
             let ty = types.get(&k).unwrap();
             new_mems.mems.insert(k, v.try_entry_to_ir(ty)?);
         }
-        return Ok(new_mems);
+        Ok(new_mems)
     }
 }
 
@@ -430,7 +425,7 @@ fn destructure_helper(
         _ => {
             destr.status = Some(NonNumError(arr.first().unwrap().to_string()));
             // return Err(NonNumError(arr.first().unwrap().to_string()));
-            return Vec::new();
+            Vec::new()
         }
     }
 }

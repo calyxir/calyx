@@ -84,23 +84,17 @@ pub fn int_read(
         // TODO: does this fail on signedness?
         let r = BitVecValue::from_str_radix(&s, 10, width as u32);
         match r {
-            Ok(v) => return Ok(v),
+            Ok(v) => Ok(v),
             Err(e) => {
-                return Err(ReadStringErr::from(format!(
-                    "error from baa: {:?}",
-                    e
-                )));
+                Err(ReadStringErr::from(format!("error from baa: {:?}", e)))
             }
         }
     } else {
         let r = BitVecValue::from_str_radix(&s, 10, width as u32);
         match r {
-            Ok(v) => return Ok(v),
+            Ok(v) => Ok(v),
             Err(e) => {
-                return Err(ReadStringErr::from(format!(
-                    "error from baa: {:?}",
-                    e
-                )));
+                Err(ReadStringErr::from(format!("error from baa: {:?}", e)))
             }
         }
     }
@@ -122,7 +116,7 @@ pub fn int_write(
         return format!("{}", b.to_i64().unwrap());
     } else {
         if width <= 64 {
-            return format!("{}", b.to_dec_str());
+            return b.to_dec_str();
         }
     }
     panic!("unknown width when writing out an int");
