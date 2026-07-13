@@ -20,7 +20,7 @@ rule copy-timing
 rule copy-area
   command = cp out/hierarchical_utilization_placed.rpt $out
 rule vivado
-  command = vivado -mode batch -source synth.tcl > /dev/null
+  command = XILINX_LOCAL_USER_DATA=no vivado -mode batch -source synth.tcl > /dev/null
 device_xdc = default.xdc
 build default.xdc: get-rsrc
 build synth.tcl: get-rsrc

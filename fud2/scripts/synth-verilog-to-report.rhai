@@ -24,7 +24,8 @@ fn synth_setup(e) {
     e.rule("copy-area", "cp out/hierarchical_utilization_placed.rpt $out");
 
     // Rule for Vivado run, we suppress output since it gets written to a log file anyway
-    e.rule("vivado", "vivado -mode batch -source synth.tcl > /dev/null");
+    // Set XILINX_LOCAL_USER_DATA to fix this issue: https://adaptivesupport.amd.com/s/article/63253
+    e.rule("vivado", "XILINX_LOCAL_USER_DATA=no vivado -mode batch -source synth.tcl > /dev/null");
 
     // Read config variable for the device.xdc file, use default one otherwise
     e.config_var_or("device_xdc", "synth-verilog.constraints", "default.xdc");
