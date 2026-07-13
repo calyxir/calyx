@@ -6,14 +6,14 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use super::numrep as nr;
-use crate::numrep::ReadStringErr;
+use crate::typing::*;
 
 /// string formats should at least perform cursory input validation on their I/O, bin formats are allowed to but not required to.
 
 pub trait TryToIR {
     fn try_to_ir(
         self,
-        types: &HashMap<String, nr::TypeSpec>,
+        types: &HashMap<String, TypeSpec>,
     ) -> Result<FileMems, FileFmtErr>;
 }
 
@@ -91,9 +91,7 @@ pub struct FileMems {
 /// and gain access to a generalised [HintedTryToIR], which pre-loads types from the file.
 
 pub trait ExtractType {
-    fn extract_types(
-        &self,
-    ) -> Result<HashMap<String, nr::TypeSpec>, FileFmtErr>;
+    fn extract_types(&self) -> Result<HashMap<String, TypeSpec>, FileFmtErr>;
 }
 
 pub trait HintedTryToIR

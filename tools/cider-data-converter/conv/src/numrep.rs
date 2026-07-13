@@ -1,74 +1,9 @@
-use std::str::FromStr;
+use baa::BitVecOps;
 
 use crate::numimpl::{self};
+use crate::typing::*;
 
 /// relevant Stuff for describing the representation(s) of numbers
-
-// when printing / writing out binary, use Untypednum.as_bytes() or similar
-pub type BinRep = u64;
-
-pub enum OpTypes {
-    Truncate,
-    Bitcast,
-    SignExtend,
-    // Cast(OpCastTypes),
-}
-
-impl FromStr for OpTypes {
-    type Err = OpError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "trunc" => Ok(OpTypes::Truncate),
-            "bitcast" => Ok(OpTypes::Bitcast),
-            "sgn-ext" => Ok(OpTypes::SignExtend),
-            _ => Err(format!("unknown op {}", s)),
-        }
-    }
-}
-
-/// enum of possible functions between types
-#[derive(Clone)]
-pub enum OpFnTypes {
-    Falliable(fn(&BinRep, &TypeSpec, &TypeSpec) -> Result<BinRep, OpError>),
-    Infalliable(fn(&BinRep, &TypeSpec, &TypeSpec) -> BinRep),
-    Nop,
-}
-
-pub type OpError = String;
-
-/// general, larger 'groups' of types, of which a specific number of bits / signedness is a variant
-#[derive(Clone, PartialEq, Eq, Hash, Default, Debug)]
-pub enum TypeClass {
-    #[default]
-    Bits,
-    Int,
-    Float,
-    Fixed {
-        exp_mag: i32, // {fixed_val} = (Binrep) * (2^ (-exp_mag))
-    },
-    Unknown(usize), // just needs to contain something for future expansion
-}
-
-// types are instances of typespec rather than traits
-// TODO: add guarded constructor which prevents widths larger than 64
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub struct TypeSpec {
-    pub width: usize,
-    pub signed: bool,
-    pub class: TypeClass,
-}
-
-#[derive(Debug)]
-pub enum ReadStringErr {
-    BadValue(String),
-}
-
-impl<T: ToString> From<T> for ReadStringErr {
-    fn from(value: T) -> Self {
-        Self::BadValue(value.to_string())
-    }
-}
 
 // TODO: the below is probably quite bad but. works
 
@@ -77,12 +12,12 @@ impl TypeSpec {
         &self,
         s: String,
         _end: Endian,
-    ) -> Result<BinRep, ReadStringErr> {
+    ) -> Result<baa::BitVecValue, ReadStringErr> {
         if numimpl::is_hexstring(&s) {
             return numimpl::read_hexstring(&s, _end, self.width);
         }
         let r = match self.class {
-            TypeClass::Bits => numimpl::bits_read(s, _end)?,
+            TypeClass::Bits => numimpl::bits_read(s, _end, self.width)?,
             TypeClass::Int => {
                 numimpl::int_read(s, _end, self.width, self.signed)?
             }
@@ -94,12 +29,12 @@ impl TypeSpec {
                 return Err(ReadStringErr::from(format!("unknown {u}")));
             }
         };
-        debug_assert!(r & !crate::util::mask_n_bits(self.width) == 0);
+        debug_assert!(r.width() <= self.width as u32);
         Ok(r)
     }
 
-    pub fn write_string(&self, b: BinRep, _end: Endian) -> String {
-        debug_assert!(b & !crate::util::mask_n_bits(self.width) == 0);
+    pub fn write_string(&self, b: &baa::BitVecValue, _end: Endian) -> String {
+        debug_assert!(b.width() <= self.width as u32);
 
         match self.class {
             TypeClass::Bits => numimpl::bits_write(b, _end),
@@ -116,8 +51,8 @@ impl TypeSpec {
         }
     }
 
-    pub fn write_hexstring(&self, b: BinRep, _end: Endian) -> String {
-        format!("{:#x}", b)
+    pub fn write_hexstring(&self, b: baa::BitVecValue, _end: Endian) -> String {
+        b.to_hex_str()
     }
 
     // try from bytes should be a 'blanket' part of TypeSpec
@@ -131,7 +66,7 @@ pub type CheckedConvErr = String;
 /// [SingleMem] contains the contents of a memory.
 #[derive(Debug)]
 pub struct SingleMem {
-    pub(self) data: Vec<BinRep>, // container for the data elements
+    pub(self) data: Vec<baa::BitVecValue>, // container for the data elements
     pub dimensions: [usize; 4], // begrudgingly, multi-dimensional memories are supported
     pub num_dimensions: usize,
     // [dtype] is not stored with every element of the data vec for space efficiency
@@ -142,7 +77,7 @@ pub struct SingleMem {
 impl SingleMem {
     // horrible, but hopefully makes 'implicit' bitcasts much harder and thus more annoying: having to recreate the struct hopefully discourages it
     pub fn new(
-        data: Vec<BinRep>,
+        data: Vec<baa::BitVecValue>,
         dimensions: [usize; 4],
         num_dimensions: usize,
         dtype: TypeSpec,
@@ -156,7 +91,7 @@ impl SingleMem {
             end,
         }
     }
-    pub fn iter_data<'a>(&'a self) -> std::slice::Iter<'a, BinRep> {
+    pub fn iter_data<'a>(&'a self) -> std::slice::Iter<'a, baa::BitVecValue> {
         self.data.iter()
     }
 
@@ -173,12 +108,11 @@ impl SingleMem {
             self.dtype.class = TypeClass::Bits;
             return Ok(());
         } else {
-            let mask = crate::util::mask_n_bits(num_bits);
             self.dtype.class = TypeClass::Bits;
             self.dtype.width = num_bits;
 
             for e in self.data.iter_mut() {
-                *e &= mask;
+                *e = e.slice(num_bits as u32, 0);
             }
             return Ok(());
         }
@@ -188,11 +122,7 @@ impl SingleMem {
         &mut self,
         num_bits: usize,
     ) -> Result<(), CheckedConvErr> {
-        if num_bits > 64 {
-            return Err(String::from(
-                "attempted sign extension to size larger than currently-supported bit representation",
-            ));
-        } else if num_bits < self.dtype.width {
+        if num_bits < self.dtype.width {
             return Err(String::from(
                 "trying to sign-extend to width less than current width. use truncate instead.",
             ));
@@ -201,17 +131,8 @@ impl SingleMem {
             self.dtype.class = TypeClass::Bits;
             return Ok(());
         } else {
-            let msb_mask = 1 << (self.dtype.width - 1);
-            let sgn_mask = !crate::util::mask_n_bits(self.dtype.width)
-                & crate::util::mask_n_bits(num_bits);
-
-            self.dtype.class = TypeClass::Bits;
-            self.dtype.width = num_bits;
-
             for e in self.data.iter_mut() {
-                if msb_mask & *e != 0 {
-                    *e |= sgn_mask;
-                }
+                *e = e.sign_extend((num_bits - self.dtype.width) as u32);
             }
             return Ok(());
         }
