@@ -1,6 +1,8 @@
 // very bad fixed-point
 
-use crate::numrep::*;
+use baa::{BitVecOps, BitVecValue};
+
+use crate::typing::ReadStringErr;
 
 /// only supports sign via two's complement
 /// signed-magnitude fixed-point is not supported.
@@ -14,37 +16,33 @@ impl FixedDef {
     // TODO: below could accept a closure for behaviour in either direction
     // https://en.wikipedia.org/wiki/Fixed-point_arithmetic#Conversion_to_and_from_floating-point
 
-    pub fn from_fp_rounded(&self, inp: f64) -> Result<BinRep, ReadStringErr> {
+    pub fn from_fp_rounded(
+        &self,
+        inp: f64,
+    ) -> Result<BitVecValue, ReadStringErr> {
         let scale: f64 = f64::powi(2., self.exp_mag);
         let scaled_inp = inp * scale;
         if self.signed {
             let corr_int = scaled_inp.round_ties_even() as i64;
-            let size_mask = crate::util::mask_n_bits(self.total_size);
-            Ok((corr_int as u64) & size_mask)
+            Ok(BitVecValue::from_i64(corr_int, self.total_size as u32))
         } else {
-            Ok(scaled_inp.round_ties_even() as u64)
+            Ok(BitVecValue::from_u64(
+                scaled_inp.round_ties_even() as u64,
+                self.total_size as u32,
+            ))
         }
     }
 
     // TODO: make a generic 'to_fp_closure'
-    pub fn to_fp_rounded(&self, inp: &BinRep) -> f64 {
-        if self.signed {
-            let in_raw = *inp as u64;
-            let msb_mask = 1 << (self.total_size - 1);
-            let sgn_mask = !crate::util::mask_n_bits(self.total_size)
-                & crate::util::mask_n_bits(64); // maximum width
-            let extended = if in_raw & msb_mask != 0 {
-                sgn_mask | in_raw
-            } else {
-                in_raw
-            };
-            let in_signed = extended as i64;
+    pub fn to_fp_rounded(&self, inp: &BitVecValue) -> f64 {
+        let in_as_fp = if self.signed {
+            let in_num = inp.to_i64().unwrap();
 
-            let in_fp = in_signed as f64;
-            in_fp * (f64::powi(2., -self.exp_mag))
+            in_num as f64
         } else {
-            let in_fp = *inp as f64;
-            in_fp * (f64::powi(2., -self.exp_mag))
-        }
+            let in_num = inp.to_u64().unwrap();
+            in_num as f64
+        };
+        in_as_fp * (f64::powi(2., -self.exp_mag))
     }
 }
