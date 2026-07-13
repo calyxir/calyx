@@ -8,20 +8,16 @@ export const sim_setup = sim_setup;
 
 fn sim_setup(e) {
     // Data conversion to and from JSON.
-    e.config_var_or("python", "python", "python3");
-    e.rsrc("json-dat.py");
-    e.rule("hex-data", "$python json-dat.py --from-json $in $out");
-    e.rule("json-data", "$python json-dat.py --to-json $out $in");
 
     e.config_var_or(
         "conv",
         "conv.exe",
         "$calyx-base/target/debug/cider-data-converter"
     );
-    e.rule("hex-data-new",
+    e.rule("hex-data",
         "$conv $in --from json --to dat -o $out"
     );
-    e.rule("json-data-new",
+    e.rule("json-data",
         "$conv -e out $in --from dat --to json -o $out"
     );
 
@@ -41,7 +37,7 @@ fn sim_setup(e) {
         ["$datadir"],
         "hex-data-new",
         ["$sim_data"],
-        [],//["json-dat.py"],
+        [],
     );
 
     // Rule for simulation execution.
@@ -69,7 +65,7 @@ op(
             ["im.json"],
             "json-data-new",
             ["$datadir"],
-            ["sim.log"], //["json-dat.py"],
+            ["sim.log"], // sim.log specified as an indirect dependency so the simulation runs
         );
         e.build_cmd(
             [output],

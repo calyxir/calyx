@@ -5,7 +5,7 @@ use data_conv_lib::{filerep::HintedTryToIR, *};
 use std::{
     fs::File,
     io::{self, Read, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
     str::FromStr,
 };
 use thiserror::Error;
@@ -130,7 +130,7 @@ struct Opts {
 // TODO: not having round_float may present problems
 // TODO: not having use_quotes may present problems
 
-fn infer_format(path: &PathBuf) -> Option<Formats> {
+fn infer_format(path: &Path) -> Option<Formats> {
     if path.is_dir() {
         Some(Formats::Dat)
     } else if path.extension().is_some_and(|x| x == JSON_EXTENSION) {

@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use super::numrep as nr;
 use crate::typing::*;
 
-/// string formats should at least perform cursory input validation on their I/O, bin formats are allowed to but not required to.
+// TODO: string formats should at least perform cursory input validation on their I/O, bin formats are allowed to but not required to.
 
 pub trait TryToIR {
     fn try_to_ir(
@@ -89,7 +89,6 @@ pub struct FileMems {
 
 /// file formats which include typing can implement the [ExtractType] trait
 /// and gain access to a generalised [HintedTryToIR], which pre-loads types from the file.
-
 pub trait ExtractType {
     fn extract_types(&self) -> Result<HashMap<String, TypeSpec>, FileFmtErr>;
 }
