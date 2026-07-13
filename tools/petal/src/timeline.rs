@@ -1,11 +1,11 @@
 use crate::design::{CellId, ControlId, GroupId, RegisterId};
-use anyhow::{Ok, Result};
-use perfetto_trace_proto::trace_packet::{
+use crate::perfetto_protos::trace_packet::{
     Data, OptionalTrustedPacketSequenceId,
 };
-use perfetto_trace_proto::track_descriptor::StaticOrDynamicName;
-use perfetto_trace_proto::track_event::{NameField, Type};
-use perfetto_trace_proto::{Trace, TracePacket, TrackDescriptor, TrackEvent};
+use crate::perfetto_protos::track_descriptor::StaticOrDynamicName;
+use crate::perfetto_protos::track_event::{NameField, Type};
+use crate::perfetto_protos::{Trace, TracePacket, TrackDescriptor, TrackEvent};
+use anyhow::{Ok, Result};
 use prost::Message;
 use prost::bytes::BytesMut;
 use rustc_hash::{FxHashMap, FxHashSet};

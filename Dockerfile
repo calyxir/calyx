@@ -63,7 +63,7 @@ LABEL org.opencontainers.image.source=https://github.com/calyxir/calyx
 
 # Install apt dependencies
 RUN apt-get update -y && \
-    apt-get install -y jq python3-dev make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake autoconf gperf clang protobuf-compiler
+    apt-get install -y jq python3-dev make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake autoconf gperf clang
 
 
 # Install Firtool

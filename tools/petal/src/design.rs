@@ -2,12 +2,12 @@ use anyhow::{Context, Result};
 use baa::{BitVecOps, BitVecValue};
 use core::panic;
 use cranelift_entity::{PrimaryMap, entity_impl};
-use perfetto_trace_proto::track_event::Type;
 use rustc_hash::FxHashMap;
 use smallvec::{SmallVec, smallvec};
 use wellen::{Hierarchy, Scope, ScopeRef, SignalRef, VarRef};
 
 use crate::control::{ControlInfo, ControlRegister, PathDescriptorInfo};
+use crate::perfetto_protos::track_event::Type;
 use crate::shared_cells::SharedCellsInfo;
 use crate::timeline::{CurrentlyActive, Timeline, Uuid};
 

@@ -25,5 +25,4 @@ serde_json.workspace = true
 log.workspace = true
 indexmap.workspace = true
 prost = "0.14.4"
-perfetto-trace-proto = "0.1.0"
 rand = "0.10.2"

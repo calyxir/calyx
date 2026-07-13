@@ -4,6 +4,11 @@ mod shared_cells;
 mod timeline;
 mod visuals;
 
+#[path = "perfetto.protos.rs"]
+#[allow(clippy::all)]
+#[rustfmt::skip]
+mod perfetto_protos;
+
 use crate::design::{Design, RegisterId, Stack};
 use crate::timeline::{CurrentlyActive, Timeline};
 use crate::visuals::{compute_flame, write_flame};
