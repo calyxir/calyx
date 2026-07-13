@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use baa::{BitVecOps, BitVecValue};
 use core::panic;
 use cranelift_entity::{PrimaryMap, entity_impl};
+use perfetto_trace_proto::track_event::Type;
 use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::{SmallVec, smallvec};
 use std::io::SeekFrom::Current;
@@ -9,7 +10,7 @@ use wellen::{Hierarchy, Scope, ScopeRef, SignalRef, Time, VarRef};
 
 use crate::control::{ControlInfo, ControlRegister, PathDescriptorInfo};
 use crate::shared_cells::SharedCellsInfo;
-use crate::timeline::{CurrentlyActive, Timeline};
+use crate::timeline::{CurrentlyActive, Timeline, UUID};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct CellId(u32);
@@ -28,6 +29,8 @@ struct Cell {
     /// Ids of groups that could be called directly from this cell, if it is a component.
     /// NOTE: Primitive cells should have an empty vec here.
     groups: SmallVec<[GroupId; 6]>,
+    /// Control Registeres
+    control_registers: SmallVec<[RegisterId; 6]>,
     /// The scope of the cell in the RTL trace.
     _scope: Option<ScopeRef>,
     /// Is the cell a primitive?
@@ -97,7 +100,6 @@ struct Control {
     go_idx: u32,
     _pos: u32,
     pretty: String,
-    // deal with registers later
 }
 
 impl Control {
@@ -171,7 +173,7 @@ pub struct Design {
     main: CellId,
     clk: SignalRef,
     signals: Vec<SignalRef>,
-    register_signals: Vec<SignalRef>,
+    register_signals: FxHashMap<SignalRef, RegisterId>,
 }
 
 impl Design {
@@ -194,7 +196,7 @@ impl Design {
             main: CellId(u32::MAX),
             clk,
             signals: vec![],
-            register_signals: vec![],
+            register_signals: FxHashMap::default(),
         };
         out.populate(h, c, s)?;
         out.build_idx();
@@ -207,8 +209,71 @@ impl Design {
         self.signals.clone()
     }
 
+    pub fn get_register_signals(&self) -> FxHashMap<SignalRef, RegisterId> {
+        self.register_signals.clone()
+    }
+
+    // delete this later
+    pub fn get_register_name(&self, id: &RegisterId) -> String {
+        self.control_registers[*id].name.clone()
+    }
+
     pub fn clk(&self) -> SignalRef {
         self.clk
+    }
+
+    pub fn add_cregisters_to_timeline(
+        &self,
+        timeline: &mut Timeline,
+        register_value_diffs: FxHashMap<u64, FxHashMap<RegisterId, u64>>,
+        starting_cycle: u64,
+        num_cycles: u64,
+    ) -> Result<()> {
+        let mut ordered_cycles: Vec<u64> =
+            register_value_diffs.keys().copied().collect();
+        ordered_cycles.sort();
+        for cycle in ordered_cycles {
+            let diff_map = &register_value_diffs[&cycle];
+            let real_cycle = cycle - starting_cycle;
+            if real_cycle >= (num_cycles - 1) {
+                // accounting for zero indexing
+                continue;
+            }
+            println!("Adding cycle {real_cycle} to timeline. {}", num_cycles);
+            let mut uuid_to_out_string: FxHashMap<UUID, String> =
+                FxHashMap::default();
+
+            for (id, new_value) in diff_map {
+                let reg = &self.control_registers[*id];
+                let update_str = format!("{}: {}", reg.name, new_value);
+                // TODO: should really fix this.
+                let uuid = timeline.control_register_uuid(&id);
+                if let Some(s) = uuid_to_out_string.get(&uuid) {
+                    uuid_to_out_string.insert(
+                        *uuid,
+                        format!("{s}, {update_str}").to_string(),
+                    );
+                } else {
+                    uuid_to_out_string.insert(*uuid, update_str);
+                }
+            }
+
+            for (uuid, out_str) in uuid_to_out_string {
+                timeline.register_event(
+                    out_str.clone(),
+                    uuid,
+                    real_cycle,
+                    Type::SliceBegin,
+                );
+                timeline.register_event(
+                    out_str,
+                    uuid,
+                    real_cycle + 1,
+                    Type::SliceEnd,
+                );
+            }
+        }
+        Ok(())
     }
 
     /// Computes the active call tree from a cycle, represented as a list of stacks (Python Petal style).
@@ -354,6 +419,8 @@ impl Design {
         let cell = &self.cells[*c];
         // All component cells get their own top-level track
         let cell_uuid = t.register_cell(*c, cell.full_path.to_string())?;
+
+        t.register_control_registers(cell_uuid, &cell.control_registers)?;
 
         // par_track --> track uuid for groups
         // these still need to be passed into build_control_tracks because control
@@ -684,11 +751,8 @@ impl Design {
 
     /// Same thing as build_idx, but with control registers (can't store them in a BitVector)
     fn build_register_idx(&mut self) {
-        for (idx, (_, register)) in
-            self.control_registers.iter_mut().enumerate()
-        {
-            self.register_signals.push(register.signal);
-            register.signal_idx = idx as u32;
+        for (id, register) in self.control_registers.iter_mut() {
+            self.register_signals.insert(register.signal, id);
         }
     }
 
@@ -873,6 +937,7 @@ impl Design {
             full_path: "main".to_string(),
             control: smallvec![],
             groups: smallvec![],
+            control_registers: smallvec![],
             probes: Some((h[main_go].signal_ref(), h[main_done].signal_ref())),
             _scope: Some(main_scope),
             is_primitive: false,
@@ -915,12 +980,13 @@ impl Design {
             .filter(|p| registers.contains(&h[*p].name(h).to_string()))
         {
             let out = get_var(h, &h[register_scope], "out")?;
-            let signalref = h[out].signal_ref();
-            self.control_registers.push(CRegister {
+            let signal_ref = h[out].signal_ref();
+            let register_id = self.control_registers.push(CRegister {
                 name: h[register_scope].name(h).to_string(),
-                signal: signalref,
+                signal: signal_ref,
                 signal_idx: u32::MAX,
             });
+            cell.control_registers.push(register_id);
         }
 
         // cell.groups should not contain any structurally enabled groups.
@@ -1099,6 +1165,7 @@ impl Design {
                                 full_path: full_path.clone(),
                                 groups: smallvec![],
                                 control: smallvec![],
+                                control_registers: smallvec![],
                                 _scope: scope,
                                 is_primitive,
                                 instances: smallvec![],

@@ -4,7 +4,7 @@ mod shared_cells;
 mod timeline;
 mod visuals;
 
-use crate::design::{Design, Stack};
+use crate::design::{Design, RegisterId, Stack};
 use crate::timeline::{CurrentlyActive, Timeline};
 use crate::visuals::{compute_flame, write_flame};
 use anyhow::{Context, Ok, Result, anyhow};
@@ -50,18 +50,22 @@ fn collect_stacks(
     design: &Design,
     timeline: &mut Timeline,
     probe_values: &[BitVecValue],
-) -> Result<Stacks> {
+) -> Result<(Stacks, u64, u64)> {
     // Compute the trace (stacks for each active cycle) from probe_values
     let mut out: Stacks = IndexMap::default();
     // NOTE: Can't just use enumerate because we want to skip the warmup cycles before main starts.
     // either we accumulate when main is active, or subtract the cycle where main started from the enumeration.
     let mut cycle_count = 0;
+    let mut starting_cycle = 0;
     for value in probe_values.iter() {
         let active_this_cycle = if let Some((count, s, active)) =
             out.get_mut(value)
         {
             if !s.is_empty() {
                 cycle_count += 1;
+                if starting_cycle == 0 {
+                    starting_cycle = cycle_count;
+                }
             }
             *count += 1;
             active
@@ -81,7 +85,22 @@ fn collect_stacks(
     // close out the timeline view
     let end = CurrentlyActive::new();
     timeline.update_timeline(&end, cycle_count)?;
-    Ok(out)
+    Ok((out, starting_cycle, cycle_count))
+}
+
+fn add_cregisters_to_timeline(
+    timeline: &mut Timeline,
+    design: &Design,
+    register_value_diffs: FxHashMap<u64, FxHashMap<RegisterId, u64>>,
+    starting_cycle: u64,
+    num_cycles: u64,
+) -> Result<()> {
+    design.add_cregisters_to_timeline(
+        timeline,
+        register_value_diffs,
+        starting_cycle,
+        num_cycles,
+    )
 }
 
 fn print_stacks(
@@ -134,7 +153,6 @@ fn main() -> Result<()> {
 
     // all probe signals we would need to track
     let signals = design.get_signals();
-
     let filter = wellen::stream::Filter::include_signals(&signals);
 
     let mut clock_previous = true;
@@ -151,8 +169,9 @@ fn main() -> Result<()> {
             .enumerate()
             .map(|(idx, &signal)| (signal, idx as u32)),
     );
+    // Get all probes into a single bitvector
     let mut value = BitVecValue::zero(signals.len() as u32);
-    wav.stream_time_steps(filter, |_time, values, changed| {
+    wav.stream_time_steps(filter, |time, values, changed| {
         let c: bool =
             values.get(&clock_signal_ref).unwrap().try_into().unwrap();
         if c && !clock_previous && !changed.is_empty() {
@@ -182,10 +201,61 @@ fn main() -> Result<()> {
     })?;
     println!("Number of clock ticks: {}", probe_values.len());
 
-    let stacks = collect_stacks(&design, &mut timeline, &probe_values)?;
+    let register_signals_map: FxHashMap<SignalRef, RegisterId> =
+        design.get_register_signals();
+    let mut register_signals: Vec<SignalRef> =
+        register_signals_map.keys().cloned().collect();
+    register_signals.push(clock_signal_ref);
+    let register_filter =
+        wellen::stream::Filter::include_signals(&register_signals);
+
+    // Track all changes in registers
+    let mut register_value_diffs: FxHashMap<u64, FxHashMap<RegisterId, u64>> =
+        FxHashMap::default();
+    let mut acc: u64 = 0;
+    clock_previous = true;
+    wav.stream_time_steps(register_filter, |time, values, changed| {
+        let c: bool =
+            values.get(&clock_signal_ref).unwrap().try_into().unwrap();
+        let mut diffs = FxHashMap::default();
+        if c && !clock_previous && !changed.is_empty() {
+            for signal in changed {
+                if *signal == clock_signal_ref {
+                    continue;
+                }
+                let register_value: u64 =
+                    values.get(&signal).unwrap().try_into().unwrap();
+                let register_id = register_signals_map.get(&signal).unwrap();
+                diffs.insert(*register_id, register_value);
+            }
+            acc += 1;
+        }
+        if !diffs.is_empty() {
+            register_value_diffs.insert(acc, diffs);
+        }
+        clock_previous = c;
+        Ok(())
+    })
+    .map_err(|e| match e {
+        stream::StreamError::Wellen(wellen_error) => {
+            anyhow!(wellen_error)
+        }
+        stream::StreamError::Callback(e) => e,
+    })?;
+
+    let (stacks, starting_cycle, num_cycles) =
+        collect_stacks(&design, &mut timeline, &probe_values)?;
+
     print_stacks(&probe_values, &stacks, args.num_print_cycles);
     let flame_info = compute_flame(&stacks)?;
     write_flame(&flame_info, args.scaled_flame_out, args.flat_flame_out)?;
+    add_cregisters_to_timeline(
+        &mut timeline,
+        &design,
+        register_value_diffs,
+        starting_cycle,
+        num_cycles,
+    )?;
 
     timeline.output_timeline("timeline_test.pftrace")?;
 

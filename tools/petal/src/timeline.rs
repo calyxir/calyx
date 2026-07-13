@@ -1,4 +1,4 @@
-use crate::design::{CellId, ControlId, Design, GroupId};
+use crate::design::{CellId, ControlId, Design, GroupId, RegisterId};
 use anyhow::{Context, Ok, Result, anyhow};
 use perfetto_trace_proto::trace_packet::{
     Data, OptionalTrustedPacketSequenceId,
@@ -9,6 +9,8 @@ use perfetto_trace_proto::{Trace, TracePacket, TrackDescriptor, TrackEvent};
 use prost::Message;
 use prost::bytes::BytesMut;
 use rustc_hash::{FxHashMap, FxHashSet};
+use smallvec::SmallVec;
+use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs::File;
 use std::io::Write;
@@ -16,7 +18,7 @@ use std::io::Write;
 /// Trusted Packet Sequence ID; a number necessary
 const tpsi: u32 = 8008;
 
-type UUID = u64;
+pub type UUID = u64;
 
 #[derive(Clone, Debug)]
 pub struct CurrentlyActive {
@@ -82,11 +84,12 @@ impl CurrentlyActive {
 pub struct Timeline {
     packets: Vec<TracePacket>,
     /// Cell/Control Group/Group name to track UUID
-    // name_to_uuid: FxHashMap<String, u64>,
     used_uuids: FxHashSet<u64>,
-    cell_to_info: FxHashMap<CellId, (UUID, String, UUID)>,
+    cell_to_info: FxHashMap<CellId, (UUID, String)>,
     control_to_info: FxHashMap<ControlId, (UUID, String)>,
     group_to_info: FxHashMap<GroupId, (UUID, String)>,
+    // registers_uuids: FxHashMap<UUID, Vec<RegisterId>>,
+    register_to_uuid: FxHashMap<RegisterId, UUID>,
     current_active: CurrentlyActive,
 }
 
@@ -98,6 +101,8 @@ impl Timeline {
             cell_to_info: FxHashMap::default(),
             control_to_info: FxHashMap::default(),
             group_to_info: FxHashMap::default(),
+            // registers_uuids: FxHashMap::default(),
+            register_to_uuid: FxHashMap::default(),
             current_active: CurrentlyActive::new(),
         };
         Ok(s)
@@ -119,14 +124,36 @@ impl Timeline {
         name: String,
     ) -> Result<UUID> {
         let cell_uuid = self.register_descriptor(name.clone(), None)?;
+        self.cell_to_info
+            .insert(cell_id, (cell_uuid, name.to_string()));
+        Ok(cell_uuid)
+    }
+
+    pub fn control_register_uuid(&self, register: &RegisterId) -> &UUID {
+        self.register_to_uuid.get(register).unwrap()
+    }
+
+    pub fn register_control_registers(
+        &mut self,
+        cell_uuid: UUID,
+        register_ids: &SmallVec<[RegisterId; 6]>,
+    ) -> Result<()> {
         // register "Control Register Updates" track and keep track of its UUID
         let registers_uuid = self.register_descriptor(
             "Control Register Updates".to_string(),
             Some(cell_uuid),
         )?;
-        self.cell_to_info
-            .insert(cell_id, (cell_uuid, name.to_string(), registers_uuid));
-        Ok(cell_uuid)
+        for r in register_ids {
+            self.register_to_uuid.insert(*r, registers_uuid);
+        }
+        // for r in register_ids {
+        //     let v = self
+        //         .registers_uuids
+        //         .entry(registers_uuid)
+        //         .or_insert_with(Vec::new);
+        //     v.push(*r);
+        // }
+        Ok(())
     }
 
     pub fn register_control(
@@ -203,8 +230,7 @@ impl Timeline {
         event_type: Type,
     ) {
         for &cell in diff.cells.iter() {
-            let (cell_uuid, cell_name, _registers_uuid) =
-                self.cell_to_info.get(&cell).unwrap();
+            let (cell_uuid, cell_name) = self.cell_to_info.get(&cell).unwrap();
             self.register_event(
                 cell_name.clone(),
                 *cell_uuid,
