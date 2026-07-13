@@ -214,7 +214,7 @@ impl Design {
         self.clk
     }
 
-    pub fn add_cregisters_to_timeline(
+    pub fn add_control_registers_to_timeline(
         &self,
         timeline: &mut Timeline,
         register_value_diffs: FxHashMap<u64, FxHashMap<RegisterId, u64>>,
@@ -280,7 +280,7 @@ impl Design {
         let mut stacks = vec![];
         let mut current_active = CurrentlyActive::new();
         if main_active {
-            stacks = self.compute_cell(
+            stacks = self.find_active_from_cell(
                 values,
                 self.main,
                 vec![],
@@ -292,173 +292,13 @@ impl Design {
         Ok((stacks, current_active))
     }
 
-    fn build_control_tracks(
-        &self,
-        c: &ControlId,
-        control_groups_uuid: u64,
-        component: &str,
-        t: &mut Timeline,
-        par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
-        thread_tracks: &FxHashMap<u32, u64>,
-    ) -> Result<()> {
-        // Goals:
-        // create a descriptor for control group
-        let control = &self.controls[*c];
-        let name = format!("Control Group: {}", control.pretty());
-        t.register_control(
-            name,
-            control.pretty.to_string(),
-            *c,
-            control_groups_uuid,
-        )?;
-
-        // recurse on any control/group that we find
-        for &invoke_id in control.invokes.iter() {
-            let invoke = &self.invokes[invoke_id];
-            match invoke.target {
-                InvokeTarget::Cell(_) => {
-                    panic!(
-                        "Control node {} directly invokes cell (control nodes should only invoke control nodes and groups)",
-                        control.name
-                    )
-                }
-                InvokeTarget::Group(g_id) => {
-                    self.build_group_tracks(
-                        &g_id,
-                        component,
-                        t,
-                        par_tracks,
-                        thread_tracks,
-                    )?;
-                }
-                InvokeTarget::Control(c_id) => {
-                    self.build_control_tracks(
-                        &c_id,
-                        control_groups_uuid,
-                        component,
-                        t,
-                        par_tracks,
-                        thread_tracks,
-                    )?;
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn build_group_tracks(
-        &self,
-        g: &GroupId,
-        component: &str,
-        t: &mut Timeline,
-        par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
-        thread_tracks: &FxHashMap<u32, u64>,
-    ) -> Result<()> {
-        let group = &self.groups[*g];
-        // Goals:
-        // register group name and uuid
-        assert!(par_tracks.contains_key(component));
-        // FIXME: this will not be true for structurally enabled groups. we'll get to those later.
-        assert!(par_tracks[component].contains_key(&group.name));
-        let thread_id = par_tracks[component][&group.name];
-        assert!(thread_tracks.contains_key(&thread_id));
-        let uuid = thread_tracks[&thread_id];
-        t.register_group(*g, uuid, &group.display_name())?;
-
-        // call build_cell_tracks on any non-primitive cell we find.
-        for &invoke_id in group.invokes.iter() {
-            let invoke = &self.invokes[invoke_id];
-            match invoke.target {
-                InvokeTarget::Cell(cell_id) => {
-                    let cell = &self.cells[cell_id];
-                    if !cell.is_primitive {
-                        self.build_cell_tracks(&cell_id, t, par_tracks)?;
-                    }
-                }
-                InvokeTarget::Group(group_id) => {
-                    self.build_group_tracks(
-                        &group_id,
-                        component,
-                        t,
-                        par_tracks,
-                        thread_tracks,
-                    )?;
-                }
-                InvokeTarget::Control(_) => {
-                    panic!("Group should not invoke a Control node!")
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn build_cell_tracks(
-        &self,
-        c: &CellId,
-        t: &mut Timeline,
-        par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
-    ) -> Result<()> {
-        let cell = &self.cells[*c];
-        // All component cells get their own top-level track
-        let cell_uuid = t.register_cell(*c, cell.full_path.to_string())?;
-
-        t.register_control_registers(cell_uuid, &cell.control_registers)?;
-
-        // par_track --> track uuid for groups
-        // these still need to be passed into build_control_tracks because control
-        let mut thread_tracks: FxHashMap<u32, u64> = FxHashMap::default();
-
-        // create all thread tracks ahead of time
-        if let Some(component_par_tracks) = par_tracks.get(&cell.component) {
-            for thread in component_par_tracks.values() {
-                if !thread_tracks.contains_key(thread) {
-                    let thread_name = format!("Thread {:03}", thread);
-                    let thread_uuid =
-                        t.register_descriptor(thread_name, Some(cell_uuid))?;
-                    thread_tracks.insert(*thread, thread_uuid);
-                }
-            }
-        }
-
-        for group in cell.groups.iter() {
-            self.build_group_tracks(
-                group,
-                &cell.component,
-                t,
-                par_tracks,
-                &thread_tracks,
-            )?;
-        }
-
-        // Create control
-        if !cell.control.is_empty() {
-            // create "Control Groups" track
-            let control_groups_uuid = t.register_descriptor(
-                "Control Groups".to_string(),
-                Some(cell_uuid),
-            )?;
-            for control in cell.control.iter() {
-                self.build_control_tracks(
-                    control,
-                    control_groups_uuid,
-                    &cell.component,
-                    t,
-                    par_tracks,
-                    &thread_tracks,
-                )?;
-            }
-        }
-
-        Ok(())
-    }
-
     /// Constructs the tracks in the timeline view
     pub fn build_timeline_tracks(
         &self,
         t: &mut Timeline,
         par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
     ) -> Result<()> {
-        self.build_cell_tracks(&self.main, t, par_tracks)
+        self.build_cell_timeline_tracks(&self.main, t, par_tracks)
     }
 }
 
@@ -515,7 +355,7 @@ impl Design {
     /// Builds up all active tree paths this cycle from the cell of cell_id.
     /// prefix is the state of the stack before this particular cell.
     /// NOTE: This function is co-recursive with compute_group().
-    fn compute_cell(
+    fn find_active_from_cell(
         &self,
         value: &BitVecValue,
         cell_id: CellId,
@@ -541,7 +381,7 @@ impl Design {
         for &group_idx in &cell.groups {
             let group = &self.groups[group_idx];
             if value.is_bit_set(group.probe_idx) {
-                let mut group_stacks = self.compute_group(
+                let mut group_stacks = self.find_active_from_group(
                     value,
                     group_idx,
                     prefix.clone(),
@@ -553,7 +393,7 @@ impl Design {
         for &control_idx in &cell.control {
             let control = &self.controls[control_idx];
             if value.is_bit_set(control.go_idx) {
-                let mut control_stacks = self.compute_control(
+                let mut control_stacks = self.find_active_from_control(
                     value,
                     control_idx,
                     prefix.clone(),
@@ -576,7 +416,7 @@ impl Design {
     /// prefix is the state of the stack before this particular group.
     /// NOTE: This function is co-recursive with compute_cell(), and only called when
     /// the control group is active (otherwise this function would not be called.)
-    fn compute_control(
+    fn find_active_from_control(
         &self,
         value: &BitVecValue,
         control_id: ControlId,
@@ -601,7 +441,7 @@ impl Design {
                         )
                     }
                     InvokeTarget::Group(target_group_id) => {
-                        let mut group_stacks = self.compute_group(
+                        let mut group_stacks = self.find_active_from_group(
                             value,
                             target_group_id,
                             prefix.clone(),
@@ -610,7 +450,7 @@ impl Design {
                         out.append(&mut group_stacks);
                     }
                     InvokeTarget::Control(target_control_id) => {
-                        let mut control_stacks = self.compute_control(
+                        let mut control_stacks = self.find_active_from_control(
                             value,
                             target_control_id,
                             prefix.clone(),
@@ -635,7 +475,7 @@ impl Design {
     /// prefix is the state of the stack before this particular group.
     /// NOTE: This function is co-recursive with compute_cell() and compute_control(), and only called when
     /// the group is active (otherwise this function would not be called.)
-    fn compute_group(
+    fn find_active_from_group(
         &self,
         value: &BitVecValue,
         group_id: GroupId,
@@ -662,7 +502,7 @@ impl Design {
                         if target_cell.is_primitive {
                             out.push(this_thread_prefix);
                         } else {
-                            let mut cell_stacks = self.compute_cell(
+                            let mut cell_stacks = self.find_active_from_cell(
                                 value,
                                 target_cell_id,
                                 this_thread_prefix.clone(),
@@ -673,7 +513,7 @@ impl Design {
                     }
                     InvokeTarget::Group(target_group_id) => {
                         // structural enable (group enables another group)
-                        let mut group_stacks = self.compute_group(
+                        let mut group_stacks = self.find_active_from_group(
                             value,
                             target_group_id,
                             this_thread_prefix.clone(),
@@ -1181,6 +1021,173 @@ impl Design {
             }
         }
         assert!(parentless_invokes.is_empty());
+        Ok(())
+    }
+
+    /// Creates timeline tracks for the control group with ID c, and any of its child
+    /// Control or Group nodes.
+    fn build_control_timeline_tracks(
+        &self,
+        c: &ControlId,
+        control_groups_uuid: u64,
+        component: &str,
+        t: &mut Timeline,
+        par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
+        thread_tracks: &FxHashMap<u32, u64>,
+    ) -> Result<()> {
+        // create a descriptor for control group
+        let control = &self.controls[*c];
+        let name = format!("Control Group: {}", control.pretty());
+        t.register_control(
+            name,
+            control.pretty.to_string(),
+            *c,
+            control_groups_uuid,
+        )?;
+
+        // recurse on any control/group that we find
+        for &invoke_id in control.invokes.iter() {
+            let invoke = &self.invokes[invoke_id];
+            match invoke.target {
+                InvokeTarget::Cell(_) => {
+                    panic!(
+                        "Control node {} directly invokes cell (control nodes should only invoke control nodes and groups)",
+                        control.name
+                    )
+                }
+                InvokeTarget::Group(g_id) => {
+                    self.build_group_timeline_tracks(
+                        &g_id,
+                        component,
+                        t,
+                        par_tracks,
+                        thread_tracks,
+                    )?;
+                }
+                InvokeTarget::Control(c_id) => {
+                    self.build_control_timeline_tracks(
+                        &c_id,
+                        control_groups_uuid,
+                        component,
+                        t,
+                        par_tracks,
+                        thread_tracks,
+                    )?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Creates timeline tracks for the group with ID g, and any of its child
+    /// non-primitive Cell or Group nodes.
+    fn build_group_timeline_tracks(
+        &self,
+        g: &GroupId,
+        component: &str,
+        t: &mut Timeline,
+        par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
+        thread_tracks: &FxHashMap<u32, u64>,
+    ) -> Result<()> {
+        let group = &self.groups[*g];
+        // Goals:
+        // register group name and uuid
+        assert!(par_tracks.contains_key(component));
+        // FIXME: this will not be true for structurally enabled groups. we'll get to those later.
+        assert!(par_tracks[component].contains_key(&group.name));
+        let thread_id = par_tracks[component][&group.name];
+        assert!(thread_tracks.contains_key(&thread_id));
+        let uuid = thread_tracks[&thread_id];
+        t.register_group(*g, uuid, &group.display_name())?;
+
+        // call build_cell_tracks on any non-primitive cell we find.
+        for &invoke_id in group.invokes.iter() {
+            let invoke = &self.invokes[invoke_id];
+            match invoke.target {
+                InvokeTarget::Cell(cell_id) => {
+                    let cell = &self.cells[cell_id];
+                    if !cell.is_primitive {
+                        self.build_cell_timeline_tracks(
+                            &cell_id, t, par_tracks,
+                        )?;
+                    }
+                }
+                InvokeTarget::Group(group_id) => {
+                    self.build_group_timeline_tracks(
+                        &group_id,
+                        component,
+                        t,
+                        par_tracks,
+                        thread_tracks,
+                    )?;
+                }
+                InvokeTarget::Control(_) => {
+                    panic!("Group should not invoke a Control node!")
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Creates timeline tracks for the component cell with ID c, and any of its child Group or Control nodes.
+    /// Also creates a timeline track for the Control registers in this component.
+    fn build_cell_timeline_tracks(
+        &self,
+        c: &CellId,
+        t: &mut Timeline,
+        par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
+    ) -> Result<()> {
+        let cell = &self.cells[*c];
+        // All component cells get their own top-level track
+        let cell_uuid = t.register_cell(*c, cell.full_path.to_string())?;
+
+        t.register_control_registers(cell_uuid, &cell.control_registers)?;
+
+        // par_track --> track uuid for groups
+        // these still need to be passed into build_control_tracks because control
+        let mut thread_tracks: FxHashMap<u32, u64> = FxHashMap::default();
+
+        // create all thread tracks ahead of time
+        if let Some(component_par_tracks) = par_tracks.get(&cell.component) {
+            for thread in component_par_tracks.values() {
+                if !thread_tracks.contains_key(thread) {
+                    let thread_name = format!("Thread {:03}", thread);
+                    let thread_uuid =
+                        t.register_descriptor(thread_name, Some(cell_uuid))?;
+                    thread_tracks.insert(*thread, thread_uuid);
+                }
+            }
+        }
+
+        for group in cell.groups.iter() {
+            self.build_group_timeline_tracks(
+                group,
+                &cell.component,
+                t,
+                par_tracks,
+                &thread_tracks,
+            )?;
+        }
+
+        // Create control
+        if !cell.control.is_empty() {
+            // create "Control Groups" track
+            let control_groups_uuid = t.register_descriptor(
+                "Control Groups".to_string(),
+                Some(cell_uuid),
+            )?;
+            for control in cell.control.iter() {
+                self.build_control_timeline_tracks(
+                    control,
+                    control_groups_uuid,
+                    &cell.component,
+                    t,
+                    par_tracks,
+                    &thread_tracks,
+                )?;
+            }
+        }
+
         Ok(())
     }
 }

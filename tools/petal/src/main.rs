@@ -97,7 +97,7 @@ fn add_cregisters_to_timeline(
     starting_cycle: u64,
     num_cycles: u64,
 ) -> Result<()> {
-    design.add_cregisters_to_timeline(
+    design.add_control_registers_to_timeline(
         timeline,
         register_value_diffs,
         starting_cycle,
@@ -158,12 +158,9 @@ fn main() -> Result<()> {
     let signals = design.get_signals();
     let register_signals_map: FxHashMap<SignalRef, RegisterId> =
         design.get_register_signals();
-    let mut register_signals: Vec<SignalRef> =
-        register_signals_map.keys().cloned().collect();
     let mut signals_to_track = signals.clone();
     signals_to_track
         .append(&mut register_signals_map.keys().cloned().collect());
-
     let filter = wellen::stream::Filter::include_signals(&signals_to_track);
 
     let mut clock_previous = true;
@@ -172,6 +169,7 @@ fn main() -> Result<()> {
     // If it is active, the index will contain 1.
     let mut probe_values: Vec<BitVecValue> = vec![];
 
+    // We want to track the
     let mut register_value_diffs: FxHashMap<u64, FxHashMap<RegisterId, u64>> =
         FxHashMap::default();
     let mut acc: u64 = 0;
