@@ -3,10 +3,9 @@ use baa::{BitVecOps, BitVecValue};
 use core::panic;
 use cranelift_entity::{PrimaryMap, entity_impl};
 use perfetto_trace_proto::track_event::Type;
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashMap;
 use smallvec::{SmallVec, smallvec};
-use std::io::SeekFrom::Current;
-use wellen::{Hierarchy, Scope, ScopeRef, SignalRef, Time, VarRef};
+use wellen::{Hierarchy, Scope, ScopeRef, SignalRef, VarRef};
 
 use crate::control::{ControlInfo, ControlRegister, PathDescriptorInfo};
 use crate::shared_cells::SharedCellsInfo;
@@ -117,7 +116,6 @@ impl Control {
 struct CRegister {
     name: String,
     signal: SignalRef,
-    signal_idx: u32,
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
@@ -201,7 +199,6 @@ impl Design {
         out.populate(h, c, s)?;
         out.build_idx();
         out.build_register_idx();
-        println!("{out:?}");
         Ok(out)
     }
 
@@ -211,11 +208,6 @@ impl Design {
 
     pub fn get_register_signals(&self) -> FxHashMap<SignalRef, RegisterId> {
         self.register_signals.clone()
-    }
-
-    // delete this later
-    pub fn get_register_name(&self, id: &RegisterId) -> String {
-        self.control_registers[*id].name.clone()
     }
 
     pub fn clk(&self) -> SignalRef {
@@ -239,7 +231,6 @@ impl Design {
                 // accounting for zero indexing
                 continue;
             }
-            println!("Adding cycle {real_cycle} to timeline. {}", num_cycles);
             let mut uuid_to_out_string: FxHashMap<UUID, String> =
                 FxHashMap::default();
 
@@ -247,8 +238,8 @@ impl Design {
                 let reg = &self.control_registers[*id];
                 let update_str = format!("{}: {}", reg.name, new_value);
                 // TODO: should really fix this.
-                let uuid = timeline.control_register_uuid(&id);
-                if let Some(s) = uuid_to_out_string.get(&uuid) {
+                let uuid = timeline.control_register_uuid(id);
+                if let Some(s) = uuid_to_out_string.get(uuid) {
                     uuid_to_out_string.insert(
                         *uuid,
                         format!("{s}, {update_str}").to_string(),
@@ -298,7 +289,6 @@ impl Design {
             stacks.sort();
             stacks.dedup();
         }
-        println!("stacks: {stacks:?}");
         Ok((stacks, current_active))
     }
 
@@ -307,7 +297,6 @@ impl Design {
         c: &ControlId,
         control_groups_uuid: u64,
         component: &str,
-        prefix: &str,
         t: &mut Timeline,
         par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
         thread_tracks: &FxHashMap<u32, u64>,
@@ -337,7 +326,6 @@ impl Design {
                     self.build_group_tracks(
                         &g_id,
                         component,
-                        prefix,
                         t,
                         par_tracks,
                         thread_tracks,
@@ -348,7 +336,6 @@ impl Design {
                         &c_id,
                         control_groups_uuid,
                         component,
-                        prefix,
                         t,
                         par_tracks,
                         thread_tracks,
@@ -363,7 +350,6 @@ impl Design {
         &self,
         g: &GroupId,
         component: &str,
-        prefix: &str,
         t: &mut Timeline,
         par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
         thread_tracks: &FxHashMap<u32, u64>,
@@ -386,16 +372,13 @@ impl Design {
                 InvokeTarget::Cell(cell_id) => {
                     let cell = &self.cells[cell_id];
                     if !cell.is_primitive {
-                        self.build_cell_tracks(
-                            &cell_id, prefix, t, par_tracks,
-                        )?;
+                        self.build_cell_tracks(&cell_id, t, par_tracks)?;
                     }
                 }
                 InvokeTarget::Group(group_id) => {
                     self.build_group_tracks(
                         &group_id,
                         component,
-                        prefix,
                         t,
                         par_tracks,
                         thread_tracks,
@@ -412,7 +395,6 @@ impl Design {
     fn build_cell_tracks(
         &self,
         c: &CellId,
-        prefix: &str,
         t: &mut Timeline,
         par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
     ) -> Result<()> {
@@ -444,7 +426,6 @@ impl Design {
             self.build_group_tracks(
                 group,
                 &cell.component,
-                &cell.full_path,
                 t,
                 par_tracks,
                 &thread_tracks,
@@ -463,7 +444,6 @@ impl Design {
                     control,
                     control_groups_uuid,
                     &cell.component,
-                    &cell.full_path,
                     t,
                     par_tracks,
                     &thread_tracks,
@@ -480,12 +460,7 @@ impl Design {
         t: &mut Timeline,
         par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
     ) -> Result<()> {
-        self.build_cell_tracks(
-            &self.main,
-            &self.cells[self.main].name,
-            t,
-            par_tracks,
-        )
+        self.build_cell_tracks(&self.main, t, par_tracks)
     }
 }
 
@@ -817,8 +792,8 @@ impl Design {
                 let name = tdcc_info.name.clone();
 
                 match &tdcc_info.control_register {
-                    ControlRegister::FSM(f) => registers.push(f.clone()),
-                    ControlRegister::PD(p) => registers.append(&mut p.clone()),
+                    ControlRegister::Fsm(f) => registers.push(f.clone()),
+                    ControlRegister::Pd(p) => registers.append(&mut p.clone()),
                 };
 
                 let ctrl_scope = get_scope(h, &h[s], &format!("{name}_go"))?;
@@ -945,7 +920,7 @@ impl Design {
             replacement: None,
         };
         // add control nodes for main
-        self.scan_probes(h, main_scope, &mut main_cell, &c, &s, &"main")?;
+        self.scan_probes(h, main_scope, &mut main_cell, &c, &s)?;
         self.main = self.cells.push(main_cell);
         Ok(())
     }
@@ -958,7 +933,6 @@ impl Design {
         cell: &mut Cell,
         c: &ControlInfo,
         s: &SharedCellsInfo,
-        path_prefix: &str,
     ) -> Result<()> {
         // Create control nodes and add an edge from a cell to the toplevel control.
         let component = get_component(h, cell_scope)?;
@@ -971,7 +945,6 @@ impl Design {
         if let Some(top_ctrl) = toplevel_control {
             cell.control.push(top_ctrl);
         }
-        println!("Control registers for cell {}: {registers:?}", cell.name);
 
         // add entries for CRegisters
         for register_scope in h[cell_scope]
@@ -983,7 +956,6 @@ impl Design {
             let register_id = self.control_registers.push(CRegister {
                 name: h[register_scope].name(h).to_string(),
                 signal: signal_ref,
-                signal_idx: u32::MAX,
             });
             cell.control_registers.push(register_id);
         }
@@ -1181,7 +1153,6 @@ impl Design {
                                     &mut cell_instance,
                                     c,
                                     s,
-                                    &full_path,
                                 )?;
                             }
                             let cell_id = self.cells.push(cell_instance);

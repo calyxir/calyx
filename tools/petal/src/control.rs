@@ -90,8 +90,8 @@ struct FSMStateInfo {
 /// NOTE: Will be necessary for the timeline view, but not for the flame graph.
 #[derive(Debug, Clone)]
 pub enum ControlRegister {
-    FSM(String),
-    PD(Vec<String>),
+    Fsm(String),
+    Pd(Vec<String>),
 }
 
 #[derive(Debug, Clone)]
@@ -172,7 +172,7 @@ impl ControlInfo {
                 ProfilingInfo::Fsm(fsminfo) => {
                     let tdcc_info = TdccInfo {
                         name: fsminfo.group.clone(),
-                        control_register: ControlRegister::FSM(
+                        control_register: ControlRegister::Fsm(
                             fsminfo.fsm.clone(),
                         ),
                     };
@@ -191,7 +191,7 @@ impl ControlInfo {
                         .collect();
                     let tdcc_info = TdccInfo {
                         name: par_info.par_group.clone(),
-                        control_register: ControlRegister::PD(pd_names),
+                        control_register: ControlRegister::Pd(pd_names),
                     };
                     for pos in par_info.pos {
                         tdcc_map

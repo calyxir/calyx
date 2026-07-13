@@ -11,12 +11,8 @@ use anyhow::{Context, Ok, Result, anyhow};
 use baa::{BitVecMutOps, BitVecValue};
 use clap::Parser;
 use indexmap::IndexMap;
-use prost::Message;
-use prost::bytes::BytesMut;
 use rustc_hash::FxHashMap;
 use std::fs;
-use std::fs::File;
-use std::io::Write;
 use wellen::*;
 
 #[derive(Parser, Debug)]
@@ -75,14 +71,12 @@ fn collect_stacks(
         } else {
             let (stacks, active_this_cycle) =
                 design.compute_cycle_trace(value)?;
-            println!("stacks: {stacks:?}");
             if !stacks.is_empty() {
                 cycle_count += 1;
             }
             out.insert(value.clone(), (1, stacks, active_this_cycle.clone()));
             &mut active_this_cycle.clone()
         };
-        println!("Cycle {cycle_count}: {active_this_cycle:?}");
         timeline.update_timeline(active_this_cycle, cycle_count)?;
     }
     // close out the timeline view
@@ -152,7 +146,7 @@ fn main() -> Result<()> {
 
     // create tracks in the timeline
     let par_tracks = timeline::read_par_tracks(args.par_tracks_filename)?;
-    let mut timeline = Timeline::new(&design)?;
+    let mut timeline = Timeline::new()?;
     design.build_timeline_tracks(&mut timeline, &par_tracks)?;
 
     // all probe signals we would need to track
@@ -175,7 +169,7 @@ fn main() -> Result<()> {
     );
     // Get all probes into a single bitvector
     let mut value = BitVecValue::zero(signals.len() as u32);
-    wav.stream_time_steps(filter, |time, values, changed| {
+    wav.stream_time_steps(filter, |_time, values, changed| {
         let c: bool =
             values.get(&clock_signal_ref).unwrap().try_into().unwrap();
         if c && !clock_previous && !changed.is_empty() {
@@ -218,7 +212,7 @@ fn main() -> Result<()> {
         FxHashMap::default();
     let mut acc: u64 = 0;
     clock_previous = true;
-    wav.stream_time_steps(register_filter, |time, values, changed| {
+    wav.stream_time_steps(register_filter, |_time, values, changed| {
         let c: bool =
             values.get(&clock_signal_ref).unwrap().try_into().unwrap();
         let mut diffs = FxHashMap::default();

@@ -1,5 +1,5 @@
-use crate::design::{CellId, ControlId, Design, GroupId, RegisterId};
-use anyhow::{Context, Ok, Result, anyhow};
+use crate::design::{CellId, ControlId, GroupId, RegisterId};
+use anyhow::{Ok, Result};
 use perfetto_trace_proto::trace_packet::{
     Data, OptionalTrustedPacketSequenceId,
 };
@@ -10,14 +10,12 @@ use prost::Message;
 use prost::bytes::BytesMut;
 use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::SmallVec;
-use std::collections::hash_map::Entry;
-use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs::File;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Trusted Packet Sequence ID; a number necessary
-const tpsi: u32 = 8008;
+const TPSI: u32 = 8008;
 
 pub type UUID = u64;
 
@@ -89,20 +87,18 @@ pub struct Timeline {
     cell_to_info: FxHashMap<CellId, (UUID, String)>,
     control_to_info: FxHashMap<ControlId, (UUID, String)>,
     group_to_info: FxHashMap<GroupId, (UUID, String)>,
-    // registers_uuids: FxHashMap<UUID, Vec<RegisterId>>,
     register_to_uuid: FxHashMap<RegisterId, UUID>,
     current_active: CurrentlyActive,
 }
 
 impl Timeline {
-    pub fn new(d: &Design) -> Result<Self> {
+    pub fn new() -> Result<Self> {
         let s = Self {
             packets: Vec::new(),
             used_uuids: FxHashSet::default(),
             cell_to_info: FxHashMap::default(),
             control_to_info: FxHashMap::default(),
             group_to_info: FxHashMap::default(),
-            // registers_uuids: FxHashMap::default(),
             register_to_uuid: FxHashMap::default(),
             current_active: CurrentlyActive::new(),
         };
@@ -254,9 +250,6 @@ impl Timeline {
         }
 
         for &group in diff.groups.iter() {
-            if !self.group_to_info.contains_key(&group) {
-                println!("Group without info: {group:?}");
-            }
             let (group_uuid, group_name) =
                 self.group_to_info.get(&group).unwrap();
             self.register_event(
@@ -298,7 +291,7 @@ fn create_packet_helper(timestamp: u64, data: Data) -> TracePacket {
         timestamp: Some(timestamp),
         data: Some(data),
         optional_trusted_packet_sequence_id: Some(
-            OptionalTrustedPacketSequenceId::TrustedPacketSequenceId(tpsi),
+            OptionalTrustedPacketSequenceId::TrustedPacketSequenceId(TPSI),
         ),
         ..Default::default()
     }
