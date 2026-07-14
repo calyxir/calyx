@@ -1,7 +1,11 @@
 module toplevel;
 
 // Signals for the main module.
-logic go, done, clk, reset;
+logic go = 1'd0;
+logic clk = 1'd0; 
+logic done ;
+logic reset = 1'd1;
+// , done, clk, reset;
 main #() main (
   .go(go),
   .clk(clk),
@@ -13,7 +17,7 @@ localparam RESET_CYCLES = 3;
 
 // Cycle counter. Make this signed to catch errors with cycle simulation
 // counts.
-logic signed [63:0] cycle_count;
+logic signed [63:0] cycle_count = 0;
 
 always_ff @(posedge clk) begin
   cycle_count <= cycle_count + 1;
@@ -55,10 +59,10 @@ initial begin
   end
 
   // Initial values
-  go = 0;
-  clk = 0;
-  reset = 1;
-  cycle_count = 0;
+  // go = 0;
+  // clk = 0;
+  // reset = 1;
+  // cycle_count = 0;
 
   forever begin
     #10 clk = ~clk;
