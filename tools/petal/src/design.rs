@@ -115,7 +115,8 @@ impl Control {
 /// Represents a Control Register within a component.
 struct CRegister {
     name: String,
-    signal: SignalRef,
+    write_en_signal_ref: SignalRef,
+    in_signal_ref: SignalRef,
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
@@ -171,7 +172,7 @@ pub struct Design {
     main: CellId,
     clk: SignalRef,
     signals: Vec<SignalRef>,
-    register_signals: FxHashMap<SignalRef, RegisterId>,
+    register_write_ens_to_in: FxHashMap<SignalRef, (SignalRef, RegisterId)>,
 }
 
 impl Design {
@@ -194,11 +195,11 @@ impl Design {
             main: CellId(u32::MAX),
             clk,
             signals: vec![],
-            register_signals: FxHashMap::default(),
+            register_write_ens_to_in: FxHashMap::default(),
         };
         out.populate(h, c, s)?;
         out.build_idx();
-        out.build_register_idx();
+        out.build_register_signal_map();
         Ok(out)
     }
 
@@ -206,8 +207,10 @@ impl Design {
         self.signals.clone()
     }
 
-    pub fn get_register_signals(&self) -> FxHashMap<SignalRef, RegisterId> {
-        self.register_signals.clone()
+    pub fn get_register_signals_map(
+        &self,
+    ) -> FxHashMap<SignalRef, (SignalRef, RegisterId)> {
+        self.register_write_ens_to_in.clone()
     }
 
     pub fn clk(&self) -> SignalRef {
@@ -561,9 +564,12 @@ impl Design {
     }
 
     /// Same thing as build_idx, but with control registers (can't store them in a BitVector)
-    fn build_register_idx(&mut self) {
+    fn build_register_signal_map(&mut self) {
         for (id, register) in self.control_registers.iter_mut() {
-            self.register_signals.insert(register.signal, id);
+            self.register_write_ens_to_in.insert(
+                register.write_en_signal_ref,
+                (register.in_signal_ref, id),
+            );
         }
     }
 
@@ -787,11 +793,14 @@ impl Design {
             .scopes(h)
             .filter(|p| registers.contains(&h[*p].name(h).to_string()))
         {
-            let out = get_var(h, &h[register_scope], "out")?;
-            let signal_ref = h[out].signal_ref();
+            let write_en_var = get_var(h, &h[register_scope], "write_en")?;
+            let in_var = get_var(h, &h[register_scope], "in")?;
+            let write_en_signal_ref = h[write_en_var].signal_ref();
+            let in_signal_ref = h[in_var].signal_ref();
             let register_id = self.control_registers.push(CRegister {
                 name: h[register_scope].name(h).to_string(),
-                signal: signal_ref,
+                write_en_signal_ref,
+                in_signal_ref,
             });
             cell.control_registers.push(register_id);
         }

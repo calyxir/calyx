@@ -16,7 +16,7 @@ use anyhow::{Context, Ok, Result, anyhow};
 use baa::{BitVecMutOps, BitVecValue};
 use clap::Parser;
 use indexmap::IndexMap;
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 use std::fs;
 use wellen::*;
 
@@ -128,11 +128,15 @@ fn main() -> Result<()> {
 
     // all probe signals we would need to track
     let signals = design.get_signals();
-    let register_signals_map: FxHashMap<SignalRef, RegisterId> =
-        design.get_register_signals();
+    let register_signals_map: FxHashMap<SignalRef, (SignalRef, RegisterId)> =
+        design.get_register_signals_map();
     let mut signals_to_track = signals.clone();
-    signals_to_track
-        .append(&mut register_signals_map.keys().cloned().collect());
+    for (write_en_signal, (in_signal, _)) in register_signals_map.iter() {
+        signals_to_track.push(*write_en_signal);
+        signals_to_track.push(*in_signal);
+    }
+    // signals_to_track
+    //     .append(&mut register_signals_map.keys().cloned().collect());
     let filter = wellen::stream::Filter::include_signals(&signals_to_track);
 
     let mut clock_previous = true;
@@ -167,32 +171,57 @@ fn main() -> Result<()> {
             let main_done: bool =
                 values.get(&main_done_ref).unwrap().try_into().unwrap();
             if main_go && !main_done {
-                for signal in changed {
-                    if let Some(register_id) = register_signals_map.get(signal)
+                let mut processed = FxHashSet::default();
+                // first process the register write_ens and ins
+                for changed_write_en in changed
+                    .iter()
+                    .filter(|&s| register_signals_map.contains_key(&s))
+                {
+                    let (in_signal, register_id) =
+                        register_signals_map.get(changed_write_en).unwrap();
+                    let register_new_value: u64 =
+                        values.get(in_signal).unwrap().try_into().unwrap();
+                    if values
+                        .get(&changed_write_en)
+                        .unwrap()
+                        .try_into()
+                        .unwrap()
                     {
-                        let register_value: u64 =
-                            values.get(signal).unwrap().try_into().unwrap();
+                        // only add the register update when the write_en is up
                         control_register_diffs
-                            .insert(*register_id, register_value);
+                            .insert(*register_id, register_new_value);
+                    }
+                    processed.insert(changed_write_en);
+                    processed.insert(in_signal);
+                }
+                for signal in
+                    changed.iter().filter(|&s| !processed.contains(&s))
+                {
+                    // normal probe values
+                    let probe_value: bool = values
+                        .get(signal)
+                        .unwrap()
+                        .try_into()
+                        .expect("Signal needs to be a bitvector!");
+                    let idx = signal_bits[signal];
+                    if probe_value {
+                        value.set_bit(idx);
                     } else {
-                        let probe_value: bool = values
-                            .get(signal)
-                            .unwrap()
-                            .try_into()
-                            .expect("Signal needs to be a bitvector!");
-                        let idx = signal_bits[signal];
-                        if probe_value {
-                            value.set_bit(idx);
-                        } else {
-                            value.clear_bit(idx);
-                        }
+                        value.clear_bit(idx);
                     }
                 }
                 if !control_register_diffs.is_empty() {
+                    println!(
+                        "Adding diffs to acc {acc} : {control_register_diffs:?}"
+                    );
                     register_value_diffs.insert(acc, control_register_diffs);
                 }
-                acc += 1; // tracking clock ticks for control register diffs
                 probe_values.push(value.clone());
+                println!(
+                    "{value:?} added : {:?}",
+                    probe_values[probe_values.len() - 1]
+                );
+                acc += 1; // tracking clock ticks for control register diffs
             }
         }
         clock_previous = c;
