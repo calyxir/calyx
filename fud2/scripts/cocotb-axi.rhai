@@ -18,7 +18,17 @@ fn cocotb_setup(e) {
         `sed '/\/\/ COMPONENT END: wrapper/c\` + "ifdef COCOTB_SIM\n  initial begin\n" + `    \$$dumpfile ("$fst_file_name");` + "\n    " + `\$$dumpvars (0, wrapper);` + "\n    1;\n  end\n`endif\n" + `\/\/ COMPONENT END: wrapper' $in > $out`);
     }
 
-    e.var_("cocotb-args", if waves == "true" {"WAVES=1"} else {""});
+    let hex = e.config_constrained_or("hex", ["true", "false"], "false");
+
+    let args = "";
+    if waves == "true"{
+        args += "WAVES=1";
+    }
+    if hex == "true"{
+        args += " HEX_MODE=1";
+    }
+    
+    e.var_("cocotb-args", args);
     e.rule("make-cocotb", "make DATA_PATH=$sim_data VERILOG_SOURCE=$in COCOTB_LOG_LEVEL=CRITICAL $cocotb-args > $out");
 
     // Cocotb is wants files relative to the location of the makefile.
