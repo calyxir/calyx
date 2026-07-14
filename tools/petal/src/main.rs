@@ -190,7 +190,7 @@ fn main() -> Result<()> {
         let mut control_register_diffs = FxHashMap::default();
         if c && !clock_previous && !changed.is_empty() {
             for signal in changed {
-                if let Some(register_id) = register_signals_map.get(&signal) {
+                if let Some(register_id) = register_signals_map.get(signal) {
                     let register_value: u64 =
                         values.get(signal).unwrap().try_into().unwrap();
                     control_register_diffs.insert(*register_id, register_value);
