@@ -214,23 +214,21 @@ impl Design {
         self.clk
     }
 
+    pub fn main_probes(&self) -> (SignalRef, SignalRef) {
+        self.cells[self.main].probes.unwrap()
+    }
+
     pub fn add_control_registers_to_timeline(
         &self,
         timeline: &mut Timeline,
         register_value_diffs: FxHashMap<u64, FxHashMap<RegisterId, u64>>,
-        starting_cycle: u64,
-        num_cycles: u64,
     ) -> Result<()> {
         let mut ordered_cycles: Vec<u64> =
             register_value_diffs.keys().copied().collect();
         ordered_cycles.sort();
+        println!("ordered_cycles: {:?}", ordered_cycles);
         for cycle in ordered_cycles {
             let diff_map = &register_value_diffs[&cycle];
-            let real_cycle = cycle - starting_cycle;
-            if real_cycle >= (num_cycles - 1) {
-                // accounting for zero indexing
-                continue;
-            }
             let mut uuid_to_out_string: FxHashMap<Uuid, String> =
                 FxHashMap::default();
 
@@ -253,13 +251,13 @@ impl Design {
                 timeline.register_event(
                     out_str.clone(),
                     uuid,
-                    real_cycle,
+                    cycle,
                     Type::SliceBegin,
                 );
                 timeline.register_event(
                     out_str,
                     uuid,
-                    real_cycle + 1,
+                    cycle + 1,
                     Type::SliceEnd,
                 );
             }

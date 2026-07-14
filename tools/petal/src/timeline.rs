@@ -35,6 +35,12 @@ impl CurrentlyActive {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.groups.is_empty()
+            && self.cells.is_empty()
+            && self.control.is_empty()
+    }
+
     pub fn add_active_group(&mut self, group: GroupId) {
         self.groups.insert(group);
     }
