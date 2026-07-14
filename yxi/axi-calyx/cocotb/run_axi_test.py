@@ -20,4 +20,7 @@ async def run(toplevel):
         f"DATA_PATH must be set and must be a valid file. Got: {data_path}"
     )
 
-    await run_kernel_test(toplevel, data_path)
+    hex_mode = os.environ.get("HEX_MODE")
+    hex_on = True if hex_mode else False
+
+    await run_kernel_test(toplevel, data_path, hex_on)
