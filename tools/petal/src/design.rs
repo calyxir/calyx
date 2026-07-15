@@ -1116,8 +1116,8 @@ impl Design {
             // structurally enabled groups will be under the special "Non-id-ed groups" thread.
             &NON_ID_THREAD
         };
-        assert!(thread_tracks.contains_key(&thread_id));
-        let uuid = thread_tracks[&thread_id];
+        assert!(thread_tracks.contains_key(thread_id));
+        let uuid = thread_tracks[thread_id];
         t.register_group(*g, uuid, group.display_name())?;
 
         // call `build_cell_timeline_tracks()` on any non-primitive cell we find.
