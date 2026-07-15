@@ -1,0 +1,64 @@
+rm -f results.xml
+make -f Makefile results.xml
+make[1]: Entering directory '/home/hhe07/programming/capra/calyx/yxi/tests'
+/usr/bin/iverilog -o sim_build//sim.vvp -D COCOTB_SIM=1 -s Toplevel -f sim_build//cmds.f -g2012   verilog-noverify_1.sv
+rm -f results.xml
+MODULE=run_axi_test TESTCASE= TOPLEVEL=Toplevel TOPLEVEL_LANG=verilog \
+         /usr/bin/vvp -M /home/hhe07/.local/share/fud2/venv/lib/python3.14/site-packages/cocotb/libs -m libcocotbvpi_icarus   sim_build//sim.vvp 
+     -.--ns INFO     gpi                                ..mbed/gpi_embed.cpp:105  in set_program_name_in_venv        Using Python virtual environment interpreter at /home/hhe07/.local/share/fud2/venv/bin/python
+     -.--ns INFO     gpi                                ../gpi/GpiCommon.cpp:101  in gpi_print_registered_impl       VPI registered
+Output:
+{
+  "A0": {
+    "data": [
+      1,
+      3,
+      7,
+      15,
+      31,
+      63,
+      127,
+      255
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "B0": {
+    "data": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "Sum0": {
+    "data": [
+      2,
+      4,
+      8,
+      16,
+      32,
+      64,
+      128,
+      256
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  }
+}
+make[1]: Leaving directory '/home/hhe07/programming/capra/calyx/yxi/tests'

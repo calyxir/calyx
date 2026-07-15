@@ -92,3 +92,6 @@ primitives/float/HardFloat-1
 primitives/float/HardFloat-1.zip
 
 .envrc
+
+# yxi testing residue
+yxi/tests/compiled/
