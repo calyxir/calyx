@@ -2582,6 +2582,7 @@ dependencies = [
  "baa",
  "clap 4.6.1",
  "cranelift-entity 0.128.4",
+ "csv",
  "indexmap 2.14.0",
  "log",
  "prost",

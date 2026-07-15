@@ -1,9 +1,12 @@
 use crate::design::{CellId, GroupId};
 use crate::timeline::CurrentlyActive;
+use anyhow::{Context, Ok, Result, anyhow};
 use cranelift_entity::SecondaryMap;
 use rustc_hash::FxHashMap;
 use serde::Serialize;
 use std::collections::HashMap;
+use std::fs::File;
+use std::path::PathBuf;
 
 /// Output Group stats CSV table
 #[derive(Debug, Clone, Serialize)]
@@ -48,7 +51,7 @@ impl GroupStats {
     pub fn group_end(&mut self, cycle: u64) {
         assert!(self.curr_start.is_some());
         let start = self.curr_start.unwrap();
-        let length = cycle - start - 1;
+        let length = cycle - start;
         if length > self.max {
             self.max = length;
         }
@@ -108,7 +111,7 @@ impl Statistics {
         Self { group_to_stats }
     }
 
-    pub fn resolve(
+    pub fn update(
         &mut self,
         started: &CurrentlyActive,
         ended: &CurrentlyActive,
@@ -121,16 +124,21 @@ impl Statistics {
         }
 
         // process all groups that ended
+        for ended_group in ended.get_active_groups() {
+            assert!(self.group_to_stats.get(*ended_group).is_some());
+            self.group_to_stats[*ended_group].group_end(cycle);
+        }
     }
 
-    pub fn group_begin(&mut self, group: &GroupId, cycle: u64) {
-        let stat = &mut self.group_to_stats[*group];
-        stat.group_start(cycle);
-    }
+    pub fn output(&self, out_dir: &str) -> Result<()> {
+        let mut path = PathBuf::from(out_dir);
+        path.push("group-stats.csv");
+        let mut file = File::create(path)?;
 
-    pub fn group_end(&mut self, group: &GroupId, cycle: u64) {
-        assert!(self.group_to_stats.get(*group).is_some());
-        let stat = &mut self.group_to_stats[*group];
-        stat.group_end(cycle);
+        let mut writer = csv::Writer::from_writer(file);
+        for (_id, stats) in self.group_to_stats.iter() {
+            writer.serialize(stats.convert_to_csv_struct())?;
+        }
+        Ok(())
     }
 }

@@ -55,6 +55,7 @@ pub type Stacks = IndexMap<BitVecValue, (u64, Vec<Stack>, CurrentlyActive)>;
 fn collect_stacks(
     design: &Design,
     timeline: &mut Timeline,
+    stats: &mut Statistics,
     probe_values: &[BitVecValue],
 ) -> Result<Stacks> {
     // Compute the trace (stacks for each active cycle) from probe_values
@@ -73,20 +74,20 @@ fn collect_stacks(
             &mut active_this_cycle.clone()
         };
         // get cell/control/group activity information
-        let (ended, started) = currently_active.resolve(active_this_cycle)?;
+        let (started, ended) = currently_active.resolve(active_this_cycle)?;
         currently_active = active_this_cycle.clone();
-        timeline.update_timeline(&started, &ended, cycle_count as u64)?;
+        timeline.update(&started, &ended, cycle_count as u64)?;
+        stats.update(&started, &ended, cycle_count as u64);
     }
-    // close out the timeline view
-    timeline.update_timeline(
-        &CurrentlyActive::new(),
-        &currently_active,
-        probe_values.len() as u64,
-    )?;
+    // close out timeline view/statistics by "ending" the contents of `currently_active`.
+    let empty = CurrentlyActive::new();
+    timeline.update(&empty, &currently_active, probe_values.len() as u64)?;
+    stats.update(&empty, &currently_active, probe_values.len() as u64);
+
     Ok(out)
 }
 
-fn build_statistics(d: Design) -> Result<Statistics> {
+fn build_statistics(d: &Design) -> Result<Statistics> {
     Ok(Statistics::new(d.get_group_component_names()))
 }
 
@@ -138,6 +139,7 @@ fn main() -> Result<()> {
     let par_tracks = timeline::read_par_tracks(args.par_tracks_filename)?;
     let mut timeline = Timeline::new()?;
     design.build_timeline_tracks(&mut timeline, &par_tracks)?;
+    let mut statistics = build_statistics(&design)?;
 
     // all probe signals we would need to track
     let signals = design.get_signals();
@@ -235,7 +237,8 @@ fn main() -> Result<()> {
     })?;
     println!("Number of cycles: {}", probe_values.len());
 
-    let stacks = collect_stacks(&design, &mut timeline, &probe_values)?;
+    let stacks =
+        collect_stacks(&design, &mut timeline, &mut statistics, &probe_values)?;
     print_stacks(&probe_values, &stacks, args.num_print_cycles);
     let flame_info = compute_flame(&stacks)?;
     write_flame(&flame_info, args.scaled_flame_out, args.flat_flame_out)?;
@@ -245,6 +248,7 @@ fn main() -> Result<()> {
     )?;
 
     timeline.output_timeline(&args.out_dir)?;
+    statistics.output(&args.out_dir)?;
 
     Ok(())
 }
