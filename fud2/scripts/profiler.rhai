@@ -19,7 +19,8 @@ fn profiling_setup(e) {
     e.var_("adl-metadata-json", "adl-metadata.json");
 
     // series of passes after validation and instrumentation
-    e.config_var_or("passes", "profiler.compilation-passes", "-p pre-opt -p compile -p post-opt -p lower"); // set passes="-p compile-sync -p simplify-with-control -p compile-invoke -p compile -p lower" to run without optimizations
+    e.config_var_or("passes", "profiler.compilation-passes",
+        "-p pre-opt -p compile -p post-opt -p lower"); // set passes="-p compile-sync -p simplify-with-control -p compile-invoke -p compile -p lower" to run without optimizations
 
     // py python file arguments
     e.config_var_or("py-args", "profiler.py-args", "");
@@ -50,13 +51,17 @@ fn profiling_setup(e) {
 
 fn profiler_non_synth_setup(e) {
     // script to process vcd and produce folded representation of flame graph
-    e.rule("parse-vcd", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json $path-descriptors-json profiler-out $out --print-trace-threshold 100 --ctrl-pos-file $ctrl-pos-json");
-    e.rule("parse-vcd-from-adl", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json $path-descriptors-json profiler-out $out --ctrl-pos-file $ctrl-pos-json --adl-mapping-file $adl-metadata-json --print-trace-threshold 100");
-    e.rule("parse-vcd-from-dahlia", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json $path-descriptors-json profiler-out $out --ctrl-pos-file $ctrl-pos-json --dahlia-parent-map $parent-map --adl-mapping-file $adl-metadata-json --print-trace-threshold 100");
+    e.rule("parse-vcd",
+        "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json $path-descriptors-json profiler-out $out --print-trace-threshold 100 --ctrl-pos-file $ctrl-pos-json");
+    e.rule("parse-vcd-from-adl",
+        "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json $path-descriptors-json profiler-out $out --ctrl-pos-file $ctrl-pos-json --adl-mapping-file $adl-metadata-json --print-trace-threshold 100");
+    e.rule("parse-vcd-from-dahlia",
+        "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json $path-descriptors-json profiler-out $out --ctrl-pos-file $ctrl-pos-json --dahlia-parent-map $parent-map --adl-mapping-file $adl-metadata-json --print-trace-threshold 100");
 
     // rust re-implementation
     e.config_var_or("rusted_petal", "rusted_petal", "$calyx-base/target/debug/petal");
-    e.rule("rusted-petal-parse-vcd", "$rusted_petal $in $fsm-json $path-descriptors-json $ctrl-pos-json $cell-share-json --scaled-flame-out profiler-out/scaled-flame.folded --flat-flame-out $out");
+    e.rule("rusted-petal-parse-vcd",
+        "$rusted_petal $in $fsm-json $path-descriptors-json $ctrl-pos-json $cell-share-json $enable-par-track-json profiler-out --scaled-flame-out profiler-out/scaled-flame.folded --flat-flame-out $out");
 }
 
 fn profiler_synth_setup(e) {
@@ -65,7 +70,8 @@ fn profiler_synth_setup(e) {
     // synthesis variable to plot, one of: ff (FlipFlops), lut (Look-Up Tables), llut (Logical Look-Up Tables), lutram (Look-Up Table RAMs)
     e.config_var("variable", "synth-verilog.var");
     // script to process vcd and produce folded representation of flame graph as well as html plots
-    e.rule("parse-vcd", "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json $path-descriptors-json profiler-out $out --print-trace-threshold 100 --utilization-report-json $hierarchy --utilization-variable $variable");
+    e.rule("parse-vcd",
+        "profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json $path-descriptors-json profiler-out $out --print-trace-threshold 100 --utilization-report-json $hierarchy --utilization-variable $variable");
 }
 
 // TODO: merge with calyx_to_flamegraph
@@ -86,17 +92,18 @@ fn py_to_profiled(e, input, output) {
     e.build_cmd(["$cell-json"], "component-cells", [calyx], []);
     e.build_cmd([instrumented_verilog], "calyx", [calyx], []);
     e.arg("backend", "verilog");
-    e.arg("args", "-p metadata-table-generation -p validate -p uniquefy-enables -p dead-group-removal -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json -x uniquefy-enables:path-descriptor-json=path-descriptors.json");
+    e.arg("args",
+        "-p metadata-table-generation -p validate -p uniquefy-enables -p dead-group-removal -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json -x uniquefy-enables:path-descriptor-json=path-descriptors.json");
 
     let instrumented_sim = "instrumented.exe";
     // verilog --> sim; adapted from verilator::verilator_build()
     let verilator_out_dir = "verilator-out";
     let sim_bin = `${verilator_out_dir}/Vtoplevel`;
     e.build_cmd(
-      [sim_bin],
-      "verilator-compile-standalone-tb",
-      [instrumented_verilog],
-      ["tb.sv"],
+        [sim_bin],
+        "verilator-compile-standalone-tb",
+        [instrumented_verilog],
+        ["tb.sv"],
     );
     e.arg("out-dir", verilator_out_dir);
     e.build("cp", sim_bin, instrumented_sim);
@@ -119,7 +126,7 @@ fn py_to_profiled(e, input, output) {
     e.build_cmd([output], "create-visuals", [flamegraph_folded], []);
 }
 
-fn dahlia_to_profiled(e, input, output) { 
+fn dahlia_to_profiled(e, input, output) {
     // compile Dahlia with extra args to give us the hierarchy
     let calyx = "calyx.futil";
     e.build_cmd([calyx], "dahlia-to-calyx", [input], []);
@@ -137,17 +144,18 @@ fn dahlia_to_profiled(e, input, output) {
     e.build_cmd(["$cell-json"], "component-cells", [calyx], []);
     e.build_cmd([instrumented_verilog], "calyx", [calyx], []);
     e.arg("backend", "verilog");
-    e.arg("args", "-p metadata-table-generation -p validate -p uniquefy-enables -p dead-group-removal -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json -x uniquefy-enables:path-descriptor-json=path-descriptors.json");
+    e.arg("args",
+        "-p metadata-table-generation -p validate -p uniquefy-enables -p dead-group-removal -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json -x uniquefy-enables:path-descriptor-json=path-descriptors.json");
 
     let instrumented_sim = "instrumented.exe";
     // verilog --> sim; adapted from verilator::verilator_build()
     let verilator_out_dir = "verilator-out";
     let sim_bin = `${verilator_out_dir}/Vtoplevel`;
     e.build_cmd(
-      [sim_bin],
-      "verilator-compile-standalone-tb",
-      [instrumented_verilog],
-      ["tb.sv"],
+        [sim_bin],
+        "verilator-compile-standalone-tb",
+        [instrumented_verilog],
+        ["tb.sv"],
     );
     e.arg("out-dir", verilator_out_dir);
     e.build("cp", sim_bin, instrumented_sim);
@@ -166,7 +174,7 @@ fn dahlia_to_profiled(e, input, output) {
     // vcd --> flamegraph
     let elems_profiled_json = "elems-profiled.json";
     let flamegraph_folded = "flamegraph.folded";
-        e.build_cmd([flamegraph_folded], "parse-vcd-from-dahlia", [instrumented_vcd], ["$cell-json", "$adl-metadata-json"]);
+    e.build_cmd([flamegraph_folded], "parse-vcd-from-dahlia", [instrumented_vcd], ["$cell-json", "$adl-metadata-json"]);
     e.build_cmd([output], "create-visuals", [flamegraph_folded], []);
 }
 
@@ -176,7 +184,7 @@ fn calyx_to_flamegraph(e, input, output, python_impl) {
     let metadata_calyx = "metadata-calyx.futil";
     e.build_cmd([metadata_calyx], "calyx-pass", [input], []);
     e.arg("pass", "metadata-table-generation");
-    
+
     // generate ctrl-pos-json by running the metadata emitter on it
     e.build_cmd(["$ctrl-pos-json"], "parse-metadata", [metadata_calyx], []);
 
@@ -185,17 +193,18 @@ fn calyx_to_flamegraph(e, input, output, python_impl) {
     e.build_cmd(["$cell-json"], "component-cells", [input], []);
     e.build_cmd([instrumented_verilog], "calyx", [input], []);
     e.arg("backend", "verilog");
-    e.arg("args", "-p metadata-table-generation -p validate -p uniquefy-enables -p dead-group-removal -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json -x uniquefy-enables:path-descriptor-json=path-descriptors.json");
+    e.arg("args",
+        "-p metadata-table-generation -p validate -p uniquefy-enables -p dead-group-removal -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x uniquefy-enables:par-thread-json=enable-par-track.json -x uniquefy-enables:path-descriptor-json=path-descriptors.json");
 
     let instrumented_sim = "instrumented.exe";
     // verilog --> sim; adapted from verilator::verilator_build()
     let verilator_out_dir = "verilator-out";
     let sim_bin = `${verilator_out_dir}/Vtoplevel`;
     e.build_cmd(
-      [sim_bin],
-      "verilator-compile-standalone-tb",
-      [instrumented_verilog],
-      ["tb.sv"],
+        [sim_bin],
+        "verilator-compile-standalone-tb",
+        [instrumented_verilog],
+        ["tb.sv"],
     );
     e.arg("out-dir", verilator_out_dir);
     e.build("cp", sim_bin, instrumented_sim);
@@ -217,7 +226,8 @@ fn calyx_to_flamegraph(e, input, output, python_impl) {
     if python_impl {
         e.build_cmd([flamegraph_folded], "parse-vcd", [instrumented_vcd], ["$cell-json", "$ctrl-pos-json"]);
     } else {
-        e.build_cmd([flamegraph_folded], "rusted-petal-parse-vcd", [instrumented_vcd], ["$cell-json", "$ctrl-pos-json"]);
+        e.build_cmd([flamegraph_folded], "rusted-petal-parse-vcd", [instrumented_vcd],
+            ["$cell-json", "$ctrl-pos-json"]);
     }
     e.build_cmd([output], "create-visuals", [flamegraph_folded], []);
 }
@@ -254,8 +264,8 @@ op("calyx-py-profiler",
 );
 
 op("dahlia-profiler",
-   [d::dahlia_setup, c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
-   d::dahlia,
+    [d::dahlia_setup, c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
+    d::dahlia,
     flamegraph,
     |e, input, output| dahlia_to_profiled(e, input, output)
 )
