@@ -1,11 +1,11 @@
 module toplevel;
 
 // Signals for the main module.
+// include initial values
 logic go = 1'd0;
 logic clk = 1'd0; 
 logic done ;
 logic reset = 1'd1;
-// , done, clk, reset;
 main #() main (
   .go(go),
   .clk(clk),
@@ -58,11 +58,6 @@ initial begin
     $display("VCD tracing disabled");
   end
 
-  // Initial values
-  // go = 0;
-  // clk = 0;
-  // reset = 1;
-  // cycle_count = 0;
 
   forever begin
     #10 clk = ~clk;
