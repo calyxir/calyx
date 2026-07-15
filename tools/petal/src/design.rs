@@ -221,6 +221,9 @@ impl Design {
         self.cells[self.main].probes.unwrap()
     }
 
+    /// Adds all control register updates to the timeline. (This is done separately from the
+    /// Petal trace construction; control registers updates are not part of the trace and are
+    /// only used in the timeline view for better understanding of where "control cycles" come from)
     pub fn add_control_registers_to_timeline(
         &self,
         timeline: &mut Timeline,
