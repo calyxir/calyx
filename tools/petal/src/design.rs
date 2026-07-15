@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use baa::{BitVecOps, BitVecValue};
 use core::panic;
 use cranelift_entity::{PrimaryMap, entity_impl};
@@ -175,15 +175,22 @@ pub struct Design {
     register_write_ens_to_in: FxHashMap<SignalRef, (SignalRef, RegisterId)>,
 }
 
+/// Returns the main scope if one exists.
+/// NOTE: Some versions of Verilator/OSs have a different sequence of toplevel scopes.
+/// (ex. TOP.toplevel.main vs toplevel.main)
+fn find_main_scope(h: &wellen::Hierarchy) -> Result<ScopeRef> {
+    h.all_scopes()
+        .find(|s| h[*s].name(h) == "main")
+        .ok_or(anyhow!("Failed to find main scope"))
+}
+
 impl Design {
     pub fn new(
         h: &wellen::Hierarchy,
         c: ControlInfo,
         s: SharedCellsInfo,
     ) -> Result<Self> {
-        let main = h
-            .lookup_scope(&[&"toplevel", &"main"])
-            .with_context(|| "Failed to find main scope")?;
+        let main = find_main_scope(h)?;
         let clk = get_var(h, &h[main], "clk")?;
         let clk = h[clk].signal_ref();
         let mut out = Self {
@@ -744,9 +751,7 @@ impl Design {
         c: ControlInfo,
         s: SharedCellsInfo,
     ) -> Result<()> {
-        let main_scope = h
-            .lookup_scope(&[&"toplevel", &"main"])
-            .with_context(|| "Failed to find main scope")?;
+        let main_scope = find_main_scope(h)?;
         let main_go = get_var(h, &h[main_scope], "go")?;
         let main_done = get_var(h, &h[main_scope], "done")?;
         let mut main_cell = Cell {
