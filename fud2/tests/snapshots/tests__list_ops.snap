@@ -148,6 +148,11 @@ source: fud2/tests/tests.rs
         "flamegraph",
     ),
     (
+        "profiler-test",
+        "calyx",
+        "flamegraph-folded-for-tests",
+    ),
+    (
         "relay",
         "relay",
         "calyx",
@@ -156,6 +161,11 @@ source: fud2/tests/tests.rs
         "rusted-petal",
         "calyx",
         "flamegraph",
+    ),
+    (
+        "rusted-petal-test",
+        "calyx",
+        "flamegraph-folded-for-tests",
     ),
     (
         "simulate",
