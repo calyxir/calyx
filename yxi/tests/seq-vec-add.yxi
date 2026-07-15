@@ -1,0 +1,44 @@
+{
+  "toplevel": "main",
+  "memories": [
+    {
+      "name": "A0",
+      "memory_type": "Sequential",
+      "data_width": 32,
+      "dimensions": 1,
+      "dimension_sizes": [
+        8
+      ],
+      "total_size": 8,
+      "idx_sizes": [
+        3
+      ]
+    },
+    {
+      "name": "B0",
+      "memory_type": "Sequential",
+      "data_width": 32,
+      "dimensions": 1,
+      "dimension_sizes": [
+        8
+      ],
+      "total_size": 8,
+      "idx_sizes": [
+        3
+      ]
+    },
+    {
+      "name": "Sum0",
+      "memory_type": "Sequential",
+      "data_width": 32,
+      "dimensions": 1,
+      "dimension_sizes": [
+        8
+      ],
+      "total_size": 8,
+      "idx_sizes": [
+        3
+      ]
+    }
+  ]
+}
