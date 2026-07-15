@@ -229,7 +229,6 @@ impl Design {
         let mut ordered_cycles: Vec<u64> =
             register_value_diffs.keys().copied().collect();
         ordered_cycles.sort();
-        println!("ordered_cycles: {:?}", ordered_cycles);
         for cycle in ordered_cycles {
             let diff_map = &register_value_diffs[&cycle];
             let mut uuid_to_out_string: FxHashMap<Uuid, String> =
@@ -239,7 +238,7 @@ impl Design {
                 let reg = &self.control_registers[*id];
                 let update_str = format!("{}: {}", reg.name, new_value);
                 // TODO: should really fix this.
-                let uuid = timeline.control_register_uuid(id);
+                let uuid = timeline.get_control_register_uuid(id);
                 if let Some(s) = uuid_to_out_string.get(uuid) {
                     uuid_to_out_string.insert(
                         *uuid,
@@ -1105,7 +1104,7 @@ impl Design {
         let thread_id = par_tracks[component][&group.name];
         assert!(thread_tracks.contains_key(&thread_id));
         let uuid = thread_tracks[&thread_id];
-        t.register_group(*g, uuid, &group.display_name())?;
+        t.register_group(*g, uuid, group.display_name())?;
 
         // call build_cell_tracks on any non-primitive cell we find.
         for &invoke_id in group.invokes.iter() {

@@ -135,8 +135,6 @@ fn main() -> Result<()> {
         signals_to_track.push(*write_en_signal);
         signals_to_track.push(*in_signal);
     }
-    // signals_to_track
-    //     .append(&mut register_signals_map.keys().cloned().collect());
     let filter = wellen::stream::Filter::include_signals(&signals_to_track);
 
     let mut clock_previous = true;
@@ -145,7 +143,7 @@ fn main() -> Result<()> {
     // If it is active, the index will contain 1.
     let mut probe_values: Vec<BitVecValue> = vec![];
 
-    // We want to track the
+    // We want to track the value changes in each register.
     let mut register_value_diffs: FxHashMap<u64, FxHashMap<RegisterId, u64>> =
         FxHashMap::default();
     let mut acc: u64 = 0;
@@ -211,16 +209,9 @@ fn main() -> Result<()> {
                     }
                 }
                 if !control_register_diffs.is_empty() {
-                    println!(
-                        "Adding diffs to acc {acc} : {control_register_diffs:?}"
-                    );
                     register_value_diffs.insert(acc, control_register_diffs);
                 }
                 probe_values.push(value.clone());
-                println!(
-                    "{value:?} added : {:?}",
-                    probe_values[probe_values.len() - 1]
-                );
                 acc += 1; // tracking clock ticks for control register diffs
             }
         }

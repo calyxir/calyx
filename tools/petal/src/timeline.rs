@@ -17,8 +17,11 @@ use std::path::PathBuf;
 /// Trusted Packet Sequence ID; a number necessary for constructing the timeline protobuf
 const TPSI: u32 = 8008;
 
+/// A unique identifier used for specifying tracks in the timeline.
 pub type Uuid = u64;
 
+/// Represents a set of active groups/cells/control. This is used for the timeline view where
+/// we need to know the timestamps of groups/cells/control activity.
 #[derive(Clone, Debug, Default)]
 pub struct CurrentlyActive {
     groups: FxHashSet<GroupId>,
@@ -70,13 +73,22 @@ impl CurrentlyActive {
     }
 }
 
+/// Information necessary to add events of a cell/grouo/control to the timeline view.
+#[derive(Clone, Debug, Default)]
+struct TrackEventInfo {
+    uuid: Uuid,
+    name: String,
+}
+
+/// Constructs and outputs protobuf messages for constructing a timeline view.
+/// In the timeline, each component cell has
 pub struct Timeline {
     packets: Vec<TracePacket>,
     /// Cell/Control Group/Group name to track UUID
     used_uuids: FxHashSet<u64>,
-    cell_to_info: FxHashMap<CellId, (Uuid, String)>,
-    control_to_info: FxHashMap<ControlId, (Uuid, String)>,
-    group_to_info: FxHashMap<GroupId, (Uuid, String)>,
+    cell_to_info: FxHashMap<CellId, TrackEventInfo>,
+    control_to_info: FxHashMap<ControlId, TrackEventInfo>,
+    group_to_info: FxHashMap<GroupId, TrackEventInfo>,
     register_to_uuid: FxHashMap<RegisterId, Uuid>,
     current_active: CurrentlyActive,
 }
@@ -94,32 +106,38 @@ impl Timeline {
         };
         Ok(s)
     }
+
+    pub fn get_control_register_uuid(&self, register: &RegisterId) -> &Uuid {
+        self.register_to_uuid.get(register).unwrap()
+    }
+
+    /// Adds information about a group. This function does not construct a new descriptor because
+    /// groups are assigned to a "Thread n" track.
     pub fn register_group(
         &mut self,
         group_id: GroupId,
         uuid: Uuid,
-        name: &str,
+        name: String,
     ) -> Result<()> {
         self.group_to_info
-            .insert(group_id, (uuid, name.to_string()));
+            .insert(group_id, TrackEventInfo { uuid, name });
         Ok(())
     }
 
+    /// Creates a track for a new cell and adds information about the cell.
     pub fn register_cell(
         &mut self,
         cell_id: CellId,
         name: String,
     ) -> Result<Uuid> {
-        let cell_uuid = self.register_descriptor(name.clone(), None)?;
+        let uuid = self.register_descriptor(name.clone(), None)?;
         self.cell_to_info
-            .insert(cell_id, (cell_uuid, name.to_string()));
-        Ok(cell_uuid)
+            .insert(cell_id, TrackEventInfo { uuid, name });
+        Ok(uuid)
     }
 
-    pub fn control_register_uuid(&self, register: &RegisterId) -> &Uuid {
-        self.register_to_uuid.get(register).unwrap()
-    }
-
+    /// Creates the "Control Register Updates" track under a cell (whose UUID is passed in)
+    /// and maps each control register in the Cell to the UUID of the created track.
     pub fn register_control_registers(
         &mut self,
         cell_uuid: Uuid,
@@ -133,16 +151,11 @@ impl Timeline {
         for r in register_ids {
             self.register_to_uuid.insert(*r, registers_uuid);
         }
-        // for r in register_ids {
-        //     let v = self
-        //         .registers_uuids
-        //         .entry(registers_uuid)
-        //         .or_insert_with(Vec::new);
-        //     v.push(*r);
-        // }
         Ok(())
     }
 
+    /// Creates a track for a single control group, under the "Control groups" track (control_groups_uuid)
+    /// and adds information about the control group.
     pub fn register_control(
         &mut self,
         track_name: String,
@@ -150,15 +163,16 @@ impl Timeline {
         control_id: ControlId,
         control_groups_uuid: Uuid,
     ) -> Result<Uuid> {
-        let control_uuid = self.register_descriptor(
+        let uuid = self.register_descriptor(
             track_name.clone(),
             Some(control_groups_uuid),
         )?;
         self.control_to_info
-            .insert(control_id, (control_uuid, name.to_string()));
-        Ok(control_uuid)
+            .insert(control_id, TrackEventInfo { uuid, name });
+        Ok(uuid)
     }
 
+    /// Creates a new track in the timeline.
     pub fn register_descriptor(
         &mut self,
         name: String,
@@ -178,6 +192,7 @@ impl Timeline {
         Ok(uuid)
     }
 
+    /// Creates a new event in the timeline.
     pub fn register_event(
         &mut self,
         name: String,
@@ -185,7 +200,6 @@ impl Timeline {
         timestamp: u64,
         event_type: Type,
     ) {
-        // let track_uuid = self.name_to_uuid[track_name];
         let event = TrackEvent {
             name_field: Some(NameField::Name(name)),
             r#type: Some(event_type as i32),
@@ -212,45 +226,8 @@ impl Timeline {
         Ok(())
     }
 
-    fn update(
-        &mut self,
-        diff: &CurrentlyActive,
-        cycle_count: u64,
-        event_type: Type,
-    ) {
-        for &cell in diff.cells.iter() {
-            let (cell_uuid, cell_name) = self.cell_to_info.get(&cell).unwrap();
-            self.register_event(
-                cell_name.clone(),
-                *cell_uuid,
-                cycle_count,
-                event_type,
-            );
-        }
-
-        for &control in diff.control.iter() {
-            let (control_uuid, control_name) =
-                self.control_to_info.get(&control).unwrap();
-            self.register_event(
-                control_name.clone(),
-                *control_uuid,
-                cycle_count,
-                event_type,
-            );
-        }
-
-        for &group in diff.groups.iter() {
-            let (group_uuid, group_name) =
-                self.group_to_info.get(&group).unwrap();
-            self.register_event(
-                group_name.clone(),
-                *group_uuid,
-                cycle_count,
-                event_type,
-            );
-        }
-    }
-
+    /// Takes the diff between the current cells/control/groups that are active and those that
+    /// are active in this new cycle, then adds events for those that started or ended.
     pub fn update_timeline(
         &mut self,
         active_this_cycle: &CurrentlyActive,
@@ -268,6 +245,36 @@ impl Timeline {
     }
 }
 
+impl Timeline {
+    /// Helper function of update_timeline.
+    /// Updates the timeline based on the diff of active cells/groups/control between
+    /// the previous cycle and this cycle.
+    fn update(
+        &mut self,
+        diff: &CurrentlyActive,
+        cycle_count: u64,
+        event_type: Type,
+    ) {
+        for &cell in diff.cells.iter() {
+            let TrackEventInfo { uuid, name } =
+                self.cell_to_info.get(&cell).unwrap();
+            self.register_event(name.clone(), *uuid, cycle_count, event_type);
+        }
+
+        for &control in diff.control.iter() {
+            let TrackEventInfo { uuid, name } =
+                self.control_to_info.get(&control).unwrap();
+            self.register_event(name.clone(), *uuid, cycle_count, event_type);
+        }
+
+        for &group in diff.groups.iter() {
+            let TrackEventInfo { uuid, name } =
+                self.group_to_info.get(&group).unwrap();
+            self.register_event(name.clone(), *uuid, cycle_count, event_type);
+        }
+    }
+}
+
 fn generate_uuid(used_uuids: &FxHashSet<u64>) -> u64 {
     let mut r = rand::random::<u64>();
     while used_uuids.contains(&r) {
@@ -276,6 +283,8 @@ fn generate_uuid(used_uuids: &FxHashSet<u64>) -> u64 {
     r
 }
 
+/// Helper function for `register_descriptor()` and `register_event()`.
+/// Descriptor specifications and events need to be wrapped in a TracePacket.
 fn create_packet_helper(timestamp: u64, data: Data) -> TracePacket {
     TracePacket {
         timestamp: Some(timestamp),
@@ -287,6 +296,7 @@ fn create_packet_helper(timestamp: u64, data: Data) -> TracePacket {
     }
 }
 
+/// Parse file for determining which thread each group enable belongs to.
 pub fn read_par_tracks(
     fname: String,
 ) -> Result<FxHashMap<String, FxHashMap<String, u32>>> {
