@@ -8,8 +8,10 @@ mod visuals;
 #[allow(clippy::all)]
 #[rustfmt::skip]
 mod perfetto_protos;
+mod statistics;
 
 use crate::design::{Design, RegisterId, Stack};
+use crate::statistics::Statistics;
 use crate::timeline::{CurrentlyActive, Timeline};
 use crate::visuals::{compute_flame, write_flame};
 use anyhow::{Context, Ok, Result, anyhow};
@@ -57,6 +59,7 @@ fn collect_stacks(
 ) -> Result<Stacks> {
     // Compute the trace (stacks for each active cycle) from probe_values
     let mut out: Stacks = IndexMap::default();
+    let mut currently_active = CurrentlyActive::default();
     for (cycle_count, value) in probe_values.iter().enumerate() {
         let active_this_cycle = if let Some((count, _s, active)) =
             out.get_mut(value)
@@ -69,12 +72,22 @@ fn collect_stacks(
             out.insert(value.clone(), (1, stacks, active_this_cycle.clone()));
             &mut active_this_cycle.clone()
         };
-        timeline.update_timeline(active_this_cycle, cycle_count as u64)?;
+        // get cell/control/group activity information
+        let (ended, started) = currently_active.resolve(active_this_cycle)?;
+        currently_active = active_this_cycle.clone();
+        timeline.update_timeline(&started, &ended, cycle_count as u64)?;
     }
     // close out the timeline view
-    let end = CurrentlyActive::new();
-    timeline.update_timeline(&end, probe_values.len() as u64)?;
+    timeline.update_timeline(
+        &CurrentlyActive::new(),
+        &currently_active,
+        probe_values.len() as u64,
+    )?;
     Ok(out)
+}
+
+fn build_statistics(d: Design) -> Result<Statistics> {
+    Ok(Statistics::new(d.get_group_component_names()))
 }
 
 fn print_stacks(

@@ -78,13 +78,23 @@ struct Group {
     probe: SignalRef,
     invokes: SmallVec<[InvokeId; 6]>,
     probe_idx: u32,
+    component: String,
 }
 
 impl Group {
-    /// String representation of cell for trace and visualizations
+    /// String representation of group for trace and visualizations
     pub fn display_name(&self) -> String {
         // remove unique group identifier.
         self.name.split("UG").next().unwrap().to_string()
+    }
+
+    /// String representation of group for stats
+    pub fn static_name(&self) -> String {
+        format!(
+            "{}.{}",
+            self.component,
+            self.name.split("UG").next().unwrap().to_string()
+        )
     }
 }
 
@@ -101,6 +111,7 @@ struct Control {
     go_idx: u32,
     _pos: u32,
     pretty: String,
+    component: String,
 }
 
 impl Control {
@@ -311,6 +322,13 @@ impl Design {
         par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
     ) -> Result<()> {
         self.build_cell_timeline_tracks(&self.main, t, par_tracks)
+    }
+
+    pub fn get_group_component_names(&self) -> Vec<(GroupId, String)> {
+        self.groups
+            .iter()
+            .map(|(id, group)| (id, group.static_name()))
+            .collect()
     }
 }
 
@@ -660,6 +678,7 @@ impl Design {
                     go_idx: u32::MAX,
                     _pos: pos,
                     pretty,
+                    component: component.to_string(),
                 };
                 let ctrl_id = self.controls.push(ctrl);
                 pos_to_id.insert(pos, ctrl_id);
@@ -861,6 +880,7 @@ impl Design {
                                 probe,
                                 invokes,
                                 probe_idx: u32::MAX,
+                                component: component.to_string(),
                             });
                             all_groups.push(group_id);
                             structurally_invoked_group_names
@@ -922,6 +942,7 @@ impl Design {
                                 probe,
                                 invokes,
                                 probe_idx: u32::MAX,
+                                component: component.to_string(),
                             });
                             if let Some(Some(ctrl_parent)) =
                                 group_to_parent.get(&name)

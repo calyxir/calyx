@@ -6,6 +6,7 @@ use crate::perfetto_protos::track_descriptor::StaticOrDynamicName;
 use crate::perfetto_protos::track_event::{NameField, Type};
 use crate::perfetto_protos::{Trace, TracePacket, TrackDescriptor, TrackEvent};
 use anyhow::{Ok, Result};
+use cranelift_entity::SecondaryMap;
 use prost::Message;
 use prost::bytes::BytesMut;
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -56,6 +57,14 @@ impl CurrentlyActive {
         self.control.insert(control);
     }
 
+    pub fn get_active_groups(&self) -> &FxHashSet<GroupId> {
+        &self.groups
+    }
+
+    pub fn get_active_cells(&self) -> &FxHashSet<CellId> {
+        &self.cells
+    }
+
     /// Results the diffs between existing active cells/control/groups vs active cells/control/groups
     /// Returns (Ended cells/control/groups, Started cells/control/groups)
     pub fn resolve(&self, new: &Self) -> Result<(Self, Self)> {
@@ -94,7 +103,6 @@ pub struct Timeline {
     control_to_info: FxHashMap<ControlId, TrackEventInfo>,
     group_to_info: FxHashMap<GroupId, TrackEventInfo>,
     register_to_uuid: FxHashMap<RegisterId, Uuid>,
-    current_active: CurrentlyActive,
 }
 
 impl Timeline {
@@ -106,7 +114,6 @@ impl Timeline {
             control_to_info: FxHashMap::default(),
             group_to_info: FxHashMap::default(),
             register_to_uuid: FxHashMap::default(),
-            current_active: CurrentlyActive::new(),
         };
         Ok(s)
     }
@@ -230,21 +237,17 @@ impl Timeline {
         Ok(())
     }
 
-    /// Takes the diff between the current cells/control/groups that are active and those that
-    /// are active in this new cycle, then adds events for those that started or ended.
+    /// Adds events for cells/control/groups that started or ended.
     pub fn update_timeline(
         &mut self,
-        active_this_cycle: &CurrentlyActive,
+        started: &CurrentlyActive,
+        ended: &CurrentlyActive,
         cycle_count: u64,
     ) -> Result<()> {
-        let (ended, started) =
-            self.current_active.resolve(active_this_cycle)?;
         // register all end events
         self.update(&ended, cycle_count, Type::SliceEnd);
         // register all start events
         self.update(&started, cycle_count, Type::SliceBegin);
-
-        self.current_active = active_this_cycle.clone();
         Ok(())
     }
 }
