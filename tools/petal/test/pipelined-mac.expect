@@ -24,3 +24,21 @@ main;tdcc ~ L156:seq (ctrl);invoke_mac2;mac [pipelined_mac];write_data_valid;dat
 main;tdcc ~ L156:seq (ctrl);save_out;out (primitive) 1
 main;tdcc ~ L156:seq (ctrl);store_a;read_a (primitive) 10
 main;tdcc ~ L156:seq (ctrl);store_b;read_b (primitive) 10
+=========
+name,num_times_active,total_cycles,min,max,avg,can_static
+main.in_range,10,10,1,1,1.0,true
+main.incr_idx,9,9,1,1,1.0,true
+main.init_all,1,1,1,1,1.0,true
+main.invoke_mac0,1,6,6,6,0.16666666666666666,true
+main.invoke_mac1,9,54,6,6,0.16666666666666666,true
+main.invoke_mac2,1,6,6,6,0.16666666666666666,true
+main.save_out,1,1,1,1,1.0,true
+main.store_a,9,9,1,1,1.0,true
+main.store_b,9,9,1,1,1.0,true
+pipelined_mac.set_out_valid,10,10,1,1,1.0,true
+pipelined_mac.set_stage2_valid,10,10,1,1,1.0,true
+pipelined_mac.stage1,10,40,4,4,0.25,true
+pipelined_mac.stage2,10,10,1,1,1.0,true
+pipelined_mac.unset_out_valid,1,1,1,1,1.0,true
+pipelined_mac.unset_stage2_valid,1,1,1,1,1.0,true
+pipelined_mac.write_data_valid,11,11,1,1,1.0,true

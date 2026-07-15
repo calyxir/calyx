@@ -21,7 +21,7 @@ struct GroupStatsOut {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct GroupStats {
+struct GroupStats {
     name: String,
     num_times_active: u64,
     total_cycles: u64,
@@ -133,11 +133,22 @@ impl Statistics {
     pub fn output(&self, out_dir: &str) -> Result<()> {
         let mut path = PathBuf::from(out_dir);
         path.push("group-stats.csv");
-        let mut file = File::create(path)?;
+        let file = File::create(path)?;
 
         let mut writer = csv::Writer::from_writer(file);
-        for (_id, stats) in self.group_to_stats.iter() {
-            writer.serialize(stats.convert_to_csv_struct())?;
+        // serialize in sorted order of groups' static name.
+        let name_to_stats_csv: FxHashMap<String, GroupStatsOut> = self
+            .group_to_stats
+            .iter()
+            .map(|(_, stats)| {
+                (stats.name.clone(), stats.convert_to_csv_struct())
+            })
+            .collect();
+        let mut sorted_names: Vec<String> =
+            name_to_stats_csv.keys().cloned().collect();
+        sorted_names.sort();
+        for name in sorted_names {
+            writer.serialize(name_to_stats_csv[&name].clone())?;
         }
         Ok(())
     }

@@ -731,6 +731,8 @@ flame=${petal_test_dir}/flat-flame.folded && \
 fud2 {} -o ${flame} --through rusted-petal-test -s sim.data={}.data --dir ${petal_test_dir} 2> /dev/null
 
 sort ${flame}
+echo =========
+cat ${petal_test_dir}/profiler-out/group-stats.csv
 
 rm -rf ${petal_test_dir}
 """

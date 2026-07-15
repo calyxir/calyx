@@ -7,3 +7,11 @@ main;tdcc ~ L68:seq (ctrl);read;val (primitive) 8
 main;tdcc ~ L68:seq (ctrl);upd;add (primitive) 8
 main;tdcc ~ L68:seq (ctrl);upd;val (primitive) 8
 main;tdcc ~ L68:seq (ctrl);write;mem (primitive) 8
+=========
+name,num_times_active,total_cycles,min,max,avg,can_static
+main.cond,9,9,1,1,1.0,true
+main.incr,8,8,1,1,1.0,true
+main.init,1,1,1,1,1.0,true
+main.read,8,8,1,1,1.0,true
+main.upd,8,8,1,1,1.0,true
+main.write,8,8,1,1,1.0,true
