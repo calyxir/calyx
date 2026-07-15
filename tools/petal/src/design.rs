@@ -11,6 +11,8 @@ use crate::perfetto_protos::track_event::Type;
 use crate::shared_cells::SharedCellsInfo;
 use crate::timeline::{CurrentlyActive, Timeline, Uuid};
 
+const NON_ID_THREAD: u32 = u32::MAX;
+
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct CellId(u32);
 entity_impl!(CellId, "cell");
@@ -1107,14 +1109,18 @@ impl Design {
         // Goals:
         // register group name and uuid
         assert!(par_tracks.contains_key(component));
-        // FIXME: this will not be true for structurally enabled groups. we'll get to those later.
-        assert!(par_tracks[component].contains_key(&group.name));
-        let thread_id = par_tracks[component][&group.name];
+        let thread_id = if let Some(t) = par_tracks[component].get(&group.name)
+        {
+            t
+        } else {
+            // structurally enabled groups will be under the special "Non-id-ed groups" thread.
+            &NON_ID_THREAD
+        };
         assert!(thread_tracks.contains_key(&thread_id));
         let uuid = thread_tracks[&thread_id];
         t.register_group(*g, uuid, group.display_name())?;
 
-        // call build_cell_tracks on any non-primitive cell we find.
+        // call `build_cell_timeline_tracks()` on any non-primitive cell we find.
         for &invoke_id in group.invokes.iter() {
             let invoke = &self.invokes[invoke_id];
             match invoke.target {
@@ -1172,6 +1178,12 @@ impl Design {
                 }
             }
         }
+
+        // create additional "Non-id-ed groups" track for structurally enabled groups
+        let non_id_name = "Non-id-ed groups".to_string();
+        let non_id_uuid =
+            t.register_descriptor(non_id_name, Some(cell_uuid))?;
+        thread_tracks.insert(NON_ID_THREAD, non_id_uuid);
 
         for group in cell.groups.iter() {
             self.build_group_timeline_tracks(

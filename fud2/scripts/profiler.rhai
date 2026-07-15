@@ -182,7 +182,7 @@ fn dahlia_to_profiled(e, input, output) {
     e.build_cmd([output], "create-visuals", [flamegraph_folded], []);
 }
 
-fn calyx_to_flamegraph(e, input, output, python_impl, testing) {
+fn calyx_to_flamegraph(e, input, output, python_impl, produce_svg) {
     // First pass: obtain control metadata information by running metadata-table-generation
     // on the original program and then running the metadata tool on it.
     let metadata_calyx = "metadata-calyx.futil";
@@ -233,11 +233,11 @@ fn calyx_to_flamegraph(e, input, output, python_impl, testing) {
         e.build_cmd([flamegraph_folded], "rusted-petal-parse-vcd", [instrumented_vcd],
             ["$cell-json", "$ctrl-pos-json"]);
     }
-    if testing {
+    if produce_svg {
+        e.build_cmd([output], "create-visuals", [flamegraph_folded], []);
+    } else {
         /// Temporary hack around needing to modify the Dockerfile to include the Flamegraph library
         e.build("cp", flamegraph_folded, output);
-    } else {
-        e.build_cmd([output], "create-visuals", [flamegraph_folded], []);
     }
 }
 
@@ -246,7 +246,7 @@ op(
     [c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
     c::calyx_state,
     flamegraph,
-    |e, input, output| calyx_to_flamegraph(e, input, output, false, false)
+    |e, input, output| calyx_to_flamegraph(e, input, output, false, true)
 );
 
 op(
@@ -254,7 +254,7 @@ op(
     [c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
     c::calyx_state,
     flamegraph_folded_for_tests,
-    |e, input, output| calyx_to_flamegraph(e, input, output, false, true)
+    |e, input, output| calyx_to_flamegraph(e, input, output, false, false)
 );
 
 op(
@@ -262,7 +262,7 @@ op(
     [c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
     c::calyx_state,
     flamegraph,
-    |e, input, output| calyx_to_flamegraph(e, input, output, true, false)
+    |e, input, output| calyx_to_flamegraph(e, input, output, true, true)
 );
 
 op(
@@ -270,7 +270,7 @@ op(
     [c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
     c::calyx_state,
     flamegraph_folded_for_tests,
-    |e, input, output| calyx_to_flamegraph(e, input, output, true, true)
+    |e, input, output| calyx_to_flamegraph(e, input, output, true, false)
 );
 
 op(
@@ -278,7 +278,7 @@ op(
     [c::calyx_setup, profiling_setup, profiler_synth_setup, v::verilator_setup, sim::sim_setup],
     c::calyx_state,
     flamegraph,
-    |e, input, output| calyx_to_flamegraph(e, input, output, true)
+    |e, input, output| calyx_to_flamegraph(e, input, output, true, true)
 );
 
 op("calyx-py-profiler",
