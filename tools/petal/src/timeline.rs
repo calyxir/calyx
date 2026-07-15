@@ -81,7 +81,11 @@ struct TrackEventInfo {
 }
 
 /// Constructs and outputs protobuf messages for constructing a timeline view.
-/// In the timeline, each component cell has
+/// In the timeline, each component cell has a distinct track which contains tracks containing the
+/// group/control group/control register activity within that cell, organized as below:
+/// - Control register updates get a single track ("Control register updates")
+/// - Each control group gets its own track, under the "Control groups" track
+/// - Groups are organized by their statically defined thread IDs. Each thread gets its own track.
 pub struct Timeline {
     packets: Vec<TracePacket>,
     /// Cell/Control Group/Group name to track UUID
