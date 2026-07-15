@@ -173,17 +173,13 @@ fn main() -> Result<()> {
                 // first process the register write_ens and ins
                 for changed_write_en in changed
                     .iter()
-                    .filter(|&s| register_signals_map.contains_key(&s))
+                    .filter(|&s| register_signals_map.contains_key(s))
                 {
                     let (in_signal, register_id) =
                         register_signals_map.get(changed_write_en).unwrap();
                     let register_new_value: u64 =
                         values.get(in_signal).unwrap().try_into().unwrap();
-                    if values
-                        .get(&changed_write_en)
-                        .unwrap()
-                        .try_into()
-                        .unwrap()
+                    if values.get(changed_write_en).unwrap().try_into().unwrap()
                     {
                         // only add the register update when the write_en is up
                         control_register_diffs
