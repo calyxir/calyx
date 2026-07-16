@@ -6,7 +6,6 @@ use crate::perfetto_protos::track_descriptor::StaticOrDynamicName;
 use crate::perfetto_protos::track_event::{NameField, Type};
 use crate::perfetto_protos::{Trace, TracePacket, TrackDescriptor, TrackEvent};
 use anyhow::{Ok, Result};
-use cranelift_entity::SecondaryMap;
 use prost::Message;
 use prost::bytes::BytesMut;
 use rustc_hash::{FxHashMap, FxHashSet};

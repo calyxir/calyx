@@ -1,10 +1,9 @@
 use crate::design::{CellId, GroupId, RegisterId};
 use crate::timeline::CurrentlyActive;
-use anyhow::{Context, Ok, Result, anyhow};
+use anyhow::{Ok, Result};
 use cranelift_entity::SecondaryMap;
 use rustc_hash::{FxHashMap, FxHashSet};
-use serde::Serialize;
-use std::collections::HashMap;
+use serde::{Serialize, Serializer};
 use std::fs::File;
 use std::path::PathBuf;
 
@@ -79,6 +78,15 @@ impl GroupStats {
     }
 }
 
+fn format_float<S>(value: &f64, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let rounded = (value * 100.0).round() / 100.0;
+    let s = format!("{:.2}", rounded);
+    serializer.serialize_str(&s)
+}
+
 /// Output Cell stats CSV table
 #[derive(Debug, Clone, Serialize)]
 struct CellStatsOut {
@@ -86,12 +94,18 @@ struct CellStatsOut {
     num_fsms: u32,
     total_cycles: u64,
     times_active: u64,
+    #[serde(serialize_with = "format_float")]
     avg: f64,
     useful_cycles: u64,
+    #[serde(serialize_with = "format_float")]
     useful_cycles_percent: f64,
+    #[serde(serialize_with = "format_float")]
     group_or_primitive: f64,
+    #[serde(serialize_with = "format_float")]
     fsm_update: f64,
+    #[serde(serialize_with = "format_float")]
     pd_update: f64,
+    #[serde(serialize_with = "format_float")]
     other: f64,
 }
 
@@ -104,7 +118,7 @@ pub enum CycleType {
     Other,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Eq, PartialEq)]
 struct CellStats {
     name: String,
     num_fsms: u32,
@@ -134,6 +148,7 @@ impl CellStats {
         s.type_to_num_cycles.insert(CycleType::FsmUpdate, 0);
         s.type_to_num_cycles.insert(CycleType::PdUpdate, 0);
         s.type_to_num_cycles.insert(CycleType::Other, 0);
+        println!("Cell stats: {s:?}");
         s
     }
 
@@ -149,12 +164,12 @@ impl CellStats {
     }
 
     pub fn convert_to_csv_struct(&self) -> CellStatsOut {
-        let avg = self.num_fsms as f64 / self.total_cycles as f64;
+        let avg = self.total_cycles as f64 / self.times_active as f64;
         let useful_cycles = self.type_to_num_cycles
             [&CycleType::GroupOrPrimitive]
             + self.type_to_num_cycles[&CycleType::Other];
         let useful_cycles_percent =
-            (useful_cycles as f64) / (self.total_cycles as f64);
+            ((useful_cycles as f64) / (self.total_cycles as f64)) * 100.0;
         let group_or_primitive =
             self.get_type_percent(CycleType::GroupOrPrimitive);
         let fsm_update = self.get_type_percent(CycleType::FsmUpdate);
@@ -180,7 +195,7 @@ impl CellStats {
 impl CellStats {
     fn get_type_percent(&self, t: CycleType) -> f64 {
         let count = self.type_to_num_cycles[&t] as f64;
-        count / self.total_cycles as f64
+        (count / self.total_cycles as f64) * 100.0
     }
 }
 
@@ -242,7 +257,7 @@ impl Statistics {
         }
 
         let cycle_type =
-            self.classify_cycle(gp_flag, &register_value_diffs[&cycle]);
+            self.classify_cycle(gp_flag, &register_value_diffs.get(&cycle));
         for cell in active_cells {
             let started_now = started.get_active_cells().contains(cell);
             self.cell_to_stats[*cell]
@@ -276,6 +291,7 @@ impl Statistics {
         let name_to_stats_csv: FxHashMap<String, CellStatsOut> = self
             .cell_to_stats
             .iter()
+            .filter(|(_, stats)| **stats != CellStats::default())
             .map(|(_, stats)| {
                 (stats.name.clone(), stats.convert_to_csv_struct())
             })
@@ -316,18 +332,24 @@ impl Statistics {
     fn classify_cycle(
         &self,
         gp_flag: bool,
-        register_value_diffs: &FxHashMap<RegisterId, u64>,
+        register_value_diffs: &Option<&FxHashMap<RegisterId, u64>>,
     ) -> CycleType {
-        let changed_registers = register_value_diffs.len();
+        let changed_registers =
+            if let Some(register_value_diffs) = register_value_diffs {
+                register_value_diffs.len()
+            } else {
+                0
+            };
         if gp_flag {
             CycleType::GroupOrPrimitive
         } else if changed_registers == 0 {
             CycleType::Other
         } else {
-            let updated_fsms_count = register_value_diffs
-                .keys()
-                .filter(|r| self.fsms.contains(*r))
-                .count();
+            let updated_fsms_count = if let Some(r) = register_value_diffs {
+                r.keys().filter(|r| self.fsms.contains(*r)).count()
+            } else {
+                0
+            };
             if updated_fsms_count == changed_registers {
                 CycleType::FsmUpdate
             } else if updated_fsms_count == 0 {

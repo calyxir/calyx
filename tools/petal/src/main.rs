@@ -11,7 +11,7 @@ mod perfetto_protos;
 mod statistics;
 
 use crate::design::{Design, RegisterId, Stack};
-use crate::statistics::{CycleType, Statistics};
+use crate::statistics::Statistics;
 use crate::timeline::{CurrentlyActive, Timeline};
 use crate::visuals::{compute_flame, write_flame};
 use anyhow::{Context, Ok, Result, anyhow};
