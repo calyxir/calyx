@@ -11,7 +11,7 @@ mod perfetto_protos;
 mod statistics;
 
 use crate::design::{Design, RegisterId, Stack};
-use crate::statistics::Statistics;
+use crate::statistics::{CycleType, Statistics};
 use crate::timeline::{CurrentlyActive, Timeline};
 use crate::visuals::{compute_flame, write_flame};
 use anyhow::{Context, Ok, Result, anyhow};
@@ -50,39 +50,58 @@ struct Args {
     num_print_cycles: u64,
 }
 
-pub type Stacks = IndexMap<BitVecValue, (u64, Vec<Stack>, CurrentlyActive)>;
+/// bool flag represents whether this cycle contained an active Group or Primitive leaf.
+pub type Stacks =
+    IndexMap<BitVecValue, (u64, Vec<Stack>, CurrentlyActive, bool)>;
 
 fn collect_stacks(
     design: &Design,
     timeline: &mut Timeline,
     stats: &mut Statistics,
     probe_values: &[BitVecValue],
+    register_value_diffs: &FxHashMap<u64, FxHashMap<RegisterId, u64>>,
 ) -> Result<Stacks> {
     // Compute the trace (stacks for each active cycle) from probe_values
     let mut out: Stacks = IndexMap::default();
     let mut currently_active = CurrentlyActive::default();
     for (cycle_count, value) in probe_values.iter().enumerate() {
-        let active_this_cycle = if let Some((count, _s, active)) =
-            out.get_mut(value)
-        {
-            *count += 1;
-            active
-        } else {
-            let (stacks, active_this_cycle) =
-                design.compute_cycle_trace(value)?;
-            out.insert(value.clone(), (1, stacks, active_this_cycle.clone()));
-            &mut active_this_cycle.clone()
-        };
+        let (active_this_cycle, gp_flag) =
+            if let Some((count, _s, active, gp_flag)) = out.get_mut(value) {
+                *count += 1;
+                (active, gp_flag.clone())
+            } else {
+                let (stacks, active_this_cycle, group_or_primitive_leaf) =
+                    design.compute_cycle_trace(value)?;
+                out.insert(
+                    value.clone(),
+                    (
+                        1,
+                        stacks,
+                        active_this_cycle.clone(),
+                        group_or_primitive_leaf,
+                    ),
+                );
+                (&mut active_this_cycle.clone(), group_or_primitive_leaf)
+            };
+
         // get cell/control/group activity information
         let (started, ended) = currently_active.resolve(active_this_cycle)?;
         currently_active = active_this_cycle.clone();
         timeline.update(&started, &ended, cycle_count as u64)?;
-        stats.update(&started, &ended, cycle_count as u64);
+        stats.update(
+            &started,
+            &ended,
+            cycle_count as u64,
+            gp_flag,
+            &register_value_diffs,
+            currently_active.get_active_cells(),
+        );
     }
     // close out timeline view/statistics by "ending" the contents of `currently_active`.
     let empty = CurrentlyActive::new();
-    timeline.update(&empty, &currently_active, probe_values.len() as u64)?;
-    stats.update(&empty, &currently_active, probe_values.len() as u64);
+    let total_cycles = probe_values.len() as u64;
+    timeline.update(&empty, &currently_active, total_cycles)?;
+    stats.close(&currently_active, total_cycles);
 
     Ok(out)
 }
@@ -90,7 +109,7 @@ fn collect_stacks(
 fn build_statistics(d: &Design) -> Result<Statistics> {
     let g = d.get_group_component_names();
     let c = d.get_cell_name_fsm_count();
-    Ok(Statistics::new())
+    Ok(Statistics::new(g, c))
 }
 
 fn print_stacks(
@@ -239,8 +258,13 @@ fn main() -> Result<()> {
     })?;
     println!("Number of cycles: {}", probe_values.len());
 
-    let stacks =
-        collect_stacks(&design, &mut timeline, &mut statistics, &probe_values)?;
+    let stacks = collect_stacks(
+        &design,
+        &mut timeline,
+        &mut statistics,
+        &probe_values,
+        &register_value_diffs,
+    )?;
     print_stacks(&probe_values, &stacks, args.num_print_cycles);
     let flame_info = compute_flame(&stacks)?;
     write_flame(&flame_info, args.scaled_flame_out, args.flat_flame_out)?;

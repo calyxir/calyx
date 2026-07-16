@@ -1,8 +1,8 @@
-use crate::design::{CellId, GroupId};
+use crate::design::{CellId, GroupId, RegisterId};
 use crate::timeline::CurrentlyActive;
 use anyhow::{Context, Ok, Result, anyhow};
 use cranelift_entity::SecondaryMap;
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs::File;
@@ -96,10 +96,11 @@ struct CellStatsOut {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-enum CycleType {
+pub enum CycleType {
     GroupOrPrimitive,
     FsmUpdate,
     PdUpdate,
+    MultControl,
     Other,
 }
 
@@ -107,16 +108,24 @@ enum CycleType {
 struct CellStats {
     name: String,
     num_fsms: u32,
+    // fsms: FxHashSet<RegisterId>,
+    // pds: FxHashSet<RegisterId>,
     total_cycles: u64,
     times_active: u64,
     type_to_num_cycles: FxHashMap<CycleType, u64>,
 }
 
 impl CellStats {
-    pub fn new(name: String, num_fsms: u32) -> Self {
+    pub fn new(
+        name: String,
+        fsms: FxHashSet<RegisterId>,
+        // pds: FxHashSet<RegisterId>,
+    ) -> Self {
         let mut s = Self {
             name,
-            num_fsms,
+            num_fsms: fsms.len() as u32,
+            // fsms,
+            // pds,
             total_cycles: 0,
             times_active: 0,
             type_to_num_cycles: FxHashMap::default(),
@@ -127,32 +136,87 @@ impl CellStats {
         s.type_to_num_cycles.insert(CycleType::Other, 0);
         s
     }
+
+    pub fn active_cell(&mut self, cycle_type: CycleType, started_now: bool) {
+        self.type_to_num_cycles.insert(
+            cycle_type.clone(),
+            self.type_to_num_cycles[&cycle_type] + 1,
+        );
+        self.total_cycles += 1;
+        if started_now {
+            self.times_active += 1;
+        }
+    }
+
+    pub fn convert_to_csv_struct(&self) -> CellStatsOut {
+        let avg = self.num_fsms as f64 / self.total_cycles as f64;
+        let useful_cycles = self.type_to_num_cycles
+            [&CycleType::GroupOrPrimitive]
+            + self.type_to_num_cycles[&CycleType::Other];
+        let useful_cycles_percent =
+            (useful_cycles as f64) / (self.total_cycles as f64);
+        let group_or_primitive =
+            self.get_type_percent(CycleType::GroupOrPrimitive);
+        let fsm_update = self.get_type_percent(CycleType::FsmUpdate);
+        let pd_update = self.get_type_percent(CycleType::PdUpdate);
+        let other = self.get_type_percent(CycleType::Other);
+
+        CellStatsOut {
+            name: self.name.clone(),
+            num_fsms: self.num_fsms,
+            total_cycles: self.total_cycles,
+            avg,
+            times_active: self.times_active,
+            useful_cycles,
+            useful_cycles_percent,
+            group_or_primitive,
+            fsm_update,
+            pd_update,
+            other,
+        }
+    }
+}
+
+impl CellStats {
+    fn get_type_percent(&self, t: CycleType) -> f64 {
+        let count = self.type_to_num_cycles[&t] as f64;
+        count / self.total_cycles as f64
+    }
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct Statistics {
     group_to_stats: SecondaryMap<GroupId, GroupStats>,
     cell_to_stats: SecondaryMap<CellId, CellStats>,
+    fsms: FxHashSet<RegisterId>,
+    pds: FxHashSet<RegisterId>,
 }
 
 impl Statistics {
     pub fn new(
         group_to_names: Vec<(GroupId, String)>,
-        cell_info: Vec<(CellId, String, u32)>,
+        cell_info: Vec<(
+            CellId,
+            String,
+            FxHashSet<RegisterId>,
+            FxHashSet<RegisterId>,
+        )>,
     ) -> Self {
+        let fsms: FxHashSet<RegisterId> = FxHashSet::default();
+        let pds: FxHashSet<RegisterId> = FxHashSet::default();
         let group_to_stats = SecondaryMap::from_iter(
             group_to_names
                 .into_iter()
                 .map(|(group_id, name)| (group_id, GroupStats::new(name))),
         );
         let cell_to_stats = SecondaryMap::from_iter(cell_info.into_iter().map(
-            |(cell_id, name, num_fsms)| {
-                (cell_id, CellStats::new(name, num_fsms))
-            },
+            |(cell_id, name, fsms, pds)| (cell_id, CellStats::new(name, fsms)),
         ));
         Self {
             group_to_stats,
             cell_to_stats,
+            fsms,
+            pds,
         }
     }
 
@@ -161,6 +225,9 @@ impl Statistics {
         started: &CurrentlyActive,
         ended: &CurrentlyActive,
         cycle: u64,
+        gp_flag: bool,
+        register_value_diffs: &FxHashMap<u64, FxHashMap<RegisterId, u64>>,
+        active_cells: &FxHashSet<CellId>,
     ) {
         // process all groups that started
         for started_group in started.get_active_groups() {
@@ -173,9 +240,57 @@ impl Statistics {
             assert!(self.group_to_stats.get(*ended_group).is_some());
             self.group_to_stats[*ended_group].group_end(cycle);
         }
+
+        let cycle_type =
+            self.classify_cycle(gp_flag, &register_value_diffs[&cycle]);
+        for cell in active_cells {
+            let started_now = started.get_active_cells().contains(cell);
+            self.cell_to_stats[*cell]
+                .active_cell(cycle_type.clone(), started_now);
+        }
+    }
+
+    pub fn close(&mut self, to_close: &CurrentlyActive, cycle: u64) {
+        // close out all groups that are still active
+        for ended_group in to_close.get_active_groups() {
+            assert!(self.group_to_stats.get(*ended_group).is_some());
+            self.group_to_stats[*ended_group].group_end(cycle);
+        }
     }
 
     pub fn output(&self, out_dir: &str) -> Result<()> {
+        self.output_group(out_dir)?;
+        self.output_cell(out_dir)?;
+        Ok(())
+    }
+}
+
+impl Statistics {
+    fn output_cell(&self, out_dir: &str) -> Result<()> {
+        let mut path = PathBuf::from(out_dir);
+        path.push("cell-stats.csv");
+        let file = File::create(path)?;
+
+        let mut writer = csv::Writer::from_writer(file);
+        // serialize in sorted order of cell name
+        let name_to_stats_csv: FxHashMap<String, CellStatsOut> = self
+            .cell_to_stats
+            .iter()
+            .map(|(_, stats)| {
+                (stats.name.clone(), stats.convert_to_csv_struct())
+            })
+            .collect();
+        let mut sorted_names: Vec<String> =
+            name_to_stats_csv.keys().cloned().collect();
+        sorted_names.sort();
+        for name in sorted_names {
+            writer.serialize(name_to_stats_csv[&name].clone())?;
+        }
+
+        Ok(())
+    }
+
+    fn output_group(&self, out_dir: &str) -> Result<()> {
         let mut path = PathBuf::from(out_dir);
         path.push("group-stats.csv");
         let file = File::create(path)?;
@@ -196,5 +311,30 @@ impl Statistics {
             writer.serialize(name_to_stats_csv[&name].clone())?;
         }
         Ok(())
+    }
+
+    fn classify_cycle(
+        &self,
+        gp_flag: bool,
+        register_value_diffs: &FxHashMap<RegisterId, u64>,
+    ) -> CycleType {
+        let changed_registers = register_value_diffs.len();
+        if gp_flag {
+            CycleType::GroupOrPrimitive
+        } else if changed_registers == 0 {
+            CycleType::Other
+        } else {
+            let updated_fsms_count = register_value_diffs
+                .keys()
+                .filter(|r| self.fsms.contains(*r))
+                .count();
+            if updated_fsms_count == changed_registers {
+                CycleType::FsmUpdate
+            } else if updated_fsms_count == 0 {
+                CycleType::PdUpdate
+            } else {
+                CycleType::MultControl
+            }
+        }
     }
 }
