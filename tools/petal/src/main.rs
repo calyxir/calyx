@@ -88,7 +88,9 @@ fn collect_stacks(
 }
 
 fn build_statistics(d: &Design) -> Result<Statistics> {
-    Ok(Statistics::new(d.get_group_component_names()))
+    let g = d.get_group_component_names();
+    let c = d.get_cell_name_fsm_count();
+    Ok(Statistics::new())
 }
 
 fn print_stacks(

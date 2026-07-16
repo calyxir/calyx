@@ -95,20 +95,65 @@ struct CellStatsOut {
     other: f64,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+enum CycleType {
+    GroupOrPrimitive,
+    FsmUpdate,
+    PdUpdate,
+    Other,
+}
+
+#[derive(Debug, Clone, Default)]
+struct CellStats {
+    name: String,
+    num_fsms: u32,
+    total_cycles: u64,
+    times_active: u64,
+    type_to_num_cycles: FxHashMap<CycleType, u64>,
+}
+
+impl CellStats {
+    pub fn new(name: String, num_fsms: u32) -> Self {
+        let mut s = Self {
+            name,
+            num_fsms,
+            total_cycles: 0,
+            times_active: 0,
+            type_to_num_cycles: FxHashMap::default(),
+        };
+        s.type_to_num_cycles.insert(CycleType::GroupOrPrimitive, 0);
+        s.type_to_num_cycles.insert(CycleType::FsmUpdate, 0);
+        s.type_to_num_cycles.insert(CycleType::PdUpdate, 0);
+        s.type_to_num_cycles.insert(CycleType::Other, 0);
+        s
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Statistics {
     group_to_stats: SecondaryMap<GroupId, GroupStats>,
-    // cell_to_stats: SecondaryMap<CellId, CellStats>,
+    cell_to_stats: SecondaryMap<CellId, CellStats>,
 }
 
 impl Statistics {
-    pub fn new(group_to_names: Vec<(GroupId, String)>) -> Self {
+    pub fn new(
+        group_to_names: Vec<(GroupId, String)>,
+        cell_info: Vec<(CellId, String, u32)>,
+    ) -> Self {
         let group_to_stats = SecondaryMap::from_iter(
             group_to_names
                 .into_iter()
                 .map(|(group_id, name)| (group_id, GroupStats::new(name))),
         );
-        Self { group_to_stats }
+        let cell_to_stats = SecondaryMap::from_iter(cell_info.into_iter().map(
+            |(cell_id, name, num_fsms)| {
+                (cell_id, CellStats::new(name, num_fsms))
+            },
+        ));
+        Self {
+            group_to_stats,
+            cell_to_stats,
+        }
     }
 
     pub fn update(

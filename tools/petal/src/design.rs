@@ -30,7 +30,7 @@ struct Cell {
     /// Ids of groups that could be called directly from this cell, if it is a component.
     /// NOTE: Primitive cells should have an empty vec here.
     groups: SmallVec<[GroupId; 6]>,
-    /// Control Registeres
+    /// Control Registers
     control_registers: SmallVec<[RegisterId; 6]>,
     /// The scope of the cell in the RTL trace.
     _scope: Option<ScopeRef>,
@@ -130,6 +130,8 @@ struct CRegister {
     name: String,
     write_en_signal_ref: SignalRef,
     in_signal_ref: SignalRef,
+    /// if the register is a pd, then this would be false.
+    is_fsm: bool,
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
@@ -171,7 +173,8 @@ pub struct CellControl {
     /// (ex. a component with a single-group control)
     toplevel_control: Option<ControlId>,
     /// Necessary for timeline view tracking (not used for constructing the call tree)
-    registers: Vec<String>,
+    fsms: Vec<String>,
+    pds: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -329,6 +332,22 @@ impl Design {
             .iter()
             .map(|(id, group)| (id, group.static_name()))
             .collect()
+    }
+
+    pub fn get_cell_name_fsm_count(&self) -> Vec<(CellId, String, u32)> {
+        let mut out: Vec<(CellId, String, u32)> = Vec::new();
+        for (id, cell) in self.cells.iter() {
+            if !cell.is_primitive {
+                let name = cell.display_name().to_string();
+                let fsm_count = cell
+                    .control_registers
+                    .iter()
+                    .filter(|&r| self.control_registers[*r].is_fsm)
+                    .count();
+                out.push((id, name, fsm_count as u32));
+            }
+        }
+        out
     }
 }
 
@@ -649,7 +668,8 @@ impl Design {
         let descriptors = c.descriptors(component);
         // let ctrl_map = descriptors.control_pos;
 
-        let mut registers = Vec::new();
+        let mut fsms = Vec::new();
+        let mut pds = Vec::new();
 
         // iterate through control par descriptors and construct Control nodes
         for (d, pos_set) in descriptors.control_pos.iter() {
@@ -663,8 +683,8 @@ impl Design {
                 let name = tdcc_info.name.clone();
 
                 match &tdcc_info.control_register {
-                    ControlRegister::Fsm(f) => registers.push(f.clone()),
-                    ControlRegister::Pd(p) => registers.append(&mut p.clone()),
+                    ControlRegister::Fsm(f) => fsms.push(f.clone()),
+                    ControlRegister::Pd(p) => pds.append(&mut p.clone()),
                 };
 
                 let ctrl_scope = get_scope(h, &h[s], &format!("{name}_go"))?;
@@ -733,7 +753,8 @@ impl Design {
         Ok(CellControl {
             group_to_parent,
             toplevel_control,
-            registers,
+            fsms,
+            pds,
         })
     }
 
@@ -810,23 +831,26 @@ impl Design {
         let CellControl {
             group_to_parent,
             toplevel_control,
-            registers,
+            fsms,
+            pds,
         } = self.populate_control(h, cell_scope, c, component)?;
         if let Some(top_ctrl) = toplevel_control {
             cell.control.push(top_ctrl);
         }
 
         // add entries for CRegisters
-        for register_scope in h[cell_scope]
-            .scopes(h)
-            .filter(|p| registers.contains(&h[*p].name(h).to_string()))
-        {
+        for register_scope in h[cell_scope].scopes(h).filter(|p| {
+            fsms.contains(&h[*p].name(h).to_string())
+                || pds.contains(&h[*p].name(h).to_string())
+        }) {
             let write_en_var = get_var(h, &h[register_scope], "write_en")?;
             let in_var = get_var(h, &h[register_scope], "in")?;
             let write_en_signal_ref = h[write_en_var].signal_ref();
             let in_signal_ref = h[in_var].signal_ref();
+            let name = h[register_scope].name(h).to_string();
             let register_id = self.control_registers.push(CRegister {
-                name: h[register_scope].name(h).to_string(),
+                is_fsm: fsms.contains(&name),
+                name,
                 write_en_signal_ref,
                 in_signal_ref,
             });
