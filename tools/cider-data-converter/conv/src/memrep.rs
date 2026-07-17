@@ -12,7 +12,7 @@ impl TypeSpec {
         &self,
         s: String,
         _end: Endian,
-    ) -> Result<baa::BitVecValue, ReadStringErr> {
+    ) -> Result<baa::BitVecValue, NumParseErr> {
         if numimpl::is_hexstring(&s) {
             return numimpl::read_hexstring(&s, _end, self.width);
         }
@@ -26,7 +26,7 @@ impl TypeSpec {
                 numimpl::fixed_read(s, _end, self.width, self.signed, exp_mag)?
             }
             TypeClass::Unknown(u) => {
-                return Err(ReadStringErr::from(format!("unknown {u}")));
+                return Err(NumParseErr::UnknownType(u));
             }
         };
         debug_assert!(r.width() <= self.width as u32);
@@ -61,8 +61,6 @@ impl TypeSpec {
     }
 }
 
-pub type CheckedConvErr = String;
-
 /// [SingleMem] contains the contents of a memory.
 #[derive(Debug)]
 pub struct SingleMem {
@@ -95,12 +93,15 @@ impl SingleMem {
         self.data.iter()
     }
 
-    pub fn ty(&self) -> TypeSpec {
-        self.dtype.clone()
+    pub fn ty(&self) -> &TypeSpec {
+        &self.dtype
     }
 
     /// tries to truncate the input to a certain number of bits.
-    pub fn truncate(&mut self, num_bits: usize) -> Result<(), CheckedConvErr> {
+    pub fn truncate(
+        &mut self,
+        num_bits: usize,
+    ) -> Result<(), crate::typing::OpError> {
         if num_bits > self.dtype.width {
             Err(String::from("truncation to size larger than input"))
         } else if num_bits == self.dtype.width {
@@ -121,7 +122,7 @@ impl SingleMem {
     pub fn sign_extend(
         &mut self,
         num_bits: usize,
-    ) -> Result<(), CheckedConvErr> {
+    ) -> Result<(), crate::typing::OpError> {
         if num_bits < self.dtype.width {
             Err(String::from(
                 "trying to sign-extend to width less than current width. use truncate instead.",
@@ -138,7 +139,10 @@ impl SingleMem {
         }
     }
 
-    pub fn bitcast(&mut self, out_t: TypeSpec) -> Result<(), CheckedConvErr> {
+    pub fn bitcast(
+        &mut self,
+        out_t: TypeSpec,
+    ) -> Result<(), crate::typing::OpError> {
         if out_t.width < self.dtype.width {
             Err(String::from(
                 "attempted bitcast to width smaller than current size. use a truncate first if this is intended.",
@@ -152,8 +156,8 @@ impl SingleMem {
     pub fn apply_opfun(
         self,
         opfun: OpFnTypes,
-        out_type: &TypeSpec,
-    ) -> Result<SingleMem, CheckedConvErr> {
+        out_type: TypeSpec,
+    ) -> Result<SingleMem, crate::typing::OpError> {
         let out_data = match opfun {
             OpFnTypes::Nop => {
                 // modify type in place and return
@@ -163,26 +167,17 @@ impl SingleMem {
             }
             OpFnTypes::Falliable(f) => self
                 .iter_data()
-                .map(|e| f(e, &self.dtype, out_type))
+                .map(|e| f(e, &self.dtype, &out_type))
                 .collect::<Result<_, _>>()?,
             OpFnTypes::Infalliable(f2) => self
                 .iter_data()
-                .map(|e| f2(e, &self.dtype, out_type))
+                .map(|e| f2(e, &self.dtype, &out_type))
                 .collect(),
         };
         Ok(SingleMem {
             data: out_data,
-            dtype: out_type.clone(),
+            dtype: out_type,
             ..self
         })
     }
-}
-/*
-    endianness conversions can happen without knowledge of type, so it's in a separate field
-*/
-#[derive(Clone, Debug, Default)]
-pub enum Endian {
-    #[default]
-    Little,
-    Big,
 }

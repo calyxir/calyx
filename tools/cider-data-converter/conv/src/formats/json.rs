@@ -1,37 +1,11 @@
 use baa::{BitVecOps, BitVecValue};
 use serde::{self, Deserialize, Serialize, Serializer};
 use serde_json::Value;
-use std::collections::BTreeMap;
-use std::{collections::HashMap, num::ParseFloatError};
-use thiserror::Error;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::filerep::{self, FileFmtErr, FileMems};
-use crate::numrep::*;
+use crate::memrep::*;
 use crate::typing::*;
-
-#[derive(Debug, Error)]
-pub enum JsonParseError {
-    #[error("Could not parse number as integer: {0}")]
-    ParseInt(#[from] std::num::ParseIntError),
-    #[error("Could not parse number as float: {0}")]
-    ParseFloat(#[from] ParseFloatError),
-    #[error("bad dimension")]
-    DimError,
-    #[error("Non numerical value {0}")]
-    NonNumError(String),
-    #[error("Malformed fixed-point def")]
-    MalformedFixed,
-    #[error("No width / equivalent!")]
-    NoWidth,
-    #[error("Unknown type")]
-    BadType,
-}
-
-impl From<JsonParseError> for filerep::FileFmtErr {
-    fn from(value: JsonParseError) -> Self {
-        FileFmtErr::from(value.to_string())
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, Eq, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -58,6 +32,10 @@ pub struct FormatInfo {
     pub frac_width: Option<u32>,
 }
 
+fn json_err<T: ToString>(s: T) -> FileFmtErr {
+    FileFmtErr::FileSpecific(format!("json: {}", s.to_string()))
+}
+
 /*
     ideally would also check for overspecified format (i.e. non-fixed_point with frac_width defined)
 */
@@ -65,10 +43,10 @@ impl FormatInfo {
     // returns fixed-point as (overall width, frac_width)
     // a bit verbose, but roughly self-documenting
     #[inline]
-    fn normalise_fixed(&self) -> Result<(usize, i32), JsonParseError> {
+    fn normalise_fixed(&self) -> Result<(usize, i32), FileFmtErr> {
         if let Some(w) = self.width {
             if w > 64 {
-                return Err(JsonParseError::MalformedFixed);
+                return Err(json_err("fixed width > 64"));
             }
             match (self.int_width, self.frac_width) {
                 (Some(i), Some(f)) if i + f == w => Ok((w as usize, f as i32)),
@@ -76,23 +54,23 @@ impl FormatInfo {
                 (Some(i), None) if i < w => {
                     Ok((w as usize, (w as i32 - (i as i32))))
                 }
-                _ => Err(JsonParseError::MalformedFixed),
+                _ => Err(json_err(format!("malformed fixed type {self:?}"))),
             }
         } else {
             match (self.int_width, self.frac_width) {
                 (Some(i), Some(f)) if i + f <= 64 => {
                     Ok(((i + f) as usize, f as i32))
                 }
-                _ => Err(JsonParseError::MalformedFixed),
+                _ => Err(json_err(format!("malformed fixed type {self:?}"))),
             }
         }
     }
 }
 
-impl TryFrom<TypeSpec> for FormatInfo {
-    type Error = JsonParseError;
+impl TryFrom<&TypeSpec> for FormatInfo {
+    type Error = FileFmtErr;
 
-    fn try_from(value: TypeSpec) -> Result<Self, Self::Error> {
+    fn try_from(value: &TypeSpec) -> Result<Self, Self::Error> {
         use TypeClass as tc;
         let mut frac_width = None;
         let numeric_type = match value.class {
@@ -103,7 +81,12 @@ impl TryFrom<TypeSpec> for FormatInfo {
                 frac_width = Some(if e < 0 { 0 } else { e } as u32);
                 JsonTypes::Fixed
             }
-            _ => return Err(JsonParseError::BadType),
+            _ => {
+                return Err(FileFmtErr::FileSpecific(format!(
+                    "unknown type class {:?}",
+                    value.class
+                )));
+            }
         };
         Ok(FormatInfo {
             numeric_type,
@@ -116,7 +99,7 @@ impl TryFrom<TypeSpec> for FormatInfo {
 }
 
 impl TryFrom<&FormatInfo> for TypeSpec {
-    type Error = JsonParseError;
+    type Error = FileFmtErr;
     fn try_from(value: &FormatInfo) -> Result<Self, Self::Error> {
         use TypeClass as tc;
 
@@ -215,9 +198,7 @@ impl JsonDataEntry {
     ) -> Result<SingleMem, filerep::FileFmtErr> {
         let Ok((vals, dimensions, num_dimensions)) = destructure(&self.data)
         else {
-            return Err(FileFmtErr::FileSpecific(String::from(
-                "bad flattening",
-            )));
+            return Err(json_err("bad flattening"));
         };
         let data: Vec<BitVecValue> = vals
             .iter()
@@ -308,10 +289,13 @@ where
 }
 
 impl filerep::TryFromIR for JsonData {
-    fn try_from_ir(inp: &FileMems) -> Result<Self, filerep::FileFmtErr> {
+    fn try_from_ir(inp: FileMems) -> Result<Self, filerep::FileFmtErr> {
         let mut res = HashMap::new();
         for (k, v) in inp.mems.iter() {
-            res.insert(k.clone(), JsonDataEntry::try_entry_from_ir(v, None)?);
+            res.insert(
+                k.to_string(),
+                JsonDataEntry::try_entry_from_ir(v, None)?,
+            );
         }
         Ok(JsonData(res))
     }
@@ -319,13 +303,13 @@ impl filerep::TryFromIR for JsonData {
 
 impl JsonData {
     pub fn try_from_ir_fmt(
-        inp: &FileMems,
+        inp: FileMems,
         opts: &filerep::OutputOpts,
     ) -> Result<Self, FileFmtErr> {
         let mut res = HashMap::new();
         for (k, v) in inp.mems.iter() {
             res.insert(
-                k.clone(),
+                k.to_string(),
                 JsonDataEntry::try_entry_from_ir(v, Some(opts))?,
             );
         }
@@ -352,7 +336,7 @@ impl filerep::TryToIR for JsonData {
 
 impl From<serde_json::Error> for FileFmtErr {
     fn from(value: serde_json::Error) -> Self {
-        FileFmtErr::FileSpecific(value.to_string())
+        Self::FileSpecific(format!("json: {}", value.to_string()))
     }
 }
 
@@ -387,7 +371,7 @@ struct JsonDataDestructor {
     pub dimensions: [usize; 4], // maps dimension : dimension size
     pub num_dimensions: usize,
     // pub dimensions: HashMap<u32, usize>, // maps dimension : dimension size
-    pub status: Option<JsonParseError>,
+    pub status: Option<FileFmtErr>,
 }
 
 /*
@@ -399,10 +383,9 @@ fn destructure_helper(
     v: &Value,
     level: usize,
 ) -> Vec<Value> {
-    use JsonParseError::*;
-
     let Value::Array(arr) = v else {
-        destr.status = Some(NonNumError(v.to_string()));
+        destr.status =
+            Some(json_err(format!("invalid value {}", v.to_string())));
         // return Err(NonNumError(v.to_string()));
         return Vec::new();
     };
@@ -411,7 +394,7 @@ fn destructure_helper(
         destr.num_dimensions += 1;
         *level_size = arr.len();
     } else if *level_size != arr.len() {
-        destr.status = Some(JsonParseError::DimError);
+        destr.status = Some(json_err("incorrectly sized dimension"));
         // return Err(JsonParseError::DimError);
 
         return Vec::new();
@@ -423,7 +406,10 @@ fn destructure_helper(
             .flat_map(|v: &Value| destructure_helper(destr, v, level + 1))
             .collect(),
         _ => {
-            destr.status = Some(NonNumError(arr.first().unwrap().to_string()));
+            destr.status = Some(json_err(format!(
+                "invalid value {}",
+                arr.first().unwrap().to_string()
+            )));
             // return Err(NonNumError(arr.first().unwrap().to_string()));
             Vec::new()
         }
@@ -432,7 +418,7 @@ fn destructure_helper(
 
 fn destructure(
     v: &Value,
-) -> Result<(Vec<Value>, [usize; 4], usize), JsonParseError> {
+) -> Result<(Vec<Value>, [usize; 4], usize), FileFmtErr> {
     let mut destr = JsonDataDestructor {
         dimensions: [0, 0, 0, 0],
         num_dimensions: 0,

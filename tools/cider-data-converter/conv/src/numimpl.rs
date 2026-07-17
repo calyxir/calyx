@@ -1,12 +1,11 @@
 use baa::{BitVecOps, BitVecValue};
 
-use crate::numrep::*;
-use crate::typing::ReadStringErr;
+use crate::typing::{Endian, NumParseErr};
 use crate::vbfp::*;
 
 // implementation of additional features relating to number representation
 
-// the below is to make the implementations in TypeSpec more manageable
+// the below read/write implementations are to make the implementations in TypeSpec more manageable
 // TODO: is it worth making specific, static variants of these?
 
 #[inline]
@@ -18,22 +17,22 @@ pub fn read_hexstring(
     s: &str,
     _end: Endian,
     width: usize,
-) -> Result<baa::BitVecValue, ReadStringErr> {
+) -> Result<baa::BitVecValue, NumParseErr> {
     let Some(cleaned_str) = s.trim_start().strip_prefix("0x") else {
-        return Err(ReadStringErr::from(format!(
+        return Err(NumParseErr::HexRead(format!(
             "could not strip prefix from {}",
             s
         )));
     };
     let Ok(val) = baa::BitVecValue::from_hex_str(cleaned_str) else {
-        return Err(ReadStringErr::BadValue(format!(
+        return Err(NumParseErr::HexRead(format!(
             "baa could not read {} as hex",
             s
         )));
     };
 
     if val.width() > (width as u32) {
-        return Err(ReadStringErr::from(format!(
+        return Err(NumParseErr::HexRead(format!(
             "bad hexstring {}: incorrect width, not {}",
             s, width
         )));
@@ -45,7 +44,7 @@ pub fn float_read(
     s: String,
     _end: Endian,
     width: usize,
-) -> Result<baa::BitVecValue, ReadStringErr> {
+) -> Result<baa::BitVecValue, NumParseErr> {
     match width {
         32 => Ok(BitVecValue::from_bytes_le(
             &s.parse::<f32>()?.to_le_bytes(),
@@ -55,18 +54,16 @@ pub fn float_read(
             &s.parse::<f64>()?.to_le_bytes(),
             64,
         )),
-        _ => Err(ReadStringErr::from(format!(
-            "undefined width {} for float",
-            width
-        ))),
+        _ => Err(NumParseErr::Width(width, crate::typing::TypeClass::Float)),
     }
 }
 
 pub fn float_write(b: &baa::BitVecValue, _end: Endian, width: usize) -> String {
     debug_assert!(b.width() == 32 || b.width() == 64);
+    let bits = b.to_u64().unwrap();
     match width {
-        32 => f32::from_bits(b.to_u64().unwrap() as u32).to_string(),
-        64 => f64::from_bits(b.to_u64().unwrap()).to_string(),
+        32 => f32::from_bits(bits as u32).to_string(),
+        64 => f64::from_bits(bits).to_string(),
         _ => panic!("unknown width when writing out a float"),
     }
 }
@@ -78,24 +75,20 @@ pub fn int_read(
     _end: Endian,
     width: usize,
     signed: bool,
-) -> Result<BitVecValue, ReadStringErr> {
+) -> Result<BitVecValue, NumParseErr> {
     // TODO: could be simplified a lot
     if signed {
         // TODO: does this fail on signedness?
         let r = BitVecValue::from_str_radix(&s, 10, width as u32);
         match r {
             Ok(v) => Ok(v),
-            Err(e) => {
-                Err(ReadStringErr::from(format!("error from baa: {:?}", e)))
-            }
+            Err(e) => Err(NumParseErr::Baa(s, e)),
         }
     } else {
         let r = BitVecValue::from_str_radix(&s, 10, width as u32);
         match r {
             Ok(v) => Ok(v),
-            Err(e) => {
-                Err(ReadStringErr::from(format!("error from baa: {:?}", e)))
-            }
+            Err(e) => Err(NumParseErr::Baa(s, e)),
         }
     }
 }
@@ -126,7 +119,7 @@ pub fn bits_read(
     s: String,
     _end: Endian,
     width: usize,
-) -> Result<BitVecValue, ReadStringErr> {
+) -> Result<BitVecValue, NumParseErr> {
     let r = s.parse::<u64>()?;
     Ok(BitVecValue::from_u64(r, width as u32))
 }
@@ -142,13 +135,18 @@ pub fn fixed_read(
     width: usize,
     signed: bool,
     exp_mag: i32,
-) -> Result<BitVecValue, ReadStringErr> {
+) -> Result<BitVecValue, NumParseErr> {
     let tmp_b = float_read(s, _end, 64)?;
-    let tmp_f = f64::from_bits(tmp_b.to_u64().unwrap());
+    let Some(bits_trunc) = tmp_b.to_u64() else {
+        return Err(NumParseErr::Width(
+            tmp_b.width() as usize,
+            crate::typing::TypeClass::Fixed { exp_mag },
+        ));
+    };
+    let tmp_f = f64::from_bits(bits_trunc);
     let fixed_equiv = FixedDef {
         total_size: width,
         exp_mag,
-
         signed,
     };
     let r = fixed_equiv.from_fp_rounded(tmp_f)?;
@@ -177,7 +175,7 @@ pub fn try_from_bytes(
     b: &[u8],
     width: usize,
     end: Endian,
-) -> Result<BitVecValue, CheckedConvErr> {
+) -> Result<BitVecValue, NumParseErr> {
     let r = match end {
         Endian::Little => BitVecValue::from_bytes_le(b, width as u32),
         Endian::Big => unimplemented!(),
@@ -195,7 +193,6 @@ mod tests {
     // use crate::numrep::ReprType;
 
     use super::*;
-    // TODO: rewrite fixed-point benchmarks
 
     // #[test]
     // fn get_fixed_refs() {
