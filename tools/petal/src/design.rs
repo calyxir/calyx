@@ -65,6 +65,11 @@ impl Cell {
             format!("{} [{}]", self.name, self.component)
         }
     }
+
+    pub fn stats_name(&self) -> String {
+        assert!(!self.is_primitive);
+        format!("{} [{}]", self.full_path, self.component)
+    }
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
@@ -347,7 +352,7 @@ impl Design {
         )> = Vec::new();
         for (id, cell) in self.cells.iter() {
             if !cell.is_primitive {
-                let name = cell.display_name().to_string();
+                let name = cell.stats_name().to_string();
                 let mut fsms: FxHashSet<RegisterId> = FxHashSet::default();
                 let mut pds: FxHashSet<RegisterId> = FxHashSet::default();
                 for r in cell.control_registers.iter() {

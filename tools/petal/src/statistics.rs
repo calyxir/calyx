@@ -217,13 +217,17 @@ impl Statistics {
             FxHashSet<RegisterId>,
         )>,
     ) -> Self {
-        let fsms: FxHashSet<RegisterId> = FxHashSet::default();
-        let pds: FxHashSet<RegisterId> = FxHashSet::default();
+        let mut fsms: FxHashSet<RegisterId> = FxHashSet::default();
+        let mut pds: FxHashSet<RegisterId> = FxHashSet::default();
         let group_to_stats = SecondaryMap::from_iter(
             group_to_names
                 .into_iter()
                 .map(|(group_id, name)| (group_id, GroupStats::new(name))),
         );
+        for (_, _, f, p) in cell_info.iter() {
+            fsms.extend(f);
+            pds.extend(p);
+        }
         let cell_to_stats = SecondaryMap::from_iter(cell_info.into_iter().map(
             |(cell_id, name, fsms, pds)| (cell_id, CellStats::new(name, fsms)),
         ));
