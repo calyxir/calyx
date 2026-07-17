@@ -12,6 +12,7 @@ mod adls;
 mod dahlia_design;
 mod statistics;
 
+use crate::adls::{AdlInfo, parse_adl_file};
 use crate::design::{Design, RegisterId, Stack};
 use crate::statistics::Statistics;
 use crate::timeline::{CurrentlyActive, Timeline};
@@ -48,6 +49,10 @@ struct Args {
     scaled_flame_out: Option<String>,
     #[arg(long)]
     flat_flame_out: Option<String>,
+    #[arg(long)]
+    adl_file: Option<String>,
+    #[arg(long)]
+    dahlia_parent_map: Option<String>,
     #[arg(long, default_value_t = 100)]
     num_print_cycles: u64,
 }
@@ -137,6 +142,13 @@ fn print_stacks(
 fn main() -> Result<()> {
     let args = Args::parse();
     fs::create_dir_all(&args.out_dir)?;
+
+    // check if we are profiling an ADL
+    // if let Some(adl_file) = args.adl_file {
+    //     let AdlInfo {adl, components} = parse_adl_file(adl_file) {
+    //
+    //     }
+    // }
 
     let ctrl_info = crate::control::ControlInfo::new(
         args.tdcc_filename,
