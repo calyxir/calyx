@@ -733,6 +733,8 @@ fud2 {} -o ${flame} --through rusted-petal-test -s sim.data={}.data --dir ${peta
 sort ${flame}
 echo =========
 cat ${petal_test_dir}/profiler-out/group-stats.csv
+echo =========
+cat ${petal_test_dir}/profiler-out/cell-stats.csv
 
 rm -rf ${petal_test_dir}
 """

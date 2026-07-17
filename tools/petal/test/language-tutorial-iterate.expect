@@ -15,3 +15,6 @@ main.init,1,1,1,1,1.0,true
 main.read,8,8,1,1,1.0,true
 main.upd,8,8,1,1,1.0,true
 main.write,8,8,1,1,1.0,true
+=========
+name,num_fsms,total_cycles,times_active,avg,useful_cycles,useful_cycles_percent,group_or_primitive,fsm_update,pd_update,other
+main [main],1,37,1,37.00,34,91.89,91.89,8.11,0.00,0.00

@@ -42,3 +42,7 @@ pipelined_mac.stage2,10,10,1,1,1.0,true
 pipelined_mac.unset_out_valid,1,1,1,1,1.0,true
 pipelined_mac.unset_stage2_valid,1,1,1,1,1.0,true
 pipelined_mac.write_data_valid,11,11,1,1,1.0,true
+=========
+name,num_fsms,total_cycles,times_active,avg,useful_cycles,useful_cycles_percent,group_or_primitive,fsm_update,pd_update,other
+main [main],1,92,1,92.00,88,95.65,92.39,4.35,0.00,3.26
+main.mac [pipelined_mac],0,66,11,6.00,66,100.00,95.45,0.00,0.00,4.55
