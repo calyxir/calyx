@@ -8,9 +8,9 @@ mod visuals;
 #[allow(clippy::all)]
 #[rustfmt::skip]
 mod perfetto_protos;
+mod adls;
 mod dahlia_design;
 mod statistics;
-
 
 use crate::design::{Design, RegisterId, Stack};
 use crate::statistics::Statistics;

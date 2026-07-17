@@ -148,6 +148,7 @@ impl CellStats {
         s.type_to_num_cycles.insert(CycleType::GroupOrPrimitive, 0);
         s.type_to_num_cycles.insert(CycleType::FsmUpdate, 0);
         s.type_to_num_cycles.insert(CycleType::PdUpdate, 0);
+        s.type_to_num_cycles.insert(CycleType::MultControl, 0);
         s.type_to_num_cycles.insert(CycleType::Other, 0);
         s
     }

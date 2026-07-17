@@ -7,6 +7,7 @@ use smallvec::{SmallVec, smallvec};
 use wellen::{Hierarchy, Scope, ScopeRef, SignalRef, VarRef};
 
 use crate::control::{ControlInfo, ControlRegister, PathDescriptorInfo};
+use crate::dahlia_design::StatementId;
 use crate::perfetto_protos::track_event::Type;
 use crate::shared_cells::SharedCellsInfo;
 use crate::timeline::{CurrentlyActive, Timeline, Uuid};
@@ -1291,6 +1292,20 @@ impl Design {
         }
 
         Ok(())
+    }
+
+    pub fn get_group_name_to_ids(
+        &self,
+    ) -> FxHashMap<String, FxHashSet<GroupId>> {
+        let mut out: FxHashMap<String, FxHashSet<GroupId>> =
+            FxHashMap::default();
+        for (id, g) in self.groups.iter() {
+            let name = g.display_name();
+            let id_set = out.entry(name.clone()).or_default();
+            id_set.insert(id);
+        }
+        println!("{out:?}");
+        out
     }
 }
 
