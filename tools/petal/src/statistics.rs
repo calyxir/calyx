@@ -7,7 +7,7 @@ use serde::{Serialize, Serializer};
 use std::fs::File;
 use std::path::PathBuf;
 
-/// Output Group stats CSV table
+/// Output Group stats CSV table (fitted to `group-stats.csv`)
 #[derive(Debug, Clone, Serialize)]
 struct GroupStatsOut {
     name: String,
@@ -19,6 +19,7 @@ struct GroupStatsOut {
     can_static: bool,
 }
 
+/// Intermediate data for a group's statistics in order to produce GroupStatsOut
 #[derive(Debug, Clone, Default)]
 struct GroupStats {
     name: String,
@@ -26,7 +27,7 @@ struct GroupStats {
     total_cycles: u64,
     min: u64,
     max: u64,
-    // the start cycle of this "span", if there exists one.
+    /// the start cycle of this active "span", if there exists one.
     curr_start: Option<u64>,
 }
 
@@ -42,11 +43,13 @@ impl GroupStats {
         }
     }
 
+    /// Function to call to collect data when the activation period of the group starts.
     pub fn group_start(&mut self, cycle: u64) {
         assert!(self.curr_start.is_none());
         self.curr_start = Some(cycle);
     }
 
+    /// Function to call to collect data when the activation period of the group ends.
     pub fn group_end(&mut self, cycle: u64) {
         assert!(self.curr_start.is_some());
         let start = self.curr_start.unwrap();
@@ -78,6 +81,7 @@ impl GroupStats {
     }
 }
 
+/// Rounds and truncates the float at two decimal places
 fn format_float<S>(value: &f64, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
@@ -87,7 +91,18 @@ where
     serializer.serialize_str(&s)
 }
 
-/// Output Cell stats CSV table
+/// Represents the classification of a cycle (to determine how "useful" it was) for cell statistics
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum CycleType {
+    /// A group or primitive was active in at least one leaf node
+    GroupOrPrimitive,
+    FsmUpdate,
+    PdUpdate,
+    MultControl,
+    Other,
+}
+
+/// Output Cell stats CSV table (fitted to `cell-stats.csv`)
 #[derive(Debug, Clone, Serialize)]
 struct CellStatsOut {
     name: String,
@@ -109,37 +124,21 @@ struct CellStatsOut {
     other: f64,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum CycleType {
-    GroupOrPrimitive,
-    FsmUpdate,
-    PdUpdate,
-    MultControl,
-    Other,
-}
-
+/// Intermediate data for a group's statistics in order to produce CellStatsOut
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
 struct CellStats {
     name: String,
     num_fsms: u32,
-    // fsms: FxHashSet<RegisterId>,
-    // pds: FxHashSet<RegisterId>,
     total_cycles: u64,
     times_active: u64,
     type_to_num_cycles: FxHashMap<CycleType, u64>,
 }
 
 impl CellStats {
-    pub fn new(
-        name: String,
-        fsms: FxHashSet<RegisterId>,
-        // pds: FxHashSet<RegisterId>,
-    ) -> Self {
+    pub fn new(name: String, fsms: FxHashSet<RegisterId>) -> Self {
         let mut s = Self {
             name,
             num_fsms: fsms.len() as u32,
-            // fsms,
-            // pds,
             total_cycles: 0,
             times_active: 0,
             type_to_num_cycles: FxHashMap::default(),
@@ -148,10 +147,13 @@ impl CellStats {
         s.type_to_num_cycles.insert(CycleType::FsmUpdate, 0);
         s.type_to_num_cycles.insert(CycleType::PdUpdate, 0);
         s.type_to_num_cycles.insert(CycleType::Other, 0);
-        println!("Cell stats: {s:?}");
         s
     }
 
+    /// Function to call to collect data on a cycle when the cell in question is active
+    /// NOTE: Different from groups, cells need to be analyzed for every cycle because the
+    /// CycleType can change based on the tree & the particular control register updates of that
+    /// cycle.
     pub fn active_cell(&mut self, cycle_type: CycleType, started_now: bool) {
         self.type_to_num_cycles.insert(
             cycle_type.clone(),
@@ -199,6 +201,7 @@ impl CellStats {
     }
 }
 
+/// Represents all statistics collected on groups/cells.
 #[derive(Debug, Clone, Default)]
 pub struct Statistics {
     group_to_stats: SecondaryMap<GroupId, GroupStats>,
@@ -260,8 +263,9 @@ impl Statistics {
         }
     }
 
+    /// Should be called after the last cycle of the trace in order to close
+    /// all active groups
     pub fn close(&mut self, to_close: &CurrentlyActive, cycle: u64) {
-        // close out all groups that are still active
         for ended_group in to_close.get_active_groups() {
             assert!(self.group_to_stats.get(*ended_group).is_some());
             self.group_to_stats[*ended_group].group_end(cycle);

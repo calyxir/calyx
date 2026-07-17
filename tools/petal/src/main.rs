@@ -172,6 +172,8 @@ fn main() -> Result<()> {
         signals_to_track.push(*in_signal);
     }
     let filter = wellen::stream::Filter::include_signals(&signals_to_track);
+    let probe_signal_set: FxHashSet<SignalRef> =
+        signals.iter().copied().collect();
 
     let mut clock_previous = true;
 
@@ -205,7 +207,6 @@ fn main() -> Result<()> {
             let main_done: bool =
                 values.get(&main_done_ref).unwrap().try_into().unwrap();
             if main_go && !main_done {
-                let mut processed = FxHashSet::default();
                 // first process the register write_ens and ins
                 for changed_write_en in changed
                     .iter()
@@ -221,11 +222,9 @@ fn main() -> Result<()> {
                         control_register_diffs
                             .insert(*register_id, register_new_value);
                     }
-                    processed.insert(changed_write_en);
-                    processed.insert(in_signal);
                 }
                 for signal in
-                    changed.iter().filter(|&s| !processed.contains(&s))
+                    changed.iter().filter(|&s| probe_signal_set.contains(s))
                 {
                     // normal probe values
                     let probe_value: bool = values
