@@ -65,10 +65,10 @@ fn collect_stacks(
     let mut out: Stacks = IndexMap::default();
     let mut currently_active = CurrentlyActive::default();
     for (cycle_count, value) in probe_values.iter().enumerate() {
-        let (active_this_cycle, gp_flag) =
+        let (active_this_cycle, gp_flag): (&mut CurrentlyActive, bool) =
             if let Some((count, _s, active, gp_flag)) = out.get_mut(value) {
                 *count += 1;
-                (active, gp_flag.clone())
+                (active, *gp_flag)
             } else {
                 let (stacks, active_this_cycle, group_or_primitive_leaf) =
                     design.compute_cycle_trace(value)?;
@@ -93,7 +93,7 @@ fn collect_stacks(
             &ended,
             cycle_count as u64,
             gp_flag,
-            &register_value_diffs,
+            register_value_diffs,
             currently_active.get_active_cells(),
         );
     }

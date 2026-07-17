@@ -98,7 +98,7 @@ impl Group {
         format!(
             "{}.{}",
             self.component,
-            self.name.split("UG").next().unwrap().to_string()
+            self.name.split("UG").next().unwrap()
         )
     }
 }
@@ -116,7 +116,6 @@ struct Control {
     go_idx: u32,
     _pos: u32,
     pretty: String,
-    component: String,
 }
 
 impl Control {
@@ -342,14 +341,8 @@ impl Design {
 
     pub fn get_cell_name_fsm_count(
         &self,
-    ) -> Vec<(CellId, String, FxHashSet<RegisterId>, FxHashSet<RegisterId>)>
-    {
-        let mut out: Vec<(
-            CellId,
-            String,
-            FxHashSet<RegisterId>,
-            FxHashSet<RegisterId>,
-        )> = Vec::new();
+    ) -> Vec<(CellId, String, FxHashSet<RegisterId>)> {
+        let mut out: Vec<(CellId, String, FxHashSet<RegisterId>)> = Vec::new();
         for (id, cell) in self.cells.iter() {
             if !cell.is_primitive {
                 let name = cell.stats_name().to_string();
@@ -362,7 +355,7 @@ impl Design {
                         pds.insert(*r);
                     }
                 }
-                out.push((id, name, fsms, pds));
+                out.push((id, name, fsms));
             }
         }
         out
@@ -737,7 +730,6 @@ impl Design {
                     go_idx: u32::MAX,
                     _pos: pos,
                     pretty,
-                    component: component.to_string(),
                 };
                 let ctrl_id = self.controls.push(ctrl);
                 pos_to_id.insert(pos, ctrl_id);

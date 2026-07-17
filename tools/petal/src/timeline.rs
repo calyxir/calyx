@@ -244,9 +244,9 @@ impl Timeline {
         cycle_count: u64,
     ) -> Result<()> {
         // register all end events
-        self.update_helper(&ended, cycle_count, Type::SliceEnd);
+        self.update_helper(ended, cycle_count, Type::SliceEnd);
         // register all start events
-        self.update_helper(&started, cycle_count, Type::SliceBegin);
+        self.update_helper(started, cycle_count, Type::SliceBegin);
         Ok(())
     }
 }

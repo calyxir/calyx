@@ -204,38 +204,29 @@ pub struct Statistics {
     group_to_stats: SecondaryMap<GroupId, GroupStats>,
     cell_to_stats: SecondaryMap<CellId, CellStats>,
     fsms: FxHashSet<RegisterId>,
-    pds: FxHashSet<RegisterId>,
 }
 
 impl Statistics {
     pub fn new(
         group_to_names: Vec<(GroupId, String)>,
-        cell_info: Vec<(
-            CellId,
-            String,
-            FxHashSet<RegisterId>,
-            FxHashSet<RegisterId>,
-        )>,
+        cell_info: Vec<(CellId, String, FxHashSet<RegisterId>)>,
     ) -> Self {
         let mut fsms: FxHashSet<RegisterId> = FxHashSet::default();
-        let mut pds: FxHashSet<RegisterId> = FxHashSet::default();
         let group_to_stats = SecondaryMap::from_iter(
             group_to_names
                 .into_iter()
                 .map(|(group_id, name)| (group_id, GroupStats::new(name))),
         );
-        for (_, _, f, p) in cell_info.iter() {
+        for (_, _, f) in cell_info.iter() {
             fsms.extend(f);
-            pds.extend(p);
         }
         let cell_to_stats = SecondaryMap::from_iter(cell_info.into_iter().map(
-            |(cell_id, name, fsms, pds)| (cell_id, CellStats::new(name, fsms)),
+            |(cell_id, name, fsms)| (cell_id, CellStats::new(name, fsms)),
         ));
         Self {
             group_to_stats,
             cell_to_stats,
             fsms,
-            pds,
         }
     }
 
