@@ -121,6 +121,8 @@ struct CellStatsOut {
     #[serde(serialize_with = "format_float")]
     pd_update: f64,
     #[serde(serialize_with = "format_float")]
+    mult_control: f64,
+    #[serde(serialize_with = "format_float")]
     other: f64,
 }
 
@@ -176,6 +178,7 @@ impl CellStats {
             self.get_type_percent(CycleType::GroupOrPrimitive);
         let fsm_update = self.get_type_percent(CycleType::FsmUpdate);
         let pd_update = self.get_type_percent(CycleType::PdUpdate);
+        let mult_control = self.get_type_percent(CycleType::MultControl);
         let other = self.get_type_percent(CycleType::Other);
 
         CellStatsOut {
@@ -189,6 +192,7 @@ impl CellStats {
             group_or_primitive,
             fsm_update,
             pd_update,
+            mult_control,
             other,
         }
     }
