@@ -4,11 +4,13 @@ mod shared_cells;
 mod timeline;
 mod visuals;
 
-#[path = "perfetto.protos.rs"]
+#[path = "visuals/perfetto.protos.rs"]
 #[allow(clippy::all)]
 #[rustfmt::skip]
 mod perfetto_protos;
+mod dahlia_design;
 mod statistics;
+
 
 use crate::design::{Design, RegisterId, Stack};
 use crate::statistics::Statistics;
