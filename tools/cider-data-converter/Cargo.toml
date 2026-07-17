@@ -16,9 +16,6 @@ itertools = { workspace = true }
 argh.workspace = true
 thiserror.workspace = true
 nom = "7.1"
-
-num-bigint = { version = "0.4" }
-num-rational = { version = "0.4" }
 num-traits = { version = "0.2" }
 baa.workspace = true
 

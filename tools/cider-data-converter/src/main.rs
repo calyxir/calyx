@@ -55,15 +55,13 @@ impl std::fmt::Debug for CiderDataConverterError {
 
 impl From<filerep::FileFmtErr> for CiderDataConverterError {
     fn from(value: filerep::FileFmtErr) -> Self {
-        let filerep::FileFmtErr::FileSpecific(f) = value;
-
-        Self::BadInternal(format!("filefmt: {f}"))
+        Self::BadInternal(format!("filefmt: {value}"))
     }
 }
 
-impl From<numrep::CheckedConvErr> for CiderDataConverterError {
-    fn from(value: numrep::CheckedConvErr) -> Self {
-        Self::BadInternal(format!("conversion: {value}"))
+impl From<typing::OpError> for CiderDataConverterError {
+    fn from(value: typing::OpError) -> Self {
+        Self::BadInternal(format!("typing / conversion: {value}"))
     }
 }
 
@@ -177,10 +175,8 @@ fn main() -> Result<(), CiderDataConverterError> {
                 return Err(CiderDataConverterError::UnknownTarget);
             };
             use filerep::DirIO;
-            let dump = DataDump::read_into_dir(
-                path.clone(),
-                opts.file_extension.clone(),
-            )?;
+            let dump =
+                DataDump::read_into_dir(path, opts.file_extension.clone())?;
             dump.hinted_try_to_ir()?
         }
         Formats::DataDump => {
@@ -212,27 +208,26 @@ fn main() -> Result<(), CiderDataConverterError> {
         Formats::Json => {
             let jd = if opts.hex {
                 formats::json::JsonData::try_from_ir_fmt(
-                    &loaded_ir,
+                    loaded_ir,
                     &filerep::OutputOpts { print_hex: true },
                 )?
             } else {
-                formats::json::JsonData::try_from_ir(&loaded_ir)?
+                formats::json::JsonData::try_from_ir(loaded_ir)?
             };
             let output = get_output_handle(&opts)?;
             jd.write_out(output)?;
         }
         Formats::Dat => {
-            // let output = get_output_handle(&opts)?;
             if opts.output_path.is_none() {
                 return Err(CiderDataConverterError::MissingDatOutputPath);
             }
-            let dd = DataDump::try_from_ir(&loaded_ir)?;
+            let dd = DataDump::try_from_ir(loaded_ir)?;
             use filerep::DirIO;
-            dd.write_out_dir(opts.output_path.unwrap(), opts.file_extension)?;
+            dd.write_out_dir(&opts.output_path.unwrap(), opts.file_extension)?;
         }
         Formats::DataDump => {
             let output = get_output_handle(&opts)?;
-            let dd = DataDump::try_from_ir(&loaded_ir)?;
+            let dd = DataDump::try_from_ir(loaded_ir)?;
 
             dd.write_out(output)?;
         }

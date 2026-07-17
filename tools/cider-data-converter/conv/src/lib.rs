@@ -1,7 +1,7 @@
 pub mod filerep;
 pub mod formats;
+pub mod memrep;
 pub mod numimpl;
-pub mod numrep;
 pub mod util;
 
 pub mod vbfp;

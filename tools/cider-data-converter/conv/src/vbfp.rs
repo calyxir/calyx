@@ -2,7 +2,7 @@
 
 use baa::{BitVecOps, BitVecValue};
 
-use crate::typing::ReadStringErr;
+use crate::typing::NumParseErr;
 
 /// only supports sign via two's complement
 /// signed-magnitude fixed-point is not supported.
@@ -19,7 +19,7 @@ impl FixedDef {
     pub fn from_fp_rounded(
         &self,
         inp: f64,
-    ) -> Result<BitVecValue, ReadStringErr> {
+    ) -> Result<BitVecValue, NumParseErr> {
         let scale: f64 = f64::powi(2., self.exp_mag);
         let scaled_inp = inp * scale;
         if self.signed {
@@ -36,11 +36,19 @@ impl FixedDef {
     // TODO: make a generic 'to_fp_closure'
     pub fn to_fp_rounded(&self, inp: &BitVecValue) -> f64 {
         let in_as_fp = if self.signed {
-            let in_num = inp.to_i64().unwrap();
+            let Some(in_num) = inp.to_i64() else {
+                panic!(
+                    "input cannot be put into 64 bits, thus cannot fit in f64"
+                )
+            };
 
             in_num as f64
         } else {
-            let in_num = inp.to_u64().unwrap();
+            let Some(in_num) = inp.to_u64() else {
+                panic!(
+                    "input cannot be put into 64 bits, thus cannot fit in f64"
+                )
+            };
             in_num as f64
         };
         in_as_fp * (f64::powi(2., -self.exp_mag))

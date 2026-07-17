@@ -1,5 +1,5 @@
 use std::io::{BufRead, BufWriter, Read, Write};
-use std::{fs::File, io::BufReader, path::PathBuf};
+use std::{fs::File, io::BufReader, path::Path};
 
 use crate::filerep::*;
 use crate::formats::dat_parser::*;
@@ -7,18 +7,21 @@ use cider::serialization as cs;
 
 const HEADER_FILENAME: &str = "header";
 
+// in the original cider data converter code, directory I/O was bolted onto the cider datadump format, this is retained.
+
 impl From<std::io::Error> for FileFmtErr {
     fn from(value: std::io::Error) -> Self {
-        Self::from(value.to_string())
+        Self::FileSpecific(format!("data dir: {}", value.to_string()))
     }
 }
 
-// in the original cider data converter code, directory I/O was bolted onto the cider datadump format, this is retained.
-
 impl DirIO for cs::DataDump {
-    fn read_into_dir(src: PathBuf, ext: String) -> Result<Self, FileFmtErr> {
+    fn read_into_dir(src: &Path, ext: String) -> Result<Self, FileFmtErr> {
         if !src.is_dir() {
-            return Err(FileFmtErr::from("not a directory"));
+            return Err(FileFmtErr::FileSpecific(format!(
+                "{:?}: not a directory",
+                src
+            )));
         }
 
         let header = {
@@ -59,11 +62,14 @@ impl DirIO for cs::DataDump {
     }
     fn write_out_dir(
         &self,
-        dest: PathBuf,
+        dest: &Path,
         ext: String,
     ) -> Result<(), FileFmtErr> {
         if dest.exists() && !dest.is_dir() {
-            return Err(FileFmtErr::from("not a directory"));
+            return Err(FileFmtErr::FileSpecific(format!(
+                "{:?}: not a directory",
+                dest
+            )));
         } else if !dest.exists() {
             std::fs::create_dir(&dest)?;
         }

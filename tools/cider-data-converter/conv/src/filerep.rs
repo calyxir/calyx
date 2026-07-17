@@ -1,12 +1,20 @@
 // format-agnostic file interface
 
 use std::collections::HashMap;
-use std::io::Read;
-use std::io::Write;
-use std::path::PathBuf;
+use std::io::{Read, Write};
+use std::path::Path;
 
-use super::numrep as nr;
+use super::memrep as nr;
 use crate::typing::*;
+
+#[derive(Debug, thiserror::Error)]
+pub enum FileFmtErr {
+    #[error("format-specific: {0}")]
+    FileSpecific(String),
+
+    #[error("numparse: {0}")]
+    BadVal(#[from] NumParseErr),
+}
 
 // TODO: string formats should at least perform cursory input validation on their I/O, bin formats are allowed to but not required to.
 
@@ -43,43 +51,16 @@ pub trait DirIO
 where
     Self: Sized,
 {
-    fn read_into_dir(src: PathBuf, ext: String) -> Result<Self, FileFmtErr>;
-    fn write_out_dir(
-        &self,
-        dest: PathBuf,
-        ext: String,
-    ) -> Result<(), FileFmtErr>;
+    fn read_into_dir(src: &Path, ext: String) -> Result<Self, FileFmtErr>;
+    fn write_out_dir(&self, dest: &Path, ext: String)
+    -> Result<(), FileFmtErr>;
 }
 
 pub trait TryFromIR
 where
     Self: Sized,
 {
-    fn try_from_ir(inp: &FileMems) -> Result<Self, FileFmtErr>;
-}
-
-#[derive(Debug)]
-pub enum FileFmtErr {
-    FileSpecific(String),
-}
-
-impl From<String> for FileFmtErr {
-    fn from(value: String) -> Self {
-        FileFmtErr::FileSpecific(value)
-    }
-}
-
-impl From<&str> for FileFmtErr {
-    fn from(value: &str) -> Self {
-        FileFmtErr::FileSpecific(String::from(value))
-    }
-}
-
-impl From<ReadStringErr> for FileFmtErr {
-    fn from(value: ReadStringErr) -> Self {
-        let ReadStringErr::BadValue(s) = value;
-        FileFmtErr::FileSpecific(s)
-    }
+    fn try_from_ir(inp: FileMems) -> Result<Self, FileFmtErr>;
 }
 
 #[derive(Debug)]

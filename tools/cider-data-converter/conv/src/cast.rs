@@ -1,5 +1,7 @@
 use crate::numrep::*;
 
+// currently not included: types to facilitate easier implementation of casts
+
 pub enum OpTypes {
     Truncate,
     Bitcast,

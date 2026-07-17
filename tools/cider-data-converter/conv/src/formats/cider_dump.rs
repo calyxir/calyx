@@ -2,11 +2,10 @@ use std::collections::HashMap;
 
 use baa::BitVecOps;
 use cider::serialization as cs;
-use cider::serialization::MemoryDeclaration;
 
 use crate::filerep as fr;
 use crate::filerep::FileFmtErr;
-use crate::numrep as nr;
+use crate::memrep as nr;
 
 use crate::typing::*;
 
@@ -26,9 +25,9 @@ fn as_cider_dims(inp: &nr::SingleMem) -> cs::Dimensions {
     }
 }
 
-impl TryFrom<TypeSpec> for cs::FormatInfo {
-    type Error = fr::FileFmtErr;
-    fn try_from(value: TypeSpec) -> Result<Self, Self::Error> {
+impl TryFrom<&TypeSpec> for cs::FormatInfo {
+    type Error = FileFmtErr;
+    fn try_from(value: &TypeSpec) -> Result<Self, Self::Error> {
         use cs::FormatInfo as cider_t;
 
         let res = match value.class {
@@ -53,7 +52,12 @@ impl TryFrom<TypeSpec> for cs::FormatInfo {
                     frac_width,
                 }
             }
-            _ => return Err(FileFmtErr::from("bad format")),
+            _ => {
+                return Err(FileFmtErr::FileSpecific(format!(
+                    "could not write {:?} in cider",
+                    value
+                )));
+            }
         };
         Ok(res)
     }
@@ -91,13 +95,13 @@ impl TryFrom<&cs::FormatInfo> for TypeSpec {
 }
 
 impl fr::TryFromIR for cs::DataDump {
-    fn try_from_ir(inp: &fr::FileMems) -> Result<cs::DataDump, fr::FileFmtErr> {
+    fn try_from_ir(inp: fr::FileMems) -> Result<cs::DataDump, fr::FileFmtErr> {
         let mut out_res = cs::DataDump::new_empty();
         for (k, v) in inp.mems.iter() {
             let t = v.ty();
 
-            let meminfo = MemoryDeclaration::new(
-                k.clone(),
+            let meminfo = cs::MemoryDeclaration::new(
+                k.to_string(),
                 as_cider_dims(v),
                 t.try_into()?,
             );
@@ -134,7 +138,7 @@ impl fr::TryToIR for cs::DataDump {
                     crate::numimpl::try_from_bytes(
                         e,
                         assoc_type.width,
-                        nr::Endian::Little,
+                        Endian::Little,
                     )
                 })
                 .collect();
@@ -152,7 +156,7 @@ impl fr::TryToIR for cs::DataDump {
                     dimensions,
                     num_dimensions,
                     assoc_type.clone(),
-                    nr::Endian::Little,
+                    Endian::Little,
                 ),
             );
         }
@@ -161,9 +165,9 @@ impl fr::TryToIR for cs::DataDump {
     }
 }
 
-impl From<cs::SerializationError> for fr::FileFmtErr {
+impl From<cs::SerializationError> for FileFmtErr {
     fn from(value: cs::SerializationError) -> Self {
-        fr::FileFmtErr::from(value.to_string())
+        Self::FileSpecific(value.to_string())
     }
 }
 
