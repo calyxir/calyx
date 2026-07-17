@@ -8,8 +8,10 @@ mod visuals;
 #[allow(clippy::all)]
 #[rustfmt::skip]
 mod perfetto_protos;
+mod statistics;
 
 use crate::design::{Design, RegisterId, Stack};
+use crate::statistics::Statistics;
 use crate::timeline::{CurrentlyActive, Timeline};
 use crate::visuals::{compute_flame, write_flame};
 use anyhow::{Context, Ok, Result, anyhow};
@@ -48,33 +50,66 @@ struct Args {
     num_print_cycles: u64,
 }
 
-pub type Stacks = IndexMap<BitVecValue, (u64, Vec<Stack>, CurrentlyActive)>;
+/// bool flag represents whether this cycle contained an active Group or Primitive leaf.
+pub type Stacks =
+    IndexMap<BitVecValue, (u64, Vec<Stack>, CurrentlyActive, bool)>;
 
 fn collect_stacks(
     design: &Design,
     timeline: &mut Timeline,
+    stats: &mut Statistics,
     probe_values: &[BitVecValue],
+    register_value_diffs: &FxHashMap<u64, FxHashMap<RegisterId, u64>>,
 ) -> Result<Stacks> {
     // Compute the trace (stacks for each active cycle) from probe_values
     let mut out: Stacks = IndexMap::default();
+    let mut currently_active = CurrentlyActive::default();
     for (cycle_count, value) in probe_values.iter().enumerate() {
-        let active_this_cycle = if let Some((count, _s, active)) =
-            out.get_mut(value)
-        {
-            *count += 1;
-            active
-        } else {
-            let (stacks, active_this_cycle) =
-                design.compute_cycle_trace(value)?;
-            out.insert(value.clone(), (1, stacks, active_this_cycle.clone()));
-            &mut active_this_cycle.clone()
-        };
-        timeline.update_timeline(active_this_cycle, cycle_count as u64)?;
+        let (active_this_cycle, gp_flag): (&mut CurrentlyActive, bool) =
+            if let Some((count, _s, active, gp_flag)) = out.get_mut(value) {
+                *count += 1;
+                (active, *gp_flag)
+            } else {
+                let (stacks, active_this_cycle, group_or_primitive_leaf) =
+                    design.compute_cycle_trace(value)?;
+                out.insert(
+                    value.clone(),
+                    (
+                        1,
+                        stacks,
+                        active_this_cycle.clone(),
+                        group_or_primitive_leaf,
+                    ),
+                );
+                (&mut active_this_cycle.clone(), group_or_primitive_leaf)
+            };
+
+        // get cell/control/group activity information
+        let (started, ended) = currently_active.resolve(active_this_cycle)?;
+        currently_active = active_this_cycle.clone();
+        timeline.update(&started, &ended, cycle_count as u64)?;
+        stats.update(
+            &started,
+            &ended,
+            cycle_count as u64,
+            gp_flag,
+            register_value_diffs,
+            currently_active.get_active_cells(),
+        );
     }
-    // close out the timeline view
-    let end = CurrentlyActive::new();
-    timeline.update_timeline(&end, probe_values.len() as u64)?;
+    // close out timeline view/statistics by "ending" the contents of `currently_active`.
+    let empty = CurrentlyActive::new();
+    let total_cycles = probe_values.len() as u64;
+    timeline.update(&empty, &currently_active, total_cycles)?;
+    stats.close(&currently_active, total_cycles);
+
     Ok(out)
+}
+
+fn build_statistics(d: &Design) -> Result<Statistics> {
+    let g = d.get_group_component_names();
+    let c = d.get_cell_name_fsm_count();
+    Ok(Statistics::new(g, c))
 }
 
 fn print_stacks(
@@ -125,6 +160,7 @@ fn main() -> Result<()> {
     let par_tracks = timeline::read_par_tracks(args.par_tracks_filename)?;
     let mut timeline = Timeline::new()?;
     design.build_timeline_tracks(&mut timeline, &par_tracks)?;
+    let mut statistics = build_statistics(&design)?;
 
     // all probe signals we would need to track
     let signals = design.get_signals();
@@ -136,6 +172,8 @@ fn main() -> Result<()> {
         signals_to_track.push(*in_signal);
     }
     let filter = wellen::stream::Filter::include_signals(&signals_to_track);
+    let probe_signal_set: FxHashSet<SignalRef> =
+        signals.iter().copied().collect();
 
     let mut clock_previous = true;
 
@@ -169,7 +207,6 @@ fn main() -> Result<()> {
             let main_done: bool =
                 values.get(&main_done_ref).unwrap().try_into().unwrap();
             if main_go && !main_done {
-                let mut processed = FxHashSet::default();
                 // first process the register write_ens and ins
                 for changed_write_en in changed
                     .iter()
@@ -185,11 +222,9 @@ fn main() -> Result<()> {
                         control_register_diffs
                             .insert(*register_id, register_new_value);
                     }
-                    processed.insert(changed_write_en);
-                    processed.insert(in_signal);
                 }
                 for signal in
-                    changed.iter().filter(|&s| !processed.contains(&s))
+                    changed.iter().filter(|&s| probe_signal_set.contains(s))
                 {
                     // normal probe values
                     let probe_value: bool = values
@@ -222,7 +257,13 @@ fn main() -> Result<()> {
     })?;
     println!("Number of cycles: {}", probe_values.len());
 
-    let stacks = collect_stacks(&design, &mut timeline, &probe_values)?;
+    let stacks = collect_stacks(
+        &design,
+        &mut timeline,
+        &mut statistics,
+        &probe_values,
+        &register_value_diffs,
+    )?;
     print_stacks(&probe_values, &stacks, args.num_print_cycles);
     let flame_info = compute_flame(&stacks)?;
     write_flame(&flame_info, args.scaled_flame_out, args.flat_flame_out)?;
@@ -232,6 +273,7 @@ fn main() -> Result<()> {
     )?;
 
     timeline.output_timeline(&args.out_dir)?;
+    statistics.output(&args.out_dir)?;
 
     Ok(())
 }

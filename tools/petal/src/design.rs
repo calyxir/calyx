@@ -2,7 +2,7 @@ use anyhow::{Context, Result, anyhow};
 use baa::{BitVecOps, BitVecValue};
 use core::panic;
 use cranelift_entity::{PrimaryMap, entity_impl};
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::{SmallVec, smallvec};
 use wellen::{Hierarchy, Scope, ScopeRef, SignalRef, VarRef};
 
@@ -30,7 +30,7 @@ struct Cell {
     /// Ids of groups that could be called directly from this cell, if it is a component.
     /// NOTE: Primitive cells should have an empty vec here.
     groups: SmallVec<[GroupId; 6]>,
-    /// Control Registeres
+    /// Control Registers
     control_registers: SmallVec<[RegisterId; 6]>,
     /// The scope of the cell in the RTL trace.
     _scope: Option<ScopeRef>,
@@ -65,6 +65,11 @@ impl Cell {
             format!("{} [{}]", self.name, self.component)
         }
     }
+
+    pub fn stats_name(&self) -> String {
+        assert!(!self.is_primitive);
+        format!("{} [{}]", self.full_path, self.component)
+    }
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
@@ -78,13 +83,23 @@ struct Group {
     probe: SignalRef,
     invokes: SmallVec<[InvokeId; 6]>,
     probe_idx: u32,
+    component: String,
 }
 
 impl Group {
-    /// String representation of cell for trace and visualizations
+    /// String representation of group for trace and visualizations
     pub fn display_name(&self) -> String {
         // remove unique group identifier.
         self.name.split("UG").next().unwrap().to_string()
+    }
+
+    /// String representation of group for stats
+    pub fn static_name(&self) -> String {
+        format!(
+            "{}.{}",
+            self.component,
+            self.name.split("UG").next().unwrap()
+        )
     }
 }
 
@@ -119,6 +134,8 @@ struct CRegister {
     name: String,
     write_en_signal_ref: SignalRef,
     in_signal_ref: SignalRef,
+    /// if the register is a pd, then this would be false.
+    is_fsm: bool,
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
@@ -160,7 +177,8 @@ pub struct CellControl {
     /// (ex. a component with a single-group control)
     toplevel_control: Option<ControlId>,
     /// Necessary for timeline view tracking (not used for constructing the call tree)
-    registers: Vec<String>,
+    fsms: Vec<String>,
+    pds: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -284,15 +302,16 @@ impl Design {
     pub fn compute_cycle_trace(
         &self,
         values: &BitVecValue,
-    ) -> Result<(Vec<Stack>, CurrentlyActive)> {
+    ) -> Result<(Vec<Stack>, CurrentlyActive, bool)> {
         let main = &self.cells[self.main];
         let (main_go, main_done) = main.probe_idxs.unwrap();
         let main_active =
             values.is_bit_set(main_go) & !values.is_bit_set(main_done);
         let mut stacks = vec![];
+        let mut group_or_primitive_leaf: bool = false;
         let mut current_active = CurrentlyActive::new();
         if main_active {
-            stacks = self.find_active_from_cell(
+            (stacks, group_or_primitive_leaf) = self.find_active_from_cell(
                 values,
                 self.main,
                 vec![],
@@ -301,7 +320,7 @@ impl Design {
             stacks.sort();
             stacks.dedup();
         }
-        Ok((stacks, current_active))
+        Ok((stacks, current_active, group_or_primitive_leaf))
     }
 
     /// Constructs the tracks in the timeline view
@@ -311,6 +330,35 @@ impl Design {
         par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
     ) -> Result<()> {
         self.build_cell_timeline_tracks(&self.main, t, par_tracks)
+    }
+
+    pub fn get_group_component_names(&self) -> Vec<(GroupId, String)> {
+        self.groups
+            .iter()
+            .map(|(id, group)| (id, group.static_name()))
+            .collect()
+    }
+
+    pub fn get_cell_name_fsm_count(
+        &self,
+    ) -> Vec<(CellId, String, FxHashSet<RegisterId>)> {
+        let mut out: Vec<(CellId, String, FxHashSet<RegisterId>)> = Vec::new();
+        for (id, cell) in self.cells.iter() {
+            if !cell.is_primitive {
+                let name = cell.stats_name().to_string();
+                let mut fsms: FxHashSet<RegisterId> = FxHashSet::default();
+                let mut pds: FxHashSet<RegisterId> = FxHashSet::default();
+                for r in cell.control_registers.iter() {
+                    if self.control_registers[*r].is_fsm {
+                        fsms.insert(*r);
+                    } else {
+                        pds.insert(*r);
+                    }
+                }
+                out.push((id, name, fsms));
+            }
+        }
+        out
     }
 }
 
@@ -364,16 +412,18 @@ pub fn parse_probe_name(name: &str) -> Result<ProbeName<'_>> {
 pub type Stack = Vec<String>;
 
 impl Design {
-    /// Builds up all active tree paths this cycle from the cell of cell_id.
+    /// Builds up all active tree paths this cycle from the component cell of cell_id.
     /// prefix is the state of the stack before this particular cell.
-    /// NOTE: This function is co-recursive with compute_group().
+    /// Returns: The active call tree and a flag indicating whether there was a leaf (last element of a stack)
+    /// that is a group or primitive (used to classify cells for `staticstics::CellStats`).
+    /// NOTE: This function is co-recursive with `find_active_from_control()` and `find_active_from_group()`.
     fn find_active_from_cell(
         &self,
         value: &BitVecValue,
         cell_id: CellId,
         mut prefix: Stack,
         active_this_cycle: &mut CurrentlyActive,
-    ) -> Vec<Stack> {
+    ) -> (Vec<Stack>, bool) {
         let cell = &self.cells[cell_id];
         active_this_cycle.add_active_cell(cell_id);
         if let Some((main_go_idx, main_done_idx)) = cell.probe_idxs {
@@ -382,36 +432,39 @@ impl Design {
             {
                 prefix.push(cell.display_name());
             } else {
-                return vec![prefix];
+                return (vec![prefix], false);
             }
         }
         if cell.groups.is_empty() && cell.control.is_empty() {
             // No more children, so this is a sink.
-            return vec![prefix];
+            return (vec![prefix], false);
         }
         let mut out = vec![];
+        let mut group_primitive_leaf = false;
         for &group_idx in &cell.groups {
             let group = &self.groups[group_idx];
             if value.is_bit_set(group.probe_idx) {
-                let mut group_stacks = self.find_active_from_group(
+                let (mut group_stacks, flag) = self.find_active_from_group(
                     value,
                     group_idx,
                     prefix.clone(),
                     active_this_cycle,
                 );
                 out.append(&mut group_stacks);
+                group_primitive_leaf |= flag;
             }
         }
         for &control_idx in &cell.control {
             let control = &self.controls[control_idx];
             if value.is_bit_set(control.go_idx) {
-                let mut control_stacks = self.find_active_from_control(
+                let (mut control_stacks, flag) = self.find_active_from_control(
                     value,
                     control_idx,
                     prefix.clone(),
                     active_this_cycle,
                 );
                 out.append(&mut control_stacks);
+                group_primitive_leaf |= flag;
             }
         }
 
@@ -421,11 +474,13 @@ impl Design {
             out.push(prefix);
         }
 
-        out
+        (out, group_primitive_leaf)
     }
 
     /// Builds up all active tree paths this cycle from the group of group_id.
     /// prefix is the state of the stack before this particular group.
+    /// Returns: The active call tree and a flag indicating whether there was a leaf (last element of a stack)
+    /// that is a group or primitive (used to classify cells for `staticstics::CellStats`).
     /// NOTE: This function is co-recursive with compute_cell(), and only called when
     /// the control group is active (otherwise this function would not be called.)
     fn find_active_from_control(
@@ -434,14 +489,14 @@ impl Design {
         control_id: ControlId,
         mut prefix: Stack,
         active_this_cycle: &mut CurrentlyActive,
-    ) -> Vec<Stack> {
+    ) -> (Vec<Stack>, bool) {
         let control = &self.controls[control_id];
         prefix.push(control.display_name());
         active_this_cycle.add_active_control(control_id);
-        if control.invokes.is_empty() {
-            return vec![prefix];
-        }
+        // it probably wouldn't make any sense for a control to not contain any invokes?
+        assert!(!control.invokes.is_empty());
         let mut out = vec![];
+        let mut group_primitive_leaf = false;
         for &invoke_id in &control.invokes {
             let invoke = &self.invokes[invoke_id];
             if value.is_bit_set(invoke.probe_idx) {
@@ -453,22 +508,26 @@ impl Design {
                         )
                     }
                     InvokeTarget::Group(target_group_id) => {
-                        let mut group_stacks = self.find_active_from_group(
-                            value,
-                            target_group_id,
-                            prefix.clone(),
-                            active_this_cycle,
-                        );
+                        let (mut group_stacks, flag) = self
+                            .find_active_from_group(
+                                value,
+                                target_group_id,
+                                prefix.clone(),
+                                active_this_cycle,
+                            );
                         out.append(&mut group_stacks);
+                        group_primitive_leaf |= flag;
                     }
                     InvokeTarget::Control(target_control_id) => {
-                        let mut control_stacks = self.find_active_from_control(
-                            value,
-                            target_control_id,
-                            prefix.clone(),
-                            active_this_cycle,
-                        );
+                        let (mut control_stacks, flag) = self
+                            .find_active_from_control(
+                                value,
+                                target_control_id,
+                                prefix.clone(),
+                                active_this_cycle,
+                            );
                         out.append(&mut control_stacks);
+                        group_primitive_leaf |= flag;
                     }
                 }
             }
@@ -480,11 +539,13 @@ impl Design {
             out.push(prefix);
         }
 
-        out
+        (out, group_primitive_leaf)
     }
 
     /// Builds up all active tree paths this cycle from the group of group_id.
     /// prefix is the state of the stack before this particular group.
+    /// Returns: The active call tree and a flag indicating whether there was a leaf (last element of a stack)
+    /// that is a group or primitive (used to classify cells for `staticstics::CellStats`).
     /// NOTE: This function is co-recursive with compute_cell() and compute_control(), and only called when
     /// the group is active (otherwise this function would not be called.)
     fn find_active_from_group(
@@ -493,14 +554,16 @@ impl Design {
         group_id: GroupId,
         mut prefix: Stack,
         active_this_cycle: &mut CurrentlyActive,
-    ) -> Vec<Stack> {
+    ) -> (Vec<Stack>, bool) {
         let group = &self.groups[group_id];
         prefix.push(group.display_name());
         active_this_cycle.add_active_group(group_id);
         if group.invokes.is_empty() {
-            return vec![prefix];
+            // this group is a leaf, since it does not invoke anything.
+            return (vec![prefix], true);
         }
         let mut out: Vec<Stack> = vec![];
+        let mut group_or_primitive_leaf = false;
         for &invoke_id in &group.invokes {
             let mut this_thread_prefix = prefix.clone();
             let invoke = &self.invokes[invoke_id];
@@ -513,25 +576,31 @@ impl Design {
                         this_thread_prefix.push(target_cell.display_name());
                         if target_cell.is_primitive {
                             out.push(this_thread_prefix);
+                            // A primitive will always be a leaf as it cannot call anything else.
+                            group_or_primitive_leaf = true;
                         } else {
-                            let mut cell_stacks = self.find_active_from_cell(
-                                value,
-                                target_cell_id,
-                                this_thread_prefix.clone(),
-                                active_this_cycle,
-                            );
+                            let (mut cell_stacks, flag) = self
+                                .find_active_from_cell(
+                                    value,
+                                    target_cell_id,
+                                    this_thread_prefix.clone(),
+                                    active_this_cycle,
+                                );
                             out.append(&mut cell_stacks);
+                            group_or_primitive_leaf |= flag;
                         }
                     }
                     InvokeTarget::Group(target_group_id) => {
                         // structural enable (group enables another group)
-                        let mut group_stacks = self.find_active_from_group(
-                            value,
-                            target_group_id,
-                            this_thread_prefix.clone(),
-                            active_this_cycle,
-                        );
+                        let (mut group_stacks, flag) = self
+                            .find_active_from_group(
+                                value,
+                                target_group_id,
+                                this_thread_prefix.clone(),
+                                active_this_cycle,
+                            );
                         out.append(&mut group_stacks);
+                        group_or_primitive_leaf |= flag;
                     }
                     InvokeTarget::Control(_) => {
                         panic!("Group should not invoke a Control node!")
@@ -539,7 +608,7 @@ impl Design {
                 }
             }
         }
-        out
+        (out, group_or_primitive_leaf)
     }
 
     /// Maps between probes and their indices in self.signals().
@@ -631,7 +700,8 @@ impl Design {
         let descriptors = c.descriptors(component);
         // let ctrl_map = descriptors.control_pos;
 
-        let mut registers = Vec::new();
+        let mut fsms = Vec::new();
+        let mut pds = Vec::new();
 
         // iterate through control par descriptors and construct Control nodes
         for (d, pos_set) in descriptors.control_pos.iter() {
@@ -645,8 +715,8 @@ impl Design {
                 let name = tdcc_info.name.clone();
 
                 match &tdcc_info.control_register {
-                    ControlRegister::Fsm(f) => registers.push(f.clone()),
-                    ControlRegister::Pd(p) => registers.append(&mut p.clone()),
+                    ControlRegister::Fsm(f) => fsms.push(f.clone()),
+                    ControlRegister::Pd(p) => pds.append(&mut p.clone()),
                 };
 
                 let ctrl_scope = get_scope(h, &h[s], &format!("{name}_go"))?;
@@ -714,7 +784,8 @@ impl Design {
         Ok(CellControl {
             group_to_parent,
             toplevel_control,
-            registers,
+            fsms,
+            pds,
         })
     }
 
@@ -791,23 +862,26 @@ impl Design {
         let CellControl {
             group_to_parent,
             toplevel_control,
-            registers,
+            fsms,
+            pds,
         } = self.populate_control(h, cell_scope, c, component)?;
         if let Some(top_ctrl) = toplevel_control {
             cell.control.push(top_ctrl);
         }
 
         // add entries for CRegisters
-        for register_scope in h[cell_scope]
-            .scopes(h)
-            .filter(|p| registers.contains(&h[*p].name(h).to_string()))
-        {
+        for register_scope in h[cell_scope].scopes(h).filter(|p| {
+            fsms.contains(&h[*p].name(h).to_string())
+                || pds.contains(&h[*p].name(h).to_string())
+        }) {
             let write_en_var = get_var(h, &h[register_scope], "write_en")?;
             let in_var = get_var(h, &h[register_scope], "in")?;
             let write_en_signal_ref = h[write_en_var].signal_ref();
             let in_signal_ref = h[in_var].signal_ref();
+            let name = h[register_scope].name(h).to_string();
             let register_id = self.control_registers.push(CRegister {
-                name: h[register_scope].name(h).to_string(),
+                is_fsm: fsms.contains(&name),
+                name,
                 write_en_signal_ref,
                 in_signal_ref,
             });
@@ -861,6 +935,7 @@ impl Design {
                                 probe,
                                 invokes,
                                 probe_idx: u32::MAX,
+                                component: component.to_string(),
                             });
                             all_groups.push(group_id);
                             structurally_invoked_group_names
@@ -922,6 +997,7 @@ impl Design {
                                 probe,
                                 invokes,
                                 probe_idx: u32::MAX,
+                                component: component.to_string(),
                             });
                             if let Some(Some(ctrl_parent)) =
                                 group_to_parent.get(&name)

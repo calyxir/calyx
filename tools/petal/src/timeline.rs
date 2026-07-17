@@ -56,8 +56,16 @@ impl CurrentlyActive {
         self.control.insert(control);
     }
 
+    pub fn get_active_groups(&self) -> &FxHashSet<GroupId> {
+        &self.groups
+    }
+
+    pub fn get_active_cells(&self) -> &FxHashSet<CellId> {
+        &self.cells
+    }
+
     /// Results the diffs between existing active cells/control/groups vs active cells/control/groups
-    /// Returns (Ended cells/control/groups, Started cells/control/groups)
+    /// Returns (Started cells/control/groups, Ended cells/control/groups).
     pub fn resolve(&self, new: &Self) -> Result<(Self, Self)> {
         let ended = Self {
             groups: self.groups.difference(&new.groups).copied().collect(),
@@ -69,7 +77,7 @@ impl CurrentlyActive {
             cells: new.cells.difference(&self.cells).copied().collect(),
             control: new.control.difference(&self.control).copied().collect(),
         };
-        Ok((ended, started))
+        Ok((started, ended))
     }
 }
 
@@ -94,7 +102,6 @@ pub struct Timeline {
     control_to_info: FxHashMap<ControlId, TrackEventInfo>,
     group_to_info: FxHashMap<GroupId, TrackEventInfo>,
     register_to_uuid: FxHashMap<RegisterId, Uuid>,
-    current_active: CurrentlyActive,
 }
 
 impl Timeline {
@@ -106,7 +113,6 @@ impl Timeline {
             control_to_info: FxHashMap::default(),
             group_to_info: FxHashMap::default(),
             register_to_uuid: FxHashMap::default(),
-            current_active: CurrentlyActive::new(),
         };
         Ok(s)
     }
@@ -230,21 +236,17 @@ impl Timeline {
         Ok(())
     }
 
-    /// Takes the diff between the current cells/control/groups that are active and those that
-    /// are active in this new cycle, then adds events for those that started or ended.
-    pub fn update_timeline(
+    /// Adds events for cells/control/groups that started or ended.
+    pub fn update(
         &mut self,
-        active_this_cycle: &CurrentlyActive,
+        started: &CurrentlyActive,
+        ended: &CurrentlyActive,
         cycle_count: u64,
     ) -> Result<()> {
-        let (ended, started) =
-            self.current_active.resolve(active_this_cycle)?;
         // register all end events
-        self.update(&ended, cycle_count, Type::SliceEnd);
+        self.update_helper(ended, cycle_count, Type::SliceEnd);
         // register all start events
-        self.update(&started, cycle_count, Type::SliceBegin);
-
-        self.current_active = active_this_cycle.clone();
+        self.update_helper(started, cycle_count, Type::SliceBegin);
         Ok(())
     }
 }
@@ -253,7 +255,7 @@ impl Timeline {
     /// Helper function of update_timeline.
     /// Updates the timeline based on the diff of active cells/groups/control between
     /// the previous cycle and this cycle.
-    fn update(
+    fn update_helper(
         &mut self,
         diff: &CurrentlyActive,
         cycle_count: u64,
