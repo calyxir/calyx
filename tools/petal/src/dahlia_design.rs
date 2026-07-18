@@ -1,5 +1,5 @@
 use crate::Stacks;
-use crate::adls::{Adl, AdlInfo, PosInfo, parse_adl_file};
+use crate::adls::{Adl, AdlInfo, ComponentInfo, PosInfo};
 use crate::design::{Design, GroupId, Stack};
 use crate::timeline::CurrentlyActive;
 use crate::visuals::{compute_flame, write_flames};
@@ -47,36 +47,16 @@ enum InvokeTarget {
 }
 
 /// (This structure follows what we have in `Design` for now)
-struct DahliaDesign {
+pub struct DahliaDesign {
     blocks: PrimaryMap<BlockId, Block>,
     statements: PrimaryMap<StatementId, Statement>,
     groups_to_statement: FxHashMap<GroupId, StatementId>,
 }
 
-fn read_parent_map(
-    parent_map_filename: &str,
-) -> Result<(FxHashMap<u64, Vec<u64>>, FxHashSet<u64>)> {
-    let parent_map_file = File::open(parent_map_filename)?;
-    let parent_map_raw: FxHashMap<String, Vec<u64>> =
-        serde_json::from_reader(parent_map_file)?;
-    // reverse the parent map s.t.
-    let mut all_blocks: FxHashSet<u64> = FxHashSet::default();
-    let parent_map: FxHashMap<u64, Vec<u64>> = parent_map_raw
-        .iter()
-        .map(|(k, v)| {
-            all_blocks.extend(v.iter().cloned());
-            let mut rev = v.clone();
-            rev.reverse();
-            (k.parse().unwrap(), rev)
-        })
-        .collect();
-    Ok((parent_map, all_blocks))
-}
-
 impl DahliaDesign {
     pub fn new(
-        adl_filename: &str,
-        parent_map_filename: &str,
+        components: Vec<ComponentInfo>,
+        parent_map_filename: Option<String>,
         d: &Design,
     ) -> Result<Self> {
         let mut out = Self {
@@ -88,9 +68,8 @@ impl DahliaDesign {
         let (parent_map, all_block_lines) =
             read_parent_map(parent_map_filename)?;
         let mut all_blocks: FxHashMap<u64, BlockId> = FxHashMap::default();
-        let AdlInfo { adl, components } = parse_adl_file(adl_filename)?;
+        // let AdlInfo { adl, components } = parse_adl_file(adl_filename)?;
 
-        assert_eq!(adl, Adl::Dahlia);
         // For now, we assume that all Dahlia programs are single-function. This assert will
         // break when a program defies this assumption
         assert_eq!(components.len(), 1);
@@ -168,7 +147,7 @@ impl DahliaDesign {
     }
 }
 
-struct DahliaProfilingInfo {
+pub struct DahliaProfilingInfo {
     design: DahliaDesign,
     /// Different Calyx traces can map onto the same Dahlia trace,
     /// so we will go with the most simple option for now
@@ -176,14 +155,19 @@ struct DahliaProfilingInfo {
 }
 
 impl DahliaProfilingInfo {
-    pub fn new(design: DahliaDesign) -> Self {
-        Self {
+    pub fn new(
+        components: Vec<ComponentInfo>,
+        parent_file: Option<String>,
+        d: &Design,
+    ) -> Result<Self> {
+        let design = DahliaDesign::new(components, parent_file, d)?;
+        Ok(Self {
             design,
             trace_info: Default::default(),
-        }
+        })
     }
 
-    pub fn process_dahlia_trace(
+    pub fn process_cycle(
         &mut self,
         calyx_active: &CurrentlyActive,
     ) -> Result<()> {
@@ -194,7 +178,7 @@ impl DahliaProfilingInfo {
         Ok(())
     }
 
-    pub fn produce_dahlia_flame_graph(&self, out_dir: &str) -> Result<()> {
+    pub fn output_flame(&self, out_dir: &str) -> Result<()> {
         let flame_input: Vec<(&u64, &Vec<Stack>)> =
             self.trace_info.iter().map(|(s, c)| (c, s)).collect();
         let flame = compute_flame(flame_input)?;
@@ -204,5 +188,30 @@ impl DahliaProfilingInfo {
         flat_flame.push("dahlia-flat-flame.flame");
         write_flames(&flame, Some(scaled_flame), Some(flat_flame))?;
         Ok(())
+    }
+}
+
+fn read_parent_map(
+    parent_map_opt: Option<String>,
+) -> Result<(FxHashMap<u64, Vec<u64>>, FxHashSet<u64>)> {
+    if let Some(parent_map_filename) = parent_map_opt {
+        let parent_map_file = File::open(parent_map_filename)?;
+        let parent_map_raw: FxHashMap<String, Vec<u64>> =
+            serde_json::from_reader(parent_map_file)?;
+        // reverse the parent map s.t.
+        let mut all_blocks: FxHashSet<u64> = FxHashSet::default();
+        let parent_map: FxHashMap<u64, Vec<u64>> = parent_map_raw
+            .iter()
+            .map(|(k, v)| {
+                all_blocks.extend(v.iter().cloned());
+                let mut rev = v.clone();
+                rev.reverse();
+                (k.parse().unwrap(), rev)
+            })
+            .collect();
+        Ok((parent_map, all_blocks))
+    } else {
+        println!("[Dahlia profiling] Parent map not given!!!");
+        Ok((FxHashMap::default(), FxHashSet::default()))
     }
 }

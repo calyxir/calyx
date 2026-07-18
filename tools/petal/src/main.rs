@@ -12,6 +12,7 @@ mod adls;
 mod dahlia_design;
 mod statistics;
 
+use crate::adls::{AdlInfo, AdlIntermediateInfo};
 use crate::design::{Design, RegisterId, Stack};
 use crate::statistics::Statistics;
 use crate::timeline::{CurrentlyActive, Timeline};
@@ -66,6 +67,7 @@ fn collect_stacks(
     stats: &mut Statistics,
     probe_values: &[BitVecValue],
     register_value_diffs: &FxHashMap<u64, FxHashMap<RegisterId, u64>>,
+    adl_info_opt: &mut Option<AdlIntermediateInfo>,
 ) -> Result<Stacks> {
     // Compute the trace (stacks for each active cycle) from probe_values
     let mut out: Stacks = IndexMap::default();
@@ -92,7 +94,6 @@ fn collect_stacks(
 
         // get cell/control/group activity information
         let (started, ended) = currently_active.resolve(active_this_cycle)?;
-        currently_active = active_this_cycle.clone();
         timeline.update(&started, &ended, cycle_count as u64)?;
         stats.update(
             &started,
@@ -100,8 +101,12 @@ fn collect_stacks(
             cycle_count as u64,
             gp_flag,
             register_value_diffs,
-            currently_active.get_active_cells(),
+            active_this_cycle.get_active_cells(),
         );
+        if let Some(adl_info) = adl_info_opt {
+            adl_info.process_cycle(active_this_cycle)?;
+        }
+        currently_active = active_this_cycle.clone();
     }
     // close out timeline view/statistics by "ending" the contents of `currently_active`.
     let empty = CurrentlyActive::new();
@@ -142,13 +147,6 @@ fn main() -> Result<()> {
     let args = Args::parse();
     fs::create_dir_all(&args.out_dir)?;
 
-    // check if we are profiling an ADL
-    // if let Some(adl_file) = args.adl_file {
-    //     let AdlInfo {adl, components} = parse_adl_file(adl_file) {
-    //
-    //     }
-    // }
-
     let ctrl_info = crate::control::ControlInfo::new(
         args.tdcc_filename,
         args.path_descriptor_filename,
@@ -168,6 +166,18 @@ fn main() -> Result<()> {
 
     // static tree
     let design = Design::new(wav.hierarchy(), ctrl_info, shared_cells)?;
+
+    // construct information for the ADL, if this is an ADL program
+    let mut adl_info = if let Some(adl_file) = args.adl_file {
+        let a = AdlIntermediateInfo::new(
+            &adl_file,
+            args.dahlia_parent_map,
+            &design,
+        )?;
+        Some(a)
+    } else {
+        None
+    };
 
     // create tracks in the timeline
     let par_tracks = timeline::read_par_tracks(args.par_tracks_filename)?;
@@ -276,6 +286,7 @@ fn main() -> Result<()> {
         &mut statistics,
         &probe_values,
         &register_value_diffs,
+        &mut adl_info,
     )?;
     print_stacks(&probe_values, &stacks, args.num_print_cycles);
     write_calyx_flames(&stacks, args.scaled_flame_out, args.flat_flame_out)?;
@@ -286,6 +297,10 @@ fn main() -> Result<()> {
 
     timeline.output_timeline(&args.out_dir)?;
     statistics.output(&args.out_dir)?;
+
+    if let Some(mut adl_data) = adl_info {
+        adl_data.output_flame(&args.out_dir)?;
+    }
 
     Ok(())
 }

@@ -1,3 +1,6 @@
+use crate::dahlia_design::DahliaProfilingInfo;
+use crate::design::Design;
+use crate::timeline::CurrentlyActive;
 use anyhow::{Ok, Result};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
@@ -36,12 +39,49 @@ pub struct PosInfo {
     pub varname: String,
 }
 
-// enum AdlIntermediateInfo {
-//     Dahlia(DahliaInfo),
-// }
+pub enum AdlIntermediateInfo {
+    Dahlia(DahliaProfilingInfo),
+}
 
-pub fn parse_adl_file(adl_filename: &str) -> Result<AdlInfo> {
-    let adl_file = File::open(adl_filename)?;
-    let out = serde_json::from_reader(BufReader::new(adl_file))?;
-    Ok(out)
+impl AdlIntermediateInfo {
+    pub fn new(
+        adl_filename: &str,
+        dahlia_parent_file: Option<String>,
+        d: &Design,
+    ) -> Result<Self> {
+        let adl_file = File::open(adl_filename)?;
+        let AdlInfo { adl, components } =
+            serde_json::from_reader(BufReader::new(adl_file))?;
+        match adl {
+            Adl::Calyx => {
+                panic!("Calyx \"ADL\" file should not be passed in!")
+            }
+            Adl::Py => {
+                todo!()
+            }
+            Adl::Dahlia => {
+                let dpi = DahliaProfilingInfo::new(
+                    components,
+                    dahlia_parent_file,
+                    d,
+                )?;
+                Ok(Self::Dahlia(dpi))
+            }
+        }
+    }
+
+    pub fn process_cycle(
+        &mut self,
+        calyx_active: &CurrentlyActive,
+    ) -> Result<()> {
+        match self {
+            AdlIntermediateInfo::Dahlia(d) => d.process_cycle(calyx_active),
+        }
+    }
+
+    pub fn output_flame(&mut self, out_dir: &str) -> Result<()> {
+        match self {
+            AdlIntermediateInfo::Dahlia(d) => d.output_flame(out_dir),
+        }
+    }
 }
