@@ -12,11 +12,10 @@ mod adls;
 mod dahlia_design;
 mod statistics;
 
-use crate::adls::{AdlInfo, parse_adl_file};
 use crate::design::{Design, RegisterId, Stack};
 use crate::statistics::Statistics;
 use crate::timeline::{CurrentlyActive, Timeline};
-use crate::visuals::{compute_flame, write_flame};
+use crate::visuals::write_calyx_flames;
 use anyhow::{Context, Ok, Result, anyhow};
 use baa::{BitVecMutOps, BitVecValue};
 use clap::Parser;
@@ -279,8 +278,7 @@ fn main() -> Result<()> {
         &register_value_diffs,
     )?;
     print_stacks(&probe_values, &stacks, args.num_print_cycles);
-    let flame_info = compute_flame(&stacks)?;
-    write_flame(&flame_info, args.scaled_flame_out, args.flat_flame_out)?;
+    write_calyx_flames(&stacks, args.scaled_flame_out, args.flat_flame_out)?;
     design.add_control_registers_to_timeline(
         &mut timeline,
         register_value_diffs,

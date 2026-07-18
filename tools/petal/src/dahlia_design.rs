@@ -1,9 +1,15 @@
+use crate::Stacks;
 use crate::adls::{Adl, AdlInfo, PosInfo, parse_adl_file};
-use crate::design::{Design, GroupId};
+use crate::design::{Design, GroupId, Stack};
+use crate::timeline::CurrentlyActive;
+use crate::visuals::{compute_flame, write_flames};
 use anyhow::{Ok, Result};
+use baa::BitVecValue;
 use cranelift_entity::{PrimaryMap, entity_impl};
+use indexmap::IndexMap;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::fs::File;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct StatementId(u32);
@@ -19,8 +25,8 @@ struct Statement {
     ancestors: Vec<BlockId>,
 }
 impl Statement {
-    pub fn display_name(&self) {
-        println!("L{:03}: {}", self.line_num, self.line);
+    pub fn display_name(&self) -> String {
+        format!("L{:03}: {}", self.line_num, self.line)
     }
 }
 
@@ -30,8 +36,8 @@ struct Block {
 }
 
 impl Block {
-    pub fn display_name(&self) {
-        println!("BL{:03}: {}", self.line_num, self.line);
+    pub fn display_name(&self) -> String {
+        format!("BL{:03}: {}", self.line_num, self.line)
     }
 }
 
@@ -126,7 +132,77 @@ impl DahliaDesign {
             let group_id = group_id_set.iter().next().unwrap();
             out.groups_to_statement.insert(*group_id, stmt_id);
         }
-        // for each statement, construct the ancestors vector
+        // for each statement, construct the list of ancestors
+        // I think we need to do this later because parent blocks may be added later than the child stmt
+        for (_id, stmt) in out.statements.iter_mut() {
+            if let Some(ancestor_line_nums) = parent_map.get(&stmt.line_num) {
+                let ancestors: Vec<BlockId> =
+                    ancestor_line_nums.iter().map(|a| all_blocks[a]).collect();
+                stmt.ancestors = ancestors;
+            }
+        }
         Ok(out)
+    }
+
+    pub fn compute_dahlia_trace(
+        &self,
+        calyx_active: &CurrentlyActive,
+    ) -> Result<Vec<Stack>> {
+        let mut out: Vec<Stack> = vec![];
+        for active_group in calyx_active.get_active_groups() {
+            if let Some(s_id) = self.groups_to_statement.get(active_group) {
+                let mut stack: Vec<String> = vec![];
+                // the statement in question is active.
+                let statement: &Statement = &self.statements[*s_id];
+                for b_id in statement.ancestors.iter() {
+                    let block: &Block = &self.blocks[*b_id];
+                    stack.push(block.display_name())
+                }
+                stack.push(statement.display_name());
+                out.push(stack);
+            }
+        }
+        out.sort();
+        out.dedup();
+        Ok(out)
+    }
+}
+
+struct DahliaProfilingInfo {
+    design: DahliaDesign,
+    /// Different Calyx traces can map onto the same Dahlia trace,
+    /// so we will go with the most simple option for now
+    trace_info: FxHashMap<Vec<Stack>, u64>,
+}
+
+impl DahliaProfilingInfo {
+    pub fn new(design: DahliaDesign) -> Self {
+        Self {
+            design,
+            trace_info: Default::default(),
+        }
+    }
+
+    pub fn process_dahlia_trace(
+        &mut self,
+        calyx_active: &CurrentlyActive,
+    ) -> Result<()> {
+        let stack: Vec<Stack> =
+            self.design.compute_dahlia_trace(calyx_active)?;
+        let curr_count = self.trace_info.entry(stack).or_insert(0);
+        *curr_count += 1;
+        Ok(())
+    }
+
+    pub fn produce_dahlia_flame_graph(&self, out_dir: &str) -> Result<()> {
+        let flame_input: Vec<(&u64, &Vec<Stack>)> =
+            self.trace_info.iter().map(|(s, c)| (c, s)).collect();
+        let flame = compute_flame(flame_input)?;
+        let mut scaled_flame = PathBuf::from(out_dir);
+        scaled_flame.push("dahlia-scaled-flame.folded");
+        let mut flat_flame = PathBuf::from(out_dir);
+        flat_flame.push("dahlia-flat-flame.flame");
+        write_flames(&flame, Some(scaled_flame), Some(flat_flame))?;
+        Ok(())
     }
 }

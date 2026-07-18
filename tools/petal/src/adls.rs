@@ -36,6 +36,10 @@ pub struct PosInfo {
     pub varname: String,
 }
 
+// enum AdlIntermediateInfo {
+//     Dahlia(DahliaInfo),
+// }
+
 pub fn parse_adl_file(adl_filename: &str) -> Result<AdlInfo> {
     let adl_file = File::open(adl_filename)?;
     let out = serde_json::from_reader(BufReader::new(adl_file))?;
