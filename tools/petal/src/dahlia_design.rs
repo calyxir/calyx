@@ -1,15 +1,12 @@
-use crate::Stacks;
-use crate::adls::{Adl, AdlInfo, ComponentInfo, PosInfo};
+use crate::adls::{ComponentInfo, PosInfo};
 use crate::design::{Design, GroupId, Stack};
 use crate::timeline::CurrentlyActive;
 use crate::visuals::{compute_flame, write_flames};
 use anyhow::{Ok, Result};
-use baa::BitVecValue;
 use cranelift_entity::{PrimaryMap, entity_impl};
-use indexmap::IndexMap;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::fs::File;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct StatementId(u32);
@@ -26,7 +23,7 @@ struct Statement {
 }
 impl Statement {
     pub fn display_name(&self) -> String {
-        format!("L{:03}: {}", self.line_num, self.line)
+        format!("L{:04}: {}", self.line_num, self.line)
     }
 }
 
@@ -37,7 +34,7 @@ struct Block {
 
 impl Block {
     pub fn display_name(&self) -> String {
-        format!("BL{:03}: {}", self.line_num, self.line)
+        format!("BL{:04}: {}", self.line_num, self.line)
     }
 }
 
@@ -84,6 +81,15 @@ impl DahliaDesign {
             ..
         } in main_component.groups.iter()
         {
+            // let line_contents = varname.split(" {").next().unwrap().to_string();
+            let line_contents = varname
+                .split("{")
+                .next()
+                .unwrap()
+                .split(";")
+                .next()
+                .unwrap()
+                .to_string();
             let stmt_id = if let Some(id) =
                 info_to_statement.get(&(*linenum, (varname.clone())))
             {
@@ -93,14 +99,14 @@ impl DahliaDesign {
                 if all_block_lines.contains(linenum) {
                     let b = Block {
                         line_num: *linenum,
-                        line: varname.clone(),
+                        line: line_contents.clone(),
                     };
                     all_blocks.insert(linenum.clone(), out.blocks.push(b));
                 }
                 // register the statement
                 let s = Statement {
                     line_num: *linenum,
-                    line: varname.clone(),
+                    line: line_contents.clone(),
                     ancestors: vec![],
                 };
                 out.statements.push(s)
@@ -185,7 +191,7 @@ impl DahliaProfilingInfo {
         let mut scaled_flame = PathBuf::from(out_dir);
         scaled_flame.push("dahlia-scaled-flame.folded");
         let mut flat_flame = PathBuf::from(out_dir);
-        flat_flame.push("dahlia-flat-flame.flame");
+        flat_flame.push("dahlia-flat-flame.folded");
         write_flames(&flame, Some(scaled_flame), Some(flat_flame))?;
         Ok(())
     }
@@ -200,15 +206,20 @@ fn read_parent_map(
             serde_json::from_reader(parent_map_file)?;
         // reverse the parent map s.t.
         let mut all_blocks: FxHashSet<u64> = FxHashSet::default();
-        let parent_map: FxHashMap<u64, Vec<u64>> = parent_map_raw
+        let mut parent_map: FxHashMap<u64, Vec<u64>> = parent_map_raw
             .iter()
             .map(|(k, v)| {
+                let k_num: u64 = k.parse().unwrap();
                 all_blocks.extend(v.iter().cloned());
                 let mut rev = v.clone();
                 rev.reverse();
-                (k.parse().unwrap(), rev)
+                (k_num, rev)
             })
             .collect();
+        for block in all_blocks.iter() {
+            let v = parent_map.get_mut(block).unwrap();
+            v.push(block.clone());
+        }
         Ok((parent_map, all_blocks))
     } else {
         println!("[Dahlia profiling] Parent map not given!!!");
