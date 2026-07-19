@@ -177,8 +177,11 @@ impl DahliaProfilingInfo {
         &mut self,
         calyx_active: &CurrentlyActive,
     ) -> Result<()> {
-        let stack: Vec<Stack> =
+        let mut stack: Vec<Stack> =
             self.design.compute_dahlia_trace(calyx_active)?;
+        if stack.is_empty() {
+            stack.push(vec!["Calyx-cycle".to_string()]);
+        }
         let curr_count = self.trace_info.entry(stack).or_insert(0);
         *curr_count += 1;
         Ok(())
