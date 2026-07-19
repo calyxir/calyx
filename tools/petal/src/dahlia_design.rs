@@ -20,6 +20,7 @@ entity_impl!(StatementId, "statement");
 pub struct BlockId(u32);
 entity_impl!(BlockId, "block");
 
+#[derive(Debug)]
 struct Statement {
     line: String,
     line_num: u64,
@@ -32,6 +33,7 @@ impl Statement {
     }
 }
 
+#[derive(Debug)]
 struct Block {
     line: String,
     line_num: u64,
@@ -54,6 +56,7 @@ enum InvokeTarget {
 }
 
 /// (This structure follows what we have in `Design` for now)
+#[derive(Debug)]
 pub struct DahliaDesign {
     blocks: PrimaryMap<BlockId, Block>,
     statements: PrimaryMap<StatementId, Statement>,
@@ -317,6 +320,7 @@ struct DahliaTimeline {
 
 impl DahliaTimeline {
     pub fn new(d: &DahliaDesign) -> Result<Self> {
+        println!("DESIGN: {d:?}");
         let mut timeline = Timeline::new();
         // create "main" track
         let main_uuid =
@@ -334,6 +338,7 @@ impl DahliaTimeline {
             d.blocks.iter().collect();
         while !worklist.is_empty() {
             let (id, block) = worklist.pop_front().unwrap();
+            println!("{id:?} {:?}", block.line);
             let parent_uuid = match &block.parent {
                 None => main_uuid,
                 Some(parent_id) => {
