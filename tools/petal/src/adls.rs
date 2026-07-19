@@ -1,6 +1,6 @@
+use crate::calyx_timeline::CurrentlyActive;
 use crate::dahlia_design::DahliaProfilingInfo;
 use crate::design::Design;
-use crate::timeline::CurrentlyActive;
 use anyhow::{Ok, Result};
 use serde::{Deserialize, Serialize};
 use std::fs::File;

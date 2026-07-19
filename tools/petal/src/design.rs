@@ -6,13 +6,11 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::{SmallVec, smallvec};
 use wellen::{Hierarchy, Scope, ScopeRef, SignalRef, VarRef};
 
+use crate::calyx_timeline::{CalyxTimeline, CurrentlyActive, NON_ID_THREAD};
 use crate::control::{ControlInfo, ControlRegister, PathDescriptorInfo};
-use crate::dahlia_design::StatementId;
-use crate::perfetto_protos::track_event::Type;
 use crate::shared_cells::SharedCellsInfo;
-use crate::timeline::{CalyxTimeline, CurrentlyActive, Uuid};
-
-const NON_ID_THREAD: u32 = u32::MAX;
+use crate::visuals::perfetto_protos::track_event::Type;
+use crate::visuals::timeline::Uuid;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct CellId(u32);
@@ -1236,31 +1234,14 @@ impl Design {
     ) -> Result<()> {
         let cell = &self.cells[*c];
         // All component cells get their own top-level track
-        let cell_uuid = t.register_cell(*c, cell.full_path.to_string())?;
+        let (cell_uuid, thread_tracks) = t.register_cell(
+            *c,
+            cell.full_path.to_string(),
+            par_tracks.get(&cell.component),
+        )?;
 
         t.register_control_registers(cell_uuid, &cell.control_registers)?;
-
-        // par_track --> track uuid for groups
-        // these still need to be passed into build_control_tracks because control
-        let mut thread_tracks: FxHashMap<u32, u64> = FxHashMap::default();
-
-        // create all thread tracks ahead of time
-        if let Some(component_par_tracks) = par_tracks.get(&cell.component) {
-            for thread in component_par_tracks.values() {
-                if !thread_tracks.contains_key(thread) {
-                    let thread_name = format!("Thread {:03}", thread);
-                    let thread_uuid =
-                        t.register_descriptor(thread_name, Some(cell_uuid))?;
-                    thread_tracks.insert(*thread, thread_uuid);
-                }
-            }
-        }
-
-        // create additional "Non-id-ed groups" track for structurally enabled groups
-        let non_id_name = "Non-id-ed groups".to_string();
-        let non_id_uuid =
-            t.register_descriptor(non_id_name, Some(cell_uuid))?;
-        thread_tracks.insert(NON_ID_THREAD, non_id_uuid);
+        // these still need to be passed into build_control_tracks because control will call groups
 
         for group in cell.groups.iter() {
             self.build_group_timeline_tracks(
@@ -1274,12 +1255,9 @@ impl Design {
 
         // Create control
         if !cell.control.is_empty() {
-            // create "Control Groups" track
-            let control_groups_uuid = t.register_descriptor(
-                "Control Groups".to_string(),
-                Some(cell_uuid),
-            )?;
             for control in cell.control.iter() {
+                let control_groups_uuid =
+                    t.register_control_groups_track(cell_uuid)?;
                 self.build_control_timeline_tracks(
                     control,
                     control_groups_uuid,

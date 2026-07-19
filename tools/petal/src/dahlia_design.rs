@@ -1,6 +1,6 @@
 use crate::adls::{ComponentInfo, PosInfo};
+use crate::calyx_timeline::CurrentlyActive;
 use crate::design::{Design, GroupId, Stack};
-use crate::timeline::CurrentlyActive;
 use crate::visuals::flamegraph::{compute_flame, write_flames};
 use anyhow::{Ok, Result};
 use cranelift_entity::{PrimaryMap, entity_impl};

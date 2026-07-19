@@ -6,6 +6,8 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::SmallVec;
 use std::fs::File;
 
+pub const NON_ID_THREAD: u32 = u32::MAX;
+
 /// Represents a set of active groups/cells/control. This is used for the timeline view where
 /// we need to know the timestamps of groups/cells/control activity.
 #[derive(Clone, Debug, Default)]
@@ -117,16 +119,49 @@ impl CalyxTimeline {
         Ok(())
     }
 
-    /// Creates a track for a new cell and adds information about the cell.
+    /// Creates a track for a new cell, the "Non-id-ed groups" track within the cell,
+    /// and all group thread tracks within the cell and adds information about the cell.
     pub fn register_cell(
         &mut self,
         cell_id: CellId,
         name: String,
-    ) -> Result<Uuid> {
+        component_par_track_opt: Option<&FxHashMap<String, u32>>,
+    ) -> Result<(Uuid, FxHashMap<u32, u64>)> {
         let uuid = self.timeline.register_descriptor(name.clone(), None)?;
         self.cell_to_info
             .insert(cell_id, TrackEventInfo { uuid, name });
-        Ok(uuid)
+
+        // par_track --> track uuid for groups
+        let mut thread_tracks: FxHashMap<u32, u64> = FxHashMap::default();
+
+        // create additional "Non-id-ed groups" track for structurally enabled groups
+        let non_id_name = "Non-id-ed groups".to_string();
+        let non_id_uuid =
+            self.timeline.register_descriptor(non_id_name, Some(uuid))?;
+        thread_tracks.insert(NON_ID_THREAD, non_id_uuid);
+
+        // create all thread tracks ahead of time
+        if let Some(component_par_tracks) = component_par_track_opt {
+            for thread in component_par_tracks.values() {
+                if !thread_tracks.contains_key(thread) {
+                    let thread_name = format!("Thread {:03}", thread);
+                    let thread_uuid = self
+                        .timeline
+                        .register_descriptor(thread_name, Some(uuid))?;
+                    thread_tracks.insert(*thread, thread_uuid);
+                }
+            }
+        }
+        Ok((uuid, thread_tracks))
+    }
+
+    /// Create the "Control groups" track, which will be the parent of all control groups.
+    pub fn register_control_groups_track(
+        &mut self,
+        cell_uuid: Uuid,
+    ) -> Result<Uuid> {
+        self.timeline
+            .register_descriptor("Control Groups".to_string(), Some(cell_uuid))
     }
 
     /// Creates the "Control Register Updates" track under a cell (whose UUID is passed in)
@@ -178,6 +213,22 @@ impl CalyxTimeline {
         self.update_helper(started, cycle_count, Type::SliceBegin);
         Ok(())
     }
+
+    pub fn register_event(
+        &mut self,
+        name: String,
+        uuid: Uuid,
+        timestamp: u64,
+        event_type: Type,
+    ) {
+        self.timeline
+            .register_event(name, uuid, timestamp, event_type);
+    }
+
+    pub fn output_timeline(self, out_dir: &str) -> anyhow::Result<()> {
+        self.timeline
+            .output_timeline(out_dir, "timeline_trace.pftrace")
+    }
 }
 
 impl CalyxTimeline {
@@ -215,7 +266,12 @@ impl CalyxTimeline {
         for &group in diff.groups.iter() {
             let TrackEventInfo { uuid, name } =
                 self.group_to_info.get(&group).unwrap();
-            self.register_event(name.clone(), *uuid, cycle_count, event_type);
+            self.timeline.register_event(
+                name.clone(),
+                *uuid,
+                cycle_count,
+                event_type,
+            );
         }
     }
 }

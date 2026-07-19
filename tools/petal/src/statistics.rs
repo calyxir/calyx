@@ -1,5 +1,5 @@
+use crate::calyx_timeline::CurrentlyActive;
 use crate::design::{CellId, GroupId, RegisterId};
-use crate::timeline::CurrentlyActive;
 use anyhow::{Ok, Result};
 use cranelift_entity::SecondaryMap;
 use rustc_hash::{FxHashMap, FxHashSet};
