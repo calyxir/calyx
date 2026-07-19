@@ -58,7 +58,7 @@ pub fn prog_from_op_list(
                     ))
                     .with_extension(ext),
                 );
-                if req.start_states.contains(&s) {
+                if req.start_states.contains(&s) && state_idx[s] == 0 {
                     plan.push_stdin(r);
                     plan.push_input(r);
                 }
