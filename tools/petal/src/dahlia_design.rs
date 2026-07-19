@@ -1,7 +1,7 @@
 use crate::adls::{ComponentInfo, PosInfo};
 use crate::design::{Design, GroupId, Stack};
 use crate::timeline::CurrentlyActive;
-use crate::visuals::{compute_flame, write_flames};
+use crate::visuals::flamegraph::{compute_flame, write_flames};
 use anyhow::{Ok, Result};
 use cranelift_entity::{PrimaryMap, entity_impl};
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -150,6 +150,63 @@ impl DahliaDesign {
         out.sort();
         out.dedup();
         Ok(out)
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct DahliaCurrentlyActive {
+    blocks: FxHashSet<BlockId>,
+    statements: FxHashSet<StatementId>,
+}
+
+impl DahliaCurrentlyActive {
+    pub fn new() -> Self {
+        Self {
+            blocks: FxHashSet::default(),
+            statements: FxHashSet::default(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.blocks.is_empty() && self.statements.is_empty()
+    }
+
+    pub fn add_active_block(&mut self, block_id: BlockId) {
+        self.blocks.insert(block_id);
+    }
+
+    pub fn add_active_statement(&mut self, statement_id: StatementId) {
+        self.statements.insert(statement_id);
+    }
+
+    pub fn get_active_blocks(&self) -> &FxHashSet<BlockId> {
+        &self.blocks
+    }
+
+    pub fn get_active_statements(&self) -> &FxHashSet<StatementId> {
+        &self.statements
+    }
+
+    pub fn resolve(&self, new: &Self) -> Result<(Self, Self)> {
+        let ended = Self {
+            blocks: self.blocks.difference(&new.blocks).copied().collect(),
+            statements: self
+                .statements
+                .difference(&new.statements)
+                .copied()
+                .collect(),
+        };
+
+        let started = Self {
+            blocks: new.blocks.difference(&self.blocks).copied().collect(),
+            statements: new
+                .statements
+                .difference(&self.statements)
+                .copied()
+                .collect(),
+        };
+
+        Ok((started, ended))
     }
 }
 

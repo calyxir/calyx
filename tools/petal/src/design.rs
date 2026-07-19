@@ -10,7 +10,7 @@ use crate::control::{ControlInfo, ControlRegister, PathDescriptorInfo};
 use crate::dahlia_design::StatementId;
 use crate::perfetto_protos::track_event::Type;
 use crate::shared_cells::SharedCellsInfo;
-use crate::timeline::{CurrentlyActive, Timeline, Uuid};
+use crate::timeline::{CalyxTimeline, CurrentlyActive, Uuid};
 
 const NON_ID_THREAD: u32 = u32::MAX;
 
@@ -254,7 +254,7 @@ impl Design {
     /// only used in the timeline view for better understanding of where "control cycles" come from)
     pub fn add_control_registers_to_timeline(
         &self,
-        timeline: &mut Timeline,
+        timeline: &mut CalyxTimeline,
         register_value_diffs: FxHashMap<u64, FxHashMap<RegisterId, u64>>,
     ) -> Result<()> {
         let mut ordered_cycles: Vec<u64> =
@@ -327,7 +327,7 @@ impl Design {
     /// Constructs the tracks in the timeline view
     pub fn build_timeline_tracks(
         &self,
-        t: &mut Timeline,
+        t: &mut CalyxTimeline,
         par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
     ) -> Result<()> {
         self.build_cell_timeline_tracks(&self.main, t, par_tracks)
@@ -1124,7 +1124,7 @@ impl Design {
         c: &ControlId,
         control_groups_uuid: u64,
         component: &str,
-        t: &mut Timeline,
+        t: &mut CalyxTimeline,
         par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
         thread_tracks: &FxHashMap<u32, u64>,
     ) -> Result<()> {
@@ -1178,7 +1178,7 @@ impl Design {
         &self,
         g: &GroupId,
         component: &str,
-        t: &mut Timeline,
+        t: &mut CalyxTimeline,
         par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
         thread_tracks: &FxHashMap<u32, u64>,
     ) -> Result<()> {
@@ -1231,7 +1231,7 @@ impl Design {
     fn build_cell_timeline_tracks(
         &self,
         c: &CellId,
-        t: &mut Timeline,
+        t: &mut CalyxTimeline,
         par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
     ) -> Result<()> {
         let cell = &self.cells[*c];

@@ -2,12 +2,9 @@ mod control;
 mod design;
 mod shared_cells;
 mod timeline;
+
 mod visuals;
 
-#[path = "visuals/perfetto.protos.rs"]
-#[allow(clippy::all)]
-#[rustfmt::skip]
-mod perfetto_protos;
 mod adls;
 mod dahlia_design;
 mod statistics;
@@ -15,8 +12,8 @@ mod statistics;
 use crate::adls::{AdlInfo, AdlIntermediateInfo};
 use crate::design::{Design, RegisterId, Stack};
 use crate::statistics::Statistics;
-use crate::timeline::{CurrentlyActive, Timeline};
-use crate::visuals::write_calyx_flames;
+use crate::timeline::{CalyxTimeline, CurrentlyActive};
+use crate::visuals::flamegraph::write_calyx_flames;
 use anyhow::{Context, Ok, Result, anyhow};
 use baa::{BitVecMutOps, BitVecValue};
 use clap::Parser;
@@ -63,7 +60,7 @@ pub type Stacks =
 
 fn collect_stacks(
     design: &Design,
-    timeline: &mut Timeline,
+    timeline: &mut CalyxTimeline,
     stats: &mut Statistics,
     probe_values: &[BitVecValue],
     register_value_diffs: &FxHashMap<u64, FxHashMap<RegisterId, u64>>,
@@ -181,7 +178,7 @@ fn main() -> Result<()> {
 
     // create tracks in the timeline
     let par_tracks = timeline::read_par_tracks(args.par_tracks_filename)?;
-    let mut timeline = Timeline::new()?;
+    let mut timeline = CalyxTimeline::new()?;
     design.build_timeline_tracks(&mut timeline, &par_tracks)?;
     let mut statistics = build_statistics(&design)?;
 
