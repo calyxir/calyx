@@ -1,6 +1,6 @@
 use crate::design::{CellId, ControlId, GroupId, RegisterId};
-use crate::visuals::perfetto_protos::track_event::{NameField, Type};
-use crate::visuals::timeline::{Timeline, Uuid};
+use crate::visuals::perfetto_protos::track_event::Type;
+use crate::visuals::timeline::{Timeline, TrackEventInfo, Uuid};
 use anyhow::{Ok, Result};
 use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::SmallVec;
@@ -67,13 +67,6 @@ impl CurrentlyActive {
         };
         Ok((started, ended))
     }
-}
-
-/// Information necessary to add events of a cell/grouo/control to the timeline view.
-#[derive(Clone, Debug, Default)]
-struct TrackEventInfo {
-    uuid: Uuid,
-    name: String,
 }
 
 /// Constructs and outputs protobuf messages for constructing a timeline view.
@@ -233,7 +226,7 @@ impl CalyxTimeline {
 
 impl CalyxTimeline {
     /// Helper function of update_timeline.
-    /// Updates the timeline based on the diff of active cells/groups/control between
+    /// Updates the timeline baesed on the diff of active cells/groups/control between
     /// the previous cycle and this cycle.
     fn update_helper(
         &mut self,

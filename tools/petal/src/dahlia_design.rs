@@ -2,11 +2,15 @@ use crate::adls::{ComponentInfo, PosInfo};
 use crate::calyx_timeline::CurrentlyActive;
 use crate::design::{Design, GroupId, Stack};
 use crate::visuals::flamegraph::{compute_flame, write_flames};
+use crate::visuals::perfetto_protos::track_event::Type;
+use crate::visuals::timeline::{Timeline, TrackEventInfo, Uuid};
 use anyhow::{Ok, Result};
-use cranelift_entity::{PrimaryMap, entity_impl};
+use cranelift_entity::{PrimaryMap, SecondaryMap, entity_impl};
 use rustc_hash::{FxHashMap, FxHashSet};
+use std::collections::VecDeque;
 use std::fs::File;
 use std::path::PathBuf;
+use std::thread::ThreadId;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct StatementId(u32);
@@ -20,6 +24,7 @@ struct Statement {
     line: String,
     line_num: u64,
     ancestors: Vec<BlockId>,
+    parent: Option<BlockId>,
 }
 impl Statement {
     pub fn display_name(&self) -> String {
@@ -30,11 +35,16 @@ impl Statement {
 struct Block {
     line: String,
     line_num: u64,
+    parent: Option<BlockId>,
 }
 
 impl Block {
     pub fn display_name(&self) -> String {
-        format!("BL{:04}: {}", self.line_num, self.line)
+        format!("{}: {}", self.short_name(), self.line)
+    }
+
+    pub fn short_name(&self) -> String {
+        format!("BL{:04}", self.line_num)
     }
 }
 
@@ -65,7 +75,6 @@ impl DahliaDesign {
         let (parent_map, all_block_lines) =
             read_parent_map(parent_map_filename)?;
         let mut all_blocks: FxHashMap<u64, BlockId> = FxHashMap::default();
-        // let AdlInfo { adl, components } = parse_adl_file(adl_filename)?;
 
         // For now, we assume that all Dahlia programs are single-function. This assert will
         // break when a program defies this assumption
@@ -100,6 +109,7 @@ impl DahliaDesign {
                     let b = Block {
                         line_num: *linenum,
                         line: line_contents.clone(),
+                        parent: None,
                     };
                     all_blocks.insert(linenum.clone(), out.blocks.push(b));
                 }
@@ -108,6 +118,7 @@ impl DahliaDesign {
                     line_num: *linenum,
                     line: line_contents.clone(),
                     ancestors: vec![],
+                    parent: None,
                 };
                 out.statements.push(s)
             };
@@ -123,8 +134,16 @@ impl DahliaDesign {
             if let Some(ancestor_line_nums) = parent_map.get(&stmt.line_num) {
                 let ancestors: Vec<BlockId> =
                     ancestor_line_nums.iter().map(|a| all_blocks[a]).collect();
+                stmt.parent = ancestors.last().copied();
                 stmt.ancestors = ancestors;
             }
+        }
+        // get parents for each block
+        for (_id, block) in out.blocks.iter_mut() {
+            block.parent = parent_map
+                .get(&block.line_num)
+                .map(|v| v.last().map(|p| all_blocks.get(p).unwrap().clone()))
+                .flatten();
         }
         Ok(out)
     }
@@ -132,24 +151,36 @@ impl DahliaDesign {
     pub fn compute_dahlia_trace(
         &self,
         calyx_active: &CurrentlyActive,
-    ) -> Result<Vec<Stack>> {
-        let mut out: Vec<Stack> = vec![];
+    ) -> Result<(Vec<Stack>, DahliaCurrentlyActive)> {
+        let mut stack_out: Vec<Stack> = vec![];
+        let mut active_this_cycle: DahliaCurrentlyActive =
+            DahliaCurrentlyActive::new();
         for active_group in calyx_active.get_active_groups() {
             if let Some(s_id) = self.groups_to_statement.get(active_group) {
                 let mut stack: Vec<String> = vec![];
                 // the statement in question is active.
+                active_this_cycle.add_active_statement(*s_id);
                 let statement: &Statement = &self.statements[*s_id];
                 for b_id in statement.ancestors.iter() {
+                    active_this_cycle.add_active_block(*b_id);
                     let block: &Block = &self.blocks[*b_id];
                     stack.push(block.display_name())
                 }
                 stack.push(statement.display_name());
-                out.push(stack);
+                stack_out.push(stack);
             }
         }
-        out.sort();
-        out.dedup();
-        Ok(out)
+        stack_out.sort();
+        stack_out.dedup();
+        Ok((stack_out, active_this_cycle))
+    }
+
+    pub fn block_ids(&self) -> Vec<BlockId> {
+        self.blocks.keys().collect()
+    }
+
+    pub fn statement_ids(&self) -> Vec<StatementId> {
+        self.statements.keys().collect()
     }
 }
 
@@ -210,10 +241,231 @@ impl DahliaCurrentlyActive {
     }
 }
 
+#[derive(Clone, Debug, Default)]
+struct BlockTrackInfo {
+    uuid: Uuid,
+    name: String,
+    short_name: String,
+    thread_info: Vec<Uuid>,
+    // statement is only in the map only when it's active.
+    statement_to_thread: FxHashMap<StatementId, Uuid>,
+}
+
+impl BlockTrackInfo {
+    pub fn new(uuid: Uuid, name: String, short_name: String) -> Self {
+        Self {
+            uuid,
+            name,
+            short_name,
+            thread_info: vec![],
+            statement_to_thread: FxHashMap::default(),
+        }
+    }
+
+    fn add_new_thread(&mut self, t: &mut Timeline) -> Result<usize> {
+        let index = self.thread_info.len() + 1;
+        let new_thread_name = format!("Thread {} ({})", index, self.short_name);
+        let uuid = t.register_descriptor(new_thread_name, Some(self.uuid))?;
+        self.thread_info.push(uuid);
+        Ok(index)
+    }
+
+    pub fn get_thread_for_new_statement(
+        &mut self,
+        s: StatementId,
+        t: &mut Timeline,
+    ) -> Result<Uuid> {
+        let used_uuids: FxHashSet<Uuid> =
+            self.statement_to_thread.values().copied().collect();
+        let index = match self
+            .thread_info
+            .iter()
+            .position(|uuid| !used_uuids.contains(&uuid))
+        {
+            Some(i) => i,
+            None => self.add_new_thread(t)?,
+        };
+        let uuid = self.thread_info[index];
+        self.statement_to_thread.insert(s, uuid);
+        Ok(uuid)
+    }
+
+    pub fn get_thread_for_closing_statement(
+        &mut self,
+        s: &StatementId,
+    ) -> Uuid {
+        self.statement_to_thread.remove(&s).unwrap()
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+struct StatementTrackInfo {
+    name: String,
+    parent: Option<BlockId>,
+    // UUIDs are only created for statements without block parents
+    // FIXME: in the future, we should also have a "Thread X" system for statements without block parents as well.
+    uuid: Option<Uuid>,
+}
+
+#[derive(Clone, Debug, Default)]
+struct DahliaTimeline {
+    timeline: Timeline,
+    main_track: Uuid,
+    statement_to_info: FxHashMap<StatementId, StatementTrackInfo>,
+    block_to_info: FxHashMap<BlockId, BlockTrackInfo>,
+}
+
+impl DahliaTimeline {
+    pub fn new(d: &DahliaDesign) -> Result<Self> {
+        let mut timeline = Timeline::new();
+        // create "main" track
+        let main_uuid =
+            timeline.register_descriptor("main".to_string(), None)?;
+
+        let mut t = Self {
+            timeline,
+            main_track: main_uuid,
+            statement_to_info: FxHashMap::default(),
+            block_to_info: FxHashMap::default(),
+        };
+
+        // add tracks for blocks
+        let mut worklist: VecDeque<(BlockId, &Block)> =
+            d.blocks.iter().collect();
+        while !worklist.is_empty() {
+            let (id, block) = worklist.pop_front().unwrap();
+            let parent_uuid = match &block.parent {
+                None => main_uuid,
+                Some(parent_id) => {
+                    if let Some(p) = t.block_to_info.get(parent_id) {
+                        p.uuid
+                    } else {
+                        // we haven't processed the parent yet, so we will come back to this one later
+                        worklist.push_back((id, &block));
+                        continue;
+                    }
+                }
+            };
+
+            let uuid = t
+                .timeline
+                .register_descriptor(block.display_name(), Some(parent_uuid))?;
+
+            t.block_to_info.insert(
+                id,
+                BlockTrackInfo {
+                    uuid,
+                    name: block.display_name(),
+                    short_name: block.short_name(),
+                    thread_info: vec![],
+                    statement_to_thread: FxHashMap::default(),
+                },
+            );
+        }
+
+        for (statement_id, statement) in d.statements.iter() {
+            let mut uuid = None;
+            let mut parent = None;
+            match statement.parent {
+                None => {
+                    // create a track for this statement specifically
+                    let stmt_uuid = t.timeline.register_descriptor(
+                        statement.display_name(),
+                        Some(main_uuid),
+                    )?;
+                    uuid = Some(stmt_uuid);
+                }
+                Some(parent_id) => {
+                    parent = Some(parent_id);
+                }
+            }
+            assert!(parent.is_some() ^ uuid.is_some());
+
+            t.statement_to_info.insert(
+                statement_id,
+                StatementTrackInfo {
+                    name: statement.display_name(),
+                    parent,
+                    uuid,
+                },
+            );
+        }
+
+        Ok(t)
+    }
+
+    pub fn update(
+        &mut self,
+        started: &DahliaCurrentlyActive,
+        ended: &DahliaCurrentlyActive,
+        cycle_count: u64,
+    ) -> Result<()> {
+        self.update_helper(started, cycle_count, Type::SliceBegin)?;
+
+        self.update_helper(ended, cycle_count, Type::SliceEnd)?;
+
+        Ok(())
+    }
+
+    fn update_helper(
+        &mut self,
+        diff: &DahliaCurrentlyActive,
+        cycle_count: u64,
+        event_type: Type,
+    ) -> Result<()> {
+        for block in diff.blocks.iter() {
+            let BlockTrackInfo { uuid, name, .. } =
+                self.block_to_info.get(block).unwrap();
+            self.timeline.register_event(
+                name.clone(),
+                *uuid,
+                cycle_count,
+                event_type,
+            );
+        }
+
+        for statement in diff.statements.iter() {
+            let StatementTrackInfo { name, parent, uuid } =
+                self.statement_to_info.get(statement).unwrap();
+            if let Some(uuid) = uuid {
+                self.timeline.register_event(
+                    name.clone(),
+                    *uuid,
+                    cycle_count,
+                    event_type,
+                );
+            } else if let Some(parent) = parent {
+                // need to find the uuid using the parent
+                let parent_block = self.block_to_info.get_mut(parent).unwrap();
+                let uuid = match event_type {
+                    Type::SliceBegin => parent_block
+                        .get_thread_for_new_statement(
+                            *statement,
+                            &mut self.timeline,
+                        )?,
+                    Type::SliceEnd => {
+                        parent_block.get_thread_for_closing_statement(statement)
+                    }
+                    _ => panic!("unexpected event type"),
+                };
+                self.timeline.register_event(
+                    name.clone(),
+                    uuid,
+                    cycle_count,
+                    event_type,
+                );
+            }
+        }
+        Ok(())
+    }
+}
+
 pub struct DahliaProfilingInfo {
     design: DahliaDesign,
+    timeline: DahliaTimeline,
+    currently_active: DahliaCurrentlyActive,
     /// Different Calyx traces can map onto the same Dahlia trace,
-    /// so we will go with the most simple option for now
+    /// so we will go with the most simple option for now (instead of mapping a bitvector to a count)
     trace_info: FxHashMap<Vec<Stack>, u64>,
 }
 
@@ -224,8 +476,11 @@ impl DahliaProfilingInfo {
         d: &Design,
     ) -> Result<Self> {
         let design = DahliaDesign::new(components, parent_file, d)?;
+        let timeline = DahliaTimeline::new(&design)?;
         Ok(Self {
             design,
+            timeline,
+            currently_active: DahliaCurrentlyActive::default(),
             trace_info: Default::default(),
         })
     }
@@ -233,14 +488,22 @@ impl DahliaProfilingInfo {
     pub fn process_cycle(
         &mut self,
         calyx_active: &CurrentlyActive,
+        cycle_count: u64,
     ) -> Result<()> {
-        let mut stack: Vec<Stack> =
-            self.design.compute_dahlia_trace(calyx_active)?;
+        let (mut stack, active_this_cycle): (
+            Vec<Stack>,
+            DahliaCurrentlyActive,
+        ) = self.design.compute_dahlia_trace(calyx_active)?;
         if stack.is_empty() {
             stack.push(vec!["Calyx-cycle".to_string()]);
         }
         let curr_count = self.trace_info.entry(stack).or_insert(0);
         *curr_count += 1;
+
+        let (started, ended) =
+            self.currently_active.resolve(&active_this_cycle)?;
+        self.timeline.update(&started, &ended, cycle_count)?;
+        self.currently_active = active_this_cycle;
         Ok(())
     }
 

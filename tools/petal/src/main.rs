@@ -101,7 +101,7 @@ fn collect_stacks(
             active_this_cycle.get_active_cells(),
         );
         if let Some(adl_info) = adl_info_opt {
-            adl_info.process_cycle(active_this_cycle)?;
+            adl_info.process_cycle(active_this_cycle, cycle_count as u64)?;
         }
         currently_active = active_this_cycle.clone();
     }

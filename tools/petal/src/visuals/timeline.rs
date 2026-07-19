@@ -19,6 +19,7 @@ pub const TPSI: u32 = 8008;
 /// A unique identifier used for specifying tracks in the timeline.
 pub type Uuid = u64;
 
+#[derive(Debug, Clone, Default)]
 pub(crate) struct Timeline {
     packets: Vec<TracePacket>,
     used_uuids: FxHashSet<u64>,
@@ -110,4 +111,11 @@ fn create_packet_helper(timestamp: u64, data: Data) -> TracePacket {
         ),
         ..Default::default()
     }
+}
+
+/// Information necessary to add events of a cell/group/control to the timeline view.
+#[derive(Clone, Debug, Default)]
+pub struct TrackEventInfo {
+    pub uuid: Uuid,
+    pub name: String,
 }

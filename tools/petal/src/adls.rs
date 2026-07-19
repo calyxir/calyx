@@ -73,9 +73,12 @@ impl AdlIntermediateInfo {
     pub fn process_cycle(
         &mut self,
         calyx_active: &CurrentlyActive,
+        cycle_count: u64,
     ) -> Result<()> {
         match self {
-            AdlIntermediateInfo::Dahlia(d) => d.process_cycle(calyx_active),
+            AdlIntermediateInfo::Dahlia(d) => {
+                d.process_cycle(calyx_active, cycle_count)
+            }
         }
     }
 
