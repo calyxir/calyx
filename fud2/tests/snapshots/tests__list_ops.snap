@@ -133,6 +133,21 @@ source: fud2/tests/tests.rs
         "calyx",
     ),
     (
+        "petal",
+        "calyx",
+        "flamegraph",
+    ),
+    (
+        "petal-dahlia",
+        "dahlia",
+        "flamegraph",
+    ),
+    (
+        "petal-test",
+        "calyx",
+        "flamegraph-folded-for-tests",
+    ),
+    (
         "primitive-uses",
         "calyx",
         "primitive-uses-json",
@@ -156,16 +171,6 @@ source: fud2/tests/tests.rs
         "relay",
         "relay",
         "calyx",
-    ),
-    (
-        "rusted-petal",
-        "calyx",
-        "flamegraph",
-    ),
-    (
-        "rusted-petal-test",
-        "calyx",
-        "flamegraph-folded-for-tests",
     ),
     (
         "simulate",

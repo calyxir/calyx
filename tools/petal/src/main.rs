@@ -1,19 +1,19 @@
+mod calyx_timeline;
 mod control;
 mod design;
 mod shared_cells;
-mod timeline;
+
 mod visuals;
 
-#[path = "perfetto.protos.rs"]
-#[allow(clippy::all)]
-#[rustfmt::skip]
-mod perfetto_protos;
+mod adls;
+mod dahlia_design;
 mod statistics;
 
+use crate::adls::AdlIntermediateInfo;
+use crate::calyx_timeline::{CalyxTimeline, CurrentlyActive};
 use crate::design::{Design, RegisterId, Stack};
 use crate::statistics::Statistics;
-use crate::timeline::{CurrentlyActive, Timeline};
-use crate::visuals::{compute_flame, write_flame};
+use crate::visuals::flamegraph::write_calyx_flames;
 use anyhow::{Context, Ok, Result, anyhow};
 use baa::{BitVecMutOps, BitVecValue};
 use clap::Parser;
@@ -46,6 +46,10 @@ struct Args {
     scaled_flame_out: Option<String>,
     #[arg(long)]
     flat_flame_out: Option<String>,
+    #[arg(long)]
+    adl_file: Option<String>,
+    #[arg(long)]
+    dahlia_parent_map: Option<String>,
     #[arg(long, default_value_t = 100)]
     num_print_cycles: u64,
 }
@@ -56,10 +60,11 @@ pub type Stacks =
 
 fn collect_stacks(
     design: &Design,
-    timeline: &mut Timeline,
+    timeline: &mut CalyxTimeline,
     stats: &mut Statistics,
     probe_values: &[BitVecValue],
     register_value_diffs: &FxHashMap<u64, FxHashMap<RegisterId, u64>>,
+    adl_info_opt: &mut Option<AdlIntermediateInfo>,
 ) -> Result<Stacks> {
     // Compute the trace (stacks for each active cycle) from probe_values
     let mut out: Stacks = IndexMap::default();
@@ -86,7 +91,6 @@ fn collect_stacks(
 
         // get cell/control/group activity information
         let (started, ended) = currently_active.resolve(active_this_cycle)?;
-        currently_active = active_this_cycle.clone();
         timeline.update(&started, &ended, cycle_count as u64)?;
         stats.update(
             &started,
@@ -94,14 +98,21 @@ fn collect_stacks(
             cycle_count as u64,
             gp_flag,
             register_value_diffs,
-            currently_active.get_active_cells(),
+            active_this_cycle.get_active_cells(),
         );
+        if let Some(adl_info) = adl_info_opt {
+            adl_info.process_cycle(active_this_cycle, cycle_count as u64)?;
+        }
+        currently_active = active_this_cycle.clone();
     }
     // close out timeline view/statistics by "ending" the contents of `currently_active`.
     let empty = CurrentlyActive::new();
     let total_cycles = probe_values.len() as u64;
     timeline.update(&empty, &currently_active, total_cycles)?;
     stats.close(&currently_active, total_cycles);
+    if let Some(adl_info) = adl_info_opt {
+        adl_info.close(total_cycles)?;
+    }
 
     Ok(out)
 }
@@ -156,9 +167,21 @@ fn main() -> Result<()> {
     // static tree
     let design = Design::new(wav.hierarchy(), ctrl_info, shared_cells)?;
 
+    // construct information for the ADL, if this is an ADL program
+    let mut adl_info = if let Some(adl_file) = args.adl_file {
+        let a = AdlIntermediateInfo::new(
+            &adl_file,
+            args.dahlia_parent_map,
+            &design,
+        )?;
+        Some(a)
+    } else {
+        None
+    };
+
     // create tracks in the timeline
-    let par_tracks = timeline::read_par_tracks(args.par_tracks_filename)?;
-    let mut timeline = Timeline::new()?;
+    let par_tracks = calyx_timeline::read_par_tracks(args.par_tracks_filename)?;
+    let mut timeline = CalyxTimeline::new()?;
     design.build_timeline_tracks(&mut timeline, &par_tracks)?;
     let mut statistics = build_statistics(&design)?;
 
@@ -263,17 +286,21 @@ fn main() -> Result<()> {
         &mut statistics,
         &probe_values,
         &register_value_diffs,
+        &mut adl_info,
     )?;
     print_stacks(&probe_values, &stacks, args.num_print_cycles);
-    let flame_info = compute_flame(&stacks)?;
-    write_flame(&flame_info, args.scaled_flame_out, args.flat_flame_out)?;
+    write_calyx_flames(&stacks, args.scaled_flame_out, args.flat_flame_out)?;
     design.add_control_registers_to_timeline(
         &mut timeline,
         register_value_diffs,
     )?;
-
     timeline.output_timeline(&args.out_dir)?;
     statistics.output(&args.out_dir)?;
+
+    if let Some(mut adl_data) = adl_info {
+        adl_data.output_flame(&args.out_dir)?;
+        adl_data.output_timeline(&args.out_dir)?;
+    }
 
     Ok(())
 }

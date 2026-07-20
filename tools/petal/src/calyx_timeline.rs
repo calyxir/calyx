@@ -1,24 +1,12 @@
 use crate::design::{CellId, ControlId, GroupId, RegisterId};
-use crate::perfetto_protos::trace_packet::{
-    Data, OptionalTrustedPacketSequenceId,
-};
-use crate::perfetto_protos::track_descriptor::StaticOrDynamicName;
-use crate::perfetto_protos::track_event::{NameField, Type};
-use crate::perfetto_protos::{Trace, TracePacket, TrackDescriptor, TrackEvent};
+use crate::visuals::perfetto_protos::track_event::Type;
+use crate::visuals::timeline::{Timeline, TrackEventInfo, Uuid};
 use anyhow::{Ok, Result};
-use prost::Message;
-use prost::bytes::BytesMut;
 use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::SmallVec;
 use std::fs::File;
-use std::io::Write;
-use std::path::PathBuf;
 
-/// Trusted Packet Sequence ID; a number necessary for constructing the timeline protobuf
-const TPSI: u32 = 8008;
-
-/// A unique identifier used for specifying tracks in the timeline.
-pub type Uuid = u64;
+pub const NON_ID_THREAD: u32 = u32::MAX;
 
 /// Represents a set of active groups/cells/control. This is used for the timeline view where
 /// we need to know the timestamps of groups/cells/control activity.
@@ -81,34 +69,24 @@ impl CurrentlyActive {
     }
 }
 
-/// Information necessary to add events of a cell/grouo/control to the timeline view.
-#[derive(Clone, Debug, Default)]
-struct TrackEventInfo {
-    uuid: Uuid,
-    name: String,
-}
-
 /// Constructs and outputs protobuf messages for constructing a timeline view.
 /// In the timeline, each component cell has a distinct track which contains tracks containing the
 /// group/control group/control register activity within that cell, organized as below:
 /// - Control register updates get a single track ("Control register updates")
 /// - Each control group gets its own track, under the "Control groups" track
 /// - Groups are organized by their statically defined thread IDs. Each thread gets its own track.
-pub struct Timeline {
-    packets: Vec<TracePacket>,
-    /// Cell/Control Group/Group name to track UUID
-    used_uuids: FxHashSet<u64>,
+pub struct CalyxTimeline {
+    timeline: Timeline,
     cell_to_info: FxHashMap<CellId, TrackEventInfo>,
     control_to_info: FxHashMap<ControlId, TrackEventInfo>,
     group_to_info: FxHashMap<GroupId, TrackEventInfo>,
     register_to_uuid: FxHashMap<RegisterId, Uuid>,
 }
 
-impl Timeline {
+impl CalyxTimeline {
     pub fn new() -> Result<Self> {
         let s = Self {
-            packets: Vec::new(),
-            used_uuids: FxHashSet::default(),
+            timeline: Timeline::new(),
             cell_to_info: FxHashMap::default(),
             control_to_info: FxHashMap::default(),
             group_to_info: FxHashMap::default(),
@@ -134,16 +112,49 @@ impl Timeline {
         Ok(())
     }
 
-    /// Creates a track for a new cell and adds information about the cell.
+    /// Creates a track for a new cell, the "Non-id-ed groups" track within the cell,
+    /// and all group thread tracks within the cell and adds information about the cell.
     pub fn register_cell(
         &mut self,
         cell_id: CellId,
         name: String,
-    ) -> Result<Uuid> {
-        let uuid = self.register_descriptor(name.clone(), None)?;
+        component_par_track_opt: Option<&FxHashMap<String, u32>>,
+    ) -> Result<(Uuid, FxHashMap<u32, u64>)> {
+        let uuid = self.timeline.register_descriptor(name.clone(), None)?;
         self.cell_to_info
             .insert(cell_id, TrackEventInfo { uuid, name });
-        Ok(uuid)
+
+        // par_track --> track uuid for groups
+        let mut thread_tracks: FxHashMap<u32, u64> = FxHashMap::default();
+
+        // create additional "Non-id-ed groups" track for structurally enabled groups
+        let non_id_name = "Non-id-ed groups".to_string();
+        let non_id_uuid =
+            self.timeline.register_descriptor(non_id_name, Some(uuid))?;
+        thread_tracks.insert(NON_ID_THREAD, non_id_uuid);
+
+        // create all thread tracks ahead of time
+        if let Some(component_par_tracks) = component_par_track_opt {
+            for thread in component_par_tracks.values() {
+                if !thread_tracks.contains_key(thread) {
+                    let thread_name = format!("Thread {:03}", thread);
+                    let thread_uuid = self
+                        .timeline
+                        .register_descriptor(thread_name, Some(uuid))?;
+                    thread_tracks.insert(*thread, thread_uuid);
+                }
+            }
+        }
+        Ok((uuid, thread_tracks))
+    }
+
+    /// Create the "Control groups" track, which will be the parent of all control groups.
+    pub fn register_control_groups_track(
+        &mut self,
+        cell_uuid: Uuid,
+    ) -> Result<Uuid> {
+        self.timeline
+            .register_descriptor("Control Groups".to_string(), Some(cell_uuid))
     }
 
     /// Creates the "Control Register Updates" track under a cell (whose UUID is passed in)
@@ -154,7 +165,7 @@ impl Timeline {
         register_ids: &SmallVec<[RegisterId; 6]>,
     ) -> Result<()> {
         // register "Control Register Updates" track and keep track of its UUID
-        let registers_uuid = self.register_descriptor(
+        let registers_uuid = self.timeline.register_descriptor(
             "Control Register Updates".to_string(),
             Some(cell_uuid),
         )?;
@@ -173,67 +184,13 @@ impl Timeline {
         control_id: ControlId,
         control_groups_uuid: Uuid,
     ) -> Result<Uuid> {
-        let uuid = self.register_descriptor(
+        let uuid = self.timeline.register_descriptor(
             track_name.clone(),
             Some(control_groups_uuid),
         )?;
         self.control_to_info
             .insert(control_id, TrackEventInfo { uuid, name });
         Ok(uuid)
-    }
-
-    /// Creates a new track in the timeline.
-    pub fn register_descriptor(
-        &mut self,
-        name: String,
-        parent_uuid: Option<Uuid>,
-    ) -> Result<Uuid> {
-        let uuid = generate_uuid(&self.used_uuids);
-        self.used_uuids.insert(uuid);
-
-        let descriptor = TrackDescriptor {
-            uuid: Some(uuid),
-            static_or_dynamic_name: Some(StaticOrDynamicName::Name(name)),
-            parent_uuid,
-            ..Default::default()
-        };
-        let packet = create_packet_helper(0, Data::TrackDescriptor(descriptor));
-        self.packets.push(packet);
-        Ok(uuid)
-    }
-
-    /// Creates a new event in the timeline.
-    pub fn register_event(
-        &mut self,
-        name: String,
-        uuid: Uuid,
-        timestamp: u64,
-        event_type: Type,
-    ) {
-        let event = TrackEvent {
-            name_field: Some(NameField::Name(name)),
-            r#type: Some(event_type as i32),
-            track_uuid: Some(uuid),
-            // TODO: find the track uuid for this event
-            ..Default::default()
-        };
-        let packet = create_packet_helper(timestamp, Data::TrackEvent(event));
-        self.packets.push(packet);
-    }
-
-    pub fn output_timeline(self, out_dir: &str) -> Result<()> {
-        // we can move self.packets because we will no longer add any information to it.
-        let trace = Trace {
-            packet: self.packets,
-        };
-        let encoded_len = trace.encoded_len();
-        let mut buf = BytesMut::with_capacity(encoded_len);
-        trace.encode(&mut buf)?;
-        let mut path = PathBuf::from(out_dir);
-        path.push("timeline_trace.pftrace");
-        let mut file = File::create(path)?;
-        file.write_all(&buf)?;
-        Ok(())
     }
 
     /// Adds events for cells/control/groups that started or ended.
@@ -249,11 +206,27 @@ impl Timeline {
         self.update_helper(started, cycle_count, Type::SliceBegin);
         Ok(())
     }
+
+    pub fn register_event(
+        &mut self,
+        name: String,
+        uuid: Uuid,
+        timestamp: u64,
+        event_type: Type,
+    ) {
+        self.timeline
+            .register_event(name, uuid, timestamp, event_type);
+    }
+
+    pub fn output_timeline(self, out_dir: &str) -> anyhow::Result<()> {
+        self.timeline
+            .output_timeline(out_dir, "timeline_trace.pftrace")
+    }
 }
 
-impl Timeline {
+impl CalyxTimeline {
     /// Helper function of update_timeline.
-    /// Updates the timeline based on the diff of active cells/groups/control between
+    /// Updates the timeline baesed on the diff of active cells/groups/control between
     /// the previous cycle and this cycle.
     fn update_helper(
         &mut self,
@@ -264,41 +237,35 @@ impl Timeline {
         for &cell in diff.cells.iter() {
             let TrackEventInfo { uuid, name } =
                 self.cell_to_info.get(&cell).unwrap();
-            self.register_event(name.clone(), *uuid, cycle_count, event_type);
+            self.timeline.register_event(
+                name.clone(),
+                *uuid,
+                cycle_count,
+                event_type,
+            );
         }
 
         for &control in diff.control.iter() {
             let TrackEventInfo { uuid, name } =
                 self.control_to_info.get(&control).unwrap();
-            self.register_event(name.clone(), *uuid, cycle_count, event_type);
+            self.timeline.register_event(
+                name.clone(),
+                *uuid,
+                cycle_count,
+                event_type,
+            );
         }
 
         for &group in diff.groups.iter() {
             let TrackEventInfo { uuid, name } =
                 self.group_to_info.get(&group).unwrap();
-            self.register_event(name.clone(), *uuid, cycle_count, event_type);
+            self.timeline.register_event(
+                name.clone(),
+                *uuid,
+                cycle_count,
+                event_type,
+            );
         }
-    }
-}
-
-fn generate_uuid(used_uuids: &FxHashSet<u64>) -> u64 {
-    let mut r = rand::random::<u64>();
-    while used_uuids.contains(&r) {
-        r = rand::random::<u64>();
-    }
-    r
-}
-
-/// Helper function for `register_descriptor()` and `register_event()`.
-/// Descriptor specifications and events need to be wrapped in a TracePacket.
-fn create_packet_helper(timestamp: u64, data: Data) -> TracePacket {
-    TracePacket {
-        timestamp: Some(timestamp),
-        data: Some(data),
-        optional_trusted_packet_sequence_id: Some(
-            OptionalTrustedPacketSequenceId::TrustedPacketSequenceId(TPSI),
-        ),
-        ..Default::default()
     }
 }
 

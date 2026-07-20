@@ -6,12 +6,11 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::{SmallVec, smallvec};
 use wellen::{Hierarchy, Scope, ScopeRef, SignalRef, VarRef};
 
+use crate::calyx_timeline::{CalyxTimeline, CurrentlyActive, NON_ID_THREAD};
 use crate::control::{ControlInfo, ControlRegister, PathDescriptorInfo};
-use crate::perfetto_protos::track_event::Type;
 use crate::shared_cells::SharedCellsInfo;
-use crate::timeline::{CurrentlyActive, Timeline, Uuid};
-
-const NON_ID_THREAD: u32 = u32::MAX;
+use crate::visuals::perfetto_protos::track_event::Type;
+use crate::visuals::timeline::Uuid;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct CellId(u32);
@@ -253,7 +252,7 @@ impl Design {
     /// only used in the timeline view for better understanding of where "control cycles" come from)
     pub fn add_control_registers_to_timeline(
         &self,
-        timeline: &mut Timeline,
+        timeline: &mut CalyxTimeline,
         register_value_diffs: FxHashMap<u64, FxHashMap<RegisterId, u64>>,
     ) -> Result<()> {
         let mut ordered_cycles: Vec<u64> =
@@ -326,7 +325,7 @@ impl Design {
     /// Constructs the tracks in the timeline view
     pub fn build_timeline_tracks(
         &self,
-        t: &mut Timeline,
+        t: &mut CalyxTimeline,
         par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
     ) -> Result<()> {
         self.build_cell_timeline_tracks(&self.main, t, par_tracks)
@@ -1123,7 +1122,7 @@ impl Design {
         c: &ControlId,
         control_groups_uuid: u64,
         component: &str,
-        t: &mut Timeline,
+        t: &mut CalyxTimeline,
         par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
         thread_tracks: &FxHashMap<u32, u64>,
     ) -> Result<()> {
@@ -1177,7 +1176,7 @@ impl Design {
         &self,
         g: &GroupId,
         component: &str,
-        t: &mut Timeline,
+        t: &mut CalyxTimeline,
         par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
         thread_tracks: &FxHashMap<u32, u64>,
     ) -> Result<()> {
@@ -1230,36 +1229,19 @@ impl Design {
     fn build_cell_timeline_tracks(
         &self,
         c: &CellId,
-        t: &mut Timeline,
+        t: &mut CalyxTimeline,
         par_tracks: &FxHashMap<String, FxHashMap<String, u32>>,
     ) -> Result<()> {
         let cell = &self.cells[*c];
         // All component cells get their own top-level track
-        let cell_uuid = t.register_cell(*c, cell.full_path.to_string())?;
+        let (cell_uuid, thread_tracks) = t.register_cell(
+            *c,
+            cell.full_path.to_string(),
+            par_tracks.get(&cell.component),
+        )?;
 
         t.register_control_registers(cell_uuid, &cell.control_registers)?;
-
-        // par_track --> track uuid for groups
-        // these still need to be passed into build_control_tracks because control
-        let mut thread_tracks: FxHashMap<u32, u64> = FxHashMap::default();
-
-        // create all thread tracks ahead of time
-        if let Some(component_par_tracks) = par_tracks.get(&cell.component) {
-            for thread in component_par_tracks.values() {
-                if !thread_tracks.contains_key(thread) {
-                    let thread_name = format!("Thread {:03}", thread);
-                    let thread_uuid =
-                        t.register_descriptor(thread_name, Some(cell_uuid))?;
-                    thread_tracks.insert(*thread, thread_uuid);
-                }
-            }
-        }
-
-        // create additional "Non-id-ed groups" track for structurally enabled groups
-        let non_id_name = "Non-id-ed groups".to_string();
-        let non_id_uuid =
-            t.register_descriptor(non_id_name, Some(cell_uuid))?;
-        thread_tracks.insert(NON_ID_THREAD, non_id_uuid);
+        // these still need to be passed into build_control_tracks because control will call groups
 
         for group in cell.groups.iter() {
             self.build_group_timeline_tracks(
@@ -1273,12 +1255,9 @@ impl Design {
 
         // Create control
         if !cell.control.is_empty() {
-            // create "Control Groups" track
-            let control_groups_uuid = t.register_descriptor(
-                "Control Groups".to_string(),
-                Some(cell_uuid),
-            )?;
             for control in cell.control.iter() {
+                let control_groups_uuid =
+                    t.register_control_groups_track(cell_uuid)?;
                 self.build_control_timeline_tracks(
                     control,
                     control_groups_uuid,
@@ -1291,6 +1270,20 @@ impl Design {
         }
 
         Ok(())
+    }
+
+    pub fn get_group_name_to_ids(
+        &self,
+    ) -> FxHashMap<String, FxHashSet<GroupId>> {
+        let mut out: FxHashMap<String, FxHashSet<GroupId>> =
+            FxHashMap::default();
+        for (id, g) in self.groups.iter() {
+            let name = g.display_name();
+            let id_set = out.entry(name.clone()).or_default();
+            id_set.insert(id);
+        }
+        println!("{out:?}");
+        out
     }
 }
 

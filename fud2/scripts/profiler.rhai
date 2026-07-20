@@ -66,6 +66,8 @@ fn profiler_non_synth_setup(e) {
     e.config_var_or("rusted_petal", "rusted_petal", "$calyx-base/target/debug/petal");
     e.rule("rusted-petal-parse-vcd",
         "$rusted_petal $in $fsm-json $path-descriptors-json $ctrl-pos-json $cell-share-json $enable-par-track-json profiler-out --scaled-flame-out profiler-out/scaled-flame.folded --flat-flame-out $out");
+    e.rule("rusted-petal-parse-vcd-from-dahlia",
+        "$rusted_petal $in $fsm-json $path-descriptors-json $ctrl-pos-json $cell-share-json $enable-par-track-json profiler-out --scaled-flame-out profiler-out/scaled-flame.folded --flat-flame-out $out --adl-file adl-metadata.json --dahlia-parent-map parent-map.json");
 }
 
 fn profiler_synth_setup(e) {
@@ -130,7 +132,7 @@ fn py_to_profiled(e, input, output) {
     e.build_cmd([output], "create-visuals", [flamegraph_folded], []);
 }
 
-fn dahlia_to_profiled(e, input, output) {
+fn dahlia_to_profiled(e, input, output, python_impl) {
     // compile Dahlia with extra args to give us the hierarchy
     let calyx = "calyx.futil";
     e.build_cmd([calyx], "dahlia-to-calyx", [input], []);
@@ -178,7 +180,13 @@ fn dahlia_to_profiled(e, input, output) {
     // vcd --> flamegraph
     let elems_profiled_json = "elems-profiled.json";
     let flamegraph_folded = "flamegraph.folded";
-    e.build_cmd([flamegraph_folded], "parse-vcd-from-dahlia", [instrumented_vcd], ["$cell-json", "$adl-metadata-json"]);
+    if python_impl {
+        e.build_cmd([flamegraph_folded], "parse-vcd-from-dahlia", [instrumented_vcd],
+            ["$cell-json", "$adl-metadata-json"]);
+    } else {
+        e.build_cmd([flamegraph_folded], "rusted-petal-parse-vcd-from-dahlia", [instrumented_vcd],
+            ["$cell-json", "$ctrl-pos-json", "$adl-metadata-json"]);
+    }
     e.build_cmd([output], "create-visuals", [flamegraph_folded], []);
 }
 
@@ -242,7 +250,7 @@ fn calyx_to_flamegraph(e, input, output, python_impl, produce_svg) {
 }
 
 op(
-    "rusted-petal",
+    "petal",
     [c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
     c::calyx_state,
     flamegraph,
@@ -250,11 +258,18 @@ op(
 );
 
 op(
-    "rusted-petal-test",
+    "petal-test",
     [c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
     c::calyx_state,
     flamegraph_folded_for_tests,
     |e, input, output| calyx_to_flamegraph(e, input, output, false, false)
+);
+
+op("petal-dahlia",
+    [d::dahlia_setup, c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
+    d::dahlia,
+    flamegraph,
+    |e, input, output| dahlia_to_profiled(e, input, output, false)
 );
 
 op(
@@ -292,5 +307,5 @@ op("dahlia-profiler",
     [d::dahlia_setup, c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
     d::dahlia,
     flamegraph,
-    |e, input, output| dahlia_to_profiled(e, input, output)
+    |e, input, output| dahlia_to_profiled(e, input, output, true)
 )
