@@ -11,11 +11,11 @@ use std::collections::VecDeque;
 use std::fs::File;
 use std::path::PathBuf;
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Default, Ord, PartialOrd)]
 pub struct StatementId(u32);
 entity_impl!(StatementId, "statement");
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Default, Ord, PartialOrd)]
 pub struct BlockId(u32);
 entity_impl!(BlockId, "block");
 
@@ -78,8 +78,11 @@ impl DahliaDesign {
         assert_eq!(components.len(), 1);
         let main_component = &components[0];
         assert_eq!(main_component.component, "main");
-        let mut info_to_statement: FxHashMap<(u64, String), StatementId> =
-            FxHashMap::default();
+        // sort by line numbers so that statements with earlier line numbers will be processed first
+        let mut linenum_to_init_info: FxHashMap<
+            u64,
+            (FxHashSet<GroupId>, String),
+        > = FxHashMap::default();
         for PosInfo {
             name,
             linenum,
@@ -87,7 +90,10 @@ impl DahliaDesign {
             ..
         } in main_component.groups.iter()
         {
-            // let line_contents = varname.split(" {").next().unwrap().to_string();
+            let group_id_set = &group_names_to_ids.get(name).unwrap();
+            // Start by assuming that each group will only have one enable in control?
+            assert_eq!(group_id_set.len(), 1);
+            let group_id = group_id_set.iter().next().unwrap();
             let line_contents = varname
                 .split("{")
                 .next()
@@ -96,60 +102,65 @@ impl DahliaDesign {
                 .next()
                 .unwrap()
                 .to_string();
-            let stmt_id = if let Some(id) =
-                info_to_statement.get(&(*linenum, (varname.clone())))
-            {
-                *id
-            } else {
-                // we haven't seen this line yet; if it's a block, we will add the block in as well.
-                if all_block_lines.contains(linenum) {
-                    let b = Block {
-                        line_num: *linenum,
-                        line: line_contents.clone(),
-                        parent: None,
-                    };
-                    all_blocks.insert(*linenum, out.blocks.push(b));
-                }
-                // register the statement
-                let s = Statement {
-                    line_num: *linenum,
-                    line: line_contents.clone(),
-                    ancestors: vec![],
-                    parent: None,
-                };
-                out.statements.push(s)
-            };
-            let group_id_set = &group_names_to_ids[name];
-            // Start by assuming that each group will only have one enable in control?
-            assert_eq!(group_id_set.len(), 1);
-            let group_id = group_id_set.iter().next().unwrap();
-            out.groups_to_statement.insert(*group_id, stmt_id);
-            info_to_statement.insert((*linenum, varname.clone()), stmt_id);
+
+            let (groups, _line_contents) = linenum_to_init_info
+                .entry(*linenum)
+                .or_insert((FxHashSet::default(), line_contents));
+            groups.insert(*group_id);
         }
-        // for each statement, construct the list of ancestors
-        // I think we need to do this later because parent blocks may be added later than the child stmt
-        for (_id, stmt) in out.statements.iter_mut() {
-            if let Some(ancestor_line_nums) = parent_map.get(&stmt.line_num) {
-                let ancestors: Vec<BlockId> =
-                    ancestor_line_nums.iter().map(|a| all_blocks[a]).collect();
-                stmt.parent = ancestors.last().copied();
-                stmt.ancestors = ancestors;
-            }
-        }
-        // get parents for each block
-        for (_id, block) in out.blocks.iter_mut() {
-            // a block's immediate parent is always itself, so we want to look for its parent.
-            block.parent = if let Some(pv) = parent_map.get(&block.line_num) {
-                if pv.len() > 1 {
-                    let parent_line = pv[pv.len() - 2];
-                    all_blocks.get(&parent_line).copied()
+
+        let mut sorted_line_nums =
+            (&linenum_to_init_info).keys().cloned().collect::<Vec<_>>();
+        sorted_line_nums.sort();
+
+        for line_num in sorted_line_nums {
+            let (group_ids, line) =
+                linenum_to_init_info.get(&line_num).unwrap();
+
+            // we haven't seen this line yet; if it's a block, we will add the block in as well.
+            if all_block_lines.contains(&line_num) {
+                // a block's immediate parent is always itself, so we want to look for its parent.
+                let parent = if let Some(pv) = parent_map.get(&line_num) {
+                    if pv.len() > 1 {
+                        let parent_line = pv[pv.len() - 2];
+                        all_blocks.get(&parent_line).copied()
+                    } else {
+                        None
+                    }
                 } else {
                     None
-                }
+                };
+                let b = Block {
+                    line_num,
+                    line: line.clone(),
+                    parent,
+                };
+                all_blocks.insert(line_num, out.blocks.push(b));
+            }
+            // compute parent and ancestors list for this statement
+            let (parent, ancestors) = if let Some(ancestor_line_nums) =
+                parent_map.get(&line_num)
+            {
+                let ancestors: Vec<BlockId> =
+                    ancestor_line_nums.iter().map(|a| all_blocks[a]).collect();
+                (ancestors.last().copied(), ancestors)
             } else {
-                None
+                (None, Vec::new())
             };
+            // register the statement
+            let s = Statement {
+                line_num,
+                line: line.clone(),
+                ancestors,
+                parent,
+            };
+            let stmt_id = out.statements.push(s);
+
+            for g in group_ids {
+                out.groups_to_statement.insert(*g, stmt_id);
+            }
         }
+
         Ok(out)
     }
 
@@ -405,7 +416,11 @@ impl DahliaTimeline {
             );
         }
 
-        for statement in diff.statements.iter() {
+        let mut sv: Vec<StatementId> =
+            diff.statements.iter().copied().collect();
+        sv.sort();
+
+        for statement in sv.iter() {
             let StatementTrackInfo { name, parent, uuid } =
                 self.statement_to_info.get(statement).unwrap();
             if let Some(uuid) = uuid {
