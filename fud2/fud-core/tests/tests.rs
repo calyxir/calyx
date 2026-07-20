@@ -287,6 +287,63 @@ fn find_plan_self_loop() {
 }
 
 #[test]
+fn find_plan_skip_self_loop_in_chain() {
+    for path_finder in all_planners() {
+        println!("testing planner: {path_finder:?}");
+        make_test! {
+            ----------
+            config
+            ----------
+            states: s1, s2, s3;
+            ops:
+                t1 : s1 => s2;
+                t2 : s2 => s2;
+                t3 : s2 => s3;
+            ----------
+            tests
+            ----------
+            planner: path_finder;
+            inputs: s1;
+            outputs: s3;
+            throughs:;
+            found ir: yes;
+            expected ir:
+                s2_1 = t1(s1);
+                s3 = t3(s2_1);
+        }
+    }
+}
+
+#[test]
+fn find_plan_hit_self_loop_in_chain() {
+    for path_finder in all_planners() {
+        println!("testing planner: {path_finder:?}");
+        make_test! {
+            ----------
+            config
+            ----------
+            states: s1, s2, s3;
+            ops:
+                t1 : s1 => s2;
+                t2 : s2 => s2;
+                t3 : s2 => s3;
+            ----------
+            tests
+            ----------
+            planner: path_finder;
+            inputs: s1;
+            outputs: s3;
+            throughs: t2;
+            found ir: yes;
+            expected ir:
+                s2_1 = t1(s1);
+                s2_2 = t2(s2_1);
+                s3 = t3(s2_2);
+        }
+    }
+}
+
+#[test]
 fn find_plan_cycle_graph() {
     for path_finder in all_planners() {
         println!("testing planner: {path_finder:?}");

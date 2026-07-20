@@ -88,17 +88,18 @@ struct FSMStateInfo {
 
 /// Represents the registers that do the bookkeeping for a control group
 /// NOTE: Will be necessary for the timeline view, but not for the flame graph.
-// #[derive(Debug)]
-// enum ControlRegister {
-//     FSM(String),
-//     PD(Vec<String>),
-// }
+#[derive(Debug, Clone)]
+pub enum ControlRegister {
+    Fsm(String),
+    Pd(Vec<String>),
+}
 
 #[derive(Debug, Clone)]
 /// Information for the control group obtained from the TDCC compiler pass.
 /// NOTE: More will be added for the timeline view.
 pub struct TdccInfo {
     pub name: String,
+    pub control_register: ControlRegister,
 }
 
 #[derive(Debug)]
@@ -169,17 +170,34 @@ impl ControlInfo {
         for control_group in tdcc_profiling_info {
             match control_group {
                 ProfilingInfo::Fsm(fsminfo) => {
+                    let tdcc_info = TdccInfo {
+                        name: fsminfo.group.clone(),
+                        control_register: ControlRegister::Fsm(
+                            fsminfo.fsm.clone(),
+                        ),
+                    };
                     for pos in fsminfo.pos {
-                        tdcc_map.entry(pos).or_insert(vec![]).push(TdccInfo {
-                            name: fsminfo.group.clone(),
-                        });
+                        tdcc_map
+                            .entry(pos)
+                            .or_insert(vec![])
+                            .push(tdcc_info.clone());
                     }
                 }
                 ProfilingInfo::Par(par_info) => {
+                    let pd_names = par_info
+                        .child_groups
+                        .iter()
+                        .map(|p| p.register.clone())
+                        .collect();
+                    let tdcc_info = TdccInfo {
+                        name: par_info.par_group.clone(),
+                        control_register: ControlRegister::Pd(pd_names),
+                    };
                     for pos in par_info.pos {
-                        tdcc_map.entry(pos).or_insert(vec![]).push(TdccInfo {
-                            name: par_info.par_group.clone(),
-                        });
+                        tdcc_map
+                            .entry(pos)
+                            .or_insert(vec![])
+                            .push(tdcc_info.clone());
                     }
                 }
                 ProfilingInfo::SingleEnable(_single_enable_info) => { // do nothing since there is no control group
