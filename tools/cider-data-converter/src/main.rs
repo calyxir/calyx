@@ -1,7 +1,8 @@
 use argh::FromArgs;
 use cider::serialization::{DataDump, SerializationError};
+use conv_formats::filerep::HintedTryToIR;
 use core::str;
-use data_conv_lib::{filerep::HintedTryToIR, *};
+use num_ir::typing;
 use std::{
     fs::File,
     io::{self, Read, Write},
@@ -53,8 +54,8 @@ impl std::fmt::Debug for CiderDataConverterError {
     }
 }
 
-impl From<filerep::FileFmtErr> for CiderDataConverterError {
-    fn from(value: filerep::FileFmtErr) -> Self {
+impl From<conv_formats::filerep::FileFmtErr> for CiderDataConverterError {
+    fn from(value: conv_formats::filerep::FileFmtErr) -> Self {
         Self::BadInternal(format!("filefmt: {value}"))
     }
 }
@@ -112,7 +113,7 @@ struct Opts {
 
     /// operation to perform
     #[argh(option, short = 'p', long = "op")]
-    op: Option<typing::OpTypes>,
+    op: Option<num_ir::typing::OpTypes>,
 
     /// whether to output everything as hex, not erasing types
     #[argh(switch, short = 'x')]
@@ -156,7 +157,7 @@ fn main() -> Result<(), CiderDataConverterError> {
         opts.output_format = infer_format(p);
     }
 
-    use filerep::{FileIO, TryFromIR};
+    use conv_formats::filerep::{FileIO, TryFromIR};
 
     let Some(in_fmt) = opts.input_format else {
         return Err(CiderDataConverterError::BadInTarget);
@@ -165,7 +166,7 @@ fn main() -> Result<(), CiderDataConverterError> {
     let mut loaded_ir = match in_fmt {
         Formats::Json => {
             let input = get_read_handle(&opts)?;
-            let parsed_json = formats::json::JsonData::read_into(input)?;
+            let parsed_json = conv_formats::json::JsonData::read_into(input)?;
             parsed_json.hinted_try_to_ir()?
         }
         Formats::Dat => {
@@ -174,7 +175,7 @@ fn main() -> Result<(), CiderDataConverterError> {
             let Some(ref path) = opts.input_path else {
                 return Err(CiderDataConverterError::UnknownTarget);
             };
-            use filerep::DirIO;
+            use conv_formats::filerep::DirIO;
             let dump =
                 DataDump::read_into_dir(path, opts.file_extension.clone())?;
             dump.hinted_try_to_ir()?
@@ -190,7 +191,7 @@ fn main() -> Result<(), CiderDataConverterError> {
         match o {
             typing::OpTypes::Truncate => unimplemented!(),
             typing::OpTypes::Bitcast => {
-                for (_, v) in loaded_ir.mems.iter_mut() {
+                for v in loaded_ir.mems.values_mut() {
                     let mut old_t = v.ty().clone();
                     old_t.class = typing::TypeClass::Bits;
                     v.bitcast(old_t)?
@@ -207,12 +208,12 @@ fn main() -> Result<(), CiderDataConverterError> {
     match out_fmt {
         Formats::Json => {
             let jd = if opts.hex {
-                formats::json::JsonData::try_from_ir_fmt(
+                conv_formats::json::JsonData::try_from_ir_fmt(
                     loaded_ir,
-                    &filerep::OutputOpts { print_hex: true },
+                    &conv_formats::filerep::OutputOpts { print_hex: true },
                 )?
             } else {
-                formats::json::JsonData::try_from_ir(loaded_ir)?
+                conv_formats::json::JsonData::try_from_ir(loaded_ir)?
             };
             let output = get_output_handle(&opts)?;
             jd.write_out(output)?;
@@ -222,7 +223,7 @@ fn main() -> Result<(), CiderDataConverterError> {
                 return Err(CiderDataConverterError::MissingDatOutputPath);
             }
             let dd = DataDump::try_from_ir(loaded_ir)?;
-            use filerep::DirIO;
+            use conv_formats::filerep::DirIO;
             dd.write_out_dir(&opts.output_path.unwrap(), opts.file_extension)?;
         }
         Formats::DataDump => {

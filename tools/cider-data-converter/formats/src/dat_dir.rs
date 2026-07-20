@@ -1,8 +1,8 @@
 use std::io::{BufRead, BufWriter, Read, Write};
 use std::{fs::File, io::BufReader, path::Path};
 
+use crate::dat_parser::*;
 use crate::filerep::*;
-use crate::formats::dat_parser::*;
 use cider::serialization as cs;
 
 const HEADER_FILENAME: &str = "header";
@@ -11,7 +11,7 @@ const HEADER_FILENAME: &str = "header";
 
 impl From<std::io::Error> for FileFmtErr {
     fn from(value: std::io::Error) -> Self {
-        Self::FileSpecific(format!("data dir: {}", value.to_string()))
+        Self::FileSpecific(format!("data dir: {}", value))
     }
 }
 
@@ -71,7 +71,7 @@ impl DirIO for cs::DataDump {
                 dest
             )));
         } else if !dest.exists() {
-            std::fs::create_dir(&dest)?;
+            std::fs::create_dir(dest)?;
         }
 
         let mut header_output = File::create(dest.join(HEADER_FILENAME))?;

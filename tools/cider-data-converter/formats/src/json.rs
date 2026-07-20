@@ -1,11 +1,10 @@
-use baa::{BitVecOps, BitVecValue};
 use serde::{self, Deserialize, Serialize, Serializer};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 
 use crate::filerep::{self, FileFmtErr, FileMems};
-use crate::memrep::*;
-use crate::typing::*;
+use num_ir::memrep::*;
+use num_ir::typing::*;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, Eq, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -200,7 +199,7 @@ impl JsonDataEntry {
         else {
             return Err(json_err("bad flattening"));
         };
-        let data: Vec<BitVecValue> = vals
+        let data: Vec<_> = vals
             .iter()
             .map(|e| match e {
                 Value::Number(_) => {
@@ -238,7 +237,9 @@ impl JsonDataEntry {
             .iter_data()
             .map(|e| {
                 if is_hex {
-                    serde_json::Value::String(format!("0x{}", e.to_hex_str()))
+                    serde_json::Value::String(
+                        inp.ty().write_hexstring(e, Endian::Little),
+                    )
                 } else {
                     if is_bin {
                         serde_json::Value::String(
@@ -336,7 +337,7 @@ impl filerep::TryToIR for JsonData {
 
 impl From<serde_json::Error> for FileFmtErr {
     fn from(value: serde_json::Error) -> Self {
-        Self::FileSpecific(format!("json: {}", value.to_string()))
+        Self::FileSpecific(format!("json: {}", value))
     }
 }
 
@@ -384,8 +385,7 @@ fn destructure_helper(
     level: usize,
 ) -> Vec<Value> {
     let Value::Array(arr) = v else {
-        destr.status =
-            Some(json_err(format!("invalid value {}", v.to_string())));
+        destr.status = Some(json_err(format!("invalid value {}", v)));
         // return Err(NonNumError(v.to_string()));
         return Vec::new();
     };
@@ -408,7 +408,7 @@ fn destructure_helper(
         _ => {
             destr.status = Some(json_err(format!(
                 "invalid value {}",
-                arr.first().unwrap().to_string()
+                arr.first().unwrap()
             )));
             // return Err(NonNumError(arr.first().unwrap().to_string()));
             Vec::new()

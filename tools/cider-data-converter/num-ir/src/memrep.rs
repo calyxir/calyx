@@ -51,7 +51,11 @@ impl TypeSpec {
         }
     }
 
-    pub fn write_hexstring(&self, b: baa::BitVecValue, _end: Endian) -> String {
+    pub fn write_hexstring(
+        &self,
+        b: &baa::BitVecValue,
+        _end: Endian,
+    ) -> String {
         b.to_hex_str()
     }
 

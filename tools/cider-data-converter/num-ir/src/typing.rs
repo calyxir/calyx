@@ -57,7 +57,6 @@ impl std::fmt::Display for TypeClass {
 }
 
 // types are instances of typespec rather than traits
-// TODO: add guarded constructor which prevents widths larger than 64
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct TypeSpec {
     pub width: usize,

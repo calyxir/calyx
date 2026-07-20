@@ -5,9 +5,9 @@ use cider::serialization as cs;
 
 use crate::filerep as fr;
 use crate::filerep::FileFmtErr;
-use crate::memrep as nr;
+use num_ir::memrep as nr;
 
-use crate::typing::*;
+use num_ir::typing::*;
 
 fn as_cider_dims(inp: &nr::SingleMem) -> cs::Dimensions {
     use cs::Dimensions as Dim;
@@ -25,73 +25,66 @@ fn as_cider_dims(inp: &nr::SingleMem) -> cs::Dimensions {
     }
 }
 
-impl TryFrom<&TypeSpec> for cs::FormatInfo {
-    type Error = FileFmtErr;
-    fn try_from(value: &TypeSpec) -> Result<Self, Self::Error> {
-        use cs::FormatInfo as cider_t;
+fn try_type_to_cider(value: &TypeSpec) -> Result<cs::FormatInfo, FileFmtErr> {
+    use cs::FormatInfo as cider_t;
 
-        let res = match value.class {
-            TypeClass::Bits => cider_t::Bitnum {
-                signed: false,
-                width: value.width as u32,
-            },
-            TypeClass::Int => cider_t::Bitnum {
+    let res = match value.class {
+        TypeClass::Bits => cider_t::Bitnum {
+            signed: false,
+            width: value.width as u32,
+        },
+        TypeClass::Int => cider_t::Bitnum {
+            signed: value.signed,
+            width: value.width as u32,
+        },
+        TypeClass::Float => cider_t::IEEFloat {
+            signed: value.signed,
+            width: value.width as u32,
+        },
+        TypeClass::Fixed { exp_mag } => {
+            let frac_width = (if exp_mag <= 0 { 0 } else { exp_mag }) as u32;
+            cider_t::Fixed {
                 signed: value.signed,
-                width: value.width as u32,
-            },
-            TypeClass::Float => cider_t::IEEFloat {
-                signed: value.signed,
-                width: value.width as u32,
-            },
-            TypeClass::Fixed { exp_mag } => {
-                let frac_width =
-                    (if exp_mag <= 0 { 0 } else { exp_mag }) as u32;
-                cider_t::Fixed {
-                    signed: value.signed,
-                    int_width: (value.width as u32) - frac_width,
-                    frac_width,
-                }
+                int_width: (value.width as u32) - frac_width,
+                frac_width,
             }
-            _ => {
-                return Err(FileFmtErr::FileSpecific(format!(
-                    "could not write {:?} in cider",
-                    value
-                )));
-            }
-        };
-        Ok(res)
-    }
+        }
+        _ => {
+            return Err(FileFmtErr::FileSpecific(format!(
+                "could not write {:?} in cider",
+                value
+            )));
+        }
+    };
+    Ok(res)
 }
 
-impl TryFrom<&cs::FormatInfo> for TypeSpec {
-    type Error = fr::FileFmtErr;
-    fn try_from(value: &cs::FormatInfo) -> Result<Self, Self::Error> {
-        use cs::FormatInfo;
-        let res = match *value {
-            FormatInfo::Bitnum { signed, width } => Self {
-                width: width as usize,
-                signed,
-                class: TypeClass::Int,
+fn try_type_from_cider(value: &cs::FormatInfo) -> Result<TypeSpec, FileFmtErr> {
+    use cs::FormatInfo;
+    let res = match *value {
+        FormatInfo::Bitnum { signed, width } => TypeSpec {
+            width: width as usize,
+            signed,
+            class: TypeClass::Int,
+        },
+        FormatInfo::IEEFloat { signed, width } => TypeSpec {
+            width: width as usize,
+            signed,
+            class: TypeClass::Float,
+        },
+        FormatInfo::Fixed {
+            signed,
+            int_width,
+            frac_width,
+        } => TypeSpec {
+            width: (frac_width + int_width) as usize,
+            signed,
+            class: TypeClass::Fixed {
+                exp_mag: frac_width as i32,
             },
-            FormatInfo::IEEFloat { signed, width } => Self {
-                width: width as usize,
-                signed,
-                class: TypeClass::Float,
-            },
-            FormatInfo::Fixed {
-                signed,
-                int_width,
-                frac_width,
-            } => Self {
-                width: (frac_width + int_width) as usize,
-                signed,
-                class: TypeClass::Fixed {
-                    exp_mag: frac_width as i32,
-                },
-            },
-        };
-        Ok(res)
-    }
+        },
+    };
+    Ok(res)
 }
 
 impl fr::TryFromIR for cs::DataDump {
@@ -103,7 +96,7 @@ impl fr::TryFromIR for cs::DataDump {
             let meminfo = cs::MemoryDeclaration::new(
                 k.to_string(),
                 as_cider_dims(v),
-                t.try_into()?,
+                try_type_to_cider(t)?,
             );
 
             // below is exceptionally evil
@@ -135,7 +128,7 @@ impl fr::TryToIR for cs::DataDump {
             let c: Result<Vec<baa::BitVecValue>, _> = byte_data
                 .chunks(assoc_type.num_bytes())
                 .map(|e| {
-                    crate::numimpl::try_from_bytes(
+                    num_ir::numimpl::try_from_bytes(
                         e,
                         assoc_type.width,
                         Endian::Little,
@@ -193,7 +186,7 @@ impl fr::ExtractType for cs::DataDump {
     ) -> Result<HashMap<String, TypeSpec>, fr::FileFmtErr> {
         let mut res = HashMap::new();
         for mem in self.header.memories.iter() {
-            let new_spec = TypeSpec::try_from(&mem.format)?;
+            let new_spec = try_type_from_cider(&mem.format)?;
             res.insert(mem.name.clone(), new_spec);
         }
         Ok(res)

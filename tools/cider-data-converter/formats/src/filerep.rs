@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::Path;
 
-use super::memrep as nr;
-use crate::typing::*;
+use num_ir::memrep as nr;
+use num_ir::typing::*;
 
 #[derive(Debug, thiserror::Error)]
 pub enum FileFmtErr {

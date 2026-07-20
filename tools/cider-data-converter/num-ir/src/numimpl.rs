@@ -76,43 +76,27 @@ pub fn int_read(
     width: usize,
     signed: bool,
 ) -> Result<BitVecValue, NumParseErr> {
-    // TODO: could be simplified a lot
-    if signed {
-        // TODO: does this fail on signedness?
-        let r = BitVecValue::from_str_radix(&s, 10, width as u32);
-        match r {
-            Ok(v) => Ok(v),
-            Err(e) => Err(NumParseErr::Baa(s, e)),
-        }
-    } else {
-        let r = BitVecValue::from_str_radix(&s, 10, width as u32);
-        match r {
-            Ok(v) => Ok(v),
-            Err(e) => Err(NumParseErr::Baa(s, e)),
-        }
+    if !signed && s.contains('-') {
+        return Err(NumParseErr::Misc(
+            "found sign when parsing unsigned int".to_string(),
+        ));
     }
+    BitVecValue::from_str_radix(&s, 10, width as u32)
+        .map_err(|e| NumParseErr::Baa(s, e))
 }
 
-// TODO: 'cheating' things out by extending to 64-bits might be problematic.
-// this doesn't have the guarantee of masking out unnecessary bits which the 'as u32/i32' approach does
-// TODO: maybe easier with tryfrom?
-
-// not 'directly' bit lossless as before
 pub fn int_write(
     b: &BitVecValue,
     _end: Endian,
-    width: usize,
+    _width: usize,
     signed: bool,
 ) -> String {
-    if signed {
-        // TODO: to_dec_str_signed?
-        return format!("{}", b.to_i64().unwrap());
+    if signed && b.is_negative() {
+        let tmp = &b.negate();
+        format!("-{}", tmp.to_dec_str())
     } else {
-        if width <= 64 {
-            return b.to_dec_str();
-        }
+        b.to_dec_str()
     }
-    panic!("unknown width when writing out an int");
 }
 
 pub fn bits_read(
@@ -120,13 +104,13 @@ pub fn bits_read(
     _end: Endian,
     width: usize,
 ) -> Result<BitVecValue, NumParseErr> {
-    let r = s.parse::<u64>()?;
-    Ok(BitVecValue::from_u64(r, width as u32))
+    BitVecValue::from_str_radix(&s, 2, width as u32)
+        .map_err(|e| return NumParseErr::Baa(s, e))
 }
 
 #[inline]
 pub fn bits_write(b: &BitVecValue, _end: Endian) -> String {
-    format!("0x{}", b.to_hex_str())
+    format!("0b{}", b.to_bit_str())
 }
 
 pub fn fixed_read(
@@ -284,6 +268,11 @@ mod tests {
             int_read(String::from("4294967295"), Endian::Little, 64, false)
                 .unwrap();
         assert_eq!(ref_bits as u64, comp_bits.to_u64().unwrap());
+
+        let ref_bits = u64::MAX;
+        let comp_bits =
+            int_read(String::from("-1"), Endian::Little, 64, true).unwrap();
+        assert_eq!(ref_bits as u64, comp_bits.to_u64().unwrap());
     }
 
     #[test]
@@ -291,5 +280,13 @@ mod tests {
         let orig_bytes = (-345_i64).to_le_bytes();
         let equiv = try_from_bytes(&orig_bytes, 64, Endian::Little).unwrap();
         assert_eq!(int_write(&equiv, Endian::Little, 32, true), "-345");
+    }
+
+    #[test]
+    fn test_bits_from_string() {
+        let ref_bits = u64::from_str_radix("4", 16).unwrap();
+        let comp_bits =
+            bits_read(String::from("100"), Endian::Little, 64).unwrap();
+        assert_eq!(ref_bits as u64, comp_bits.to_u64().unwrap());
     }
 }
