@@ -2,7 +2,7 @@ use crate::calyx_timeline::CurrentlyActive;
 use crate::dahlia_design::DahliaProfilingInfo;
 use crate::design::Design;
 use anyhow::{Ok, Result};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
 

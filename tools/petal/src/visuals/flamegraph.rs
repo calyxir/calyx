@@ -112,26 +112,13 @@ pub fn write_flames(
     folded_flame_opt: Option<PathBuf>,
 ) -> Result<()> {
     if let Some(scaled_flame) = scaled_flame_opt {
-        write_flame(&flame_info, &scaled_flame, true)?;
+        write_flame(flame_info, &scaled_flame, true)?;
     }
 
     if let Some(folded_flame) = folded_flame_opt {
-        write_flame(&flame_info, &folded_flame, false)?;
+        write_flame(flame_info, &folded_flame, false)?;
     }
 
-    // let scaled_buffer = get_buffer(scaled_flame_opt)?;
-    // // sort keys to get deterministic output.
-    // if let Some(mut buffer) = scaled_buffer {
-    //     for (s, f) in flame_info {
-    //         writeln!(buffer, "{s} {:.1}", f.scaled * 1000.0)?;
-    //     }
-    // }
-    // let folded_buffer = get_buffer(folded_flame_opt)?;
-    // if let Some(mut buffer) = folded_buffer {
-    //     for (s, f) in flame_info {
-    //         writeln!(buffer, "{s} {}", f.flat)?;
-    //     }
-    // }
     Ok(())
 }
 
@@ -141,7 +128,7 @@ pub fn write_calyx_flames(
     folded_flame_opt: Option<String>,
 ) -> Result<()> {
     let flame_info: Vec<(String, FlameCount)> = compute_flame_calyx(stacks)?;
-    let s = scaled_flame_opt.map(|s| PathBuf::from(s));
-    let f = folded_flame_opt.map(|f| PathBuf::from(f));
+    let s = scaled_flame_opt.map(PathBuf::from);
+    let f = folded_flame_opt.map(PathBuf::from);
     write_flames(&flame_info, s, f)
 }

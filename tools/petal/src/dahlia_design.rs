@@ -3,14 +3,13 @@ use crate::calyx_timeline::CurrentlyActive;
 use crate::design::{Design, GroupId, Stack};
 use crate::visuals::flamegraph::{compute_flame, write_flames};
 use crate::visuals::perfetto_protos::track_event::Type;
-use crate::visuals::timeline::{Timeline, TrackEventInfo, Uuid};
+use crate::visuals::timeline::{Timeline, Uuid};
 use anyhow::{Ok, Result};
-use cranelift_entity::{PrimaryMap, SecondaryMap, entity_impl};
+use cranelift_entity::{PrimaryMap, entity_impl};
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::collections::VecDeque;
 use std::fs::File;
 use std::path::PathBuf;
-use std::thread::ThreadId;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct StatementId(u32);
@@ -48,11 +47,6 @@ impl Block {
     pub fn short_name(&self) -> String {
         format!("BL{:04}", self.line_num)
     }
-}
-
-enum InvokeTarget {
-    Block(BlockId),
-    Statement(StatementId),
 }
 
 /// (This structure follows what we have in `Design` for now)
@@ -115,7 +109,7 @@ impl DahliaDesign {
                         line: line_contents.clone(),
                         parent: None,
                     };
-                    all_blocks.insert(linenum.clone(), out.blocks.push(b));
+                    all_blocks.insert(*linenum, out.blocks.push(b));
                 }
                 // register the statement
                 let s = Statement {
@@ -187,14 +181,6 @@ impl DahliaDesign {
         stack_out.dedup();
         Ok((stack_out, active_this_cycle))
     }
-
-    pub fn block_ids(&self) -> Vec<BlockId> {
-        self.blocks.keys().collect()
-    }
-
-    pub fn statement_ids(&self) -> Vec<StatementId> {
-        self.statements.keys().collect()
-    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -211,24 +197,12 @@ impl DahliaCurrentlyActive {
         }
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.blocks.is_empty() && self.statements.is_empty()
-    }
-
     pub fn add_active_block(&mut self, block_id: BlockId) {
         self.blocks.insert(block_id);
     }
 
     pub fn add_active_statement(&mut self, statement_id: StatementId) {
         self.statements.insert(statement_id);
-    }
-
-    pub fn get_active_blocks(&self) -> &FxHashSet<BlockId> {
-        &self.blocks
-    }
-
-    pub fn get_active_statements(&self) -> &FxHashSet<StatementId> {
-        &self.statements
     }
 
     pub fn resolve(&self, new: &Self) -> Result<(Self, Self)> {
@@ -265,25 +239,6 @@ struct BlockTrackInfo {
 }
 
 impl BlockTrackInfo {
-    pub fn new(uuid: Uuid, name: String, short_name: String) -> Self {
-        Self {
-            uuid,
-            name,
-            short_name,
-            thread_info: vec![],
-            statement_to_thread: FxHashMap::default(),
-        }
-    }
-
-    fn add_new_thread(&mut self, t: &mut Timeline) -> Result<usize> {
-        let index = self.thread_info.len();
-        let new_thread_name =
-            format!("Thread {} ({})", index + 1, self.short_name);
-        let uuid = t.register_descriptor(new_thread_name, Some(self.uuid))?;
-        self.thread_info.push(uuid);
-        Ok(index)
-    }
-
     pub fn get_thread_for_new_statement(
         &mut self,
         s: StatementId,
@@ -294,7 +249,7 @@ impl BlockTrackInfo {
         let index = match self
             .thread_info
             .iter()
-            .position(|uuid| !used_uuids.contains(&uuid))
+            .position(|uuid| !used_uuids.contains(uuid))
         {
             Some(i) => i,
             None => self.add_new_thread(t)?,
@@ -308,7 +263,18 @@ impl BlockTrackInfo {
         &mut self,
         s: &StatementId,
     ) -> Uuid {
-        self.statement_to_thread.remove(&s).unwrap()
+        self.statement_to_thread.remove(s).unwrap()
+    }
+}
+
+impl BlockTrackInfo {
+    fn add_new_thread(&mut self, t: &mut Timeline) -> Result<usize> {
+        let index = self.thread_info.len();
+        let new_thread_name =
+            format!("Thread {} ({})", index + 1, self.short_name);
+        let uuid = t.register_descriptor(new_thread_name, Some(self.uuid))?;
+        self.thread_info.push(uuid);
+        Ok(index)
     }
 }
 
@@ -324,7 +290,6 @@ struct StatementTrackInfo {
 #[derive(Clone, Debug, Default)]
 struct DahliaTimeline {
     timeline: Timeline,
-    main_track: Uuid,
     statement_to_info: FxHashMap<StatementId, StatementTrackInfo>,
     block_to_info: FxHashMap<BlockId, BlockTrackInfo>,
 }
@@ -339,7 +304,6 @@ impl DahliaTimeline {
 
         let mut t = Self {
             timeline,
-            main_track: main_uuid,
             statement_to_info: FxHashMap::default(),
             block_to_info: FxHashMap::default(),
         };
@@ -357,7 +321,7 @@ impl DahliaTimeline {
                         p.uuid
                     } else {
                         // we haven't processed the parent yet, so we will come back to this one later
-                        worklist.push_back((id, &block));
+                        worklist.push_back((id, block));
                         continue;
                     }
                 }
@@ -553,9 +517,12 @@ impl DahliaProfilingInfo {
     }
 }
 
-fn read_parent_map(
-    parent_map_opt: Option<String>,
-) -> Result<(FxHashMap<u64, Vec<u64>>, FxHashSet<u64>)> {
+/// (Parent map, all blocks)
+/// where Parent map is a map from statement line numbers to all
+/// lines that are block ancestors of the statement (starting from the outermost block).
+type ParentInfo = (FxHashMap<u64, Vec<u64>>, FxHashSet<u64>);
+
+fn read_parent_map(parent_map_opt: Option<String>) -> Result<ParentInfo> {
     if let Some(parent_map_filename) = parent_map_opt {
         let parent_map_file = File::open(parent_map_filename)?;
         let parent_map_raw: FxHashMap<String, Vec<u64>> =
@@ -574,7 +541,7 @@ fn read_parent_map(
             .collect();
         for block in all_blocks.iter() {
             let v = parent_map.get_mut(block).unwrap();
-            v.push(block.clone());
+            v.push(*block);
         }
         Ok((parent_map, all_blocks))
     } else {

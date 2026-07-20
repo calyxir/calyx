@@ -9,7 +9,7 @@ mod adls;
 mod dahlia_design;
 mod statistics;
 
-use crate::adls::{AdlInfo, AdlIntermediateInfo};
+use crate::adls::AdlIntermediateInfo;
 use crate::calyx_timeline::{CalyxTimeline, CurrentlyActive};
 use crate::design::{Design, RegisterId, Stack};
 use crate::statistics::Statistics;
