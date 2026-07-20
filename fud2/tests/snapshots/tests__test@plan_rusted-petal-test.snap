@@ -1,6 +1,6 @@
 ---
 source: fud2/tests/tests.rs
-description: "emit plan: rusted-petal"
+description: "emit plan: rusted-petal-test"
 ---
 build-tool = fud2
 rule get-rsrc
@@ -90,6 +90,6 @@ build sim.log instrumented.vcd: sim-run instrumented.exe $datadir
   bin = instrumented.exe
   args = +NOTRACE=0 +OUT=instrumented.vcd
 build flamegraph.folded: rusted-petal-parse-vcd instrumented.vcd | $cell-json $ctrl-pos-json
-build /output.ext: create-visuals flamegraph.folded
+build /output.ext: cp flamegraph.folded
 
 default /output.ext
