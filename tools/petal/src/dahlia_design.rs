@@ -101,7 +101,6 @@ impl DahliaDesign {
             {
                 *id
             } else {
-                println!("processing new line: {}", *linenum);
                 // we haven't seen this line yet; if it's a block, we will add the block in as well.
                 if all_block_lines.contains(linenum) {
                     let b = Block {
@@ -151,7 +150,6 @@ impl DahliaDesign {
                 None
             };
         }
-        println!("{out:?}");
         Ok(out)
     }
 
@@ -296,7 +294,6 @@ struct DahliaTimeline {
 
 impl DahliaTimeline {
     pub fn new(d: &DahliaDesign) -> Result<Self> {
-        println!("DESIGN: {d:?}");
         let mut timeline = Timeline::new();
         // create "main" track
         let main_uuid =
@@ -313,7 +310,6 @@ impl DahliaTimeline {
             d.blocks.iter().collect();
         while !worklist.is_empty() {
             let (id, block) = worklist.pop_front().unwrap();
-            println!("{id:?} {:?}", block.line);
             let parent_uuid = match &block.parent {
                 None => main_uuid,
                 Some(parent_id) => {
