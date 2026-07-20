@@ -110,6 +110,9 @@ fn collect_stacks(
     let total_cycles = probe_values.len() as u64;
     timeline.update(&empty, &currently_active, total_cycles)?;
     stats.close(&currently_active, total_cycles);
+    if let Some(adl_info) = adl_info_opt {
+        adl_info.close(total_cycles)?;
+    }
 
     Ok(out)
 }
@@ -296,6 +299,7 @@ fn main() -> Result<()> {
 
     if let Some(mut adl_data) = adl_info {
         adl_data.output_flame(&args.out_dir)?;
+        adl_data.output_timeline(&args.out_dir)?;
     }
 
     Ok(())

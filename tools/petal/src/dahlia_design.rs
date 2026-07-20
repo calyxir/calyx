@@ -84,7 +84,7 @@ impl DahliaDesign {
         assert_eq!(components.len(), 1);
         let main_component = &components[0];
         assert_eq!(main_component.component, "main");
-        let info_to_statement: FxHashMap<(u64, String), StatementId> =
+        let mut info_to_statement: FxHashMap<(u64, String), StatementId> =
             FxHashMap::default();
         for PosInfo {
             name,
@@ -107,6 +107,7 @@ impl DahliaDesign {
             {
                 *id
             } else {
+                println!("processing new line: {}", *linenum);
                 // we haven't seen this line yet; if it's a block, we will add the block in as well.
                 if all_block_lines.contains(linenum) {
                     let b = Block {
@@ -130,6 +131,7 @@ impl DahliaDesign {
             assert_eq!(group_id_set.len(), 1);
             let group_id = group_id_set.iter().next().unwrap();
             out.groups_to_statement.insert(*group_id, stmt_id);
+            info_to_statement.insert((*linenum, varname.clone()), stmt_id);
         }
         // for each statement, construct the list of ancestors
         // I think we need to do this later because parent blocks may be added later than the child stmt
@@ -143,11 +145,19 @@ impl DahliaDesign {
         }
         // get parents for each block
         for (_id, block) in out.blocks.iter_mut() {
-            block.parent = parent_map
-                .get(&block.line_num)
-                .map(|v| v.last().map(|p| all_blocks.get(p).unwrap().clone()))
-                .flatten();
+            // a block's immediate parent is always itself, so we want to look for its parent.
+            block.parent = if let Some(pv) = parent_map.get(&block.line_num) {
+                if pv.len() > 1 {
+                    let parent_line = pv[pv.len() - 2];
+                    all_blocks.get(&parent_line).copied()
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
         }
+        println!("{out:?}");
         Ok(out)
     }
 
@@ -266,8 +276,9 @@ impl BlockTrackInfo {
     }
 
     fn add_new_thread(&mut self, t: &mut Timeline) -> Result<usize> {
-        let index = self.thread_info.len() + 1;
-        let new_thread_name = format!("Thread {} ({})", index, self.short_name);
+        let index = self.thread_info.len();
+        let new_thread_name =
+            format!("Thread {} ({})", index + 1, self.short_name);
         let uuid = t.register_descriptor(new_thread_name, Some(self.uuid))?;
         self.thread_info.push(uuid);
         Ok(index)
@@ -405,11 +416,16 @@ impl DahliaTimeline {
         ended: &DahliaCurrentlyActive,
         cycle_count: u64,
     ) -> Result<()> {
-        self.update_helper(started, cycle_count, Type::SliceBegin)?;
-
         self.update_helper(ended, cycle_count, Type::SliceEnd)?;
 
+        self.update_helper(started, cycle_count, Type::SliceBegin)?;
+
         Ok(())
+    }
+
+    pub fn output_timeline(self, out_dir: &str) -> Result<()> {
+        self.timeline
+            .output_timeline(out_dir, "dahlia_timeline_trace.pftrace")
     }
 
     fn update_helper(
@@ -512,6 +528,14 @@ impl DahliaProfilingInfo {
         Ok(())
     }
 
+    pub fn close(&mut self, total_cycles: u64) -> Result<()> {
+        self.timeline.update(
+            &DahliaCurrentlyActive::new(),
+            &self.currently_active,
+            total_cycles,
+        )
+    }
+
     pub fn output_flame(&self, out_dir: &str) -> Result<()> {
         let flame_input: Vec<(&u64, &Vec<Stack>)> =
             self.trace_info.iter().map(|(s, c)| (c, s)).collect();
@@ -522,6 +546,10 @@ impl DahliaProfilingInfo {
         flat_flame.push("dahlia-flat-flame.folded");
         write_flames(&flame, Some(scaled_flame), Some(flat_flame))?;
         Ok(())
+    }
+
+    pub fn output_timeline(self, out_dir: &str) -> Result<()> {
+        self.timeline.output_timeline(out_dir)
     }
 }
 
