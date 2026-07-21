@@ -105,8 +105,6 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "calyx-ast" },
-    { name = "cocotb" },
-    { name = "cocotbext-axi" },
 ]
 
 [package.optional-dependencies]
@@ -129,12 +127,16 @@ queues = [
 systolic = [
     { name = "systolic-lang" },
 ]
+yxi-test = [
+    { name = "cocotb" },
+    { name = "cocotbext-axi" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "calyx-ast", editable = "calyx-py" },
-    { name = "cocotb", specifier = "==1.8.1" },
-    { name = "cocotbext-axi", specifier = ">=0.1.26" },
+    { name = "cocotb", marker = "extra == 'yxi-test'", specifier = "==1.8.1" },
+    { name = "cocotbext-axi", marker = "extra == 'yxi-test'", specifier = ">=0.1.26" },
     { name = "fud", marker = "extra == 'fud2-scripts'", editable = "fud" },
     { name = "mrxl", marker = "extra == 'mrxl'", editable = "frontends/mrxl" },
     { name = "ntt-pipeline", marker = "extra == 'ntt'", editable = "frontends/ntt-pipeline" },
@@ -143,7 +145,7 @@ requires-dist = [
     { name = "synthrep", marker = "extra == 'profiler'", editable = "tools/report-parsing" },
     { name = "systolic-lang", marker = "extra == 'systolic'", virtual = "frontends/systolic-lang" },
 ]
-provides-extras = ["ntt", "systolic", "mrxl", "queues", "profiler", "fud2-scripts"]
+provides-extras = ["ntt", "systolic", "mrxl", "queues", "profiler", "fud2-scripts", "yxi-test"]
 
 [[package]]
 name = "cffi"

@@ -682,6 +682,22 @@ cmd = """
 python3 yxi/xml/xml_generator.py {}
 """
 
+[[tests]]
+name = "mem-flat wrapper generation"
+paths = ["tests/correctness/seq-mem-d4-add.futil"]
+expect_dir = "tools/mem_flat/test"
+cmd = """
+  fud2 --through mem_flat {} --to calyx
+"""
+
+[[tests]]
+name = "mem-flat exec correctness"
+paths = ["tests/correctness/seq-mem-d4-add.futil"]
+cmd = """
+  fud2 --through mem_flat {} --to calyx -o compiled/seq.futil &&\
+  jq -f tools/mem_flat/data_flat.jq {}.data > compiled/tmp.data &&\
+  fud2 compiled/seq.futil --from calyx --to jq --through icarus -s sim.data=compiled/tmp.data -s jq.expr=".memories" -q
+"""
 
 
 

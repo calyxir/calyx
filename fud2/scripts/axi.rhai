@@ -43,16 +43,6 @@ fn wrapper_setup(e) {
     e.config_var_or("python", "python", "python3");
 
     e.rule("gen-axi", "$python $axi-generator $python_args $in > $out");
-
-    // Define a simple `combine` rule that just concatenates any numer of files.
-    // e.rule("combine", "cat $in > $out");
-
-    // Removes imports and `external` primitive blocks added by passes by removing
-    // everything up until the first line containing `component main`
-    /* e.rule(
-        "remove-imports",
-        "sed '1,/component main/{/component main/!d; }' $in > $out",
-    ); */
     e.rule(
             "add-import",
             `awk '/import.*/,/import.*/{if (!f){print "import \"$imp-path\";";f=1;print;next}}; 1 ' $in > $out`,
@@ -99,9 +89,6 @@ fn axi_wrapped_op(e, input, output) {
    e.build_cmd([with_import_calyx], "add-import", [refified_calyx], [axi_wrapper]);
    e.arg("imp-path", axi_wrapper);
 
-
-   // let no_imports_calyx = `no_imports_${refified_calyx}`;
-   // e.build_cmd([no_imports_calyx], "remove-imports", [refified_calyx], []);
 
    e.build_cmd([output], "calyx-add-axi", [with_import_calyx], []);
    e.arg("axi-path", "axi_wrapper.futil");

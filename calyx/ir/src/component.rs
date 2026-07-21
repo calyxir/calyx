@@ -144,7 +144,7 @@ impl Component {
             namegen: NameGenerator::with_prev_defined_names(prev_names),
             attributes: Attributes::default(),
             is_comb,
-            sig_only: false, // set to false by default. since users seemingly get a mutable reference to the Component anyway, it can be set later
+            sig_only: false, // set to false by default. most components include implementation.
             // converting from NonZeroU64 to u64. May want to keep permanently as NonZeroU64
             // in the future, but rn it's probably easier to keep as u64
             latency,

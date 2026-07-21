@@ -9,12 +9,8 @@ We provision four types of queues in Calyx. The first three follow the same shar
 The frontend is implemented using the [Calyx builder library][builder], and the source code is heavily commented.
 
 ## Installation
-1. Install [flit](https://flit.readthedocs.io/en/latest/#install)
-2. Install the `queues` package:
-```
-    $ cd frontends/queues/
-    $ flit install --symlink
-```
+
+Running ``uv sync --all-extras`` in the Calyx repository root will install ``queues`` as part of the extra packages.
 
 ## Shared Interface
 

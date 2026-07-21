@@ -1,4 +1,5 @@
-# rudimentary tool for converting .data files
+# rudimentary tool for converting .data files for use with a wrapped design with flat mems.
+# essentially just reduces all dimensions to 1, and updates names according to what mem_flat will do.
 
 . | to_entries
 | map(

@@ -4,7 +4,7 @@ export let cocotb_axi = state("cocotb-axi", ["dat"]);
 
 export let cocotb_setup = cocotb_setup;
 fn cocotb_setup(e) {
-    e.config_var_or("cocotb-makefile-dir", "cocotb.makefile-dir", "$calyx-base/yxi/axi-calyx/cocotb");
+    e.config_var_or("cocotb-makefile-dir", "cocotb.makefile-dir", "$calyx-base/yxi/cocotb");
     // TODO (nate): this is duplicated from the sim_setup above. Can this be shared?
     // The input data file. `sim.data` is required.
     let data_name = e.config_val("sim.data");

@@ -18,7 +18,7 @@ fn mwrap_setup(e) {
     // use both of the required compiler passes for memory flattening
    e.rule(
        "calyx-mem-flat",
-       "$calyx-exe -l $calyx-lib-path -l $mem-flat-path -p mem-flat -m file $args $in > $out",
+       "$calyx-exe -l $calyx-lib-path -l $mem-flat-path -p mem-flat -p dead-cell-removal $args $in > $out",
    );
 	
 }
@@ -41,10 +41,6 @@ fn mem_wrapped_op(e, input, output) {
 
    e.build_cmd([output], "calyx-mem-flat", [comb_file], [wrapper]);
    e.arg("mem-flat-path", wrapper);
-
-    // add memwrap location as a file search path
-   //e.arg("args", "mem-flat -p dead-cell-removal");
-   //e.arg("pass", "dead-cell-removal");
 }
 
 op(
