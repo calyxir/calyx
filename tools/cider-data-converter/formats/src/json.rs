@@ -240,18 +240,16 @@ impl JsonDataEntry {
                     serde_json::Value::String(
                         inp.ty().write_hexstring(e, Endian::Little),
                     )
+                } else if is_bin {
+                    serde_json::Value::String(
+                        inp.ty().write_string(e, Endian::Little),
+                    )
                 } else {
-                    if is_bin {
-                        serde_json::Value::String(
+                    serde_json::Value::Number(
+                        serde_json::Number::from_string_unchecked(
                             inp.ty().write_string(e, Endian::Little),
-                        )
-                    } else {
-                        serde_json::Value::Number(
-                            serde_json::Number::from_string_unchecked(
-                                inp.ty().write_string(e, Endian::Little),
-                            ),
-                        )
-                    }
+                        ),
+                    )
                 }
             })
             .collect();
