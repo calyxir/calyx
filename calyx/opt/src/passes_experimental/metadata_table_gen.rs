@@ -1,8 +1,9 @@
 use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 
 //use calyx_frontend::SetAttr::Pos;
-use calyx_ir::GetAttributes;
+use calyx_frontend::LibrarySignatures;
 use calyx_ir::source_info::{FileId, LineNum, SourceInfoTable};
+use calyx_ir::{Component, GetAttributes, StaticPar, StaticRepeat, StaticSeq};
 use calyx_utils::WithPos;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -192,6 +193,39 @@ impl Visitor for Metadata {
         _comp: &mut calyx_ir::Component,
         _sigs: &calyx_ir::LibrarySignatures,
         _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        self.add_control_node(s);
+        Ok(Action::Continue)
+    }
+
+    fn start_static_seq(
+        &mut self,
+        s: &mut StaticSeq,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[Component],
+    ) -> VisResult {
+        self.add_control_node(s);
+        Ok(Action::Continue)
+    }
+
+    fn start_static_par(
+        &mut self,
+        s: &mut StaticPar,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[Component],
+    ) -> VisResult {
+        self.add_control_node(s);
+        Ok(Action::Continue)
+    }
+
+    fn start_static_repeat(
+        &mut self,
+        s: &mut StaticRepeat,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[Component],
     ) -> VisResult {
         self.add_control_node(s);
         Ok(Action::Continue)

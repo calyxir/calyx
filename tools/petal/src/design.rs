@@ -12,7 +12,7 @@ use crate::shared_cells::SharedCellsInfo;
 use crate::visuals::perfetto_protos::track_event::Type;
 use crate::visuals::timeline::Uuid;
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Default, PartialOrd, Ord)]
 pub struct CellId(u32);
 entity_impl!(CellId, "cell");
 
@@ -71,7 +71,7 @@ impl Cell {
     }
 }
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Default, PartialOrd, Ord)]
 pub struct GroupId(u32);
 entity_impl!(GroupId, "group");
 
@@ -102,7 +102,7 @@ impl Group {
     }
 }
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Default, PartialOrd, Ord)]
 pub struct ControlId(u32);
 entity_impl!(ControlId, "control");
 
@@ -704,9 +704,17 @@ impl Design {
 
         // iterate through control par descriptors and construct Control nodes
         for (d, pos_set) in descriptors.control_pos.iter() {
-            let (pretty, pos) = c.get_pretty(pos_set)?;
+            if pos_set.is_empty() {
+                // if the pos_set for a descriptor is empty, it's not a real control descriptor
+                println!(
+                    "Skipping descriptor with empty pos set (static control; will not manifest in a control group): {d}"
+                );
+                continue;
+            }
+            if let Some((pretty, pos)) = c.get_pretty(pos_set) &&
             // any pos without an entry in tdcc was compiled away; we ignore these.
-            if let Some(tdcc_info_vec) = c.get_tdcc(pos)? {
+            let Some(tdcc_info_vec) = c.get_tdcc(pos)?
+            {
                 // pos is the entry to the Calyx-generated position of the control node,
                 // so there should only be one entry in the Vector.
                 assert_eq!(tdcc_info_vec.len(), 1);
@@ -733,6 +741,10 @@ impl Design {
                 let ctrl_id = self.controls.push(ctrl);
                 pos_to_id.insert(pos, ctrl_id);
                 descriptor_to_id.insert(d.clone(), ctrl_id);
+            } else {
+                println!(
+                    "Could not find control group for position set {pos_set:?}"
+                );
             }
         }
 
