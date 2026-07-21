@@ -79,6 +79,7 @@ impl AdlIntermediateInfo {
             Adl::Py => {
                 let pyi = PyProfilingInfo::default();
                 // add position info into all nodes of the design
+                d.embed_pos(&components);
                 Ok(Self::Py(pyi))
             }
             Adl::Dahlia => {

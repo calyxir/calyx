@@ -475,8 +475,9 @@ impl Design {
         value: &BitVecValue,
         cell_id: CellId,
         mut prefix: Stack,
+        mut adl_prefix_opt: Option<Stack>,
         active_this_cycle: &mut CurrentlyActive,
-    ) -> (Vec<Stack>, bool) {
+    ) -> (Vec<Stack>, Option<Vec<Stack>>, bool) {
         let cell = &self.cells[cell_id];
         active_this_cycle.add_active_cell(cell_id);
         if let Some((main_go_idx, main_done_idx)) = cell.probe_idxs {
@@ -484,6 +485,9 @@ impl Design {
             if value.is_bit_set(main_go_idx) && !value.is_bit_set(main_done_idx)
             {
                 prefix.push(cell.display_name());
+                if let Some(mut adl_prefix) = adl_prefix_opt {
+                    adl_prefix.push(cell.adl_display_name());
+                }
             } else {
                 return (vec![prefix], false);
             }
@@ -501,6 +505,7 @@ impl Design {
                     value,
                     group_idx,
                     prefix.clone(),
+                    adl_prefix_opt.clone(),
                     active_this_cycle,
                 );
                 out.append(&mut group_stacks);
@@ -606,6 +611,7 @@ impl Design {
         value: &BitVecValue,
         group_id: GroupId,
         mut prefix: Stack,
+        mut adl_prefix_opt: Option<Stack>,
         active_this_cycle: &mut CurrentlyActive,
     ) -> (Vec<Stack>, bool) {
         let group = &self.groups[group_id];
@@ -901,6 +907,8 @@ impl Design {
             component: String::new(),
             probe_idxs: None,
             replacement: None,
+            adl_mapping: None,
+            adl_component: None,
         };
         // add control nodes for main
         self.scan_probes(h, main_scope, &mut main_cell, &c, &s)?;
@@ -997,6 +1005,7 @@ impl Design {
                                 invokes,
                                 probe_idx: u32::MAX,
                                 component: component.to_string(),
+                                adl_mapping: None,
                             });
                             all_groups.push(group_id);
                             structurally_invoked_group_names
@@ -1059,6 +1068,7 @@ impl Design {
                                 invokes,
                                 probe_idx: u32::MAX,
                                 component: component.to_string(),
+                                adl_mapping: None,
                             });
                             if let Some(Some(ctrl_parent)) =
                                 group_to_parent.get(&name)
@@ -1135,6 +1145,8 @@ impl Design {
                                 probes: None,
                                 probe_idxs: None,
                                 replacement,
+                                adl_component: None,
+                                adl_mapping: None,
                             };
                             if !is_primitive {
                                 assert!(scope.is_some());
@@ -1348,7 +1360,29 @@ impl Design {
         out
     }
 
-    pub fn embed_pos_in_cell(
+    pub fn embed_pos(&mut self, component_infos: &Vec<ComponentInfo>) {
+        self.embed_pos_in_cell(&self.main, None, component_infos)
+    }
+
+    fn embed_pos_in_cell(
+        &mut self,
+        c: &CellId,
+        cell_adl_pos_info: Option<PosInfo>,
+        component_infos: &Vec<ComponentInfo>,
+    ) {
+        let cell = &self.cells[*c];
+        if cell.is_primitive {
+            self.embed_pos_in_primitive(c, cell_adl_pos_info);
+        } else {
+            self.embed_pos_in_component_cell(
+                c,
+                cell_adl_pos_info,
+                component_infos,
+            );
+        }
+    }
+
+    fn embed_pos_in_component_cell(
         &mut self,
         c: &CellId,
         cell_adl_pos_info: Option<PosInfo>,
@@ -1374,8 +1408,7 @@ impl Design {
             component_info_idx
         };
 
-        let cell = &self.cells[*c];
-
+        let cell = self.cells[*c].clone();
         for group in cell.groups.iter() {
             self.embed_pos_in_group(group, component_infos, component_info_idx);
         }
@@ -1389,22 +1422,85 @@ impl Design {
         }
     }
 
-    pub fn embed_pos_in_group(
+    fn embed_pos_in_primitive(
+        &mut self,
+        c: &CellId,
+        cell_adl_pos_info: Option<PosInfo>,
+    ) {
+        let cell = &mut self.cells[*c];
+        assert!(cell.is_primitive);
+        cell.adl_mapping = cell_adl_pos_info;
+    }
+
+    fn embed_pos_in_group(
         &mut self,
         g: &GroupId,
         component_infos: &Vec<ComponentInfo>,
         ci_idx: usize,
     ) {
-        let group = &self.groups[*g];
         let component_info = &component_infos[ci_idx];
+        {
+            // modify group
+            let group = &mut self.groups[*g];
+            group.adl_mapping = component_info
+                .groups
+                .iter()
+                .find(|p| p.name == group.name)
+                .cloned();
+        }
+
+        // iterate over the invokes inside the group
+        let group = &self.groups[*g].clone();
+
+        for i in group.invokes.iter() {
+            let invoke = &self.invokes[*i];
+            match invoke.target {
+                InvokeTarget::Cell(cell_id) => {
+                    let cell = &self.cells[cell_id];
+                    // find cell's entry inside component_info
+                    let cell_info = component_info
+                        .cells
+                        .iter()
+                        .find(|c| c.name == cell.name)
+                        .cloned();
+                    assert!(cell_info.is_some());
+                    self.embed_pos_in_cell(
+                        &cell_id,
+                        cell_info,
+                        component_infos,
+                    );
+                }
+                InvokeTarget::Group(g) => {
+                    self.embed_pos_in_group(&g, component_infos, ci_idx);
+                }
+                InvokeTarget::Control(_) => {
+                    panic!("Group should not invoke a Control node!")
+                }
+            }
+        }
     }
 
-    pub fn embed_pos_in_control(
+    fn embed_pos_in_control(
         &mut self,
         c: &ControlId,
         component_infos: &Vec<ComponentInfo>,
         ci_idx: usize,
     ) {
+        let control = self.controls[*c].clone();
+        for i in control.invokes.iter() {
+            let invoke = &self.invokes[*i];
+            match invoke.target {
+                InvokeTarget::Cell(_) => {
+                    panic!("Control node should not invoke a Cell node!")
+                }
+                InvokeTarget::Group(g) => {
+                    self.embed_pos_in_group(&g, component_infos, ci_idx);
+                }
+                InvokeTarget::Control(c) => {
+                    self.embed_pos_in_control(&c, component_infos, ci_idx);
+                }
+            }
+        }
     }
 }
 
