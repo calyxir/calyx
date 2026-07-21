@@ -69,6 +69,72 @@ impl CurrentlyActive {
     }
 }
 
+#[derive(Clone, Debug, Default)]
+struct TrackZeroInfo {
+    uuid: Uuid,
+    occupant: Option<GroupId>,
+    backups: Vec<Uuid>,
+    backup_occupants: FxHashMap<Uuid, GroupId>,
+}
+
+impl TrackZeroInfo {
+    pub fn new(uuid: Uuid) -> Self {
+        Self {
+            uuid,
+            ..Default::default()
+        }
+    }
+
+    pub fn start_group(
+        &mut self,
+        t: &mut Timeline,
+        group: GroupId,
+    ) -> Result<Uuid> {
+        if self.occupant.is_some()
+            && self.backups.len() > self.backup_occupants.len()
+        {
+            // find the first unoccupied
+            let idx = self
+                .backups
+                .iter()
+                .position(|u| !self.backup_occupants.contains_key(u))
+                .unwrap();
+            let uuid = self.backups[idx];
+            self.backup_occupants.insert(uuid, group);
+            Ok(uuid)
+        } else if self.occupant.is_some() {
+            // all of the backups are occupied; create a new thread
+            let idx = self.backups.len();
+            let name = format!("Thread 000_{idx}");
+            let new_uuid = t.register_descriptor(name, Some(self.uuid))?;
+            self.backups.push(new_uuid);
+            self.backup_occupants.insert(new_uuid, group);
+            Ok(new_uuid)
+        } else {
+            assert!(self.occupant.is_none());
+            self.occupant = Some(group);
+            Ok(self.uuid)
+        }
+    }
+
+    pub fn end_group(&mut self, group: GroupId) -> Result<Uuid> {
+        if Some(group) == self.occupant {
+            self.occupant = None;
+            Ok(self.uuid)
+        } else {
+            let (u, _) = self
+                .backup_occupants
+                .iter()
+                .find(|(_, v)| **v == group)
+                .unwrap();
+
+            let uuid = *u;
+            self.backup_occupants.remove(&uuid);
+            Ok(uuid)
+        }
+    }
+}
+
 /// Constructs and outputs protobuf messages for constructing a timeline view.
 /// In the timeline, each component cell has a distinct track which contains tracks containing the
 /// group/control group/control register activity within that cell, organized as below:
@@ -81,6 +147,9 @@ pub struct CalyxTimeline {
     control_to_info: FxHashMap<ControlId, TrackEventInfo>,
     group_to_info: FxHashMap<GroupId, TrackEventInfo>,
     register_to_uuid: FxHashMap<RegisterId, Uuid>,
+    // accounting for the corner case where there are multiple groups mapped to the cell's
+    // track 0, but they are optimized to run in parallel
+    track_zero_to_backups: FxHashMap<Uuid, TrackZeroInfo>,
 }
 
 impl CalyxTimeline {
@@ -91,6 +160,7 @@ impl CalyxTimeline {
             control_to_info: FxHashMap::default(),
             group_to_info: FxHashMap::default(),
             register_to_uuid: FxHashMap::default(),
+            track_zero_to_backups: FxHashMap::default(),
         };
         Ok(s)
     }
@@ -142,6 +212,12 @@ impl CalyxTimeline {
                         .timeline
                         .register_descriptor(thread_name, Some(uuid))?;
                     thread_tracks.insert(*thread, thread_uuid);
+                    if *thread == 0 {
+                        self.track_zero_to_backups.insert(
+                            thread_uuid,
+                            TrackZeroInfo::new(thread_uuid),
+                        );
+                    }
                 }
             }
         }
@@ -201,9 +277,9 @@ impl CalyxTimeline {
         cycle_count: u64,
     ) -> Result<()> {
         // register all end events
-        self.update_helper(ended, cycle_count, Type::SliceEnd);
+        self.update_helper(ended, cycle_count, Type::SliceEnd)?;
         // register all start events
-        self.update_helper(started, cycle_count, Type::SliceBegin);
+        self.update_helper(started, cycle_count, Type::SliceBegin)?;
         Ok(())
     }
 
@@ -233,7 +309,7 @@ impl CalyxTimeline {
         diff: &CurrentlyActive,
         cycle_count: u64,
         event_type: Type,
-    ) {
+    ) -> Result<()> {
         for &cell in diff.cells.iter() {
             let TrackEventInfo { uuid, name } =
                 self.cell_to_info.get(&cell).unwrap();
@@ -259,13 +335,29 @@ impl CalyxTimeline {
         for &group in diff.groups.iter() {
             let TrackEventInfo { uuid, name } =
                 self.group_to_info.get(&group).unwrap();
+            let real_uuid: Uuid =
+                if let Some(tz) = self.track_zero_to_backups.get_mut(uuid) {
+                    match event_type {
+                        Type::SliceBegin => {
+                            tz.start_group(&mut self.timeline, group)?
+                        }
+                        Type::SliceEnd => tz.end_group(group)?,
+                        _ => {
+                            panic!("Unexpected event type")
+                        }
+                    }
+                } else {
+                    *uuid
+                };
             self.timeline.register_event(
                 name.clone(),
-                *uuid,
+                real_uuid,
                 cycle_count,
                 event_type,
             );
         }
+
+        Ok(())
     }
 }
 

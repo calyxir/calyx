@@ -110,7 +110,7 @@ impl DahliaDesign {
         }
 
         let mut sorted_line_nums =
-            (&linenum_to_init_info).keys().cloned().collect::<Vec<_>>();
+            (linenum_to_init_info).keys().cloned().collect::<Vec<_>>();
         sorted_line_nums.sort();
 
         for line_num in sorted_line_nums {
