@@ -55,7 +55,7 @@ pub struct PosInfo {
 }
 
 impl PosInfo {
-    pub fn cleanup(&mut self) -> () {
+    pub fn cleanup(&mut self) {
         let p = Path::new(&self.filename);
         self.filename = p.file_name().unwrap().to_str().unwrap().to_string();
         self.varname = self.varname.replace(";", "").replace("{", "");
@@ -98,7 +98,7 @@ impl AdlIntermediateInfo {
             Adl::Py => {
                 let pyi = PyProfilingInfo::default();
                 // add position info into all nodes of the design
-                d.embed_pos(&mut components);
+                d.embed_pos(&components);
                 Ok(Self::Py(pyi))
             }
             Adl::Dahlia => {

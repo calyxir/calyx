@@ -1,4 +1,4 @@
-use crate::adls::{AdlInfo, ComponentInfo, PosInfo};
+use crate::adls::{ComponentInfo, PosInfo};
 use crate::calyx_timeline::{CalyxTimeline, CurrentlyActive, NON_ID_THREAD};
 use crate::control::{ControlInfo, ControlRegister, PathDescriptorInfo};
 use crate::shared_cells::SharedCellsInfo;
@@ -89,7 +89,7 @@ impl Cell {
             )
         } else if let Some(adl_component) = &self.adl_component {
             if self.component == "main" {
-                format!("{}", adl_component.adl_str())
+                adl_component.adl_str().to_string()
             } else if let Some(adl_mapping) = &self.adl_mapping {
                 format!(
                     "{} [{}]",
@@ -1481,7 +1481,7 @@ impl Design {
             let mut component_pos_info = PosInfo {
                 name: mut_cell.component.clone(),
                 filename: component_info.filename.clone().unwrap(),
-                linenum: component_info.linenum.clone().unwrap(),
+                linenum: component_info.linenum.unwrap(),
                 varname: component_info.varname.clone().unwrap(),
             };
             component_pos_info.cleanup();
