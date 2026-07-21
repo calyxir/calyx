@@ -125,16 +125,13 @@ impl ControlInfo {
         self.pd.get(c).unwrap()
     }
 
-    pub fn get_pretty(&self, pos_set: &BTreeSet<u32>) -> Result<(String, u32)> {
+    pub fn get_pretty(&self, pos_set: &BTreeSet<u32>) -> Option<(String, u32)> {
         for pos in pos_set.iter() {
             if let Some(pretty) = self.pretty_map.get(pos) {
-                return Ok((pretty.clone(), *pos));
+                return Some((pretty.clone(), *pos));
             }
         }
-        Err(anyhow!(
-            "Positions in {:?} not found in pretty map",
-            pos_set
-        ))
+        None
     }
 
     pub fn get_tdcc(&self, pos: u32) -> Result<Option<&Vec<TdccInfo>>> {

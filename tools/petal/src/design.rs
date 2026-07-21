@@ -711,9 +711,10 @@ impl Design {
                 );
                 continue;
             }
-            let (pretty, pos) = c.get_pretty(pos_set)?;
+            if let Some((pretty, pos)) = c.get_pretty(pos_set) &&
             // any pos without an entry in tdcc was compiled away; we ignore these.
-            if let Some(tdcc_info_vec) = c.get_tdcc(pos)? {
+            let Some(tdcc_info_vec) = c.get_tdcc(pos)?
+            {
                 // pos is the entry to the Calyx-generated position of the control node,
                 // so there should only be one entry in the Vector.
                 assert_eq!(tdcc_info_vec.len(), 1);
@@ -740,6 +741,10 @@ impl Design {
                 let ctrl_id = self.controls.push(ctrl);
                 pos_to_id.insert(pos, ctrl_id);
                 descriptor_to_id.insert(d.clone(), ctrl_id);
+            } else {
+                println!(
+                    "Could not find control group for position set {pos_set:?}"
+                );
             }
         }
 
