@@ -105,7 +105,7 @@ pub fn bits_read(
     width: usize,
 ) -> Result<BitVecValue, NumParseErr> {
     BitVecValue::from_str_radix(&s, 2, width as u32)
-        .map_err(|e| return NumParseErr::Baa(s, e))
+        .map_err(|e| NumParseErr::Baa(s, e))
 }
 
 #[inline]

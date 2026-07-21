@@ -35,7 +35,7 @@ fn sim_setup(e) {
     e.var_("datadir", "sim_data");
     e.build_cmd(
         ["$datadir"],
-        "hex-data-new",
+        "hex-data",
         ["$sim_data"],
         [],
     );
@@ -63,7 +63,7 @@ op(
         e.arg("args", "+NOTRACE=1");
         e.build_cmd(
             ["im.json"],
-            "json-data-new",
+            "json-data",
             ["$datadir"],
             ["sim.log"], // sim.log specified as an indirect dependency so the simulation runs
         );
