@@ -129,7 +129,7 @@ impl AdlIntermediateInfo {
 
     pub fn close(&mut self, total_cycles: u64) -> Result<()> {
         match self {
-            AdlIntermediateInfo::Py(p) => Ok(()),
+            AdlIntermediateInfo::Py(_) => Ok(()),
             AdlIntermediateInfo::Dahlia(d) => d.close(total_cycles),
         }
     }

@@ -12,7 +12,7 @@ mod statistics;
 
 use crate::adls::AdlIntermediateInfo;
 use crate::calyx_timeline::{CalyxTimeline, CurrentlyActive};
-use crate::design::{Design, RegisterId, Stack};
+use crate::design::{AdlMode, Design, RegisterId, Stack};
 use crate::statistics::Statistics;
 use crate::visuals::flamegraph::write_calyx_flames;
 use anyhow::{Context, Ok, Result, anyhow};
@@ -77,7 +77,7 @@ fn collect_stacks(
                 (active, *gp_flag)
             } else {
                 let (stacks, active_this_cycle, group_or_primitive_leaf) =
-                    design.compute_cycle_trace(value, false)?;
+                    design.compute_cycle_trace(value, AdlMode::Calyx)?;
                 out.insert(
                     value.clone(),
                     (

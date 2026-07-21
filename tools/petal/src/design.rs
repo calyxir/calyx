@@ -14,7 +14,7 @@ use wellen::{Hierarchy, Scope, ScopeRef, SignalRef, VarRef};
 
 const COMPILER_GENERATED_MSG: &str = "compiler-generated";
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Default, PartialOrd, Ord)]
 pub struct CellId(u32);
 entity_impl!(CellId, "cell");
 
@@ -87,26 +87,15 @@ impl Cell {
                 "{} (primitive)",
                 self.adl_mapping.clone().unwrap().adl_str()
             )
-        }
-        // } else if self.component == "main" {
-        //     let adl_component = &self.adl_component.unwrap();
-        //     format!("{}", adl_component.adl_str())
-        // } else {
-        //     let adl_component = &self.adl_component.unwrap();
-        //     let adl_mapping = &self.adl_mapping.unwrap();
-        //     format!("{} [{}]", adl_mapping.adl_str(), adl_component.adl_str())
-        // }
-        else if let Some(adl_component) = &self.adl_component {
+        } else if let Some(adl_component) = &self.adl_component {
             if self.component == "main" {
                 format!("{}", adl_component.adl_str())
             } else if let Some(adl_mapping) = &self.adl_mapping {
-                let s = format!(
+                format!(
                     "{} [{}]",
                     adl_mapping.adl_str(),
                     adl_component.adl_str()
-                );
-                println!("outputting {s}");
-                s
+                )
             } else {
                 panic!(
                     "Non-main Cell {} does not have a ADL mapping!",
@@ -120,9 +109,42 @@ impl Cell {
             )
         }
     }
+
+    pub fn mixed_display_name(&self) -> String {
+        assert!((self.adl_mapping.is_some() || self.name == "main"));
+        assert!(self.is_primitive || self.adl_component.is_some());
+
+        if let Some(adl_component) = &self.adl_component {
+            if self.component == "main" {
+                format!("{} {}", self.name, adl_component.loc_str())
+            } else if let Some(adl_mapping) = &self.adl_mapping {
+                format!(
+                    "{} {} [{} {}]",
+                    self.name,
+                    adl_mapping.loc_str(),
+                    self.component,
+                    adl_component.loc_str()
+                )
+            } else {
+                panic!(
+                    "Should be unreachable; either the component is main or there is an ADL mapping for the cell!"
+                )
+            }
+        } else if self.is_primitive {
+            format!(
+                "{} (primitive) {}",
+                self.name,
+                self.adl_mapping.clone().unwrap().loc_str()
+            )
+        } else {
+            panic!(
+                "Should be unreachable; either the cell is a primitive or has a component ADL!"
+            )
+        }
+    }
 }
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Default, PartialOrd, Ord)]
 pub struct GroupId(u32);
 entity_impl!(GroupId, "group");
 
@@ -164,9 +186,17 @@ impl Group {
             format!("'{}' {{{COMPILER_GENERATED_MSG}}}", self.display_name())
         }
     }
+
+    pub fn mixed_display_name(&self) -> String {
+        if let Some(adl_mapping) = &self.adl_mapping {
+            format!("{} {}", self.name, adl_mapping.loc_str())
+        } else {
+            format!("{} {{{COMPILER_GENERATED_MSG}}}", self.display_name())
+        }
+    }
 }
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Default, PartialOrd, Ord)]
 pub struct ControlId(u32);
 entity_impl!(ControlId, "control");
 
@@ -192,6 +222,10 @@ impl Control {
 
     pub fn adl_display_name(&self) -> String {
         format!("{COMPILER_GENERATED_MSG} (ctrl)")
+    }
+
+    pub fn mixed_display_name(&self) -> String {
+        format!("{} (ctrl) {{{COMPILER_GENERATED_MSG}}}", self.name)
     }
 }
 
@@ -269,6 +303,12 @@ fn find_main_scope(h: &wellen::Hierarchy) -> Result<ScopeRef> {
     h.all_scopes()
         .find(|s| h[*s].name(h) == "main")
         .ok_or(anyhow!("Failed to find main scope"))
+}
+
+pub enum AdlMode {
+    Calyx,
+    Mixed,
+    CalyxPy,
 }
 
 impl Design {
@@ -369,7 +409,7 @@ impl Design {
     pub fn compute_cycle_trace(
         &self,
         values: &BitVecValue,
-        adl_mode: bool,
+        adl_mode: AdlMode,
     ) -> Result<(Vec<Stack>, CurrentlyActive, bool)> {
         let main = &self.cells[self.main];
         let (main_go, main_done) = main.probe_idxs.unwrap();
@@ -384,7 +424,7 @@ impl Design {
                 self.main,
                 vec![],
                 &mut current_active,
-                adl_mode,
+                &adl_mode,
             );
             stacks.sort();
             stacks.dedup();
@@ -492,7 +532,7 @@ impl Design {
         cell_id: CellId,
         mut prefix: Stack,
         active_this_cycle: &mut CurrentlyActive,
-        adl_mode: bool,
+        adl_mode: &AdlMode,
     ) -> (Vec<Stack>, bool) {
         let cell = &self.cells[cell_id];
         active_this_cycle.add_active_cell(cell_id);
@@ -500,10 +540,10 @@ impl Design {
             // the main component cell is the only one to have a probe_idx.
             if value.is_bit_set(main_go_idx) && !value.is_bit_set(main_done_idx)
             {
-                if adl_mode {
-                    prefix.push(cell.adl_display_name());
-                } else {
-                    prefix.push(cell.display_name());
+                match adl_mode {
+                    AdlMode::CalyxPy => prefix.push(cell.adl_display_name()),
+                    AdlMode::Calyx => prefix.push(cell.display_name()),
+                    AdlMode::Mixed => prefix.push(cell.mixed_display_name()),
                 }
             } else {
                 return (vec![prefix], false);
@@ -565,14 +605,15 @@ impl Design {
         control_id: ControlId,
         mut prefix: Stack,
         active_this_cycle: &mut CurrentlyActive,
-        adl_mode: bool,
+        adl_mode: &AdlMode,
     ) -> (Vec<Stack>, bool) {
         let control = &self.controls[control_id];
-        if adl_mode {
-            prefix.push(control.adl_display_name());
-        } else {
-            prefix.push(control.display_name());
-        }
+        let control_display_name = match adl_mode {
+            AdlMode::Calyx => control.display_name(),
+            AdlMode::Mixed => control.mixed_display_name(),
+            AdlMode::CalyxPy => control.adl_display_name(),
+        };
+        prefix.push(control_display_name);
         active_this_cycle.add_active_control(control_id);
         // it probably wouldn't make any sense for a control to not contain any invokes?
         assert!(!control.invokes.is_empty());
@@ -637,14 +678,15 @@ impl Design {
         group_id: GroupId,
         mut prefix: Stack,
         active_this_cycle: &mut CurrentlyActive,
-        adl_mode: bool,
+        adl_mode: &AdlMode,
     ) -> (Vec<Stack>, bool) {
         let group = &self.groups[group_id];
-        if adl_mode {
-            prefix.push(group.adl_display_name());
-        } else {
-            prefix.push(group.display_name());
-        }
+        let group_display_name = match adl_mode {
+            AdlMode::Calyx => group.display_name(),
+            AdlMode::Mixed => group.mixed_display_name(),
+            AdlMode::CalyxPy => group.adl_display_name(),
+        };
+        prefix.push(group_display_name);
         active_this_cycle.add_active_group(group_id);
         if group.invokes.is_empty() {
             // this group is a leaf, since it does not invoke anything.
@@ -661,12 +703,12 @@ impl Design {
                     InvokeTarget::Cell(target_cell_id) => {
                         // component or primitive cell activation
                         let target_cell = &self.cells[target_cell_id];
-                        if adl_mode {
-                            this_thread_prefix
-                                .push(target_cell.adl_display_name());
-                        } else {
-                            this_thread_prefix.push(target_cell.display_name());
-                        }
+                        let display_name = match &adl_mode {
+                            AdlMode::Calyx => target_cell.display_name(),
+                            AdlMode::Mixed => target_cell.mixed_display_name(),
+                            AdlMode::CalyxPy => target_cell.adl_display_name(),
+                        };
+                        this_thread_prefix.push(display_name);
                         if target_cell.is_primitive {
                             out.push(this_thread_prefix);
                             // A primitive will always be a leaf as it cannot call anything else.
@@ -800,17 +842,17 @@ impl Design {
 
         // iterate through control par descriptors and construct Control nodes
         for (d, pos_set) in descriptors.control_pos.iter() {
-             if pos_set.is_empty() {
-                 // if the pos_set for a descriptor is empty, it's not a real control descriptor
-                 println!(
-                     "Skipping descriptor with empty pos set (static control; will not manifest in a control group): {d}"
-                 );
-                 continue;
-             }
-             if let Some((pretty, pos)) = c.get_pretty(pos_set) &&
+            if pos_set.is_empty() {
+                // if the pos_set for a descriptor is empty, it's not a real control descriptor
+                println!(
+                    "Skipping descriptor with empty pos set (static control; will not manifest in a control group): {d}"
+                );
+                continue;
+            }
+            if let Some((pretty, pos)) = c.get_pretty(pos_set) &&
                 // any pos without an entry in tdcc was compiled away; we ignore these.
                 let Some(tdcc_info_vec) = c.get_tdcc(pos)?
-             {
+            {
                 // pos is the entry to the Calyx-generated position of the control node,
                 // so there should only be one entry in the Vector.
                 assert_eq!(tdcc_info_vec.len(), 1);
@@ -837,6 +879,10 @@ impl Design {
                 let ctrl_id = self.controls.push(ctrl);
                 pos_to_id.insert(pos, ctrl_id);
                 descriptor_to_id.insert(d.clone(), ctrl_id);
+            } else {
+                println!(
+                    "Could not find control group for position set {pos_set:?}"
+                );
             }
         }
 
