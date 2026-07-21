@@ -3,6 +3,7 @@ use crate::calyx_timeline::CurrentlyActive;
 use crate::dahlia_design::DahliaProfilingInfo;
 use crate::design::Design;
 use anyhow::{Ok, Result};
+use baa::BitVecValue;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
@@ -31,6 +32,18 @@ pub struct ComponentInfo {
     pub varname: Option<String>,
     pub cells: Vec<PosInfo>,
     pub groups: Vec<PosInfo>,
+}
+
+impl ComponentInfo {
+    pub fn cleanup(&mut self) {
+        for c in &mut self.cells {
+            c.cleanup();
+        }
+
+        for g in &mut self.groups {
+            g.cleanup();
+        }
+    }
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Deserialize, Debug)]
@@ -70,8 +83,14 @@ impl AdlIntermediateInfo {
         d: &mut Design,
     ) -> Result<Self> {
         let adl_file = File::open(adl_filename)?;
-        let AdlInfo { adl, components } =
-            serde_json::from_reader(BufReader::new(adl_file))?;
+        let AdlInfo {
+            adl,
+            mut components,
+        } = serde_json::from_reader(BufReader::new(adl_file))?;
+        // clean up all components
+        for c in &mut components {
+            c.cleanup();
+        }
         match adl {
             Adl::Calyx => {
                 panic!("Calyx \"ADL\" file should not be passed in!")
@@ -79,7 +98,7 @@ impl AdlIntermediateInfo {
             Adl::Py => {
                 let pyi = PyProfilingInfo::default();
                 // add position info into all nodes of the design
-                d.embed_pos(&components);
+                d.embed_pos(&mut components);
                 Ok(Self::Py(pyi))
             }
             Adl::Dahlia => {
@@ -95,10 +114,13 @@ impl AdlIntermediateInfo {
 
     pub fn process_cycle(
         &mut self,
+        value: &BitVecValue,
+        design: &Design,
         calyx_active: &CurrentlyActive,
         cycle_count: u64,
     ) -> Result<()> {
         match self {
+            AdlIntermediateInfo::Py(p) => p.update(design, value),
             AdlIntermediateInfo::Dahlia(d) => {
                 d.process_cycle(calyx_active, cycle_count)
             }
@@ -107,18 +129,21 @@ impl AdlIntermediateInfo {
 
     pub fn close(&mut self, total_cycles: u64) -> Result<()> {
         match self {
+            AdlIntermediateInfo::Py(p) => Ok(()),
             AdlIntermediateInfo::Dahlia(d) => d.close(total_cycles),
         }
     }
 
     pub fn output_flame(&mut self, out_dir: &str) -> Result<()> {
         match self {
+            AdlIntermediateInfo::Py(p) => p.output_flame(out_dir),
             AdlIntermediateInfo::Dahlia(d) => d.output_flame(out_dir),
         }
     }
 
     pub fn output_timeline(self, out_dir: &str) -> Result<()> {
         match self {
+            AdlIntermediateInfo::Py(_) => Ok(()),
             AdlIntermediateInfo::Dahlia(d) => d.output_timeline(out_dir),
         }
     }

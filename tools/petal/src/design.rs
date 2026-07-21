@@ -78,26 +78,40 @@ impl Cell {
     }
 
     pub fn adl_display_name(&self) -> String {
-        assert!(self.adl_mapping.is_some() && self.adl_component.is_some());
+        println!("{:?}", self.name);
+        assert!((self.adl_mapping.is_some() || self.name == "main"));
+        assert!(self.is_primitive || self.adl_component.is_some());
 
         if self.is_primitive {
             format!(
                 "{} (primitive)",
                 self.adl_mapping.clone().unwrap().adl_str()
             )
-        } else if let Some(adl_mapping) = &self.adl_mapping
-            && let Some(adl_component) = &self.adl_component
-        {
+        }
+        // } else if self.component == "main" {
+        //     let adl_component = &self.adl_component.unwrap();
+        //     format!("{}", adl_component.adl_str())
+        // } else {
+        //     let adl_component = &self.adl_component.unwrap();
+        //     let adl_mapping = &self.adl_mapping.unwrap();
+        //     format!("{} [{}]", adl_mapping.adl_str(), adl_component.adl_str())
+        // }
+        else if let Some(adl_component) = &self.adl_component {
             if self.component == "main" {
-                format!("{} {}", self.name, adl_component.adl_str())
+                format!("{}", adl_component.adl_str())
+            } else if let Some(adl_mapping) = &self.adl_mapping {
+                let s = format!(
+                    "{} [{}]",
+                    adl_mapping.adl_str(),
+                    adl_component.adl_str()
+                );
+                println!("outputting {s}");
+                s
             } else {
-                format!(
-                    "{} {} [{} {}]",
-                    self.name,
-                    adl_mapping.adl_str().clone(),
-                    self.component,
-                    adl_component.adl_str().clone()
-                )
+                panic!(
+                    "Non-main Cell {} does not have a ADL mapping!",
+                    self.name
+                );
             }
         } else {
             panic!(
@@ -147,7 +161,7 @@ impl Group {
         if let Some(adl_mapping) = &self.adl_mapping {
             adl_mapping.adl_str()
         } else {
-            format!("'{}' {{{COMPILER_GENERATED_MSG}}}", self.name)
+            format!("'{}' {{{COMPILER_GENERATED_MSG}}}", self.display_name())
         }
     }
 }
@@ -177,7 +191,7 @@ impl Control {
     }
 
     pub fn adl_display_name(&self) -> String {
-        format!("'{}' {{{COMPILER_GENERATED_MSG}}}", self.name)
+        format!("{COMPILER_GENERATED_MSG} (ctrl)")
     }
 }
 
@@ -355,6 +369,7 @@ impl Design {
     pub fn compute_cycle_trace(
         &self,
         values: &BitVecValue,
+        adl_mode: bool,
     ) -> Result<(Vec<Stack>, CurrentlyActive, bool)> {
         let main = &self.cells[self.main];
         let (main_go, main_done) = main.probe_idxs.unwrap();
@@ -369,6 +384,7 @@ impl Design {
                 self.main,
                 vec![],
                 &mut current_active,
+                adl_mode,
             );
             stacks.sort();
             stacks.dedup();
@@ -475,18 +491,19 @@ impl Design {
         value: &BitVecValue,
         cell_id: CellId,
         mut prefix: Stack,
-        mut adl_prefix_opt: Option<Stack>,
         active_this_cycle: &mut CurrentlyActive,
-    ) -> (Vec<Stack>, Option<Vec<Stack>>, bool) {
+        adl_mode: bool,
+    ) -> (Vec<Stack>, bool) {
         let cell = &self.cells[cell_id];
         active_this_cycle.add_active_cell(cell_id);
         if let Some((main_go_idx, main_done_idx)) = cell.probe_idxs {
             // the main component cell is the only one to have a probe_idx.
             if value.is_bit_set(main_go_idx) && !value.is_bit_set(main_done_idx)
             {
-                prefix.push(cell.display_name());
-                if let Some(mut adl_prefix) = adl_prefix_opt {
-                    adl_prefix.push(cell.adl_display_name());
+                if adl_mode {
+                    prefix.push(cell.adl_display_name());
+                } else {
+                    prefix.push(cell.display_name());
                 }
             } else {
                 return (vec![prefix], false);
@@ -505,8 +522,8 @@ impl Design {
                     value,
                     group_idx,
                     prefix.clone(),
-                    adl_prefix_opt.clone(),
                     active_this_cycle,
+                    adl_mode,
                 );
                 out.append(&mut group_stacks);
                 group_primitive_leaf |= flag;
@@ -520,6 +537,7 @@ impl Design {
                     control_idx,
                     prefix.clone(),
                     active_this_cycle,
+                    adl_mode,
                 );
                 out.append(&mut control_stacks);
                 group_primitive_leaf |= flag;
@@ -547,9 +565,14 @@ impl Design {
         control_id: ControlId,
         mut prefix: Stack,
         active_this_cycle: &mut CurrentlyActive,
+        adl_mode: bool,
     ) -> (Vec<Stack>, bool) {
         let control = &self.controls[control_id];
-        prefix.push(control.display_name());
+        if adl_mode {
+            prefix.push(control.adl_display_name());
+        } else {
+            prefix.push(control.display_name());
+        }
         active_this_cycle.add_active_control(control_id);
         // it probably wouldn't make any sense for a control to not contain any invokes?
         assert!(!control.invokes.is_empty());
@@ -572,6 +595,7 @@ impl Design {
                                 target_group_id,
                                 prefix.clone(),
                                 active_this_cycle,
+                                adl_mode,
                             );
                         out.append(&mut group_stacks);
                         group_primitive_leaf |= flag;
@@ -583,6 +607,7 @@ impl Design {
                                 target_control_id,
                                 prefix.clone(),
                                 active_this_cycle,
+                                adl_mode,
                             );
                         out.append(&mut control_stacks);
                         group_primitive_leaf |= flag;
@@ -611,11 +636,15 @@ impl Design {
         value: &BitVecValue,
         group_id: GroupId,
         mut prefix: Stack,
-        mut adl_prefix_opt: Option<Stack>,
         active_this_cycle: &mut CurrentlyActive,
+        adl_mode: bool,
     ) -> (Vec<Stack>, bool) {
         let group = &self.groups[group_id];
-        prefix.push(group.display_name());
+        if adl_mode {
+            prefix.push(group.adl_display_name());
+        } else {
+            prefix.push(group.display_name());
+        }
         active_this_cycle.add_active_group(group_id);
         if group.invokes.is_empty() {
             // this group is a leaf, since it does not invoke anything.
@@ -632,7 +661,12 @@ impl Design {
                     InvokeTarget::Cell(target_cell_id) => {
                         // component or primitive cell activation
                         let target_cell = &self.cells[target_cell_id];
-                        this_thread_prefix.push(target_cell.display_name());
+                        if adl_mode {
+                            this_thread_prefix
+                                .push(target_cell.adl_display_name());
+                        } else {
+                            this_thread_prefix.push(target_cell.display_name());
+                        }
                         if target_cell.is_primitive {
                             out.push(this_thread_prefix);
                             // A primitive will always be a leaf as it cannot call anything else.
@@ -644,6 +678,7 @@ impl Design {
                                     target_cell_id,
                                     this_thread_prefix.clone(),
                                     active_this_cycle,
+                                    adl_mode,
                                 );
                             out.append(&mut cell_stacks);
                             group_or_primitive_leaf |= flag;
@@ -657,6 +692,7 @@ impl Design {
                                 target_group_id,
                                 this_thread_prefix.clone(),
                                 active_this_cycle,
+                                adl_mode,
                             );
                         out.append(&mut group_stacks);
                         group_or_primitive_leaf |= flag;
@@ -1361,7 +1397,7 @@ impl Design {
     }
 
     pub fn embed_pos(&mut self, component_infos: &Vec<ComponentInfo>) {
-        self.embed_pos_in_cell(&self.main, None, component_infos)
+        self.embed_pos_in_cell(&self.main.clone(), None, component_infos)
     }
 
     fn embed_pos_in_cell(

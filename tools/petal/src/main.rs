@@ -77,7 +77,7 @@ fn collect_stacks(
                 (active, *gp_flag)
             } else {
                 let (stacks, active_this_cycle, group_or_primitive_leaf) =
-                    design.compute_cycle_trace(value)?;
+                    design.compute_cycle_trace(value, false)?;
                 out.insert(
                     value.clone(),
                     (
@@ -102,7 +102,12 @@ fn collect_stacks(
             active_this_cycle.get_active_cells(),
         );
         if let Some(adl_info) = adl_info_opt {
-            adl_info.process_cycle(active_this_cycle, cycle_count as u64)?;
+            adl_info.process_cycle(
+                value,
+                design,
+                active_this_cycle,
+                cycle_count as u64,
+            )?;
         }
         currently_active = active_this_cycle.clone();
     }
