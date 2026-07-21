@@ -34,12 +34,6 @@ fn profiling_setup(e) {
     e.config_var_or("component_cells", "component_cells", "$calyx-base/target/debug/component_cells");
     e.rule("component-cells", "$component_cells -l $calyx-base $in > $out");
 
-    // rules for postprocessing
-
-    e.config_var("flamegraph-script", "flamegraph.script");
-    e.var_("create-visuals-script", "$calyx-base/tools/profiler/create-visuals.sh");
-    e.rule("create-visuals", "bash $create-visuals-script $flamegraph-script profiler-out $in $out");
-
     // Standalone Verilog testbench. copied from testbench
     e.rsrc("tb.sv");
 
@@ -70,6 +64,14 @@ fn profiler_non_synth_setup(e) {
         "$rusted_petal $in $fsm-json $path-descriptors-json $ctrl-pos-json $cell-share-json $enable-par-track-json profiler-out --scaled-flame-out profiler-out/scaled-flame.folded --flat-flame-out $out --adl-file adl-metadata.json --dahlia-parent-map parent-map.json");
     e.rule("petal-parse-vcd-from-py",
         "$rusted_petal $in $fsm-json $path-descriptors-json $ctrl-pos-json $cell-share-json $enable-par-track-json profiler-out --scaled-flame-out profiler-out/scaled-flame.folded --flat-flame-out $out --adl-file adl-metadata.json");
+}
+
+fn profiling_visuals_setup(e) {
+    // rule for producing flame graph svgs; these are isolated so that flamegraph.script will not be
+    // necessary during testing.
+    e.config_var("flamegraph-script", "flamegraph.script");
+    e.var_("create-visuals-script", "$calyx-base/tools/profiler/create-visuals.sh");
+    e.rule("create-visuals", "bash $create-visuals-script $flamegraph-script profiler-out $in $out");
 }
 
 fn profiler_synth_setup(e) {
@@ -259,7 +261,8 @@ fn calyx_to_flamegraph(e, input, output, python_impl, produce_svg) {
 
 op(
     "petal",
-    [c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
+    [c::calyx_setup, profiling_setup, profiling_visuals_setup, profiler_non_synth_setup, v::verilator_setup,
+    sim::sim_setup],
     c::calyx_state,
     flamegraph,
     |e, input, output| calyx_to_flamegraph(e, input, output, false, true)
@@ -274,14 +277,16 @@ op(
 );
 
 op("petal-dahlia",
-    [d::dahlia_setup, c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
+    [d::dahlia_setup, c::calyx_setup, profiling_visuals_setup, profiling_setup, profiler_non_synth_setup,
+    v::verilator_setup, sim::sim_setup],
     d::dahlia,
     flamegraph,
     |e, input, output| dahlia_to_profiled(e, input, output, false)
 );
 
 op("petal-calyx-py",
-    [c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
+    [c::calyx_setup, profiling_setup, profiling_visuals_setup, profiler_non_synth_setup, v::verilator_setup,
+    sim::sim_setup],
     cp::calyx_py,
     flamegraph,
     |e, input, output| py_to_profiled(e, input, output, false)
@@ -289,7 +294,8 @@ op("petal-calyx-py",
 
 op(
     "profiler",
-    [c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
+    [c::calyx_setup, profiling_setup, profiling_visuals_setup, profiler_non_synth_setup, v::verilator_setup,
+    sim::sim_setup],
     c::calyx_state,
     flamegraph,
     |e, input, output| calyx_to_flamegraph(e, input, output, true, true)
@@ -305,21 +311,24 @@ op(
 
 op(
     "profiler-area-util",
-    [c::calyx_setup, profiling_setup, profiler_synth_setup, v::verilator_setup, sim::sim_setup],
+    [c::calyx_setup, profiling_setup, profiling_visuals_setup, profiler_synth_setup, v::verilator_setup,
+    sim::sim_setup],
     c::calyx_state,
     flamegraph,
     |e, input, output| calyx_to_flamegraph(e, input, output, true, true)
 );
 
 op("calyx-py-profiler",
-    [c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
+    [c::calyx_setup, profiling_setup, profiling_visuals_setup, profiler_non_synth_setup, v::verilator_setup,
+    sim::sim_setup],
     cp::calyx_py,
     flamegraph,
     |e, input, output| py_to_profiled(e, input, output, true)
 );
 
 op("dahlia-profiler",
-    [d::dahlia_setup, c::calyx_setup, profiling_setup, profiler_non_synth_setup, v::verilator_setup, sim::sim_setup],
+    [d::dahlia_setup, c::calyx_setup, profiling_setup, profiling_visuals_setup, profiler_non_synth_setup,
+    v::verilator_setup, sim::sim_setup],
     d::dahlia,
     flamegraph,
     |e, input, output| dahlia_to_profiled(e, input, output, true)

@@ -30,10 +30,6 @@ py-args =
 component_cells = $calyx-base/target/debug/component_cells
 rule component-cells
   command = $component_cells -l $calyx-base $in > $out
-flamegraph-script = /test/calyx/non-existent.script
-create-visuals-script = $calyx-base/tools/profiler/create-visuals.sh
-rule create-visuals
-  command = bash $create-visuals-script $flamegraph-script profiler-out $in $out
 build tb.sv: get-rsrc
 rule py-to-calyx
   command = python3 $in $py-args > $out
@@ -43,6 +39,11 @@ rule parse-metadata
   command = $fileinfo_emitter -l $calyx-base $in -c $ctrl-pos-json
 rule parse-metadata-with-adl
   command = $fileinfo_emitter -l $calyx-base $in -c $ctrl-pos-json -o $adl-metadata-json
+
+flamegraph-script = /test/calyx/non-existent.script
+create-visuals-script = $calyx-base/tools/profiler/create-visuals.sh
+rule create-visuals
+  command = bash $create-visuals-script $flamegraph-script profiler-out $in $out
 
 rule parse-vcd
   command = profiler $in $cell-json $fsm-json $cell-share-json $enable-par-track-json $path-descriptors-json profiler-out $out --print-trace-threshold 100 --ctrl-pos-file $ctrl-pos-json
