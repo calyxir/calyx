@@ -728,7 +728,7 @@ dirname=$(dirname {}) && \
 basename=$(basename {} .futil) && \
 petal_test_dir=${dirname}/${basename} && \
 flame=${petal_test_dir}/flat-flame.folded && \
-fud2 {} -o ${flame} --through petal-test -s sim.data={}.data --dir ${petal_test_dir} 2> /dev/null
+fud2 {} -o ${flame} --through petal-test -s sim.data={}.data --dir ${petal_test_dir} 
 
 sort ${flame}
 echo =========
