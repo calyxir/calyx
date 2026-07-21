@@ -1,3 +1,4 @@
+use crate::calyx_py::PyProfilingInfo;
 use crate::calyx_timeline::CurrentlyActive;
 use crate::dahlia_design::DahliaProfilingInfo;
 use crate::design::Design;
@@ -5,6 +6,7 @@ use anyhow::{Ok, Result};
 use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
+use std::path::Path;
 
 #[derive(PartialEq, Eq, Hash, Clone, Deserialize, Debug)]
 pub enum Adl {
@@ -31,7 +33,7 @@ pub struct ComponentInfo {
     pub groups: Vec<PosInfo>,
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Deserialize)]
+#[derive(PartialEq, Eq, Hash, Clone, Deserialize, Debug)]
 pub struct PosInfo {
     pub name: String,
     pub filename: String,
@@ -39,15 +41,33 @@ pub struct PosInfo {
     pub varname: String,
 }
 
+impl PosInfo {
+    pub fn cleanup(&mut self) -> () {
+        let p = Path::new(&self.filename);
+        self.filename = p.file_name().unwrap().to_str().unwrap().to_string();
+        self.varname = self.varname.replace(";", "").replace("{", "");
+    }
+
+    pub fn adl_str(&self) -> String {
+        // currently used for Calyx-py
+        format!("{{{}: {}}} {}", self.filename, self.linenum, self.varname)
+    }
+
+    pub fn loc_str(&self) -> String {
+        format!("{{{}: {}}}", self.filename, self.linenum)
+    }
+}
+
 pub enum AdlIntermediateInfo {
     Dahlia(DahliaProfilingInfo),
+    Py(PyProfilingInfo),
 }
 
 impl AdlIntermediateInfo {
     pub fn new(
         adl_filename: &str,
         dahlia_parent_file: Option<String>,
-        d: &Design,
+        d: &mut Design,
     ) -> Result<Self> {
         let adl_file = File::open(adl_filename)?;
         let AdlInfo { adl, components } =
@@ -57,7 +77,9 @@ impl AdlIntermediateInfo {
                 panic!("Calyx \"ADL\" file should not be passed in!")
             }
             Adl::Py => {
-                todo!()
+                let pyi = PyProfilingInfo::default();
+                // add position info into all nodes of the design
+                Ok(Self::Py(pyi))
             }
             Adl::Dahlia => {
                 let dpi = DahliaProfilingInfo::new(

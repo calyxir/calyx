@@ -6,6 +6,7 @@ mod shared_cells;
 mod visuals;
 
 mod adls;
+mod calyx_py;
 mod dahlia_design;
 mod statistics;
 
@@ -165,14 +166,14 @@ fn main() -> Result<()> {
         .with_context(|| format!("Failed to load {}", args.filename))?;
 
     // static tree
-    let design = Design::new(wav.hierarchy(), ctrl_info, shared_cells)?;
+    let mut design = Design::new(wav.hierarchy(), ctrl_info, shared_cells)?;
 
     // construct information for the ADL, if this is an ADL program
     let mut adl_info = if let Some(adl_file) = args.adl_file {
         let a = AdlIntermediateInfo::new(
             &adl_file,
             args.dahlia_parent_map,
-            &design,
+            &mut design,
         )?;
         Some(a)
     } else {

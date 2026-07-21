@@ -1,3 +1,9 @@
+use crate::adls::{AdlInfo, ComponentInfo, PosInfo};
+use crate::calyx_timeline::{CalyxTimeline, CurrentlyActive, NON_ID_THREAD};
+use crate::control::{ControlInfo, ControlRegister, PathDescriptorInfo};
+use crate::shared_cells::SharedCellsInfo;
+use crate::visuals::perfetto_protos::track_event::Type;
+use crate::visuals::timeline::Uuid;
 use anyhow::{Context, Result, anyhow};
 use baa::{BitVecOps, BitVecValue};
 use core::panic;
@@ -6,11 +12,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::{SmallVec, smallvec};
 use wellen::{Hierarchy, Scope, ScopeRef, SignalRef, VarRef};
 
-use crate::calyx_timeline::{CalyxTimeline, CurrentlyActive, NON_ID_THREAD};
-use crate::control::{ControlInfo, ControlRegister, PathDescriptorInfo};
-use crate::shared_cells::SharedCellsInfo;
-use crate::visuals::perfetto_protos::track_event::Type;
-use crate::visuals::timeline::Uuid;
+const COMPILER_GENERATED_MSG: &str = "compiler-generated";
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct CellId(u32);
@@ -46,6 +48,11 @@ struct Cell {
     instances: SmallVec<[CellId; 6]>,
     /// Name of the replacement cell, if the cell was a shared primitive.
     replacement: Option<String>,
+    /// Information necessary to map back to the ADL.
+    /// Will only be Some if we are dealing with an ADL that almost 1-1 maps to Calyx (Calyx-py)
+    /// NOTE: In the future we might want to make a struct with only the necessary information
+    adl_mapping: Option<PosInfo>,
+    adl_component: Option<PosInfo>,
 }
 
 impl Cell {
@@ -69,6 +76,36 @@ impl Cell {
         assert!(!self.is_primitive);
         format!("{} [{}]", self.full_path, self.component)
     }
+
+    pub fn adl_display_name(&self) -> String {
+        assert!(self.adl_mapping.is_some() && self.adl_component.is_some());
+
+        if self.is_primitive {
+            format!(
+                "{} (primitive)",
+                self.adl_mapping.clone().unwrap().adl_str()
+            )
+        } else if let Some(adl_mapping) = &self.adl_mapping
+            && let Some(adl_component) = &self.adl_component
+        {
+            if self.component == "main" {
+                format!("{} {}", self.name, adl_component.adl_str())
+            } else {
+                format!(
+                    "{} {} [{} {}]",
+                    self.name,
+                    adl_mapping.adl_str().clone(),
+                    self.component,
+                    adl_component.adl_str().clone()
+                )
+            }
+        } else {
+            panic!(
+                "Cell {} does not have either a ADL mapping or ADL component mapping!",
+                self.name
+            )
+        }
+    }
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default)]
@@ -83,6 +120,11 @@ struct Group {
     invokes: SmallVec<[InvokeId; 6]>,
     probe_idx: u32,
     component: String,
+    /// Information necessary to map back to the ADL. Could be None if the group was generated
+    /// by the Calyx compiler (ex. invoke groups).
+    /// Will only be Some if we are dealing with an ADL that almost 1-1 maps to Calyx (Calyx-py)
+    /// NOTE: In the future we might want to make a struct with only the necessary information
+    adl_mapping: Option<PosInfo>,
 }
 
 impl Group {
@@ -99,6 +141,14 @@ impl Group {
             self.component,
             self.name.split("UG").next().unwrap()
         )
+    }
+
+    pub fn adl_display_name(&self) -> String {
+        if let Some(adl_mapping) = &self.adl_mapping {
+            adl_mapping.adl_str()
+        } else {
+            format!("'{}' {{{COMPILER_GENERATED_MSG}}}", self.name)
+        }
     }
 }
 
@@ -124,6 +174,10 @@ impl Control {
 
     pub fn pretty(&self) -> String {
         self.pretty.to_string()
+    }
+
+    pub fn adl_display_name(&self) -> String {
+        format!("'{}' {{{COMPILER_GENERATED_MSG}}}", self.name)
     }
 }
 
@@ -704,9 +758,17 @@ impl Design {
 
         // iterate through control par descriptors and construct Control nodes
         for (d, pos_set) in descriptors.control_pos.iter() {
-            let (pretty, pos) = c.get_pretty(pos_set)?;
-            // any pos without an entry in tdcc was compiled away; we ignore these.
-            if let Some(tdcc_info_vec) = c.get_tdcc(pos)? {
+             if pos_set.is_empty() {
+                 // if the pos_set for a descriptor is empty, it's not a real control descriptor
+                 println!(
+                     "Skipping descriptor with empty pos set (static control; will not manifest in a control group): {d}"
+                 );
+                 continue;
+             }
+             if let Some((pretty, pos)) = c.get_pretty(pos_set) &&
+                // any pos without an entry in tdcc was compiled away; we ignore these.
+                let Some(tdcc_info_vec) = c.get_tdcc(pos)?
+             {
                 // pos is the entry to the Calyx-generated position of the control node,
                 // so there should only be one entry in the Vector.
                 assert_eq!(tdcc_info_vec.len(), 1);
@@ -1284,6 +1346,65 @@ impl Design {
         }
         println!("{out:?}");
         out
+    }
+
+    pub fn embed_pos_in_cell(
+        &mut self,
+        c: &CellId,
+        cell_adl_pos_info: Option<PosInfo>,
+        component_infos: &Vec<ComponentInfo>,
+    ) {
+        let component_info_idx = {
+            // update the cell to contain ADL position info.
+            let mut_cell = &mut self.cells[*c];
+            let component_info_idx = component_infos
+                .iter()
+                .position(|c| *c.component == mut_cell.component)
+                .unwrap();
+            let component_info = &component_infos[component_info_idx];
+            let mut component_pos_info = PosInfo {
+                name: mut_cell.component.clone(),
+                filename: component_info.filename.clone().unwrap(),
+                linenum: component_info.linenum.clone().unwrap(),
+                varname: component_info.varname.clone().unwrap(),
+            };
+            component_pos_info.cleanup();
+            mut_cell.adl_mapping = cell_adl_pos_info;
+            mut_cell.adl_component = Some(component_pos_info);
+            component_info_idx
+        };
+
+        let cell = &self.cells[*c];
+
+        for group in cell.groups.iter() {
+            self.embed_pos_in_group(group, component_infos, component_info_idx);
+        }
+
+        for control in cell.control.iter() {
+            self.embed_pos_in_control(
+                control,
+                component_infos,
+                component_info_idx,
+            );
+        }
+    }
+
+    pub fn embed_pos_in_group(
+        &mut self,
+        g: &GroupId,
+        component_infos: &Vec<ComponentInfo>,
+        ci_idx: usize,
+    ) {
+        let group = &self.groups[*g];
+        let component_info = &component_infos[ci_idx];
+    }
+
+    pub fn embed_pos_in_control(
+        &mut self,
+        c: &ControlId,
+        component_infos: &Vec<ComponentInfo>,
+        ci_idx: usize,
+    ) {
     }
 }
 
