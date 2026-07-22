@@ -91,7 +91,7 @@ impl DahliaDesign {
         } in main_component.groups.iter()
         {
             let group_id_set = &group_names_to_ids.get(name).unwrap();
-            // Start by assuming that each group will only have one enable in control?
+            // Assume that each group will only have one enable in control
             assert_eq!(group_id_set.len(), 1);
             let group_id = group_id_set.iter().next().unwrap();
             let line_contents = varname

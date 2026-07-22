@@ -374,7 +374,6 @@ impl Design {
             for (id, new_value) in diff_map {
                 let reg = &self.control_registers[*id];
                 let update_str = format!("{}: {}", reg.name, new_value);
-                // TODO: should really fix this.
                 let uuid = timeline.get_control_register_uuid(id);
                 if let Some(s) = uuid_to_out_string.get(uuid) {
                     uuid_to_out_string.insert(
@@ -432,7 +431,7 @@ impl Design {
         Ok((stacks, current_active, group_or_primitive_leaf))
     }
 
-    /// Constructs the tracks in the timeline view
+    /// Constructs all tracks in the timeline view.
     pub fn build_timeline_tracks(
         &self,
         t: &mut CalyxTimeline,
@@ -441,6 +440,7 @@ impl Design {
         self.build_cell_timeline_tracks(&self.main, t, par_tracks)
     }
 
+    ///
     pub fn get_group_component_names(&self) -> Vec<(GroupId, String, String)> {
         self.groups
             .iter()
@@ -470,6 +470,13 @@ impl Design {
             }
         }
         out
+    }
+
+    /// Embeds ADL position information into call tree nodes.
+    /// Used in Calyx-Py profiling (since there is a straightfoward mapping from Calyx constructs
+    /// to Calyx-Py constructs)
+    pub fn embed_pos(&mut self, component_infos: &Vec<ComponentInfo>) {
+        self.embed_pos_in_cell(&self.main.clone(), None, component_infos)
     }
 }
 
@@ -821,6 +828,7 @@ impl Design {
         signals
     }
 
+    /// Helper function for `self.scan_probes()`.
     /// Construct control nodes and the edges between them, and returns information necessary
     /// to "stitch" the control nodes into the tree.
     fn populate_control(
@@ -1273,6 +1281,7 @@ impl Design {
         Ok(())
     }
 
+    /// Helper function for `self.build_timeline_tracks()`.
     /// Creates timeline tracks for the control group with ID c, and any of its child
     /// Control or Group nodes.
     fn build_control_timeline_tracks(
@@ -1328,6 +1337,7 @@ impl Design {
         Ok(())
     }
 
+    /// Helper function for `self.build_timeline_tracks()`.
     /// Creates timeline tracks for the group with ID g, and any of its child
     /// non-primitive Cell or Group nodes.
     fn build_group_timeline_tracks(
@@ -1382,6 +1392,7 @@ impl Design {
         Ok(())
     }
 
+    /// Helper function for `self.build_timeline_tracks()`.
     /// Creates timeline tracks for the component cell with ID c, and any of its child Group or Control nodes.
     /// Also creates a timeline track for the Control registers in this component.
     fn build_cell_timeline_tracks(
@@ -1430,6 +1441,8 @@ impl Design {
         Ok(())
     }
 
+    /// Mapping group names to a set of GroupIds (distinct enables of that same group).
+    /// Used in `DahliaDesign::new()`.
     pub fn get_group_name_to_ids(
         &self,
     ) -> FxHashMap<String, FxHashSet<GroupId>> {
@@ -1444,10 +1457,8 @@ impl Design {
         out
     }
 
-    pub fn embed_pos(&mut self, component_infos: &Vec<ComponentInfo>) {
-        self.embed_pos_in_cell(&self.main.clone(), None, component_infos)
-    }
-
+    /// Helper function for `self.embed_pos()`.
+    /// Embeds ADL position information into this cell and its descendants.
     fn embed_pos_in_cell(
         &mut self,
         c: &CellId,
@@ -1466,6 +1477,8 @@ impl Design {
         }
     }
 
+    /// Helper function for `self.embed_pos_in_cell()`.
+    /// Embeds ADL position information into a component (non-primitive) cell and its descendants.
     fn embed_pos_in_component_cell(
         &mut self,
         c: &CellId,
@@ -1506,6 +1519,8 @@ impl Design {
         }
     }
 
+    /// Helper function for `self.embed_pos_in_cell()`.
+    /// Embeds ADL position information into a primitive cell which will always be a leaf node.
     fn embed_pos_in_primitive(
         &mut self,
         c: &CellId,
@@ -1516,6 +1531,8 @@ impl Design {
         cell.adl_mapping = cell_adl_pos_info;
     }
 
+    /// Helper function for `self.embed_pos()`.
+    /// Embeds ADL position information into this group and its descendants.
     fn embed_pos_in_group(
         &mut self,
         g: &GroupId,
@@ -1564,6 +1581,8 @@ impl Design {
         }
     }
 
+    /// Helper function for `self.embed_pos()`.
+    /// Embeds ADL position information into this control group's descendants.
     fn embed_pos_in_control(
         &mut self,
         c: &ControlId,
