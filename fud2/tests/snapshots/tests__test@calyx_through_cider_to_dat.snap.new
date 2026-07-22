@@ -1,6 +1,7 @@
 ---
 source: fud2/tests/tests.rs
-description: "emit request: calyx -> cider-debug"
+assertion_line: 60
+description: "emit request: calyx -> dat through cider"
 ---
 build-tool = fud2
 rule get-rsrc
@@ -17,8 +18,6 @@ rule calyx-pass
 cider-calyx-passes = -p none
 rule calyx-cider
   command = $calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out
-
-build tb.sv: get-rsrc
 
 cider-exe = $calyx-base/target/debug/cider
 cider-converter = $calyx-base/target/debug/auxin
@@ -39,6 +38,7 @@ rule dump-to-interp
 build data.dump: dump-to-interp $sim_data | $cider-converter
 
 build cider_1: calyx-cider calyx_0.futil
-build cider-debug_1: run-cider-debug cider_1 | data.dump
+build interp_out.dump: run-cider cider_1 | data.dump
+build dat_1.json: interp-to-dump interp_out.dump | $cider-converter new_conv.jq
 
-default cider-debug_1
+default dat_1.json

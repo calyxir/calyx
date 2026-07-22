@@ -171,7 +171,6 @@ pub fn try_from_bytes(
 }
 
 #[cfg(test)]
-
 mod tests {
 
     // use crate::numrep::ReprType;
@@ -267,12 +266,12 @@ mod tests {
         let comp_bits =
             int_read(String::from("4294967295"), Endian::Little, 64, false)
                 .unwrap();
-        assert_eq!(ref_bits as u64, comp_bits.to_u64().unwrap());
+        assert_eq!(ref_bits, comp_bits.to_u64().unwrap());
 
         let ref_bits = u64::MAX;
         let comp_bits =
             int_read(String::from("-1"), Endian::Little, 64, true).unwrap();
-        assert_eq!(ref_bits as u64, comp_bits.to_u64().unwrap());
+        assert_eq!(ref_bits, comp_bits.to_u64().unwrap());
     }
 
     #[test]
@@ -287,6 +286,6 @@ mod tests {
         let ref_bits = u64::from_str_radix("4", 16).unwrap();
         let comp_bits =
             bits_read(String::from("100"), Endian::Little, 64).unwrap();
-        assert_eq!(ref_bits as u64, comp_bits.to_u64().unwrap());
+        assert_eq!(ref_bits, comp_bits.to_u64().unwrap());
     }
 }
