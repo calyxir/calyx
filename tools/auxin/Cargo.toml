@@ -1,5 +1,5 @@
 [package]
-name = "cider-data-converter"
+name = "auxin"
 authors.workspace = true
 rust-version.workspace = true
 edition.workspace = true

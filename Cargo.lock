@@ -227,6 +227,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
+name = "auxin"
+version = "0.1.0"
+dependencies = [
+ "argh",
+ "baa",
+ "cider",
+ "conv-formats",
+ "itertools 0.14.0",
+ "nom 7.1.3",
+ "num-ir",
+ "num-traits",
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "baa"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -672,24 +690,6 @@ dependencies = [
  "slog",
  "slog-async",
  "slog-term",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "cider-data-converter"
-version = "0.1.0"
-dependencies = [
- "argh",
- "baa",
- "cider",
- "conv-formats",
- "itertools 0.14.0",
- "nom 7.1.3",
- "num-ir",
- "num-traits",
- "proptest",
- "serde",
- "serde_json",
  "thiserror 2.0.18",
 ]
 

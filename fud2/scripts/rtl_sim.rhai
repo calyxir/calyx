@@ -10,15 +10,15 @@ fn sim_setup(e) {
     // Data conversion to and from JSON.
 
     e.config_var_or(
-        "conv",
-        "conv.exe",
-        "$calyx-base/target/debug/cider-data-converter"
+        "auxin",
+        "auxin.exe",
+        "$calyx-base/target/debug/auxin"
     );
     e.rule("hex-data",
-        "$conv $in --from json --to dat -o $out"
+        "$auxin $in --from json --to dat -o $out"
     );
     e.rule("json-data",
-        "$conv -e out $in --from dat --to json -o $out"
+        "$auxin -e out $in --from dat --to json -o $out"
     );
 
     e.rsrc("legacy_data.jq");

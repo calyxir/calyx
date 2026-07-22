@@ -479,7 +479,7 @@ mod tests {
                 .map(|e| {
                     serde_json::Value::Number(
                         serde_json::Number::from_string_unchecked(
-                            crate::numimpl::float_write(e, Endian::Little, 32),
+                            num_ir::numimpl::float_write(e, Endian::Little, 32),
                         ),
                     )
                 })

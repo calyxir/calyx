@@ -21,7 +21,7 @@ rule calyx-cider
 build tb.sv: get-rsrc
 
 cider-exe = $calyx-base/target/debug/cider
-cider-converter = $calyx-base/target/debug/cider-data-converter
+cider-converter = $calyx-base/target/debug/auxin
 converter-flags = 
 cider-flags = 
 data = --data data.dump
