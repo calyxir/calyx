@@ -65,7 +65,6 @@ impl Timeline {
             name_field: Some(NameField::Name(name)),
             r#type: Some(event_type as i32),
             track_uuid: Some(uuid),
-            // TODO: find the track uuid for this event
             ..Default::default()
         };
         let packet = create_packet_helper(timestamp, Data::TrackEvent(event));

@@ -15,10 +15,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 // Emits a JSON mapping components, cells, and groups to their @pos filenames and line numbers.
-// Used by the profiler to (1) map Calyx components/cells/groups to ADLs (currently only)
-
-// NOTE: Current implementation is hacky because it uses the
-//
+// Used by the profiler to (1) map Calyx components/cells/groups to ADLs (currently only Dahlia and Calyx-Py)
+// (2) figure out the control node type and name for every control node
 
 #[derive(PartialEq, Eq, Hash, Clone, Serialize)]
 enum Adl {

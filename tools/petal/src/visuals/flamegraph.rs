@@ -69,20 +69,7 @@ pub fn compute_flame(
     Ok(out.into_iter().collect())
 }
 
-// /// Helper function to write_flame() that returns a BufWriter for a flame graph if requested.
-// fn get_buffer(path_opt: Option<String>) -> Result<Option<BufWriter<File>>> {
-//     if let Some(path_str) = path_opt {
-//         let path = Path::new(&path_str);
-//         if let Some(d) = path.parent() {
-//             fs::create_dir_all(d)?;
-//         }
-//         let sf = File::create(path)?;
-//         Ok(Some(BufWriter::new(sf)))
-//     } else {
-//         Ok(None)
-//     }
-// }
-
+/// Helper function for `write_flames()`; writes a singular flame graph.
 fn write_flame(
     flame_info: &[(String, FlameCount)],
     path: &PathBuf,
@@ -122,6 +109,8 @@ pub fn write_flames(
     Ok(())
 }
 
+/// Writes Calyx-level flame graphs (paths provided by optional arguments; if the
+/// optional argument is not given, the corresponding flame graph will not be written)
 pub fn write_calyx_flames(
     stacks: &Stacks,
     scaled_flame_opt: Option<String>,
