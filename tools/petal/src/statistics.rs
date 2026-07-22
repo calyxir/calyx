@@ -67,7 +67,7 @@ impl GroupStats {
     }
 
     pub fn convert_to_csv_struct(&self) -> GroupStatsOut {
-        let avg = self.num_times_active as f64 / self.total_cycles as f64;
+        let avg = self.total_cycles as f64 / self.num_times_active as f64;
         let can_static = self.max == self.min;
         GroupStatsOut {
             name: self.name.clone(),
