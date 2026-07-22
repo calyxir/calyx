@@ -95,17 +95,26 @@ impl FindPlan for InductivePlanner {
             }
         }
 
-        // Make sure all of the ops required by through still exist.
-        if !req.through.iter().all(|&op| op_use_count[op] > 0) {
-            return None;
-        }
-
         // Generate the op list and turn that into a plan.
         let mut op_list = vec![];
         for (op_ref, &uses) in op_use_count.iter() {
-            if uses == 0 {
+            // Even if an op in through should be pruned, keep it anyway. Ambiguity with ops generating the
+            // same outputs is dealt with later.
+            //
+            // FIXME(#2701): This doesn't guarantee the op will actually have its outputs chosen to be used
+            // later when files are assigned to ops' input/output states. This may create plans which violate
+            // the invariant required by `req.through`.
+            if uses == 0 && !req.through.contains(&op_ref) {
                 continue;
             }
+
+            // If a required op cannot be used return `None`
+            if req.through.contains(&op_ref)
+                && !ops[op_ref].input.iter().all(|&s| state_count[s] > 0)
+            {
+                return None;
+            }
+
             let used_outputs: Vec<StateRef> = ops[op_ref]
                 .output
                 .iter()

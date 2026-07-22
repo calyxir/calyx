@@ -6,7 +6,7 @@ Calyx programs can be translated into the [FIRRTL](https://bar.eecs.berkeley.edu
 
 To translate an example program to FIRRTL, try:
 
-    $ cargo run examples/tutorial/language-tutorial-iterate.futil -p external-to-ref -p all -b firrtl
+    $ cargo run examples/tutorial/language-tutorial-iterate.futil -p external-to-ref -x external-to-ref:activate=true -p all -b firrtl
 
 ## Running with `fud2`
 
