@@ -347,6 +347,8 @@ impl Statistics {
         Ok(())
     }
 
+    /// Returns a mapping from group name to the struct for statistics in the CSV.
+    /// Also unifies all enables of every group.
     fn get_names_to_stats_csv(&self) -> FxHashMap<String, GroupStatsOut> {
         // first, merge all GroupStats that have the same name and component
         let mut name_component_to_stats: FxHashMap<
@@ -364,12 +366,10 @@ impl Statistics {
             name_component_to_stats.insert(nc_tuple.clone(), new_entry);
         }
 
-        let out = name_component_to_stats
-            .iter()
-            .map(|(_, gs)| (gs.name.clone(), gs.convert_to_csv_struct()))
-            .collect();
-
-        out
+        name_component_to_stats
+            .values()
+            .map(|gs| (gs.name.clone(), gs.convert_to_csv_struct()))
+            .collect()
     }
 
     fn output_group(&self, out_dir: &str) -> Result<()> {
@@ -390,6 +390,8 @@ impl Statistics {
         Ok(())
     }
 
+    /// Classifies a cycle based on its group/primitive activity, or the type of control registers
+    /// that were active in that cycle.
     fn classify_cycle(
         &self,
         gp_flag: bool,

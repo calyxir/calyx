@@ -6,6 +6,7 @@ use indexmap::IndexMap;
 use rustc_hash::FxHashMap;
 use std::path::PathBuf;
 
+/// Intermediate information collected to profile Calyx-Py programs.
 #[derive(Default, Clone, Debug)]
 pub struct PyProfilingInfo {
     /// Flame stacks at the Calyx-py level
@@ -15,6 +16,7 @@ pub struct PyProfilingInfo {
 }
 
 impl PyProfilingInfo {
+    /// Updates the intermediate information based on the active probes in the cycle.
     pub fn update(&mut self, d: &Design, v: &BitVecValue) -> Result<()> {
         if let Some((_stack, count)) = self.adl_flame_map.get_mut(v) {
             *count += 1;
@@ -40,7 +42,9 @@ impl PyProfilingInfo {
 
         Ok(())
     }
+}
 
+impl PyProfilingInfo {
     fn output_flame_helper(
         &self,
         out_dir: &str,

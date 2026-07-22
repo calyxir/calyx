@@ -9,6 +9,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 
+// ORIGINALLY FROM fileinfo_emitter tool
 #[derive(PartialEq, Eq, Hash, Clone, Deserialize, Debug)]
 pub enum Adl {
     Calyx,
@@ -16,12 +17,14 @@ pub enum Adl {
     Dahlia,
 }
 
+// ORIGINALLY FROM fileinfo_emitter tool
 #[derive(PartialEq, Eq, Hash, Clone, Deserialize)]
 pub struct AdlInfo {
     pub adl: Adl,
     pub components: Vec<ComponentInfo>,
 }
 
+// ORIGINALLY FROM fileinfo_emitter tool
 #[derive(PartialEq, Eq, Hash, Clone, Deserialize)]
 pub struct ComponentInfo {
     // components may not have metadata attached.
@@ -55,22 +58,25 @@ pub struct PosInfo {
 }
 
 impl PosInfo {
+    /// Trims the internal filename to only the name of the file for easier visualization (and no parents).
     pub fn cleanup(&mut self) {
         let p = Path::new(&self.filename);
         self.filename = p.file_name().unwrap().to_str().unwrap().to_string();
         self.varname = self.varname.replace(";", "").replace("{", "");
     }
 
+    /// Called to produce a Calyx-Py level ADL String
     pub fn adl_str(&self) -> String {
-        // currently used for Calyx-py
         format!("{{{}: {}}} {}", self.filename, self.linenum, self.varname)
     }
 
+    /// Called while producing a Calyx-Py level Mixed flame graph.
     pub fn loc_str(&self) -> String {
         format!("{{{}: {}}}", self.filename, self.linenum)
     }
 }
 
+/// Intermediate information collected while profiling ADLs.
 pub enum AdlIntermediateInfo {
     Dahlia(DahliaProfilingInfo),
     Py(PyProfilingInfo),
@@ -112,6 +118,8 @@ impl AdlIntermediateInfo {
         }
     }
 
+    /// Computes the ADL stacks/timeline based on active probes for a certain cycle.
+    /// Should be called for every cycle.
     pub fn process_cycle(
         &mut self,
         value: &BitVecValue,
@@ -127,6 +135,7 @@ impl AdlIntermediateInfo {
         }
     }
 
+    /// Terminates any remaining active ADL statements after the program terminates.
     pub fn close(&mut self, total_cycles: u64) -> Result<()> {
         match self {
             AdlIntermediateInfo::Py(_) => Ok(()),

@@ -55,10 +55,13 @@ struct Args {
     num_print_cycles: u64,
 }
 
-/// bool flag represents whether this cycle contained an active Group or Primitive leaf.
+/// Map from active probes to the stack count, the stack, active cells/groups/control, and
+/// bool flag to represent whether this cycle contained an active Group or Primitive leaf.
+/// Caching mechanism to avoid spuriously recomputing the stack and active cells/groups/control.
 pub type Stacks =
     IndexMap<BitVecValue, (u64, Vec<Stack>, CurrentlyActive, bool)>;
 
+/// Processes the probe values obtained every cycle to produce the active call trees.
 fn collect_stacks(
     design: &Design,
     timeline: &mut CalyxTimeline,
