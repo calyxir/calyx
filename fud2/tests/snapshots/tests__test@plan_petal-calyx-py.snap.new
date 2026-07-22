@@ -1,5 +1,6 @@
 ---
 source: fud2/tests/tests.rs
+assertion_line: 60
 description: "emit plan: petal-calyx-py"
 ---
 build-tool = fud2
