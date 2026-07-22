@@ -23,6 +23,7 @@ struct GroupStatsOut {
 #[derive(Debug, Clone, Default)]
 struct GroupStats {
     name: String,
+    component: String,
     num_times_active: u64,
     total_cycles: u64,
     min: u64,
@@ -32,9 +33,10 @@ struct GroupStats {
 }
 
 impl GroupStats {
-    pub fn new(name: String) -> Self {
+    pub fn new(name: String, component: String) -> Self {
         Self {
             name,
+            component,
             num_times_active: 0,
             total_cycles: 0,
             min: u64::MAX,
@@ -77,6 +79,40 @@ impl GroupStats {
             num_times_active: self.num_times_active,
             avg,
             can_static,
+        }
+    }
+
+    pub fn get_name_and_component(&self) -> (String, String) {
+        (self.name.clone(), self.component.clone())
+    }
+
+    /// Multiple enables of the same group will have different GroupIds and therefore
+    /// will be processed as two distinct groups. This function is to merge such groups during
+    /// postprocessing.
+    /// This function should only be called after the entire trace has been processed.
+    pub fn merge(&self, other: &Self) -> Self {
+        assert_eq!(self.name, other.name);
+        assert_eq!(self.component, other.component);
+        assert!(self.curr_start.is_none() && other.curr_start.is_none());
+
+        let min = if self.min > other.min {
+            other.min
+        } else {
+            self.min
+        };
+        let max = if self.max < other.max {
+            other.max
+        } else {
+            self.max
+        };
+        Self {
+            name: self.name.clone(),
+            component: self.component.clone(),
+            num_times_active: self.num_times_active + other.num_times_active,
+            total_cycles: self.total_cycles + other.total_cycles,
+            min,
+            max,
+            curr_start: None,
         }
     }
 }
@@ -216,15 +252,16 @@ pub struct Statistics {
 
 impl Statistics {
     pub fn new(
-        group_to_names: Vec<(GroupId, String)>,
+        group_to_names: Vec<(GroupId, String, String)>,
         cell_info: Vec<(CellId, String, FxHashSet<RegisterId>)>,
     ) -> Self {
         let mut fsms: FxHashSet<RegisterId> = FxHashSet::default();
-        let group_to_stats = SecondaryMap::from_iter(
-            group_to_names
-                .into_iter()
-                .map(|(group_id, name)| (group_id, GroupStats::new(name))),
-        );
+        let group_to_stats =
+            SecondaryMap::from_iter(group_to_names.into_iter().map(
+                |(group_id, name, component)| {
+                    (group_id, GroupStats::new(name, component))
+                },
+            ));
         for (_, _, f) in cell_info.iter() {
             fsms.extend(f);
         }
@@ -269,7 +306,7 @@ impl Statistics {
     }
 
     /// Should be called after the last cycle of the trace in order to close
-    /// all active groups
+    /// all active groups.
     pub fn close(&mut self, to_close: &CurrentlyActive, cycle: u64) {
         for ended_group in to_close.get_active_groups() {
             assert!(self.group_to_stats.get(*ended_group).is_some());
@@ -310,6 +347,31 @@ impl Statistics {
         Ok(())
     }
 
+    fn get_names_to_stats_csv(&self) -> FxHashMap<String, GroupStatsOut> {
+        // first, merge all GroupStats that have the same name and component
+        let mut name_component_to_stats: FxHashMap<
+            (String, String),
+            GroupStats,
+        > = FxHashMap::default();
+        for (_, stats) in self.group_to_stats.iter() {
+            let nc_tuple = stats.get_name_and_component();
+            let new_entry =
+                if let Some(gs) = name_component_to_stats.get(&nc_tuple) {
+                    gs.merge(stats)
+                } else {
+                    stats.clone()
+                };
+            name_component_to_stats.insert(nc_tuple.clone(), new_entry);
+        }
+
+        let out = name_component_to_stats
+            .iter()
+            .map(|(_, gs)| (gs.name.clone(), gs.convert_to_csv_struct()))
+            .collect();
+
+        out
+    }
+
     fn output_group(&self, out_dir: &str) -> Result<()> {
         let mut path = PathBuf::from(out_dir);
         path.push("group-stats.csv");
@@ -317,13 +379,8 @@ impl Statistics {
 
         let mut writer = csv::Writer::from_writer(file);
         // serialize in sorted order of groups' static name.
-        let name_to_stats_csv: FxHashMap<String, GroupStatsOut> = self
-            .group_to_stats
-            .iter()
-            .map(|(_, stats)| {
-                (stats.name.clone(), stats.convert_to_csv_struct())
-            })
-            .collect();
+        let name_to_stats_csv: FxHashMap<String, GroupStatsOut> =
+            self.get_names_to_stats_csv();
         let mut sorted_names: Vec<String> =
             name_to_stats_csv.keys().cloned().collect();
         sorted_names.sort();

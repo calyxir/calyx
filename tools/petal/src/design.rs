@@ -441,10 +441,12 @@ impl Design {
         self.build_cell_timeline_tracks(&self.main, t, par_tracks)
     }
 
-    pub fn get_group_component_names(&self) -> Vec<(GroupId, String)> {
+    pub fn get_group_component_names(&self) -> Vec<(GroupId, String, String)> {
         self.groups
             .iter()
-            .map(|(id, group)| (id, group.static_name()))
+            .map(|(id, group)| {
+                (id, group.static_name(), group.component.clone())
+            })
             .collect()
     }
 
