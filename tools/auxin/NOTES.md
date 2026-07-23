@@ -53,19 +53,20 @@ while the 'interpreter' python equivalent to ``json_to_dat.py`` is still in-tree
 
 # future work
 
-- deprecate the ``bits`` typeclass or properly define what it permits.
+- deprecate the ``bits`` typeclass or properly define it
 - dimensions: fixed-size vec instead of array
 - add an option to preserve shapes or entirely flatten higher-dim arrays?
 - support shape.json?
-- add 'real' cast functionality: other than bitcasts, also support some value-preserving casts.
+- add 'real' cast functionality via ops: other than bitcasts, also support some value-preserving casts.
 - add 'guarded' constructors for TypeClass, fixed-point, which checks if values are permitted
 - some redundancy between the ``vbfp`` 'definition' of fixed-point and TypeSpec. probably get rid of this
-
 
 
 - baa improvements / extensions:
   - mutable iterator to elements in the bitvec arrays? (or generally, more intuitive approaches to working with array values)
   - 'batched' ops for bitvec arrays?
     - as in, beyond a 'map' operation, is it posible to use pre-computed masks?
-  - upstream to_dec_str_signed
+  - upstream a ``to_dec_str_signed`` function
 
+- ``formats`` crate could be cleaned up
+- toplevel dependencies could be cleaned up

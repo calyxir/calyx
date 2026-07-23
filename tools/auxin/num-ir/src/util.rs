@@ -2,7 +2,7 @@ use std::io::Write;
 
 // TODO: seek low-level performance in this later
 
-/// pad [b], of length [len], to [NUM_BYTES]
+/// pad ``b``, of length ``len``, to ``NUM_BYTES``
 #[inline]
 pub fn pad_bytes<const NUM_BYTES: usize>(
     b: &[u8],
@@ -19,12 +19,3 @@ pub fn pad_bytes<const NUM_BYTES: usize>(
 }
 
 // TODO: below could probably be a macro
-
-#[inline]
-pub fn mask_n_bits(n: usize) -> u64 {
-    if n < 64 {
-        (1 << n) - 1
-    } else {
-        0xffff_ffff_ffff_ffff
-    }
-}

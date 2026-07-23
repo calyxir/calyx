@@ -8,11 +8,13 @@ use crate::vbfp::*;
 // the below read/write implementations are to make the implementations in TypeSpec more manageable
 // TODO: is it worth making specific, static variants of these?
 
+/// Determine if a string starts with ``0x``, and is thus a hex literal
 #[inline]
 pub fn is_hexstring(s: &str) -> bool {
     s.starts_with("0x")
 }
 
+/// Read a string containing a hex literal into a [BitVecValue] of maximum width ``width``
 pub fn read_hexstring(
     s: &str,
     _end: Endian,
@@ -40,6 +42,7 @@ pub fn read_hexstring(
     Ok(val)
 }
 
+/// Read a string containing a float literal into a [BitVecValue]. ``width`` must be 32 or 64, as only ``f32`` and ``f64`` are supported.
 pub fn float_read(
     s: String,
     _end: Endian,
@@ -58,6 +61,7 @@ pub fn float_read(
     }
 }
 
+/// Interpret the contents of ``b`` as representing a floating-point of ``width`` bits. Panics if ``width`` is not 32 or 64.
 pub fn float_write(b: &baa::BitVecValue, _end: Endian, width: usize) -> String {
     debug_assert!(b.width() == 32 || b.width() == 64);
     let bits = b.to_u64().unwrap();
@@ -70,6 +74,8 @@ pub fn float_write(b: &baa::BitVecValue, _end: Endian, width: usize) -> String {
 
 // TODO: this conditional-heavy thing can probably be simplified
 // TODO: probably needs range checks
+
+/// Read a string containing an integer literal into a ``BitVecValue`` with max bit length ``width``. Interpret signs if the ``signed`` option is true, otherwise it is impossible to 'coerce' a negative number into an unsigned during this call.
 pub fn int_read(
     s: String,
     _end: Endian,
@@ -85,6 +91,7 @@ pub fn int_read(
         .map_err(|e| NumParseErr::Baa(s, e))
 }
 
+/// Interpret the contents of ``b`` as representing an integer of ``width`` bits. If ``signed`` is provided, treat as two's complement.
 pub fn int_write(
     b: &BitVecValue,
     _end: Endian,
@@ -99,6 +106,7 @@ pub fn int_write(
     }
 }
 
+/// Read a string containing only 1, 0 into a [BitVecValue].
 pub fn bits_read(
     s: String,
     _end: Endian,
@@ -108,11 +116,13 @@ pub fn bits_read(
         .map_err(|e| NumParseErr::Baa(s, e))
 }
 
+/// Write out the bits of ``b``, prefixed with ``0b``
 #[inline]
 pub fn bits_write(b: &BitVecValue, _end: Endian) -> String {
     format!("0b{}", b.to_bit_str())
 }
 
+/// Read a string containing a fixed-point literal into a [BitVecValue] with max bit length ``width``. Interpret signs if the ``signed`` option is included, otherwise it is impossible to 'coerce' a negative number into an unsigned during this call. ``exp_mag`` is used to control the factor by which ``f = float(s)`` is scaled, i.e. ``fixed = 2**exp_mag * f``
 pub fn fixed_read(
     s: String,
     _end: Endian,
@@ -137,6 +147,7 @@ pub fn fixed_read(
     Ok(r)
 }
 
+/// Interpret the contents of ``b`` as representing a fixed-point value of ``width`` bits, with ``exp_mag`` as the exponent. If ``signed`` is provided, treat as two's complement.
 pub fn fixed_write(
     b: &BitVecValue,
     _end: Endian,
@@ -155,6 +166,8 @@ pub fn fixed_write(
 }
 
 // we can't always tell from bytes alone whether a number is 'correctly' typed, so instead just use same byteslice-based Thing for all of them
+
+/// Read bytes ``b`` into a [BitVecValue] with number of bits ``width``.
 pub fn try_from_bytes(
     b: &[u8],
     width: usize,
@@ -224,7 +237,7 @@ mod tests {
 
     #[test]
     fn test_float_roundtrip() {
-        let orig_bytes = (0.75_f64).to_le_bytes();
+        let orig_bytes = (-0.75_f64).to_le_bytes();
 
         let thru_bits =
             try_from_bytes(&orig_bytes, 64, Endian::Little).unwrap();
