@@ -33,7 +33,6 @@ impl Timeline {
     ) -> Result<Self> {
         let mut path = PathBuf::from(out_dir);
         path.push(out_file_name);
-        // let mut file = File::create(path)?;
         let file = OpenOptions::new().create(true).append(true).open(path)?;
         Ok(Self {
             used_uuids: FxHashSet::default(),
