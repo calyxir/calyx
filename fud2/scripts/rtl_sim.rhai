@@ -8,11 +8,24 @@ export const sim_setup = sim_setup;
 
 fn sim_setup(e) {
     // Data conversion to and from JSON.
-    e.config_var_or("python", "python", "python3");
-    e.rsrc("json-dat.py");
-    e.rule("hex-data", "$python json-dat.py --from-json $in $out");
-    e.rule("json-data", "$python json-dat.py --to-json $out $in");
 
+    e.config_var_or(
+        "auxin",
+        "auxin.exe",
+        "$calyx-base/target/debug/auxin"
+    );
+    e.rule("hex-data",
+        "$auxin $in --from json --to dat -o $out"
+    );
+    e.rule("json-data",
+        "$auxin -e out $in --from dat --to json -o $out"
+    );
+
+    e.rsrc("legacy_data.jq");
+    e.rule("json-data-cleanup",
+        "awk '/Simulated/ {print $$2}' $log | xargs jq -f legacy_data.jq $in --argjson cycles > $out"
+    );
+    
     // The input data file. `sim.data` is required.
     let data_name = e.config_val("sim.data");
     let data_path = e.external_path(data_name);
@@ -24,7 +37,7 @@ fn sim_setup(e) {
         ["$datadir"],
         "hex-data",
         ["$sim_data"],
-        ["json-dat.py"],
+        [],
     );
 
     // Rule for simulation execution.
@@ -49,11 +62,18 @@ op(
         e.arg("bin", input);
         e.arg("args", "+NOTRACE=1");
         e.build_cmd(
-            [output],
+            ["im.json"],
             "json-data",
-            ["$datadir", "sim.log"],
-            ["json-dat.py"],
+            ["$datadir"],
+            ["sim.log"], // sim.log specified as an indirect dependency so the simulation runs
         );
+        e.build_cmd(
+            [output],
+            "json-data-cleanup",
+            ["im.json"],
+            ["sim.log", "legacy_data.jq"],
+        );
+        e.arg("log", "sim.log");
     },
 );
 

@@ -14,10 +14,11 @@ fn cider_setup(e) {
     e.config_var_or(
         "cider-converter",
         "cider-converter.exe",
-        "$calyx-base/target/debug/cider-data-converter",
+        "$calyx-base/target/debug/auxin",
     );
     e.config_var_or("converter-flags", "cider.converter-flags", "");
     e.config_var_or("cider-flags", "cider.flags", "");
+    e.rsrc("new_conv.jq");
 
     let has_data = !e.config_or("sim.data", "").is_empty();
 
@@ -48,7 +49,7 @@ fn cider_setup(e) {
         "$cider-exe -l $calyx-base $data $cider-flags $in > $out",
     );
 
-    e.rule("interp-to-dump", "$cider-converter --to json $converter-flags $in > $out");
+    e.rule("interp-to-dump", "$cider-converter --to json $converter-flags $in | jq -f new_conv.jq > $out");
 
     if has_data {
         e.rule("dump-to-interp", "$cider-converter --to cider $converter-flags $in > $out");
@@ -95,7 +96,7 @@ op(
             [output],
             "interp-to-dump",
             [out_file],
-            ["$cider-converter"],
+            ["$cider-converter", "new_conv.jq"],
         );
     },
 );

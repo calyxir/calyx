@@ -21,7 +21,9 @@ members = [
     # Misc tools
     "tools/data-conversion",
     "tools/calyx-pass-explorer",
-    "tools/cider-data-converter",
+    "tools/auxin",
+    "tools/auxin/num-ir",
+    "tools/auxin/formats",
     "tools/component_cells",
     "tools/fileinfo_emitter",
     "tools/yxi",
@@ -57,7 +59,6 @@ calyx-opt = { path = "calyx/opt", version = "0.7.1" }
 calyx-backend = { path = "calyx/backend", version = "0.7.1" }
 cider = { path = "cider", version = "0.1.0" }
 cider-idx = { path = "cider/idx", version = "0.1.0" }
-cider-dap = { path = "cider/dap", version = "0.1.0" }
 
 # External crates
 # When adding a new dependency, do not pin the minor version, i.e., use `0.1`
