@@ -87,6 +87,7 @@ impl AdlIntermediateInfo {
         adl_filename: &str,
         dahlia_parent_file: Option<String>,
         d: &mut Design,
+        out_dir: &str,
     ) -> Result<Self> {
         let adl_file = File::open(adl_filename)?;
         let AdlInfo {
@@ -112,6 +113,7 @@ impl AdlIntermediateInfo {
                     components,
                     dahlia_parent_file,
                     d,
+                    out_dir,
                 )?;
                 Ok(Self::Dahlia(dpi))
             }

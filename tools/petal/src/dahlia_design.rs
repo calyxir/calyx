@@ -296,7 +296,7 @@ struct StatementTrackInfo {
     uuid: Option<Uuid>,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Debug)]
 struct DahliaTimeline {
     timeline: Timeline,
     statement_to_info: FxHashMap<StatementId, StatementTrackInfo>,
@@ -304,8 +304,9 @@ struct DahliaTimeline {
 }
 
 impl DahliaTimeline {
-    pub fn new(d: &DahliaDesign) -> Result<Self> {
-        let mut timeline = Timeline::new();
+    pub fn new(d: &DahliaDesign, out_dir: &str) -> Result<Self> {
+        let mut timeline =
+            Timeline::new(out_dir, "dahlia_timeline_trace.pftrace")?;
         // create "main" track
         let main_uuid =
             timeline.register_descriptor("main".to_string(), None)?;
@@ -470,9 +471,10 @@ impl DahliaProfilingInfo {
         components: Vec<ComponentInfo>,
         parent_file: Option<String>,
         d: &Design,
+        out_dir: &str,
     ) -> Result<Self> {
         let design = DahliaDesign::new(components, parent_file, d)?;
-        let timeline = DahliaTimeline::new(&design)?;
+        let timeline = DahliaTimeline::new(&design, out_dir)?;
         Ok(Self {
             design,
             timeline,
