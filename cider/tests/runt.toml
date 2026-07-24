@@ -7,7 +7,7 @@ ver = "0.4.1"
 name = "unit"
 paths = ["unit/*.futil"]
 cmd = """
-../../target/debug/cider {} -l ../../ --dump-registers | ../../target/debug/cider-data-converter --to json
+../../target/debug/cider {} -l ../../ --dump-registers | ../../target/debug/auxin -f dump --to json | jq -f new_conv_adapt.jq
 """
 timeout = 10
 expect_dir = "unit"
@@ -70,7 +70,7 @@ expect_dir = "primitives"
 name = "par to seq"
 paths = ["control/par_reg.futil", "control/par_mem.futil"]
 cmd = """
-../../target/debug/calyx {} -p par-to-seq -l ../../ | ../../target/debug/cider -l ../../  --dump-registers | ../../target/debug/cider-data-converter --to json
+../../target/debug/calyx {} -p par-to-seq -l ../../ | ../../target/debug/cider -l ../../  --dump-registers | ../../target/debug/auxin --from dump --to json | jq -f new_conv_adapt.jq
 """
 timeout = 10
 expect_dir = "par-to-seq"
@@ -113,7 +113,7 @@ fud2 {} --from calyx --to dat --through cider \
 name = "fully structural"
 paths = ["control/*.futil", "control/iteration/*.futil"]
 cmd = """
-../../target/debug/calyx {} -d pre-opt -d post-opt -p simplify-with-control -l ../../ --log off | ../../target/debug/cider -l ../../  --dump-registers | ../../target/debug/cider-data-converter --to json
+../../target/debug/calyx {} -d pre-opt -d post-opt -p simplify-with-control -l ../../ --log off | ../../target/debug/cider -l ../../  --dump-registers | ../../target/debug/auxin --from dump --to json| jq -f new_conv_adapt.jq
 """
 expect_dir = "control"
 # timeout = 10
@@ -207,7 +207,6 @@ fud2 --from calyx --to dat \
          --through cider \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
-         -s cider.converter-flags="-r --legacy-quotes" \
          {}
 """
 
@@ -323,7 +322,7 @@ name = "Tree Adders"
 paths = ["entangled/tree_adders/*.futil"]
 cmd = """
 flags="$(head -n 1 {} | cut -c 3-)"
-RUST_LIB_BACKTRACE=0 fud2 --to dat --through cider {} -s sim.data={}.data -s cider.flags="--check-data-race $flags --force-color off -q" 2> {}.tmp_err_file || tail -n +3 {}.tmp_err_file 1>&2; rm {}.tmp_err_file
+RUST_LIB_BACKTRACE=0 fud2 --to dat --through cider {} -s sim.data={}.data -s cider.flags="--check-data-race $flags --force-color off -q" 2> {}.tmp_err_file || tail -n +3 {}.tmp_err_file 1>&2; rm {}.tmp_err_file 
 """
 
 [[tests]]
@@ -331,7 +330,7 @@ name = "Tiny Processor (simple.data input)"
 paths = ["entangled/tiny_processor/*.futil"]
 cmd = """
 dir=$(dirname {})
-RUST_LIB_BACKTRACE=0 fud2 --to dat --through cider {} -s sim.data=$dir/simple.data -s cider.flags="--check-data-race --entangle-file ../$dir/main_mem.entangle --entangle-file ../$dir/instruction_mem.entangle --force-color off -q" 2> {}.tmp_err_file || tail -n +3 {}.tmp_err_file 1>&2; rm {}.tmp_err_file
+RUST_LIB_BACKTRACE=0 fud2 --to dat --through cider {} -s sim.data=$dir/simple.data -s cider.flags="--check-data-race --entangle-file ../$dir/main_mem.entangle --entangle-file ../$dir/instruction_mem.entangle --force-color off -q" 2> {}.tmp_err_file || tail -n +3 {}.tmp_err_file 1>&2; rm {}.tmp_err_file 
 """
 
 [[tests]]

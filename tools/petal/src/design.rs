@@ -1,3 +1,9 @@
+use crate::adls::{ComponentInfo, PosInfo};
+use crate::calyx_timeline::{CalyxTimeline, CurrentlyActive, NON_ID_THREAD};
+use crate::control::{ControlInfo, ControlRegister, PathDescriptorInfo};
+use crate::shared_cells::SharedCellsInfo;
+use crate::visuals::perfetto_protos::track_event::Type;
+use crate::visuals::timeline::Uuid;
 use anyhow::{Context, Result, anyhow};
 use baa::{BitVecOps, BitVecValue};
 use core::panic;
@@ -6,11 +12,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::{SmallVec, smallvec};
 use wellen::{Hierarchy, Scope, ScopeRef, SignalRef, VarRef};
 
-use crate::calyx_timeline::{CalyxTimeline, CurrentlyActive, NON_ID_THREAD};
-use crate::control::{ControlInfo, ControlRegister, PathDescriptorInfo};
-use crate::shared_cells::SharedCellsInfo;
-use crate::visuals::perfetto_protos::track_event::Type;
-use crate::visuals::timeline::Uuid;
+const COMPILER_GENERATED_MSG: &str = "compiler-generated";
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default, PartialOrd, Ord)]
 pub struct CellId(u32);
@@ -46,6 +48,11 @@ struct Cell {
     instances: SmallVec<[CellId; 6]>,
     /// Name of the replacement cell, if the cell was a shared primitive.
     replacement: Option<String>,
+    /// Information necessary to map back to the ADL.
+    /// Will only be Some if we are dealing with an ADL that almost 1-1 maps to Calyx (Calyx-py)
+    /// NOTE: In the future we might want to make a struct with only the necessary information
+    adl_mapping: Option<PosInfo>,
+    adl_component: Option<PosInfo>,
 }
 
 impl Cell {
@@ -69,6 +76,72 @@ impl Cell {
         assert!(!self.is_primitive);
         format!("{} [{}]", self.full_path, self.component)
     }
+
+    pub fn adl_display_name(&self) -> String {
+        println!("{:?}", self.name);
+        assert!((self.adl_mapping.is_some() || self.name == "main"));
+        assert!(self.is_primitive || self.adl_component.is_some());
+
+        if self.is_primitive {
+            format!(
+                "{} (primitive)",
+                self.adl_mapping.clone().unwrap().adl_str()
+            )
+        } else if let Some(adl_component) = &self.adl_component {
+            if self.component == "main" {
+                adl_component.adl_str().to_string()
+            } else if let Some(adl_mapping) = &self.adl_mapping {
+                format!(
+                    "{} [{}]",
+                    adl_mapping.adl_str(),
+                    adl_component.adl_str()
+                )
+            } else {
+                panic!(
+                    "Non-main Cell {} does not have a ADL mapping!",
+                    self.name
+                );
+            }
+        } else {
+            panic!(
+                "Cell {} does not have either a ADL mapping or ADL component mapping!",
+                self.name
+            )
+        }
+    }
+
+    pub fn mixed_display_name(&self) -> String {
+        assert!((self.adl_mapping.is_some() || self.name == "main"));
+        assert!(self.is_primitive || self.adl_component.is_some());
+
+        if let Some(adl_component) = &self.adl_component {
+            if self.component == "main" {
+                format!("{} {}", self.name, adl_component.loc_str())
+            } else if let Some(adl_mapping) = &self.adl_mapping {
+                format!(
+                    "{} {} [{} {}]",
+                    self.name,
+                    adl_mapping.loc_str(),
+                    self.component,
+                    adl_component.loc_str()
+                )
+            } else {
+                panic!(
+                    "Should be unreachable; either the component is main or there is an ADL mapping for the cell!"
+                )
+            }
+        } else if self.is_primitive {
+            format!(
+                "{} (primitive) {}",
+                self.name,
+                self.adl_mapping.clone().unwrap().loc_str()
+            )
+        } else {
+            panic!(
+                "Should be unreachable; either the cell is a primitive or has a component ADL!"
+            )
+        }
+    }
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Default, PartialOrd, Ord)]
@@ -83,6 +156,11 @@ struct Group {
     invokes: SmallVec<[InvokeId; 6]>,
     probe_idx: u32,
     component: String,
+    /// Information necessary to map back to the ADL. Could be None if the group was generated
+    /// by the Calyx compiler (ex. invoke groups).
+    /// Will only be Some if we are dealing with an ADL that almost 1-1 maps to Calyx (Calyx-py)
+    /// NOTE: In the future we might want to make a struct with only the necessary information
+    adl_mapping: Option<PosInfo>,
 }
 
 impl Group {
@@ -99,6 +177,22 @@ impl Group {
             self.component,
             self.name.split("UG").next().unwrap()
         )
+    }
+
+    pub fn adl_display_name(&self) -> String {
+        if let Some(adl_mapping) = &self.adl_mapping {
+            adl_mapping.adl_str()
+        } else {
+            format!("'{}' {{{COMPILER_GENERATED_MSG}}}", self.display_name())
+        }
+    }
+
+    pub fn mixed_display_name(&self) -> String {
+        if let Some(adl_mapping) = &self.adl_mapping {
+            format!("{} {}", self.name, adl_mapping.loc_str())
+        } else {
+            format!("{} {{{COMPILER_GENERATED_MSG}}}", self.display_name())
+        }
     }
 }
 
@@ -124,6 +218,14 @@ impl Control {
 
     pub fn pretty(&self) -> String {
         self.pretty.to_string()
+    }
+
+    pub fn adl_display_name(&self) -> String {
+        format!("{COMPILER_GENERATED_MSG} (ctrl)")
+    }
+
+    pub fn mixed_display_name(&self) -> String {
+        format!("{} (ctrl) {{{COMPILER_GENERATED_MSG}}}", self.name)
     }
 }
 
@@ -203,6 +305,12 @@ fn find_main_scope(h: &wellen::Hierarchy) -> Result<ScopeRef> {
         .ok_or(anyhow!("Failed to find main scope"))
 }
 
+pub enum AdlMode {
+    Calyx,
+    Mixed,
+    CalyxPy,
+}
+
 impl Design {
     pub fn new(
         h: &wellen::Hierarchy,
@@ -266,7 +374,6 @@ impl Design {
             for (id, new_value) in diff_map {
                 let reg = &self.control_registers[*id];
                 let update_str = format!("{}: {}", reg.name, new_value);
-                // TODO: should really fix this.
                 let uuid = timeline.get_control_register_uuid(id);
                 if let Some(s) = uuid_to_out_string.get(uuid) {
                     uuid_to_out_string.insert(
@@ -284,13 +391,13 @@ impl Design {
                     uuid,
                     cycle,
                     Type::SliceBegin,
-                );
+                )?;
                 timeline.register_event(
                     out_str,
                     uuid,
                     cycle + 1,
                     Type::SliceEnd,
-                );
+                )?;
             }
         }
         Ok(())
@@ -301,6 +408,7 @@ impl Design {
     pub fn compute_cycle_trace(
         &self,
         values: &BitVecValue,
+        adl_mode: AdlMode,
     ) -> Result<(Vec<Stack>, CurrentlyActive, bool)> {
         let main = &self.cells[self.main];
         let (main_go, main_done) = main.probe_idxs.unwrap();
@@ -315,6 +423,7 @@ impl Design {
                 self.main,
                 vec![],
                 &mut current_active,
+                &adl_mode,
             );
             stacks.sort();
             stacks.dedup();
@@ -322,7 +431,7 @@ impl Design {
         Ok((stacks, current_active, group_or_primitive_leaf))
     }
 
-    /// Constructs the tracks in the timeline view
+    /// Constructs all tracks in the timeline view.
     pub fn build_timeline_tracks(
         &self,
         t: &mut CalyxTimeline,
@@ -331,10 +440,12 @@ impl Design {
         self.build_cell_timeline_tracks(&self.main, t, par_tracks)
     }
 
-    pub fn get_group_component_names(&self) -> Vec<(GroupId, String)> {
+    pub fn get_group_component_names(&self) -> Vec<(GroupId, String, String)> {
         self.groups
             .iter()
-            .map(|(id, group)| (id, group.static_name()))
+            .map(|(id, group)| {
+                (id, group.static_name(), group.component.clone())
+            })
             .collect()
     }
 
@@ -358,6 +469,13 @@ impl Design {
             }
         }
         out
+    }
+
+    /// Embeds ADL position information into call tree nodes.
+    /// Used in Calyx-Py profiling (since there is a straightfoward mapping from Calyx constructs
+    /// to Calyx-Py constructs)
+    pub fn embed_pos(&mut self, component_infos: &Vec<ComponentInfo>) {
+        self.embed_pos_in_cell(&self.main.clone(), None, component_infos)
     }
 }
 
@@ -422,6 +540,7 @@ impl Design {
         cell_id: CellId,
         mut prefix: Stack,
         active_this_cycle: &mut CurrentlyActive,
+        adl_mode: &AdlMode,
     ) -> (Vec<Stack>, bool) {
         let cell = &self.cells[cell_id];
         active_this_cycle.add_active_cell(cell_id);
@@ -429,7 +548,11 @@ impl Design {
             // the main component cell is the only one to have a probe_idx.
             if value.is_bit_set(main_go_idx) && !value.is_bit_set(main_done_idx)
             {
-                prefix.push(cell.display_name());
+                match adl_mode {
+                    AdlMode::CalyxPy => prefix.push(cell.adl_display_name()),
+                    AdlMode::Calyx => prefix.push(cell.display_name()),
+                    AdlMode::Mixed => prefix.push(cell.mixed_display_name()),
+                }
             } else {
                 return (vec![prefix], false);
             }
@@ -448,6 +571,7 @@ impl Design {
                     group_idx,
                     prefix.clone(),
                     active_this_cycle,
+                    adl_mode,
                 );
                 out.append(&mut group_stacks);
                 group_primitive_leaf |= flag;
@@ -461,6 +585,7 @@ impl Design {
                     control_idx,
                     prefix.clone(),
                     active_this_cycle,
+                    adl_mode,
                 );
                 out.append(&mut control_stacks);
                 group_primitive_leaf |= flag;
@@ -488,9 +613,15 @@ impl Design {
         control_id: ControlId,
         mut prefix: Stack,
         active_this_cycle: &mut CurrentlyActive,
+        adl_mode: &AdlMode,
     ) -> (Vec<Stack>, bool) {
         let control = &self.controls[control_id];
-        prefix.push(control.display_name());
+        let control_display_name = match adl_mode {
+            AdlMode::Calyx => control.display_name(),
+            AdlMode::Mixed => control.mixed_display_name(),
+            AdlMode::CalyxPy => control.adl_display_name(),
+        };
+        prefix.push(control_display_name);
         active_this_cycle.add_active_control(control_id);
         // it probably wouldn't make any sense for a control to not contain any invokes?
         assert!(!control.invokes.is_empty());
@@ -513,6 +644,7 @@ impl Design {
                                 target_group_id,
                                 prefix.clone(),
                                 active_this_cycle,
+                                adl_mode,
                             );
                         out.append(&mut group_stacks);
                         group_primitive_leaf |= flag;
@@ -524,6 +656,7 @@ impl Design {
                                 target_control_id,
                                 prefix.clone(),
                                 active_this_cycle,
+                                adl_mode,
                             );
                         out.append(&mut control_stacks);
                         group_primitive_leaf |= flag;
@@ -553,9 +686,15 @@ impl Design {
         group_id: GroupId,
         mut prefix: Stack,
         active_this_cycle: &mut CurrentlyActive,
+        adl_mode: &AdlMode,
     ) -> (Vec<Stack>, bool) {
         let group = &self.groups[group_id];
-        prefix.push(group.display_name());
+        let group_display_name = match adl_mode {
+            AdlMode::Calyx => group.display_name(),
+            AdlMode::Mixed => group.mixed_display_name(),
+            AdlMode::CalyxPy => group.adl_display_name(),
+        };
+        prefix.push(group_display_name);
         active_this_cycle.add_active_group(group_id);
         if group.invokes.is_empty() {
             // this group is a leaf, since it does not invoke anything.
@@ -572,7 +711,12 @@ impl Design {
                     InvokeTarget::Cell(target_cell_id) => {
                         // component or primitive cell activation
                         let target_cell = &self.cells[target_cell_id];
-                        this_thread_prefix.push(target_cell.display_name());
+                        let display_name = match &adl_mode {
+                            AdlMode::Calyx => target_cell.display_name(),
+                            AdlMode::Mixed => target_cell.mixed_display_name(),
+                            AdlMode::CalyxPy => target_cell.adl_display_name(),
+                        };
+                        this_thread_prefix.push(display_name);
                         if target_cell.is_primitive {
                             out.push(this_thread_prefix);
                             // A primitive will always be a leaf as it cannot call anything else.
@@ -584,6 +728,7 @@ impl Design {
                                     target_cell_id,
                                     this_thread_prefix.clone(),
                                     active_this_cycle,
+                                    adl_mode,
                                 );
                             out.append(&mut cell_stacks);
                             group_or_primitive_leaf |= flag;
@@ -597,6 +742,7 @@ impl Design {
                                 target_group_id,
                                 this_thread_prefix.clone(),
                                 active_this_cycle,
+                                adl_mode,
                             );
                         out.append(&mut group_stacks);
                         group_or_primitive_leaf |= flag;
@@ -681,6 +827,7 @@ impl Design {
         signals
     }
 
+    /// Helper function for `self.scan_probes()`.
     /// Construct control nodes and the edges between them, and returns information necessary
     /// to "stitch" the control nodes into the tree.
     fn populate_control(
@@ -712,8 +859,8 @@ impl Design {
                 continue;
             }
             if let Some((pretty, pos)) = c.get_pretty(pos_set) &&
-            // any pos without an entry in tdcc was compiled away; we ignore these.
-            let Some(tdcc_info_vec) = c.get_tdcc(pos)?
+                // any pos without an entry in tdcc was compiled away; we ignore these.
+                let Some(tdcc_info_vec) = c.get_tdcc(pos)?
             {
                 // pos is the entry to the Calyx-generated position of the control node,
                 // so there should only be one entry in the Vector.
@@ -851,6 +998,8 @@ impl Design {
             component: String::new(),
             probe_idxs: None,
             replacement: None,
+            adl_mapping: None,
+            adl_component: None,
         };
         // add control nodes for main
         self.scan_probes(h, main_scope, &mut main_cell, &c, &s)?;
@@ -947,6 +1096,7 @@ impl Design {
                                 invokes,
                                 probe_idx: u32::MAX,
                                 component: component.to_string(),
+                                adl_mapping: None,
                             });
                             all_groups.push(group_id);
                             structurally_invoked_group_names
@@ -1009,6 +1159,7 @@ impl Design {
                                 invokes,
                                 probe_idx: u32::MAX,
                                 component: component.to_string(),
+                                adl_mapping: None,
                             });
                             if let Some(Some(ctrl_parent)) =
                                 group_to_parent.get(&name)
@@ -1085,6 +1236,8 @@ impl Design {
                                 probes: None,
                                 probe_idxs: None,
                                 replacement,
+                                adl_component: None,
+                                adl_mapping: None,
                             };
                             if !is_primitive {
                                 assert!(scope.is_some());
@@ -1127,6 +1280,7 @@ impl Design {
         Ok(())
     }
 
+    /// Helper function for `self.build_timeline_tracks()`.
     /// Creates timeline tracks for the control group with ID c, and any of its child
     /// Control or Group nodes.
     fn build_control_timeline_tracks(
@@ -1182,6 +1336,7 @@ impl Design {
         Ok(())
     }
 
+    /// Helper function for `self.build_timeline_tracks()`.
     /// Creates timeline tracks for the group with ID g, and any of its child
     /// non-primitive Cell or Group nodes.
     fn build_group_timeline_tracks(
@@ -1236,6 +1391,7 @@ impl Design {
         Ok(())
     }
 
+    /// Helper function for `self.build_timeline_tracks()`.
     /// Creates timeline tracks for the component cell with ID c, and any of its child Group or Control nodes.
     /// Also creates a timeline track for the Control registers in this component.
     fn build_cell_timeline_tracks(
@@ -1284,6 +1440,8 @@ impl Design {
         Ok(())
     }
 
+    /// Mapping group names to a set of GroupIds (distinct enables of that same group).
+    /// Used in `DahliaDesign::new()`.
     pub fn get_group_name_to_ids(
         &self,
     ) -> FxHashMap<String, FxHashSet<GroupId>> {
@@ -1296,6 +1454,155 @@ impl Design {
         }
         println!("{out:?}");
         out
+    }
+
+    /// Helper function for `self.embed_pos()`.
+    /// Embeds ADL position information into this cell and its descendants.
+    fn embed_pos_in_cell(
+        &mut self,
+        c: &CellId,
+        cell_adl_pos_info: Option<PosInfo>,
+        component_infos: &Vec<ComponentInfo>,
+    ) {
+        let cell = &self.cells[*c];
+        if cell.is_primitive {
+            self.embed_pos_in_primitive(c, cell_adl_pos_info);
+        } else {
+            self.embed_pos_in_component_cell(
+                c,
+                cell_adl_pos_info,
+                component_infos,
+            );
+        }
+    }
+
+    /// Helper function for `self.embed_pos_in_cell()`.
+    /// Embeds ADL position information into a component (non-primitive) cell and its descendants.
+    fn embed_pos_in_component_cell(
+        &mut self,
+        c: &CellId,
+        cell_adl_pos_info: Option<PosInfo>,
+        component_infos: &Vec<ComponentInfo>,
+    ) {
+        let component_info_idx = {
+            // update the cell to contain ADL position info.
+            let mut_cell = &mut self.cells[*c];
+            let component_info_idx = component_infos
+                .iter()
+                .position(|c| *c.component == mut_cell.component)
+                .unwrap();
+            let component_info = &component_infos[component_info_idx];
+            let mut component_pos_info = PosInfo {
+                name: mut_cell.component.clone(),
+                filename: component_info.filename.clone().unwrap(),
+                linenum: component_info.linenum.unwrap(),
+                varname: component_info.varname.clone().unwrap(),
+            };
+            component_pos_info.cleanup();
+            mut_cell.adl_mapping = cell_adl_pos_info;
+            mut_cell.adl_component = Some(component_pos_info);
+            component_info_idx
+        };
+
+        let cell = self.cells[*c].clone();
+        for group in cell.groups.iter() {
+            self.embed_pos_in_group(group, component_infos, component_info_idx);
+        }
+
+        for control in cell.control.iter() {
+            self.embed_pos_in_control(
+                control,
+                component_infos,
+                component_info_idx,
+            );
+        }
+    }
+
+    /// Helper function for `self.embed_pos_in_cell()`.
+    /// Embeds ADL position information into a primitive cell which will always be a leaf node.
+    fn embed_pos_in_primitive(
+        &mut self,
+        c: &CellId,
+        cell_adl_pos_info: Option<PosInfo>,
+    ) {
+        let cell = &mut self.cells[*c];
+        assert!(cell.is_primitive);
+        cell.adl_mapping = cell_adl_pos_info;
+    }
+
+    /// Helper function for `self.embed_pos()`.
+    /// Embeds ADL position information into this group and its descendants.
+    fn embed_pos_in_group(
+        &mut self,
+        g: &GroupId,
+        component_infos: &Vec<ComponentInfo>,
+        ci_idx: usize,
+    ) {
+        let component_info = &component_infos[ci_idx];
+        {
+            // modify group
+            let group = &mut self.groups[*g];
+            group.adl_mapping = component_info
+                .groups
+                .iter()
+                .find(|p| p.name == group.name)
+                .cloned();
+        }
+
+        // iterate over the invokes inside the group
+        let group = &self.groups[*g].clone();
+
+        for i in group.invokes.iter() {
+            let invoke = &self.invokes[*i];
+            match invoke.target {
+                InvokeTarget::Cell(cell_id) => {
+                    let cell = &self.cells[cell_id];
+                    // find cell's entry inside component_info
+                    let cell_info = component_info
+                        .cells
+                        .iter()
+                        .find(|c| c.name == cell.name)
+                        .cloned();
+                    assert!(cell_info.is_some());
+                    self.embed_pos_in_cell(
+                        &cell_id,
+                        cell_info,
+                        component_infos,
+                    );
+                }
+                InvokeTarget::Group(g) => {
+                    self.embed_pos_in_group(&g, component_infos, ci_idx);
+                }
+                InvokeTarget::Control(_) => {
+                    panic!("Group should not invoke a Control node!")
+                }
+            }
+        }
+    }
+
+    /// Helper function for `self.embed_pos()`.
+    /// Embeds ADL position information into this control group's descendants.
+    fn embed_pos_in_control(
+        &mut self,
+        c: &ControlId,
+        component_infos: &Vec<ComponentInfo>,
+        ci_idx: usize,
+    ) {
+        let control = self.controls[*c].clone();
+        for i in control.invokes.iter() {
+            let invoke = &self.invokes[*i];
+            match invoke.target {
+                InvokeTarget::Cell(_) => {
+                    panic!("Control node should not invoke a Cell node!")
+                }
+                InvokeTarget::Group(g) => {
+                    self.embed_pos_in_group(&g, component_infos, ci_idx);
+                }
+                InvokeTarget::Control(c) => {
+                    self.embed_pos_in_control(&c, component_infos, ci_idx);
+                }
+            }
+        }
     }
 }
 

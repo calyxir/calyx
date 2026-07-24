@@ -91,7 +91,7 @@ impl DahliaDesign {
         } in main_component.groups.iter()
         {
             let group_id_set = &group_names_to_ids.get(name).unwrap();
-            // Start by assuming that each group will only have one enable in control?
+            // Assume that each group will only have one enable in control
             assert_eq!(group_id_set.len(), 1);
             let group_id = group_id_set.iter().next().unwrap();
             let line_contents = varname
@@ -296,7 +296,7 @@ struct StatementTrackInfo {
     uuid: Option<Uuid>,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Debug)]
 struct DahliaTimeline {
     timeline: Timeline,
     statement_to_info: FxHashMap<StatementId, StatementTrackInfo>,
@@ -304,8 +304,9 @@ struct DahliaTimeline {
 }
 
 impl DahliaTimeline {
-    pub fn new(d: &DahliaDesign) -> Result<Self> {
-        let mut timeline = Timeline::new();
+    pub fn new(d: &DahliaDesign, out_dir: &str) -> Result<Self> {
+        let mut timeline =
+            Timeline::new(out_dir, "dahlia_timeline_trace.pftrace")?;
         // create "main" track
         let main_uuid =
             timeline.register_descriptor("main".to_string(), None)?;
@@ -394,11 +395,6 @@ impl DahliaTimeline {
         Ok(())
     }
 
-    pub fn output_timeline(self, out_dir: &str) -> Result<()> {
-        self.timeline
-            .output_timeline(out_dir, "dahlia_timeline_trace.pftrace")
-    }
-
     fn update_helper(
         &mut self,
         diff: &DahliaCurrentlyActive,
@@ -413,7 +409,7 @@ impl DahliaTimeline {
                 *uuid,
                 cycle_count,
                 event_type,
-            );
+            )?;
         }
 
         let mut sv: Vec<StatementId> =
@@ -429,7 +425,7 @@ impl DahliaTimeline {
                     *uuid,
                     cycle_count,
                     event_type,
-                );
+                )?;
             } else if let Some(parent) = parent {
                 // need to find the uuid using the parent
                 let parent_block = self.block_to_info.get_mut(parent).unwrap();
@@ -449,7 +445,7 @@ impl DahliaTimeline {
                     uuid,
                     cycle_count,
                     event_type,
-                );
+                )?;
             }
         }
         Ok(())
@@ -470,9 +466,10 @@ impl DahliaProfilingInfo {
         components: Vec<ComponentInfo>,
         parent_file: Option<String>,
         d: &Design,
+        out_dir: &str,
     ) -> Result<Self> {
         let design = DahliaDesign::new(components, parent_file, d)?;
-        let timeline = DahliaTimeline::new(&design)?;
+        let timeline = DahliaTimeline::new(&design, out_dir)?;
         Ok(Self {
             design,
             timeline,
@@ -521,10 +518,6 @@ impl DahliaProfilingInfo {
         flat_flame.push("dahlia-flat-flame.folded");
         write_flames(&flame, Some(scaled_flame), Some(flat_flame))?;
         Ok(())
-    }
-
-    pub fn output_timeline(self, out_dir: &str) -> Result<()> {
-        self.timeline.output_timeline(out_dir)
     }
 }
 

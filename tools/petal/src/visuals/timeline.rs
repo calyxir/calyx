@@ -6,10 +6,11 @@ use crate::visuals::perfetto_protos::track_event::{NameField, Type};
 use crate::visuals::perfetto_protos::{
     Trace, TracePacket, TrackDescriptor, TrackEvent,
 };
+use anyhow::Result;
 use prost::Message;
 use prost::bytes::BytesMut;
 use rustc_hash::FxHashSet;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
 
@@ -19,18 +20,24 @@ pub const TPSI: u32 = 8008;
 /// A unique identifier used for specifying tracks in the timeline.
 pub type Uuid = u64;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug)]
 pub(crate) struct Timeline {
-    packets: Vec<TracePacket>,
     used_uuids: FxHashSet<u64>,
+    output_file: File,
 }
 
 impl Timeline {
-    pub fn new() -> Self {
-        Self {
-            packets: Vec::new(),
+    pub fn new(
+        out_dir: &str,
+        out_file_name: &str, // "timeline_trace.pftrace"
+    ) -> Result<Self> {
+        let mut path = PathBuf::from(out_dir);
+        path.push(out_file_name);
+        let file = OpenOptions::new().create(true).append(true).open(path)?;
+        Ok(Self {
             used_uuids: FxHashSet::default(),
-        }
+            output_file: file,
+        })
     }
 
     /// Creates a new track in the timeline.
@@ -49,7 +56,7 @@ impl Timeline {
             ..Default::default()
         };
         let packet = create_packet_helper(0, Data::TrackDescriptor(descriptor));
-        self.packets.push(packet);
+        self.push_packet(packet)?;
         anyhow::Ok(uuid)
     }
 
@@ -60,35 +67,28 @@ impl Timeline {
         uuid: Uuid,
         timestamp: u64,
         event_type: Type,
-    ) {
+    ) -> Result<()> {
         let event = TrackEvent {
             name_field: Some(NameField::Name(name)),
             r#type: Some(event_type as i32),
             track_uuid: Some(uuid),
-            // TODO: find the track uuid for this event
             ..Default::default()
         };
         let packet = create_packet_helper(timestamp, Data::TrackEvent(event));
-        self.packets.push(packet);
+        self.push_packet(packet)
     }
 
-    pub fn output_timeline(
-        self,
-        out_dir: &str,
-        out_file_name: &str, // "timeline_trace.pftrace"
-    ) -> anyhow::Result<()> {
-        // we can move self.packets because we will no longer add any information to it.
+    /// Outputs a packet onto the timeline file. (We write packets one by one
+    /// to avoid an out-of-memory error.)
+    pub fn push_packet(&mut self, packet: TracePacket) -> Result<()> {
         let trace = Trace {
-            packet: self.packets,
+            packet: vec![packet],
         };
         let encoded_len = trace.encoded_len();
         let mut buf = BytesMut::with_capacity(encoded_len);
         trace.encode(&mut buf)?;
-        let mut path = PathBuf::from(out_dir);
-        path.push(out_file_name);
-        let mut file = File::create(path)?;
-        file.write_all(&buf)?;
-        anyhow::Ok(())
+        self.output_file.write_all(&buf)?;
+        Ok(())
     }
 }
 

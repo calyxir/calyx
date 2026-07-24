@@ -6,12 +6,13 @@ mod shared_cells;
 mod visuals;
 
 mod adls;
+mod calyx_py;
 mod dahlia_design;
 mod statistics;
 
 use crate::adls::AdlIntermediateInfo;
 use crate::calyx_timeline::{CalyxTimeline, CurrentlyActive};
-use crate::design::{Design, RegisterId, Stack};
+use crate::design::{AdlMode, Design, RegisterId, Stack};
 use crate::statistics::Statistics;
 use crate::visuals::flamegraph::write_calyx_flames;
 use anyhow::{Context, Ok, Result, anyhow};
@@ -54,10 +55,13 @@ struct Args {
     num_print_cycles: u64,
 }
 
-/// bool flag represents whether this cycle contained an active Group or Primitive leaf.
+/// Map from active probes to the stack count, the stack, active cells/groups/control, and
+/// bool flag to represent whether this cycle contained an active Group or Primitive leaf.
+/// Caching mechanism to avoid spuriously recomputing the stack and active cells/groups/control.
 pub type Stacks =
     IndexMap<BitVecValue, (u64, Vec<Stack>, CurrentlyActive, bool)>;
 
+/// Processes the probe values obtained every cycle to produce the active call trees.
 fn collect_stacks(
     design: &Design,
     timeline: &mut CalyxTimeline,
@@ -76,7 +80,7 @@ fn collect_stacks(
                 (active, *gp_flag)
             } else {
                 let (stacks, active_this_cycle, group_or_primitive_leaf) =
-                    design.compute_cycle_trace(value)?;
+                    design.compute_cycle_trace(value, AdlMode::Calyx)?;
                 out.insert(
                     value.clone(),
                     (
@@ -101,7 +105,12 @@ fn collect_stacks(
             active_this_cycle.get_active_cells(),
         );
         if let Some(adl_info) = adl_info_opt {
-            adl_info.process_cycle(active_this_cycle, cycle_count as u64)?;
+            adl_info.process_cycle(
+                value,
+                design,
+                active_this_cycle,
+                cycle_count as u64,
+            )?;
         }
         currently_active = active_this_cycle.clone();
     }
@@ -165,14 +174,15 @@ fn main() -> Result<()> {
         .with_context(|| format!("Failed to load {}", args.filename))?;
 
     // static tree
-    let design = Design::new(wav.hierarchy(), ctrl_info, shared_cells)?;
+    let mut design = Design::new(wav.hierarchy(), ctrl_info, shared_cells)?;
 
     // construct information for the ADL, if this is an ADL program
     let mut adl_info = if let Some(adl_file) = args.adl_file {
         let a = AdlIntermediateInfo::new(
             &adl_file,
             args.dahlia_parent_map,
-            &design,
+            &mut design,
+            &args.out_dir,
         )?;
         Some(a)
     } else {
@@ -181,7 +191,7 @@ fn main() -> Result<()> {
 
     // create tracks in the timeline
     let par_tracks = calyx_timeline::read_par_tracks(args.par_tracks_filename)?;
-    let mut timeline = CalyxTimeline::new()?;
+    let mut timeline = CalyxTimeline::new(&args.out_dir)?;
     design.build_timeline_tracks(&mut timeline, &par_tracks)?;
     let mut statistics = build_statistics(&design)?;
 
@@ -294,12 +304,12 @@ fn main() -> Result<()> {
         &mut timeline,
         register_value_diffs,
     )?;
-    timeline.output_timeline(&args.out_dir)?;
+    // timeline.output_timeline(&args.out_dir)?;
     statistics.output(&args.out_dir)?;
 
     if let Some(mut adl_data) = adl_info {
         adl_data.output_flame(&args.out_dir)?;
-        adl_data.output_timeline(&args.out_dir)?;
+        // adl_data.output_timeline(&args.out_dir)?;
     }
 
     Ok(())

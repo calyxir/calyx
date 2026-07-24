@@ -21,9 +21,10 @@ rule calyx-cider
   command = $calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out
 
 cider-exe = $calyx-base/target/debug/cider
-cider-converter = $calyx-base/target/debug/cider-data-converter
+cider-converter = $calyx-base/target/debug/auxin
 converter-flags = 
 cider-flags = 
+build new_conv.jq: get-rsrc
 data = --data data.dump
 sim_data = /test/data.json
 rule run-cider-debug
@@ -32,7 +33,7 @@ rule run-cider-debug
 rule run-cider
   command = $cider-exe -l $calyx-base $data $cider-flags $in > $out
 rule interp-to-dump
-  command = $cider-converter --to json $converter-flags $in > $out
+  command = $cider-converter --to json $converter-flags $in | jq -f new_conv.jq > $out
 rule dump-to-interp
   command = $cider-converter --to cider $converter-flags $in > $out
 build data.dump: dump-to-interp $sim_data | $cider-converter

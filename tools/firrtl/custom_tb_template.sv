@@ -1,7 +1,10 @@
 module toplevel;
 
 // Signals for the main module.
-logic go, done, clk, reset;
+logic go = 0;
+logic clk = 0;
+logic done;
+logic reset = 1;
 
 // fields for memory controlled externally START
 MEMORY_FIELDS
@@ -19,7 +22,7 @@ localparam RESET_CYCLES = 3;
 
 // Cycle counter. Make this signed to catch errors with cycle simulation
 // counts.
-logic signed [63:0] cycle_count;
+logic signed [63:0] cycle_count = 0;
 
 always_ff @(posedge clk) begin
   cycle_count <= cycle_count + 1;
@@ -66,12 +69,6 @@ initial begin
   end else begin
     $display("VCD tracing disabled");
   end
-
-  // Initial values
-  go = 0;
-  clk = 0;
-  reset = 1;
-  cycle_count = 0;
 
   forever begin
     #10 clk = ~clk;

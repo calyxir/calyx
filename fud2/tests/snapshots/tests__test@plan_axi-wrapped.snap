@@ -35,6 +35,7 @@ rule remove-imports
 build input.yxi: yxi /input.ext
 build refified_input.futil: calyx-pass /input.ext
   pass = external-to-ref
+  args = -x external-to-ref:activate=true
 build axi_wrapper.futil: gen-axi input.yxi
 build no_imports_refified_input.futil: remove-imports refified_input.futil
 build /output.ext: combine axi_wrapper.futil no_imports_refified_input.futil
