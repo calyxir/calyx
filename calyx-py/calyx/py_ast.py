@@ -1,5 +1,5 @@
 from __future__ import annotations  # Used for circular dependencies.
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from typing import Dict, List, Any, Tuple, Optional
 from calyx.utils import block
 import inspect
@@ -16,6 +16,54 @@ Determines if sourceinfo and @pos attributes should be emitted or not.
 EMIT_SOURCELOC = True
 
 
+@dataclass(frozen=True)
+class SourceLocation:
+    filename: str
+    lineno: int
+
+
+def get_source_location() -> Optional[SourceLocation]:
+    """Inspects the call stack to determine the first call site outside the calyx-py library."""
+    if not EMIT_SOURCELOC:
+        return None
+
+    stacktrace = inspect.stack()
+
+    # inspect top frame to determine the path to the calyx-py library
+    top = stacktrace[0]
+    assert top.function == "get_source_location"
+    library_path = os.path.dirname(top.filename)
+    # The file is in the same directory as this script.
+    assert os.path.join(library_path, "py_ast.py") == top.filename
+
+    # find first stack frame that is not part of the library
+    user = None
+    for frame in stacktrace:
+        # skip frames that do not have a real filename
+        if frame.filename == "<string>":
+            continue
+        if not frame.filename.startswith(library_path):
+            user = frame
+            break
+        # workaround for "source" files that live in this directory (e.g. gen_exp.py)
+        # TODO: we should not be hardcoding the files that "don't count" as source files
+        if library_path == FILEINFO_BASE_PATH and os.path.basename(
+            frame.filename
+        ) not in ["py_ast.py", "builder.py"]:
+            user = frame
+            break
+    if user is None:
+        return None
+
+    # filename depends on whether we're testing or not.
+    if FILEINFO_BASE_PATH is None:
+        filename = user.filename
+    else:
+        filename = os.path.relpath(user.filename, FILEINFO_BASE_PATH)
+
+    return SourceLocation(filename, user.lineno)
+
+
 @dataclass
 class Emittable:
     def doc(self) -> str:
@@ -24,86 +72,19 @@ class Emittable:
     def emit(self):
         print(self.doc())
 
-
-class FileTable:
-    # global counter to ensure unique ids
-    counter: int = 0
-    table: Dict[str, int] = {}
-
-    @staticmethod
-    def get_fileid(filename):
-        if filename not in FileTable.table:
-            FileTable.table[filename] = FileTable.counter
-            FileTable.counter += 1
-        return FileTable.table[filename]
-
-    @staticmethod
-    def emit_fileinfo_metadata():
-        contents = []
-        for filename, fileid in FileTable.table.items():
-            contents.append(f"{fileid}: {filename}")
-        return block("FILES", contents, with_curly=False)
+def _get_children(node):
+    children = []
+    for field_info in fields(node):
+        value = getattr(node, field_info.name)
+        if isinstance(value, (list, tuple)):
+            for item in value:
+                if isinstance(item, (Emittable, Component, Structure, Control)):
+                    children.append(item)
+        elif isinstance(value, (Emittable, Component, Structure, Control)):
+            children.append(value)
+    return children
 
 
-class PosTable:
-    counter: int = 0
-    table: Dict[Tuple[int, int], int] = {}  # contents: (fileid, linenum) -> positionId
-
-    @staticmethod
-    def determine_source_loc() -> Optional[int]:
-        """Inspects the call stack to determine the first call site outside the calyx-py library."""
-        if not EMIT_SOURCELOC:
-            return None
-
-        stacktrace = inspect.stack()
-
-        # inspect top frame to determine the path to the calyx-py library
-        top = stacktrace[0]
-        assert top.function == "determine_source_loc"
-        library_path = os.path.dirname(top.filename)
-        assert os.path.join(library_path, "py_ast.py") == top.filename
-
-        # find first stack frame that is not part of the library
-        user = None
-        for frame in stacktrace:
-            # skip frames that do not have a real filename
-            if frame.filename == "<string>":
-                continue
-            if not frame.filename.startswith(library_path):
-                user = frame
-                break
-            # workaround for "source" files that live in this directory (e.g. gen_exp.py)
-            # TODO: we should not be hardcoding the files that "don't count" as source files
-            if library_path == FILEINFO_BASE_PATH and os.path.basename(
-                frame.filename
-            ) not in ["py_ast.py", "builder.py"]:
-                user = frame
-                break
-        if user is None:
-            return None
-
-        # filename depends on whether we're testing or not.
-        if FILEINFO_BASE_PATH is None:
-            filename = frame.filename
-        else:
-            filename = os.path.relpath(frame.filename, FILEINFO_BASE_PATH)
-
-        return PosTable.add_entry(filename, frame.lineno)
-
-    @staticmethod
-    def add_entry(filename, line_num):
-        file_id = FileTable.get_fileid(filename)
-        if (file_id, line_num) not in PosTable.table:
-            PosTable.table[(file_id, line_num)] = PosTable.counter
-            PosTable.counter += 1
-        return PosTable.table[(file_id, line_num)]
-
-    @staticmethod
-    def emit_fileinfo_metadata():
-        contents = []
-        for (fileid, linenum), position_id in PosTable.table.items():
-            contents.append(f"{position_id}: {fileid} {linenum}")
-        return block("POSITIONS", contents, with_curly=False)
 
 
 # Program
@@ -120,8 +101,52 @@ class Program(Emittable):
     imports: List[Import]
     components: List[Component]
     meta: dict[Any, str] = field(default_factory=dict)
+    file_table: Dict[str, int] = field(init=False, default_factory=dict)
+    pos_table: Dict[Tuple[int, int], int] = field(init=False, default_factory=dict)
+
+    def _resolve_locations(self):
+        """Traverses AST to populate tables and collect all SourceLocations."""
+        # 1. Collect all nodes with loc
+        nodes_with_loc = []
+        
+        def traverse(node):
+            if hasattr(node, 'loc') and node.loc is not None:
+                nodes_with_loc.append(node)
+            for child in _get_children(node):
+                traverse(child)
+        
+        traverse(self)
+        
+        # 2. Assign IDs
+        file_counter = 0
+        pos_counter = 0
+        
+        for node in nodes_with_loc:
+            loc = node.loc
+            if loc.filename not in self.file_table:
+                self.file_table[loc.filename] = file_counter
+                file_counter += 1
+            file_id = self.file_table[loc.filename]
+            
+            if (file_id, loc.lineno) not in self.pos_table:
+                self.pos_table[(file_id, loc.lineno)] = pos_counter
+                pos_counter += 1
+            node.resolved_loc = self.pos_table[(file_id, loc.lineno)]
+
+    def _emit_fileinfo_metadata(self):
+        contents = []
+        for filename, fileid in self.file_table.items():
+            contents.append(f"{fileid}: {filename}")
+        return block("FILES", contents, with_curly=False)
+
+    def _emit_pos_metadata(self):
+        contents = []
+        for (fileid, linenum), position_id in self.pos_table.items():
+            contents.append(f"{position_id}: {fileid} {linenum}")
+        return block("POSITIONS", contents, with_curly=False)
 
     def doc(self) -> str:
+        self._resolve_locations() # Build tables for this instance
         out = "\n".join([i.doc() for i in self.imports])
         if len(self.imports) > 0:
             out += "\n"
@@ -131,10 +156,12 @@ class Program(Emittable):
             for key, val in self.meta.items():
                 out += f"{key}: {val}\n"
             out += "}#"
-        if EMIT_SOURCELOC and len(FileTable.table) > 0 and len(PosTable.table) > 0:
+        
+        # Emission using local tables
+        if EMIT_SOURCELOC and len(self.file_table) > 0 and len(self.pos_table) > 0:
             out += "\n\nsourceinfo #{\n"
-            out += FileTable.emit_fileinfo_metadata()
-            out += PosTable.emit_fileinfo_metadata()
+            out += self._emit_fileinfo_metadata()
+            out += self._emit_pos_metadata()
             out += "}#"
 
         return out
@@ -151,7 +178,8 @@ class Component:
     cells: list[Cell]
     controls: Control
     latency: Optional[int]
-    loc: Optional[int]
+    loc: Optional[SourceLocation]
+    resolved_loc: Optional[int] = None
 
     def __init__(
         self,
@@ -169,12 +197,11 @@ class Component:
         self.outputs = outputs
         self.controls = controls
         self.latency = latency
-        self.loc = PosTable.determine_source_loc()
+        self.loc = get_source_location()
 
         # Partition cells and wires.
         def is_cell(x):
             return isinstance(x, Cell)
-
         self.cells = [s for s in structs if is_cell(s)]
         self.wires = [s for s in structs if not is_cell(s)]
 
@@ -187,16 +214,13 @@ class Component:
         )
 
     def doc(self) -> str:
-        # if(self.name == "axi_seq_mem_A0"):
-        #     for s in self.inputs:
-        #         print(s.doc())
         ins = ", ".join([s.doc() for s in self.inputs])
         outs = ", ".join([s.doc() for s in self.outputs])
         latency_annotation = (
             f"static<{self.latency}> " if self.latency is not None else ""
         )
-        if self.loc is not None:
-            loc_attribute = CompAttribute("pos", self.loc)
+        if self.resolved_loc is not None:
+            loc_attribute = CompAttribute("pos", self.resolved_loc)
             if self.attributes:
                 self.attributes.add(loc_attribute)
             else:
@@ -224,7 +248,8 @@ class CombComponent:
     outputs: list[PortDef]
     wires: list[Structure]
     cells: list[Cell]
-    loc: Optional[int]
+    loc: Optional[SourceLocation]
+    resolved_loc: Optional[int] = None
 
     def __init__(
         self,
@@ -238,7 +263,7 @@ class CombComponent:
         self.attributes = attributes
         self.inputs = inputs
         self.outputs = outputs
-        self.loc = PosTable.determine_source_loc()
+        self.loc = get_source_location()
 
         # Partition cells and wires.
         def is_cell(x):
@@ -436,7 +461,8 @@ class Cell(Structure):
     is_external: bool = False
     is_ref: bool = False
     attributes: set[CellAttribute] = field(default_factory=set)
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: Optional[SourceLocation] = field(default_factory=get_source_location)
+    resolved_loc: Optional[int] = None
 
     def doc(self) -> str:
         assert not (self.is_ref and self.is_external), (
@@ -444,8 +470,8 @@ class Cell(Structure):
         )
         if self.is_external:
             self.attributes.add(CellAttribute("external"))
-        if self.loc is not None:
-            self.attributes.add(CellAttribute("pos", self.loc))
+        if self.resolved_loc is not None:
+            self.attributes.add(CellAttribute("pos", self.resolved_loc))
         attribute_annotation = (
             f"{' '.join([f'{a.doc()}' for a in sorted(self.attributes, key=lambda a: a.name)])} "
             if len(self.attributes) > 0
@@ -477,13 +503,14 @@ class Group(Structure):
     # XXX: This is a static group now. Remove this and add a new StaticGroup class.
     static_delay: Optional[int] = None
     attributes: set[GroupAttribute] = field(default_factory=set)
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: Optional[SourceLocation] = field(default_factory=get_source_location)
+    resolved_loc: Optional[int] = None
 
     def doc(self) -> str:
         if self.static_delay is not None:
             self.attributes.add(GroupAttribute("promotable", self.static_delay))
-        if self.loc is not None:
-            self.attributes.add(GroupAttribute("pos", self.loc))
+        if self.resolved_loc is not None:
+            self.attributes.add(GroupAttribute("pos", self.resolved_loc))
         attribute_annotation = (
             f"<{', '.join([f'{a.doc()}' for a in sorted(self.attributes, key=lambda a: a.name)])}>"
             if len(self.attributes) > 0
@@ -499,11 +526,12 @@ class Group(Structure):
 class CombGroup(Structure):
     id: CompVar
     connections: list[Connect]
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: Optional[SourceLocation] = field(default_factory=get_source_location)
+    resolved_loc: Optional[int] = None
 
     def doc(self) -> str:
         attribute_annotation = (
-            f"<{GroupAttribute('pos', self.loc).doc()}>" if self.loc is not None else ""
+            f"<{GroupAttribute('pos', self.resolved_loc).doc()}>" if self.resolved_loc is not None else ""
         )
         return block(
             f"comb group {self.id.doc()}{attribute_annotation}",
@@ -516,16 +544,19 @@ class StaticGroup(Structure):
     id: CompVar
     connections: list[Connect]
     latency: int
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: Optional[SourceLocation] = field(default_factory=get_source_location)
+    resolved_loc: Optional[int] = None
 
     def doc(self) -> str:
         attribute_annotation = (
-            f"<{GroupAttribute('pos', self.loc).doc()}>" if self.loc is not None else ""
+            f"<{GroupAttribute('pos', self.resolved_loc).doc()}>" if self.resolved_loc is not None else ""
         )
         return block(
             f"static<{self.latency}> group {self.id.doc()}{attribute_annotation}",
             [c.doc() for c in self.connections],
         )
+
+# ... (Control subclasses edit)
 
 
 @dataclass
@@ -653,53 +684,58 @@ def ctrl_with_pos_attribute(source: str, loc: Optional[int]) -> str:
 @dataclass
 class Enable(Control):
     stmt: str
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: Optional[SourceLocation] = field(default_factory=get_source_location)
+    resolved_loc: Optional[int] = None
 
     def doc(self) -> str:
-        return ctrl_with_pos_attribute(f"{self.stmt};", self.loc)
+        return ctrl_with_pos_attribute(f"{self.stmt};", self.resolved_loc)
 
 
 @dataclass
 class SeqComp(Control):
     stmts: list[Control]
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: Optional[SourceLocation] = field(default_factory=get_source_location)
+    resolved_loc: Optional[int] = None
 
     def doc(self) -> str:
         return ctrl_with_pos_attribute(
-            block("seq", [s.doc() for s in self.stmts]), self.loc
+            block("seq", [s.doc() for s in self.stmts]), self.resolved_loc
         )
 
 
 @dataclass
 class StaticSeqComp(Control):
     stmts: list[Control]
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: Optional[SourceLocation] = field(default_factory=get_source_location)
+    resolved_loc: Optional[int] = None
 
     def doc(self) -> str:
         return ctrl_with_pos_attribute(
-            block("static seq", [s.doc() for s in self.stmts]), self.loc
+            block("static seq", [s.doc() for s in self.stmts]), self.resolved_loc
         )
 
 
 @dataclass
 class ParComp(Control):
     stmts: list[Control]
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: Optional[SourceLocation] = field(default_factory=get_source_location)
+    resolved_loc: Optional[int] = None
 
     def doc(self) -> str:
         return ctrl_with_pos_attribute(
-            block("par", [s.doc() for s in self.stmts]), self.loc
+            block("par", [s.doc() for s in self.stmts]), self.resolved_loc
         )
 
 
 @dataclass
 class StaticParComp(Control):
     stmts: list[Control]
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: Optional[SourceLocation] = field(default_factory=get_source_location)
+    resolved_loc: Optional[int] = None
 
     def doc(self) -> str:
         return ctrl_with_pos_attribute(
-            block("static par", [s.doc() for s in self.stmts]), self.loc
+            block("static par", [s.doc() for s in self.stmts]), self.resolved_loc
         )
 
 
@@ -711,7 +747,8 @@ class Invoke(Control):
     ref_cells: List[Tuple[str, CompVar]] = field(default_factory=list)
     comb_group: Optional[CompVar] = None
     attributes: set[Tuple[str, int]] = field(default_factory=set)
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: Optional[SourceLocation] = field(default_factory=get_source_location)
+    resolved_loc: Optional[int] = None
 
     def doc(self) -> str:
         inv = f"invoke {self.id.doc()}"
@@ -741,7 +778,7 @@ class Invoke(Control):
             inv += f" with {self.comb_group.doc()}"
         inv += ";"
 
-        return ctrl_with_pos_attribute(inv, self.loc)
+        return ctrl_with_pos_attribute(inv, self.resolved_loc)
 
     def with_attr(self, key: str, value: int) -> Invoke:
         self.attributes.add((key, value))
@@ -793,14 +830,15 @@ class While(Control):
     # XXX: This should probably be called the cond_group.
     cond: Optional[CompVar]
     body: Control
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: Optional[SourceLocation] = field(default_factory=get_source_location)
+    resolved_loc: Optional[int] = None
 
     def doc(self) -> str:
         cond = ""
         cond += f"while {self.port.doc()}"
         if self.cond:
             cond += f" with {self.cond.doc()}"
-        return ctrl_with_pos_attribute(block(cond, self.body.doc(), sep=""), self.loc)
+        return ctrl_with_pos_attribute(block(cond, self.body.doc(), sep=""), self.resolved_loc)
 
 
 @dataclass
@@ -826,7 +864,8 @@ class If(Control):
     cond: Optional[CompVar]
     true_branch: Control
     false_branch: Control = field(default_factory=Empty)
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: Optional[SourceLocation] = field(default_factory=get_source_location)
+    resolved_loc: Optional[int] = None
 
     def doc(self) -> str:
         cond = ""
@@ -839,7 +878,7 @@ class If(Control):
         else:
             false_branch = block(" else", self.false_branch.doc(), sep="")
         return ctrl_with_pos_attribute(
-            block(cond, true_branch, sep="") + false_branch, self.loc
+            block(cond, true_branch, sep="") + false_branch, self.resolved_loc
         )
 
 
@@ -848,7 +887,8 @@ class StaticIf(Control):
     port: Port
     true_branch: Control
     false_branch: Control = field(default_factory=Empty)
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: Optional[SourceLocation] = field(default_factory=get_source_location)
+    resolved_loc: Optional[int] = None
 
     def doc(self) -> str:
         cond = f"static if {self.port.doc()}"
@@ -858,7 +898,7 @@ class StaticIf(Control):
         else:
             false_branch = block(" else", self.false_branch.doc(), sep="")
         return ctrl_with_pos_attribute(
-            block(cond, true_branch, sep="") + false_branch, self.loc
+            block(cond, true_branch, sep="") + false_branch, self.resolved_loc
         )
 
 
