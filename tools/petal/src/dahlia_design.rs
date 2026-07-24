@@ -395,11 +395,6 @@ impl DahliaTimeline {
         Ok(())
     }
 
-    pub fn output_timeline(self, out_dir: &str) -> Result<()> {
-        self.timeline
-            .output_timeline(out_dir, "dahlia_timeline_trace.pftrace")
-    }
-
     fn update_helper(
         &mut self,
         diff: &DahliaCurrentlyActive,
@@ -414,7 +409,7 @@ impl DahliaTimeline {
                 *uuid,
                 cycle_count,
                 event_type,
-            );
+            )?;
         }
 
         let mut sv: Vec<StatementId> =
@@ -430,7 +425,7 @@ impl DahliaTimeline {
                     *uuid,
                     cycle_count,
                     event_type,
-                );
+                )?;
             } else if let Some(parent) = parent {
                 // need to find the uuid using the parent
                 let parent_block = self.block_to_info.get_mut(parent).unwrap();
@@ -450,7 +445,7 @@ impl DahliaTimeline {
                     uuid,
                     cycle_count,
                     event_type,
-                );
+                )?;
             }
         }
         Ok(())
@@ -523,10 +518,6 @@ impl DahliaProfilingInfo {
         flat_flame.push("dahlia-flat-flame.folded");
         write_flames(&flame, Some(scaled_flame), Some(flat_flame))?;
         Ok(())
-    }
-
-    pub fn output_timeline(self, out_dir: &str) -> Result<()> {
-        self.timeline.output_timeline(out_dir)
     }
 }
 

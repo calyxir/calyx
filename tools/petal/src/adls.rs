@@ -151,11 +151,4 @@ impl AdlIntermediateInfo {
             AdlIntermediateInfo::Dahlia(d) => d.output_flame(out_dir),
         }
     }
-
-    pub fn output_timeline(self, out_dir: &str) -> Result<()> {
-        match self {
-            AdlIntermediateInfo::Py(_) => Ok(()),
-            AdlIntermediateInfo::Dahlia(d) => d.output_timeline(out_dir),
-        }
-    }
 }

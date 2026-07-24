@@ -1,4 +1,3 @@
-use crate::visuals::perfetto_protos;
 use crate::visuals::perfetto_protos::trace_packet::{
     Data, OptionalTrustedPacketSequenceId,
 };
@@ -23,7 +22,6 @@ pub type Uuid = u64;
 
 #[derive(Debug)]
 pub(crate) struct Timeline {
-    packets: Vec<TracePacket>,
     used_uuids: FxHashSet<u64>,
     output_file: File,
 }
@@ -38,7 +36,6 @@ impl Timeline {
         // let mut file = File::create(path)?;
         let file = OpenOptions::new().create(true).append(true).open(path)?;
         Ok(Self {
-            packets: Vec::new(),
             used_uuids: FxHashSet::default(),
             output_file: file,
         })
@@ -61,7 +58,6 @@ impl Timeline {
         };
         let packet = create_packet_helper(0, Data::TrackDescriptor(descriptor));
         self.push_packet(packet)?;
-        // self.packets.push(packet);
         anyhow::Ok(uuid)
     }
 
@@ -83,35 +79,17 @@ impl Timeline {
         self.push_packet(packet)
     }
 
+    /// Outputs a packet onto the timeline file. (We write packets one by one
+    /// to avoid an out-of-memory error.)
     pub fn push_packet(&mut self, packet: TracePacket) -> Result<()> {
-        let trace = perfetto_protos::Trace {
+        let trace = Trace {
             packet: vec![packet],
         };
-        // self.packets.push(packet);
         let encoded_len = trace.encoded_len();
         let mut buf = BytesMut::with_capacity(encoded_len);
         trace.encode(&mut buf)?;
         self.output_file.write_all(&buf)?;
         Ok(())
-    }
-
-    pub fn output_timeline(
-        self,
-        out_dir: &str,
-        out_file_name: &str, // "timeline_trace.pftrace"
-    ) -> anyhow::Result<()> {
-        // we can move self.packets because we will no longer add any information to it.
-        let trace = Trace {
-            packet: self.packets,
-        };
-        let encoded_len = trace.encoded_len();
-        let mut buf = BytesMut::with_capacity(encoded_len);
-        trace.encode(&mut buf)?;
-        let mut path = PathBuf::from(out_dir);
-        path.push(out_file_name);
-        let mut file = File::create(path)?;
-        file.write_all(&buf)?;
-        anyhow::Ok(())
     }
 }
 

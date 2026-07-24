@@ -391,13 +391,13 @@ impl Design {
                     uuid,
                     cycle,
                     Type::SliceBegin,
-                );
+                )?;
                 timeline.register_event(
                     out_str,
                     uuid,
                     cycle + 1,
                     Type::SliceEnd,
-                );
+                )?;
             }
         }
         Ok(())

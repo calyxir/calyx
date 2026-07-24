@@ -289,14 +289,9 @@ impl CalyxTimeline {
         uuid: Uuid,
         timestamp: u64,
         event_type: Type,
-    ) {
+    ) -> Result<()> {
         self.timeline
-            .register_event(name, uuid, timestamp, event_type);
-    }
-
-    pub fn output_timeline(self, out_dir: &str) -> anyhow::Result<()> {
-        self.timeline
-            .output_timeline(out_dir, "timeline_trace.pftrace")
+            .register_event(name, uuid, timestamp, event_type)
     }
 }
 
@@ -354,7 +349,7 @@ impl CalyxTimeline {
                 real_uuid,
                 cycle_count,
                 event_type,
-            );
+            )?;
         }
 
         Ok(())
