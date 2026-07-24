@@ -182,6 +182,7 @@ fn main() -> Result<()> {
             &adl_file,
             args.dahlia_parent_map,
             &mut design,
+            &args.out_dir,
         )?;
         Some(a)
     } else {
@@ -190,7 +191,7 @@ fn main() -> Result<()> {
 
     // create tracks in the timeline
     let par_tracks = calyx_timeline::read_par_tracks(args.par_tracks_filename)?;
-    let mut timeline = CalyxTimeline::new()?;
+    let mut timeline = CalyxTimeline::new(&args.out_dir)?;
     design.build_timeline_tracks(&mut timeline, &par_tracks)?;
     let mut statistics = build_statistics(&design)?;
 
@@ -303,12 +304,12 @@ fn main() -> Result<()> {
         &mut timeline,
         register_value_diffs,
     )?;
-    timeline.output_timeline(&args.out_dir)?;
+    // timeline.output_timeline(&args.out_dir)?;
     statistics.output(&args.out_dir)?;
 
     if let Some(mut adl_data) = adl_info {
         adl_data.output_flame(&args.out_dir)?;
-        adl_data.output_timeline(&args.out_dir)?;
+        // adl_data.output_timeline(&args.out_dir)?;
     }
 
     Ok(())

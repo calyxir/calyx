@@ -87,6 +87,7 @@ impl AdlIntermediateInfo {
         adl_filename: &str,
         dahlia_parent_file: Option<String>,
         d: &mut Design,
+        out_dir: &str,
     ) -> Result<Self> {
         let adl_file = File::open(adl_filename)?;
         let AdlInfo {
@@ -112,6 +113,7 @@ impl AdlIntermediateInfo {
                     components,
                     dahlia_parent_file,
                     d,
+                    out_dir,
                 )?;
                 Ok(Self::Dahlia(dpi))
             }
@@ -147,13 +149,6 @@ impl AdlIntermediateInfo {
         match self {
             AdlIntermediateInfo::Py(p) => p.output_flame(out_dir),
             AdlIntermediateInfo::Dahlia(d) => d.output_flame(out_dir),
-        }
-    }
-
-    pub fn output_timeline(self, out_dir: &str) -> Result<()> {
-        match self {
-            AdlIntermediateInfo::Py(_) => Ok(()),
-            AdlIntermediateInfo::Dahlia(d) => d.output_timeline(out_dir),
         }
     }
 }

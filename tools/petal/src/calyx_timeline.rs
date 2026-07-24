@@ -153,9 +153,9 @@ pub struct CalyxTimeline {
 }
 
 impl CalyxTimeline {
-    pub fn new() -> Result<Self> {
+    pub fn new(out_dir: &str) -> Result<Self> {
         let s = Self {
-            timeline: Timeline::new(),
+            timeline: Timeline::new(out_dir, "timeline_trace.pftrace")?,
             cell_to_info: FxHashMap::default(),
             control_to_info: FxHashMap::default(),
             group_to_info: FxHashMap::default(),
@@ -289,14 +289,9 @@ impl CalyxTimeline {
         uuid: Uuid,
         timestamp: u64,
         event_type: Type,
-    ) {
+    ) -> Result<()> {
         self.timeline
-            .register_event(name, uuid, timestamp, event_type);
-    }
-
-    pub fn output_timeline(self, out_dir: &str) -> anyhow::Result<()> {
-        self.timeline
-            .output_timeline(out_dir, "timeline_trace.pftrace")
+            .register_event(name, uuid, timestamp, event_type)
     }
 }
 
@@ -318,7 +313,7 @@ impl CalyxTimeline {
                 *uuid,
                 cycle_count,
                 event_type,
-            );
+            )?;
         }
 
         for &control in diff.control.iter() {
@@ -329,7 +324,7 @@ impl CalyxTimeline {
                 *uuid,
                 cycle_count,
                 event_type,
-            );
+            )?;
         }
 
         for &group in diff.groups.iter() {
@@ -354,7 +349,7 @@ impl CalyxTimeline {
                 real_uuid,
                 cycle_count,
                 event_type,
-            );
+            )?;
         }
 
         Ok(())
