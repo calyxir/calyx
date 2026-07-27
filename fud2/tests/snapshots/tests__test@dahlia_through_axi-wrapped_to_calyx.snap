@@ -42,6 +42,7 @@ build calyx_1.futil: dahlia-to-calyx start.fuse
 build calyx_1.yxi: yxi calyx_1.futil
 build refified_calyx_1.futil: calyx-pass calyx_1.futil
   pass = external-to-ref
+  args = -x external-to-ref:activate=true
 build axi_wrapper.futil: gen-axi calyx_1.yxi
 build no_imports_refified_calyx_1.futil: remove-imports refified_calyx_1.futil
 build tmp.futil: combine axi_wrapper.futil no_imports_refified_calyx_1.futil
