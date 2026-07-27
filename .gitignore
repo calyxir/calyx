@@ -95,3 +95,4 @@ primitives/float/HardFloat-1.zip
 
 # yxi testing residue
 yxi/tests/compiled/
+yxi/tests/expect/
