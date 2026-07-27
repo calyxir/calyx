@@ -212,6 +212,30 @@ fn request_with_planner(
     }
 }
 
+fn request_with_planner_and_files(
+    driver: &Driver,
+    start: &[&str],
+    start_files: &[Utf8PathBuf],
+    end: &[&str],
+    end_files: &[Utf8PathBuf],
+    through: &[&str],
+    planner: impl FindPlan + 'static,
+) -> Request {
+    fud_core::exec::Request {
+        start_files: start_files.to_vec(),
+        start_states: start
+            .iter()
+            .map(|s| driver.get_state(s).unwrap())
+            .collect(),
+        end_files: end_files.to_vec(),
+        end_states: end.iter().map(|s| driver.get_state(s).unwrap()).collect(),
+        through: through.iter().map(|s| driver.get_op(s).unwrap()).collect(),
+        workdir: ".".into(),
+        planner: Box::new(planner),
+        timing_csv: None,
+    }
+}
+
 fn request(
     driver: &Driver,
     start: &[&str],
@@ -298,6 +322,27 @@ fn sim_tests() {
             request(&driver, &["calyx"], &[dest], &[sim]).test(&driver);
         }
     }
+}
+
+#[test]
+fn axi_wrapped_test_with_output_file() {
+    let driver = test_driver();
+    request_with_planner_and_files(
+        &driver,
+        &["dahlia"],
+        &["start.fuse".into()],
+        &["calyx"],
+        &["tmp.futil".into()],
+        &["axi-wrapped"],
+        LegacyPlanner {},
+    )
+    .test(&driver);
+}
+
+#[test]
+fn axi_wrapped_test_without_output_file() {
+    let driver = test_driver();
+    request(&driver, &["dahlia"], &["calyx"], &["axi-wrapped"]).test(&driver);
 }
 
 #[test]
