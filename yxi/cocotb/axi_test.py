@@ -6,18 +6,20 @@ from cocotb.triggers import Timer, FallingEdge, with_timeout, RisingEdge, ClockC
 from typing import Literal, Mapping, Any, Union, List
 from pathlib import Path
 import os
+import math
 
 
 # NOTE (nathanielnrn) cocotb-bus 0.2.1 has a bug that does not recognize optional
 # signals such as WSTRB when it is capitalized. Install directly from the cocotb-bus
 # github repo to fix
 class KernelTB:
-    def __init__(self, toplevel, data_path: Path):
+    def __init__(self, toplevel, data_path: Path, hex_mode: bool):
         self.toplevel = toplevel
         self.data_path = data_path
         assert os.path.isfile(self.data_path), (
             "data_path must be a data path to a valid file"
         )
+        self.hex_mode = hex_mode
 
     # Go through each mem, create an AxiRam, write data to it
     async def setup_rams(self, data: Mapping[str, Any]):
@@ -32,12 +34,14 @@ class KernelTB:
             # i.e m0_axi_RDATA.
             # These prefixes have to match verilog code. See kernel.xml <args>
             # and ports assigned within that for guidance.
+            rounded_size = math.floor(math.log2(size)) + 1
+            rounded_size = 2**rounded_size
             rams[mem] = AxiRam(
                 AxiBus.from_prefix(self.toplevel, f"m_axi_{mem}"),
                 self.toplevel.ap_clk,
                 reset=self.toplevel.reset,
                 # self.toplevel.ap_rst_n,
-                size=size,
+                size=rounded_size,
             )
 
             # NOTE: This defaults to little endian to match AxiRam defaults
@@ -46,6 +50,7 @@ class KernelTB:
                 width,
                 byteorder="little",
                 signed=bool(data[mem]["format"]["is_signed"]),
+                hex_mode=self.hex_mode,
             )
             addr = 0x0000
             rams[mem].write(addr, data_in_bytes)
@@ -63,15 +68,15 @@ class KernelTB:
         self.toplevel.go.value = 1
 
 
-async def run_kernel_test(toplevel, data_path: str):
-    tb = KernelTB(toplevel, Path(data_path))
+async def run_kernel_test(toplevel, data_path: str, hex_mode: bool):
+    tb = KernelTB(toplevel, Path(data_path), hex_mode)
     data_map = None
     with open(data_path) as f:
         data_map = json.load(f)
         f.close()
     assert data_map is not None
     await tb.setup_rams(data_map)
-    # print(data_map)
+    # print(tb.rams["in"].mem.hexdump_lines(0, 40))
 
     # set up clock of 2ns period, simulator default timestep is 1ps
     cocotb.start_soon(Clock(toplevel.ap_clk, 2, units="ns").start())
@@ -92,7 +97,7 @@ async def run_kernel_test(toplevel, data_path: str):
         size = mem_size_in_bytes(mem, data_map)
         post_execution = rams[mem].read(addr, size)
         width = data_width_in_bytes(mem, data_map)
-        post_execution = decode(post_execution, width)
+        post_execution = decode(post_execution, width, hex_mode=hex_mode)
         post.update({mem: {"data": post_execution}})
         post[mem]["format"] = data_map[mem]["format"]
     # post = {"memories": post}
@@ -122,6 +127,7 @@ def decode(
     width: int,
     byteorder: Union[Literal["little"], Literal["big"]] = "little",
     signed=False,
+    hex_mode: bool = False,
 ):
     """Return the list of `ints` corresponding to value in `b` based on
     encoding of `width` bytes
@@ -132,17 +138,21 @@ def decode(
     for i in range(len(b) // width):
         start = i * width
         end = start + width
-        to_return.append(
-            int.from_bytes(b[start:end], byteorder=byteorder, signed=signed)
-        )
+        res_int = int.from_bytes(b[start:end], byteorder=byteorder, signed=signed)
+        result = hex(res_int) if hex_mode else res_int
+        to_return.append(result)
     return to_return
 
 
 def encode(
-    lst: List[int],
+    lst: List[str | int],
     width,
     byteorder: Union[Literal["little"], Literal["big"]] = "little",
     signed: bool = False,
+    hex_mode: bool = False,
 ) -> bytes:
-    """Return the `width`-wide byte representation of lst with byteorder"""
-    return b"".join(i.to_bytes(width, byteorder, signed=signed) for i in lst)
+    if hex_mode:
+        return b"".join(int(i, 0).to_bytes(width, byteorder, signed=False) for i in lst)
+    else:
+        """Return the `width`-wide byte representation of lst with byteorder"""
+        return b"".join(i.to_bytes(width, byteorder, signed=signed) for i in lst)

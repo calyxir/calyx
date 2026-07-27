@@ -246,6 +246,15 @@ pub fn ast_to_ir(
         .map(|comp| build_component(comp, &mut sig_ctx, config))
         .collect::<Result<_, _>>()?;
 
+    let decls: Vec<Component> = workspace
+        .declarations
+        .into_iter()
+        .map(|comp| {
+            log::debug!("adding decl {:?}", comp.name);
+            build_component(comp, &mut sig_ctx, config)
+        })
+        .collect::<Result<_, _>>()?;
+
     // Find the entrypoint for the program.
     let entrypoint = comps
         .iter()
@@ -256,6 +265,8 @@ pub fn ast_to_ir(
 
     Ok(Context {
         components: comps,
+        decls,
+        comp_origins: workspace.comp_origins,
         lib: sig_ctx.lib,
         bc: BackendConf::default(),
         entrypoint,

@@ -18,6 +18,7 @@ op(
     },
 );
 
+export let axi_setup = wrapper_setup;
 fn wrapper_setup(e) {
     // Define a `gen-axi` rule that invokes our Python code generator program.
     // For now point to standalone axi-generator.py. Can maybe turn this into a rsrc file?
@@ -42,16 +43,22 @@ fn wrapper_setup(e) {
     e.config_var_or("python", "python", "python3");
 
     e.rule("gen-axi", "$python $axi-generator $python_args $in > $out");
-
-    // Define a simple `combine` rule that just concatenates any numer of files.
-    e.rule("combine", "cat $in > $out");
-
-    // Removes imports and `external` primitive blocks added by passes by removing
-    // everything up until the first line containing `component main`
     e.rule(
-        "remove-imports",
-        "sed '1,/component main/{/component main/!d; }' $in > $out",
+            "add-import",
+            `awk '/import.*/,/import.*/{if (!f){print "import \"$imp-path\";";f=1;print;next}}; 1 ' $in > $out`,
+        );
+
+    e.rule(
+           "calyx-add-axi",
+           "$calyx-exe -l $calyx-lib-path -l $axi-path -p none $args $in > $out",
     );
+
+    e.rule(
+           "calyx-add-axi-with-mem",
+           "$calyx-exe -l $calyx-lib-path -l $axi-path -l $mem-path -p none $args $in > $out",
+    );
+
+
 }
 
 /// Replace the extension in `path` with `new_ext`
@@ -73,15 +80,18 @@ fn axi_wrapped_op(e, input, output) {
    let refified_calyx = replace_ext(`refified_${file_name}`, "futil");
    e.build_cmd([refified_calyx], "calyx-pass", [input], []);
    e.arg("pass", "external-to-ref");
-   e.arg("args", "-x external-to-ref:activate=true");
+   e.arg("args", "-x external-to-ref:activate=true -m file" );
 
    let axi_wrapper = "axi_wrapper.futil";
    e.build_cmd([axi_wrapper], "gen-axi", [tmp_yxi], []);
 
-   let no_imports_calyx = `no_imports_${refified_calyx}`;
-   e.build_cmd([no_imports_calyx], "remove-imports", [refified_calyx], []);
+   let with_import_calyx = `with_axi_${refified_calyx}`;
+   e.build_cmd([with_import_calyx], "add-import", [refified_calyx], [axi_wrapper]);
+   e.arg("imp-path", axi_wrapper);
 
-   e.build_cmd([output], "combine", [axi_wrapper, no_imports_calyx], []);
+
+   e.build_cmd([output], "calyx-add-axi", [with_import_calyx], []);
+   e.arg("axi-path", "axi_wrapper.futil");
 }
 
 op(

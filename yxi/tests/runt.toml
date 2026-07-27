@@ -1,0 +1,143 @@
+ver = "0.4.1"
+
+[[tests]]
+name = "[legacy] Cocotb correctness tests"
+paths = [
+  "../tests/xilinx/cocotb/dot-product/",
+  "../tests/xilinx/cocotb/vectorized-add/",
+]
+cmd = """
+mkdir -p {}/hdl && \
+dir_name=$(basename {}) && \
+fud e -q --from calyx {}/${dir_name}.futil --to synth-verilog -o {}/hdl/main.sv &&\
+  fud e -q --from calyx {}/${dir_name}.futil --to axi-wrapper -o {}/hdl/toplevel.v
+
+cd {}/../ && \
+make --silent -B TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL |\
+    grep -E '^Output:' |\
+    sed 's/Output://g' &&\
+  make clean && \
+  rm -f results.xml
+
+"""
+
+
+# Assumes same basename for .futil and .yxi
+# TODO(nnavarro): Change paths to `yxi/tests/axi/*/*-vec-add.futil` when calyx-AXI wrapper is fixed
+# TODO: regularise path
+[[tests]]
+name = "cocotb axi: read-compute-write"
+paths = ["axi/read-compute-write/*-vec-add.futil"]
+cmd = """
+ dynamic=$(head -n 2 {} | tail -n 1 | cut -c 4-) && \
+ dirname=$(dirname {}) && \
+ filename=$(basename {} .futil) && \
+ fud2 {} --to calyx --through axi-wrapped --set ${dynamic} -o compiled/axi-wrapped.futil 2> /dev/null && \
+ fud2 compiled/axi-wrapped.futil --from calyx --to verilog-noverify -o compiled/axi-wrapped.v 2> /dev/null && \
+ fud2 compiled/axi-wrapped.v --from verilog-noverify --to cocotb-axi --set sim.data=${dirname}/../vectorized-add.data 2> /dev/null
+ """
+
+[[tests]]
+name="cocotb axi: polybench"
+paths = ["../../cider/tests/benchmarks/polybench/*.fuse"]
+cmd="""
+  filename=$(basename {} .fuse) && \
+  fud2 --from dahlia --to calyx {} -o compiled/${filename}.futil &&\
+  jq -f ../../tools/mem_flat/data_flat.jq -S {}.data > compiled/${filename}.data &&\
+fud2 compiled/${filename}.futil --to calyx --through axi-wrapped-flat -o compiled/${filename}-axi-wrapped.futil -q && \
+fud2 compiled/${filename}-axi-wrapped.futil --to cocotb-axi -s sim.data=compiled/${filename}.data -q |
+  jq -f ../sim_clean.jq -S
+  
+"""
+
+# only binheap has actual data, and is not too long for yxi to handle
+[[tests]]
+name="cocotb axi: queues"
+paths = [
+  "../../frontends/queues/tests/binheap/binheap_test.py",
+]
+cmd="""
+  filename=$(basename {} .py) && \
+  dir=$(dirname {}) &&
+  python3 {} 20000 --keepgoing > compiled/${filename}.futil &&\
+  fud2 compiled/${filename}.futil --to calyx --through axi-wrapped -o compiled/${filename}-axi-wrapped.futil -q && \
+  fud2 compiled/${filename}-axi-wrapped.futil --to cocotb-axi -s sim.data=${dir}/${filename}.data -q | jq -f ../sim_clean.jq -S
+"""
+
+[[tests]]
+name = "cocotb axi: exp"
+paths = ["../../tests/correctness/exp/*.txt"]
+expect_dir = "expect/exp"
+cmd = """
+filename=$(basename {} .txt) && \
+dir=$(dirname {}) && \
+python3 ../../calyx-py/calyx/gen_exp.py {} > compiled/${filename}.futil &&\
+fud2 compiled/${filename}.futil --to calyx --through axi-wrapped -o compiled/${filename}-axi-wrapped.futil -q && \
+../../target/debug/auxin $dir/${filename}.txt.data -x --to json > compiled/${filename}-hex.data &&\
+fud2 compiled/${filename}-axi-wrapped.futil --to cocotb-axi --set sim.data=compiled/${filename}-hex.data -s hex=true > compiled/${filename}-out.data 2> /dev/null &&\
+../../target/debug/auxin compiled/${filename}-out.data --to json | jq -f ../sim_clean.jq -S
+"""
+
+[[tests]]
+name = "cocotb axi: ntt"
+paths = ["../../tests/correctness/ntt-pipeline/*.txt"]
+expect_dir = "expect/ntt"
+cmd = """
+filename=$(basename {} .txt) &&\
+fud2 --from ntt {} --to calyx -q -o compiled/${filename}.futil &&\
+fud2 compiled/${filename}.futil --to calyx --through axi-wrapped -o compiled/${filename}-axi-wrapped.futil -q && \
+fud2 compiled/${filename}-axi-wrapped.futil --to cocotb-axi --set sim.data={}.data -q | jq -f ../sim_clean.jq -S
+"""
+
+[[tests]]
+name = "cocotb axi: skid buffers"
+paths = ["../../tests/correctness/skid-buffers/*.futil"]
+cmd ="""
+filename=$(basename {} .futil) &&\
+fud2 {} --to calyx --through axi-wrapped -o compiled/{}-axi-wrapped.futil 2> /dev/null && \
+fud2 compiled/{}-axi-wrapped.futil --to cocotb-axi --set sim.data={}.data -q | jq -f ../sim_clean.jq -S
+"""
+
+
+[[tests]]
+name = "cocotb axi: dahlia examples"
+paths = ["../../examples/dahlia/*.fuse"]
+expect_dir = "expect/dahlia"
+cmd ="""
+filename=$(basename {} .fuse) &&\
+fud2 --from dahlia --to calyx {} -o compiled/${filename}.futil &&\
+fud2 compiled/${filename}.futil --to calyx --through axi-wrapped -o compiled/${filename}-axi-wrapped.futil 2> /dev/null && \
+ fud2 compiled/${filename}-axi-wrapped.futil --to cocotb-axi --set sim.data={}.data -q | jq -f ../sim_clean.jq -S
+"""
+
+[[tests]]
+name = "cocotb axi: static tree edges"
+paths = ["../../tests/correctness/static-tree-edge/*.futil"]
+expect_dir = "expect/static-tree-edge"
+cmd ="""
+filename=$(basename {} .futil) &&\
+fud2 {} --to calyx --through axi-wrapped -o compiled/${filename}-axi-wrapped.futil 2> /dev/null && \
+ fud2 compiled/${filename}-axi-wrapped.futil --to cocotb-axi --set sim.data={}.data -q | jq -f ../sim_clean.jq -S
+"""
+
+[[tests]]
+name = "cocotb axi: correctness mems"
+paths = ["../../tests/correctness/seq-mem-*.futil"]
+cmd ="""
+filename=$(basename {} .futil) &&\
+fud2 {} --to calyx --through axi-wrapped-flat -o compiled/${filename}-axi-wrapped.futil -q && \
+jq -f ../../tools/mem_flat/data_flat.jq -S {}.data > compiled/${filename}.data && \
+ fud2 compiled/${filename}-axi-wrapped.futil --to cocotb-axi --set sim.data=compiled/${filename}.data -q | jq -f ../sim_clean.jq -S
+"""
+
+[[tests]]
+name = "cocotb axi: correctness static-control"
+paths= ["../../tests/correctness/static-control/par-repeat.futil"]
+expect_dir = "expect/static-control"
+cmd ="""
+filename=$(basename {} .futil) &&\
+fud2 {} --to calyx --through axi-wrapped-flat -o compiled/${filename}-axi-wrapped.futil -q && \
+jq -f ../../tools/mem_flat/data_flat.jq -S {}.data > compiled/${filename}.data && \
+ fud2 compiled/${filename}-axi-wrapped.futil --to cocotb-axi --set sim.data=compiled/${filename}.data -q | jq -f ../sim_clean.jq -S
+"""
+

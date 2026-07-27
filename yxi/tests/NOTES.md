@@ -1,0 +1,3 @@
+- while the ``relay`` frontend tests are *possibly* useable with ``yxi``, it is very bitrotted. in testing, relay programs did not always compile and/or perform computation.
+- ``polybench/doitgen`` will fail because the memory it uses is too large to generate an axi wrapper for.
+- 

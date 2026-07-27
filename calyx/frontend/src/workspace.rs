@@ -6,7 +6,7 @@ use crate::{LibrarySignatures, source_info::SourceInfoTable};
 use calyx_utils::{CalyxResult, Error, WithPos};
 use itertools::Itertools;
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
 };
 
@@ -47,6 +47,8 @@ pub struct Workspace {
     pub declarations: Vec<ComponentDef>,
     /// Absolute path to extern definitions and primitives defined by them.
     pub lib: LibrarySignatures,
+    /// maps a canonicalised import to which components it contains.
+    pub comp_origins: HashMap<String, Vec<calyx_utils::Id>>,
     /// Original import statements present in the top-level file.
     pub original_imports: Vec<String>,
     /// Optional opaque metadata attached to the top-level file.
@@ -218,6 +220,7 @@ impl Workspace {
         lib_paths: &[PathBuf],
     ) -> CalyxResult<Vec<(PathBuf, bool)>> {
         // Canonicalize the extern paths and add them
+
         for (path, exts) in ns.externs {
             match path {
                 Some(p) => {
@@ -255,6 +258,7 @@ impl Workspace {
             self.components.extend(&mut ns.components.into_iter());
         }
         // Return the canonical location of import paths
+
         let deps = ns
             .imports
             .into_iter()
@@ -333,7 +337,19 @@ impl Workspace {
             if already_imported.contains(&p) {
                 continue;
             }
+            log::info!(
+                "merging dependency path {}: is source? {}",
+                p.to_str().unwrap(),
+                source
+            );
+
             let ns = parser::CalyxParser::parse_file(&p)?;
+
+            // while not used currently, comp_origins maps path to component names, in case it is ever useful.
+            ws.comp_origins.insert(
+                String::from(p.to_str().unwrap()),
+                ns.components.iter().map(|c| c.name).collect(),
+            );
             let parent = Self::get_parent(&p);
 
             let mut deps = ws.merge_namespace(
@@ -347,6 +363,7 @@ impl Workspace {
 
             already_imported.insert(p);
         }
+
         Ok(ws)
     }
 }

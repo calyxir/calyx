@@ -257,7 +257,7 @@ fud2 --from calyx --to jq \
      -s sim.data={}.data \
      -s verilog.cycle_limit=500 \
      -s jq.expr=".memories" \
-     {} -q
+     {} -q | jq -f tools/mem_flat/sim_flat.jq
 """
 timeout = 120
 
@@ -276,7 +276,7 @@ fud2 --from calyx --to jq \
      -s verilog.cycle_limit=500 \
      -s sim.data={}.data \
      -s jq.expr=".memories" \
-     {} -q
+     {} -q | jq -f tools/mem_flat/sim_flat.jq
 """
 timeout = 120
 
@@ -295,7 +295,7 @@ fud2 --from calyx --to jq \
          -s sim.cycle_limit=550 \
          -s sim.data={}.data \
          -s jq.expr=".memories" \
-         {} -q
+         {} -q | jq -f tools/mem_flat/sim_flat.jq
 """
 timeout = 120
 
@@ -314,7 +314,7 @@ fud2 --from calyx --to jq \
      -s verilog.cycle_limit=500 \
      -s sim.data={}.data \
      -s jq.expr=".memories" \
-     {} -q
+     {} -q | jq -f tools/mem_flat/sim_flat.jq
 """
 timeout = 120
 
@@ -332,7 +332,7 @@ fud2 --from calyx --to jq \
      -s verilog.cycle_limit=500 \
      -s sim.data={}.data \
      -s jq.expr=".memories" \
-     {} -q
+     {} -q | jq -f tools/mem_flat/sim_flat.jq
 """
 timeout = 120
 
@@ -346,7 +346,7 @@ fud2 --from calyx --to jq \
      -s verilog.cycle_limit=500 \
      -s sim.data={}.data \
      -s jq.expr=".memories" \
-     {} -q
+     {} -q | jq -f tools/mem_flat/sim_flat.jq
 """
 timeout = 120
 
@@ -361,7 +361,7 @@ fud2 --from calyx --to jq \
      -s calyx.flags=' --nested' \
      -s verilog.cycle_limit=500 \
      -s jq.expr=".memories" \
-     {} -q
+     {} -q | jq -f tools/mem_flat/sim_flat.jq
 """
 timeout = 120
 
@@ -682,42 +682,24 @@ cmd = """
 python3 yxi/xml/xml_generator.py {}
 """
 
+[[tests]]
+name = "mem-flat wrapper generation"
+paths = ["tests/correctness/seq-mem-d4-add.futil"]
+expect_dir = "tools/mem_flat/test"
+cmd = """
+  fud2 --through mem_flat {} --to calyx
+"""
 
 [[tests]]
-name = "Cocotb correctness tests"
-paths = [
-  "tests/xilinx/cocotb/dot-product/",
-  "tests/xilinx/cocotb/vectorized-add/",
-]
+name = "mem-flat exec correctness"
+paths = ["tests/correctness/seq-mem-d4-add.futil"]
 cmd = """
-mkdir -p {}/hdl && \
-dir_name=$(basename {}) && \
-fud e -q --from calyx {}/${dir_name}.futil --to synth-verilog -o {}/hdl/main.sv &&\
-  fud e -q --from calyx {}/${dir_name}.futil --to axi-wrapper -o {}/hdl/toplevel.v
-
-cd {}/../ && \
-make --silent -B TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL |\
-    grep -E '^Output:' |\
-    sed 's/Output://g' &&\
-  make clean && \
-  rm -f results.xml
-
+  fud2 --through mem_flat {} --to calyx -o compiled/seq.futil &&\
+  jq -f tools/mem_flat/data_flat.jq {}.data > compiled/tmp.data &&\
+  fud2 compiled/seq.futil --from calyx --to jq --through icarus -s sim.data=compiled/tmp.data -s jq.expr=".memories" -q
 """
 
 
-# Assumes same basename for .futil and .yxi
-# TODO(nnavarro): Change paths to `yxi/tests/axi/*/*-vec-add.futil` when calyx-AXI wrapper is fixed
-[[tests]]
-name = "Cocotb axi wrapper correctness test"
-paths = ["yxi/tests/axi/read-compute-write/*-vec-add.futil"]
-cmd = """
- dynamic=$(head -n 2 {} | tail -n 1 | cut -c 4-) && \
- dirname=$(dirname {}) && \
- filename=$(basename {} .futil) && \
- fud2 {} --to calyx --through axi-wrapped --set ${dynamic} -o axi-wrapped.futil 2> /dev/null && \
- fud2 axi-wrapped.futil --from calyx --to verilog-noverify -o axi-wrapped.v 2> /dev/null && \
- fud2 axi-wrapped.v --from verilog-noverify --to cocotb-axi --set sim.data=${dirname}/../vectorized-add.data 2> /dev/null
- """
 
 ### Profiling test
 [[tests]]

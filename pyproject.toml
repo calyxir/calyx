@@ -2,7 +2,9 @@
 name = "calyx-tools"
 authors = []
 requires-python = ">=3.13"
-dependencies = ["calyx-ast"]
+dependencies = [
+    "calyx-ast",
+]
 version = "0.1.0"
 
 [tool.uv.sources]
@@ -50,4 +52,10 @@ fud2_scripts = [
     # is a medium-term goal to split out this functionality to make it
     # independent of the `fud` package, so we can eventually remove the latter.
     "fud",
+]
+
+yxi_test = [
+    "cocotb==1.8.1",
+    "cocotbext-axi>=0.1.26",
+
 ]

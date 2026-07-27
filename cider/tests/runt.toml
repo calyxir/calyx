@@ -243,7 +243,7 @@ fud2 --from dahlia --to dat \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
          -s cider.flags="--check-data-race" \
-         {}
+         {} | jq -f ../../tools/mem_flat/sim_flat.jq
 """
 timeout = 180
 

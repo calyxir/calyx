@@ -1364,12 +1364,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
         .filter_map(|cell| {
             let is_external = cell.borrow().get_attribute(ir::BoolAttr::External).is_some();
             if is_external
-                && cell
-                    .borrow()
-                    .type_name()
-                    // HACK: Check if the name of the primitive contains the string "mem"
-                    .map(|proto| proto.id.as_str().contains("mem"))
-                    .unwrap_or_default()
+                && ir::utils::cell_is_mem(&cell.borrow())
             {
                 Some((
                     cell.borrow().name().id,

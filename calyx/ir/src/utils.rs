@@ -19,10 +19,20 @@ pub fn external_and_ref_memories_cells(comp: &Component) -> Vec<RRC<Cell>> {
         // find external and ref memories
         .filter(|cell_ref| {
             let cell = cell_ref.borrow();
-            cell.attributes.has(BoolAttr::External) || cell.is_reference()
+            cell_is_mem(&cell)
+                && (cell.attributes.has(BoolAttr::External)
+                    || cell.is_reference())
         })
         .cloned()
         .collect()
+}
+
+// NOTE: hacky, should probably find a better solution
+pub fn cell_is_mem(cell: &Cell) -> bool {
+    let Some(prot_name) = cell.type_name() else {
+        return false;
+    };
+    prot_name.to_string().contains("mem")
 }
 
 #[cfg_attr(feature = "serialize", derive(Serialize))]
@@ -44,6 +54,9 @@ pub struct MemInfo {
     pub total_size: u64,
     //idx port width, in case size is ambiguous
     pub idx_sizes: Vec<u64>,
+
+    pub is_extern: bool,
+    pub is_ref: bool,
 }
 
 // Returns a vector of tuples containing memory info of [comp] of form:
@@ -92,7 +105,9 @@ impl GetMemInfo for Vec<RRC<Cell>> {
                       dimensions,
                       dimension_sizes,
                       total_size,
-                      idx_sizes
+                      idx_sizes,
+                    is_extern: mem.attributes.has(BoolAttr::External),
+                    is_ref: mem.is_reference()
                   }
               })
               .collect()

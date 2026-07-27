@@ -4,7 +4,7 @@ export let cocotb_axi = state("cocotb-axi", ["dat"]);
 
 export let cocotb_setup = cocotb_setup;
 fn cocotb_setup(e) {
-    e.config_var_or("cocotb-makefile-dir", "cocotb.makefile-dir", "$calyx-base/yxi/axi-calyx/cocotb");
+    e.config_var_or("cocotb-makefile-dir", "cocotb.makefile-dir", "$calyx-base/yxi/cocotb");
     // TODO (nate): this is duplicated from the sim_setup above. Can this be shared?
     // The input data file. `sim.data` is required.
     let data_name = e.config_val("sim.data");
@@ -18,15 +18,26 @@ fn cocotb_setup(e) {
         `sed '/\/\/ COMPONENT END: wrapper/c\` + "ifdef COCOTB_SIM\n  initial begin\n" + `    \$$dumpfile ("$fst_file_name");` + "\n    " + `\$$dumpvars (0, wrapper);` + "\n    1;\n  end\n`endif\n" + `\/\/ COMPONENT END: wrapper' $in > $out`);
     }
 
-    e.var_("cocotb-args", if waves == "true" {"WAVES=1"} else {""});
-    e.rule("make-cocotb", "make DATA_PATH=$sim_data VERILOG_SOURCE=$in COCOTB_LOG_LEVEL=CRITICAL $cocotb-args > $out");
+    let hex = e.config_constrained_or("hex", ["true", "false"], "false");
+
+    let args = "";
+    if waves == "true"{
+        args += "WAVES=1";
+    }
+    if hex == "true"{
+        args += " HEX_MODE=1";
+    }
+    
+    e.var_("cocotb-args", args);
+    e.rule("make-cocotb", "make DATA_PATH=$sim_data VERILOG_SOURCE=$in $cocotb-args > $out");
 
     // Cocotb is wants files relative to the location of the makefile.
     // This is annoying to calculate on the fly, so we just copy necessary files to the build directory
     e.rule("copy", "cp $in $out");
+
     // This cleans up the extra `make` cruft, leaving what is in between `{` and `}.`
     e.rule(
-      "cleanup-cocotb", `sed -n '/Output:/,/make\[1\]/{/Output:/d;/make\[1\]/d;p;}' $in > $out`
+      "cleanup-cocotb", `cat $in | $calyx-base/yxi/cocotb_results.awk > $out`
     );
 }
 
