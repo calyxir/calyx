@@ -36,6 +36,7 @@ cmd = """
  fud2 axi-wrapped.v --from verilog-noverify --to cocotb-axi --set sim.data=${dirname}/../vectorized-add.data 2> /dev/null
  """
 
+# TODO: needs flattened reference: remove axi/polybench
 [[tests]]
 name="cocotb axi: polybench"
 paths = ["../../cider/tests/benchmarks/polybench/*.fuse"]
@@ -51,6 +52,7 @@ fud2 compiled/${filename}-axi-wrapped.futil --to cocotb-axi -s sim.data=compiled
 """
 
 # only binheap has actual data
+# TODO: add more, now that know script exists?
 [[tests]]
 name="cocotb axi: queues"
 paths = [
@@ -73,11 +75,12 @@ filename=$(basename {} .txt) && \
 dir=$(dirname {}) && \
 python3 ../../calyx-py/calyx/gen_exp.py {} > compiled/${filename}.futil &&\
 fud2 compiled/${filename}.futil --to calyx --through axi-wrapped -o compiled/${filename}-axi-wrapped.futil -q && \
-../../target/debug/cider-data-converter $dir/${filename}.txt.data -x --to json > compiled/${filename}-hex.data &&\
+../../target/debug/auxin $dir/${filename}.txt.data -x --to json > compiled/${filename}-hex.data &&\
 fud2 compiled/${filename}-axi-wrapped.futil --to cocotb-axi --set sim.data=compiled/${filename}-hex.data -s hex=true > compiled/${filename}-out.data 2> /dev/null &&\
-../../target/debug/cider-data-converter compiled/${filename}-out.data --to json 
+../../target/debug/auxin compiled/${filename}-out.data --to json 
 """
 
+# TODO: also wants cycle counts
 [[tests]]
 name = "cocotb axi: ntt"
 paths = ["../../tests/correctness/ntt-pipeline/*.txt"]

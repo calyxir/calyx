@@ -21,6 +21,7 @@ fn axi_wrapped_flat_op(e, input, output) {
    let flat_file = `flat_${file_name}`;
    e.build_cmd([flat_file], "calyx-mem-flat", [flat_pre], [memwrap]);
    e.arg("mem-flat-path", memwrap);
+   e.arg("args", "-m file");
 
   let flat_yxi = replace_ext(`flat_${file_name}`, "yxi");
   e.build_cmd([flat_yxi], "yxi", [flat_file], []);
