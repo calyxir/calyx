@@ -1,6 +1,6 @@
 ---
 source: fud2/tests/tests.rs
-description: "emit request: dahlia -> calyx through axi-wrapped"
+description: "emit request: dahlia -> calyx through dahlia-to-calyx axi-wrapped"
 ---
 build-tool = fud2
 rule get-rsrc
@@ -38,12 +38,12 @@ rule combine
 rule remove-imports
   command = sed '1,/component main/{/component main/!d; }' $in > $out
 
-build calyx_1.futil: dahlia-to-calyx start.fuse
+build calyx_1.futil: dahlia-to-calyx dahlia_0.fuse
 build calyx_1.yxi: yxi calyx_1.futil
 build refified_calyx_1.futil: calyx-pass calyx_1.futil
   pass = external-to-ref
 build axi_wrapper.futil: gen-axi calyx_1.yxi
 build no_imports_refified_calyx_1.futil: remove-imports refified_calyx_1.futil
-build tmp.futil: combine axi_wrapper.futil no_imports_refified_calyx_1.futil
+build calyx_2.futil: combine axi_wrapper.futil no_imports_refified_calyx_1.futil
 
-default tmp.futil
+default calyx_2.futil

@@ -342,7 +342,15 @@ fn axi_wrapped_test_with_output_file() {
 #[test]
 fn axi_wrapped_test_without_output_file() {
     let driver = test_driver();
-    request(&driver, &["dahlia"], &["calyx"], &["axi-wrapped"]).test(&driver);
+    // dahlia-to-calyx is redundant here but needed because otherwise there is a race condition as this looks
+    // very similar to the `axi_wrapped_test_with_output_file` and insta can't tell them apart.
+    request(
+        &driver,
+        &["dahlia"],
+        &["calyx"],
+        &["dahlia-to-calyx", "axi-wrapped"],
+    )
+    .test(&driver);
 }
 
 #[test]
