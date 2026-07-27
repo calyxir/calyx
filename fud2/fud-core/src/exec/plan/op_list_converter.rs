@@ -85,13 +85,12 @@ pub fn prog_from_op_list(
                     .0
                     == op_ref
             {
-                
                 plan.path_ref(p)
             } else {
                 state_idx[s] += 1;
                 let empty = "".to_string();
                 let ext = states[s].extensions.first().unwrap_or(&empty);
-                
+
                 plan.path_ref(
                     &Utf8PathBuf::from(format!(
                         "{}_{}",
