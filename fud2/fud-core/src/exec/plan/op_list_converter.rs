@@ -109,7 +109,6 @@ pub fn prog_from_op_list(
     // Only generate one of each output state. This is a hack which sometimes improves assignment quality.
     out_to_push.reverse();
     out_to_push.dedup_by_key(|&mut (_, s)| s);
-    println!("{:?}", out_to_push);
     for &(i, s) in out_to_push
         .iter()
         .filter(|(_, s)| req.end_states.contains(s))

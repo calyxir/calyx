@@ -197,19 +197,15 @@ fn request_with_planner(
     through: &[&str],
     planner: impl FindPlan + 'static,
 ) -> Request {
-    fud_core::exec::Request {
-        start_files: vec![],
-        start_states: start
-            .iter()
-            .map(|s| driver.get_state(s).unwrap())
-            .collect(),
-        end_files: vec![],
-        end_states: end.iter().map(|s| driver.get_state(s).unwrap()).collect(),
-        through: through.iter().map(|s| driver.get_op(s).unwrap()).collect(),
-        workdir: ".".into(),
-        planner: Box::new(planner),
-        timing_csv: None,
-    }
+    request_with_planner_and_files(
+        driver,
+        start,
+        &[],
+        end,
+        &[],
+        through,
+        planner,
+    )
 }
 
 fn request_with_planner_and_files(
