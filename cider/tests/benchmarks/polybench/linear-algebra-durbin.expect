@@ -1,32 +1,53 @@
 {
-  "r_int": [
-    80,
-    54,
-    53,
-    85,
-    94,
-    5,
-    3,
-    92
-  ],
-  "y_int": [
-    0,
-    4294967295,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-  ],
-  "z_int": [
-    0,
-    4294967295,
-    0,
-    0,
-    0,
-    0,
-    0,
-    3
-  ]
+  "r_int": {
+    "data": [
+      80,
+      54,
+      53,
+      85,
+      94,
+      5,
+      3,
+      92
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "y_int": {
+    "data": [
+      0,
+      4294967295,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "z_int": {
+    "data": [
+      0,
+      4294967295,
+      0,
+      0,
+      0,
+      0,
+      0,
+      3
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  }
 }

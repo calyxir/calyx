@@ -1,35 +1,112 @@
 {
-  "add_reg": [
-    409
-  ],
-  "and_reg": [
-    8
-  ],
-  "eq_reg": [
-    1
-  ],
-  "ge_reg": [
-    1
-  ],
-  "gt_reg": [
-    0
-  ],
-  "le_reg": [
-    1
-  ],
-  "lt_reg": [
-    0
-  ],
-  "neq_reg": [
-    0
-  ],
-  "or_reg": [
-    15
-  ],
-  "sub_reg": [
-    391
-  ],
-  "xor_reg": [
-    7
-  ]
+  "add_reg": {
+    "data": [
+      409
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "and_reg": {
+    "data": [
+      8
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "eq_reg": {
+    "data": [
+      1
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 1
+    }
+  },
+  "ge_reg": {
+    "data": [
+      1
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 1
+    }
+  },
+  "gt_reg": {
+    "data": [
+      0
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 1
+    }
+  },
+  "le_reg": {
+    "data": [
+      1
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 1
+    }
+  },
+  "lt_reg": {
+    "data": [
+      0
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 1
+    }
+  },
+  "neq_reg": {
+    "data": [
+      0
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 1
+    }
+  },
+  "or_reg": {
+    "data": [
+      15
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "sub_reg": {
+    "data": [
+      391
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "xor_reg": {
+    "data": [
+      7
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  }
 }

@@ -1,14 +1,42 @@
 {
-  "mult_reg0": [
-    0
-  ],
-  "mult_reg1": [
-    32
-  ],
-  "reg0": [
-    0
-  ],
-  "reg1": [
-    12
-  ]
+  "mult_reg0": {
+    "data": [
+      0
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "mult_reg1": {
+    "data": [
+      32
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "reg0": {
+    "data": [
+      0
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "reg1": {
+    "data": [
+      12
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  }
 }

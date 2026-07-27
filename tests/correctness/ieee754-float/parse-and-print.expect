@@ -1,9 +1,23 @@
 {
-  "inp": [
-    15.1239
-  ],
-  "out": [
-    15.1239,
-    0.56
-  ]
+  "inp": {
+    "data": [
+      15.1239
+    ],
+    "format": {
+      "numeric_type": "ieee754float",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "out": {
+    "data": [
+      15.1239,
+      0.56
+    ],
+    "format": {
+      "numeric_type": "ieee754float",
+      "is_signed": false,
+      "width": 32
+    }
+  }
 }

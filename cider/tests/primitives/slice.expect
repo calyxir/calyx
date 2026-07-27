@@ -1,14 +1,42 @@
 {
-  "reg0": [
-    0
-  ],
-  "reg1": [
-    1
-  ],
-  "reg14": [
-    14
-  ],
-  "reg15": [
-    15
-  ]
+  "reg0": {
+    "data": [
+      0
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 1
+    }
+  },
+  "reg1": {
+    "data": [
+      1
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 1
+    }
+  },
+  "reg14": {
+    "data": [
+      14
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 4
+    }
+  },
+  "reg15": {
+    "data": [
+      15
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 4
+    }
+  }
 }

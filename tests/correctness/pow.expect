@@ -1,11 +1,32 @@
 {
-  "base": [
-    2
-  ],
-  "exp": [
-    10
-  ],
-  "out": [
-    1024
-  ]
+  "base": {
+    "data": [
+      2
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    }
+  },
+  "exp": {
+    "data": [
+      10
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "out": {
+    "data": [
+      1024
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    }
+  }
 }

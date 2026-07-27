@@ -1,8 +1,22 @@
 {
-  "i": [
-    8
-  ],
-  "lt_reg": [
-    0
-  ]
+  "i": {
+    "data": [
+      8
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "lt_reg": {
+    "data": [
+      0
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 1
+    }
+  }
 }

@@ -1,5 +1,12 @@
 {
-  "result": [
-    20
-  ]
+  "result": {
+    "data": [
+      20
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  }
 }

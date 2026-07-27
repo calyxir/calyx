@@ -1,25 +1,46 @@
 {
-  "mem0": [
-    0,
-    0,
-    0,
-    2,
-    1,
-    0,
-    0,
-    0
-  ],
-  "mem1": [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0
-  ],
-  "reg0": [
-    1
-  ]
+  "mem0": {
+    "data": [
+      0,
+      0,
+      0,
+      2,
+      1,
+      0,
+      0,
+      0
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "mem1": {
+    "data": [
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "reg0": {
+    "data": [
+      1
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  }
 }

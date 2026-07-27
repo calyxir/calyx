@@ -1,8 +1,22 @@
 {
-  "reg_q": [
-    11
-  ],
-  "reg_r": [
-    1
-  ]
+  "reg_q": {
+    "data": [
+      11
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "reg_r": {
+    "data": [
+      1
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  }
 }

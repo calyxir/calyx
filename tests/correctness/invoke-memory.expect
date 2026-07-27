@@ -1,16 +1,30 @@
 {
-  "d": [
-    1,
-    2,
-    3,
-    4,
-    5
-  ],
-  "s": [
-    1,
-    2,
-    3,
-    4,
-    5
-  ]
+  "d": {
+    "data": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "s": {
+    "data": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  }
 }

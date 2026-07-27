@@ -1,14 +1,46 @@
 {
-  "radicand_31": [
-    16.25
-  ],
-  "radicand_32": [
-    16.25
-  ],
-  "root_31": [
-    4.0311279296875
-  ],
-  "root_32": [
-    4.0311279296875
-  ]
+  "radicand_31": {
+    "data": [
+      16.25
+    ],
+    "format": {
+      "numeric_type": "fixed",
+      "is_signed": false,
+      "width": 31,
+      "frac_width": 16
+    }
+  },
+  "radicand_32": {
+    "data": [
+      16.25
+    ],
+    "format": {
+      "numeric_type": "fixed",
+      "is_signed": false,
+      "width": 32,
+      "frac_width": 16
+    }
+  },
+  "root_31": {
+    "data": [
+      4.0311279296875
+    ],
+    "format": {
+      "numeric_type": "fixed",
+      "is_signed": false,
+      "width": 31,
+      "frac_width": 16
+    }
+  },
+  "root_32": {
+    "data": [
+      4.0311279296875
+    ],
+    "format": {
+      "numeric_type": "fixed",
+      "is_signed": false,
+      "width": 32,
+      "frac_width": 16
+    }
+  }
 }

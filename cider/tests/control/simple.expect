@@ -1,11 +1,32 @@
 {
-  "r1": [
-    50
-  ],
-  "r2": [
-    100
-  ],
-  "r3": [
-    150
-  ]
+  "r1": {
+    "data": [
+      50
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "r2": {
+    "data": [
+      100
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "r3": {
+    "data": [
+      150
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  }
 }

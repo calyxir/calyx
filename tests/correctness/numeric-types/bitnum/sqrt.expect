@@ -1,14 +1,42 @@
 {
-  "radicand_31": [
-    16
-  ],
-  "radicand_32": [
-    16
-  ],
-  "root_31": [
-    4
-  ],
-  "root_32": [
-    4
-  ]
+  "radicand_31": {
+    "data": [
+      16
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 31
+    }
+  },
+  "radicand_32": {
+    "data": [
+      16
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "root_31": {
+    "data": [
+      4
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 31
+    }
+  },
+  "root_32": {
+    "data": [
+      4
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  }
 }

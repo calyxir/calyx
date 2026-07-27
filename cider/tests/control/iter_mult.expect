@@ -1,17 +1,52 @@
 {
-  "a": [
-    8
-  ],
-  "c": [
-    0
-  ],
-  "i": [
-    4
-  ],
-  "m": [
-    11
-  ],
-  "q": [
-    15
-  ]
+  "a": {
+    "data": [
+      8
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 4
+    }
+  },
+  "c": {
+    "data": [
+      0
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 1
+    }
+  },
+  "i": {
+    "data": [
+      4
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 3
+    }
+  },
+  "m": {
+    "data": [
+      11
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 4
+    }
+  },
+  "q": {
+    "data": [
+      15
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 4
+    }
+  }
 }

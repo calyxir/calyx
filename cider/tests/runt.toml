@@ -7,7 +7,7 @@ ver = "0.4.1"
 name = "unit"
 paths = ["unit/*.futil"]
 cmd = """
-../../target/debug/cider {} -l ../../ --dump-registers | ../../target/debug/auxin -f dump --to json | jq -f new_conv_adapt.jq
+../../target/debug/cider {} -l ../../ --dump-registers | ../../target/debug/auxin -f dump --to json
 """
 timeout = 10
 expect_dir = "unit"
@@ -70,7 +70,7 @@ expect_dir = "primitives"
 name = "par to seq"
 paths = ["control/par_reg.futil", "control/par_mem.futil"]
 cmd = """
-../../target/debug/calyx {} -p par-to-seq -l ../../ | ../../target/debug/cider -l ../../  --dump-registers | ../../target/debug/auxin --from dump --to json | jq -f new_conv_adapt.jq
+../../target/debug/calyx {} -p par-to-seq -l ../../ | ../../target/debug/cider -l ../../  --dump-registers | ../../target/debug/auxin --from dump --to json
 """
 timeout = 10
 expect_dir = "par-to-seq"
@@ -113,7 +113,7 @@ fud2 {} --from calyx --to dat --through cider \
 name = "fully structural"
 paths = ["control/*.futil", "control/iteration/*.futil"]
 cmd = """
-../../target/debug/calyx {} -d pre-opt -d post-opt -p simplify-with-control -l ../../ --log off | ../../target/debug/cider -l ../../  --dump-registers | ../../target/debug/auxin --from dump --to json| jq -f new_conv_adapt.jq
+../../target/debug/calyx {} -d pre-opt -d post-opt -p simplify-with-control -l ../../ --log off | ../../target/debug/cider -l ../../  --dump-registers | ../../target/debug/auxin --from dump --to json
 """
 expect_dir = "control"
 # timeout = 10

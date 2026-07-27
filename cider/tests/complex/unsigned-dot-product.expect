@@ -1,63 +1,98 @@
 {
-  "counter": [
-    4
-  ],
-  "mem0": [
-    [
-      12,
-      0,
-      0,
-      0
+  "counter": {
+    "data": [
+      4
     ],
-    [
-      10,
-      0,
-      0,
-      0
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 3
+    }
+  },
+  "mem0": {
+    "data": [
+      [
+        12,
+        0,
+        0,
+        0
+      ],
+      [
+        10,
+        0,
+        0,
+        0
+      ],
+      [
+        20,
+        0,
+        0,
+        0
+      ],
+      [
+        34,
+        0,
+        0,
+        0
+      ]
     ],
-    [
-      20,
-      0,
-      0,
-      0
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "mem1": {
+    "data": [
+      [
+        16,
+        0,
+        0,
+        0
+      ],
+      [
+        32,
+        0,
+        0,
+        0
+      ],
+      [
+        8,
+        0,
+        0,
+        0
+      ],
+      [
+        24,
+        0,
+        0,
+        0
+      ]
     ],
-    [
-      34,
-      0,
-      0,
-      0
-    ]
-  ],
-  "mem1": [
-    [
-      16,
-      0,
-      0,
-      0
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "r_2": {
+    "data": [
+      1376
     ],
-    [
-      32,
-      0,
-      0,
-      0
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "t": {
+    "data": [
+      1488
     ],
-    [
-      8,
-      0,
-      0,
-      0
-    ],
-    [
-      24,
-      0,
-      0,
-      0
-    ]
-  ],
-  "r_2": [
-    1376
-  ],
-  "t": [
-    1488
-  ]
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  }
 }

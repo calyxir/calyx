@@ -1,11 +1,32 @@
 {
-  "a": [
-    1
-  ],
-  "b": [
-    1
-  ],
-  "c": [
-    1
-  ]
+  "a": {
+    "data": [
+      1
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    }
+  },
+  "b": {
+    "data": [
+      1
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "c": {
+    "data": [
+      1
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  }
 }

@@ -1,26 +1,54 @@
 {
-  "left": [
-    127,
-    127,
-    -127,
-    -127
-  ],
-  "out_quot": [
-    18,
-    -18,
-    -18,
-    18
-  ],
-  "out_rem": [
-    1,
-    -6,
-    6,
-    -1
-  ],
-  "right": [
-    7,
-    -7,
-    7,
-    -7
-  ]
+  "left": {
+    "data": [
+      127,
+      127,
+      -127,
+      -127
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    }
+  },
+  "out_quot": {
+    "data": [
+      18,
+      -18,
+      -18,
+      18
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    }
+  },
+  "out_rem": {
+    "data": [
+      1,
+      -6,
+      6,
+      -1
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    }
+  },
+  "right": {
+    "data": [
+      7,
+      -7,
+      7,
+      -7
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    }
+  }
 }
