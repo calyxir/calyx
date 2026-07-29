@@ -48,7 +48,7 @@ class SystolicConfiguration:
         args = parser.parse_args()
 
         fields = [args.top_length, args.top_depth, args.left_length, args.left_depth]
-        if all(map(lambda x: x is not None, fields)):
+        if all(x is not None for x in fields):
             self.top_length = args.top_length
             self.top_depth = args.top_depth
             self.left_length = args.left_length
@@ -103,7 +103,7 @@ class SystolicConfiguration:
         if self.static:
             (num_out_rows, num_out_cols) = self.get_output_dimensions()
             return self.get_contraction_dimension() + num_out_rows + num_out_cols + 4
-        raise Exception(
+        raise Exception(  # noqa: TRY002
             "Cannot get iteration count for systolic array with dynamic \
             contraction dimension"
         )

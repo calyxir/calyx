@@ -1,12 +1,12 @@
 import re
-import simplejson as sjson
 from pathlib import Path
 
-from fud.stages import Stage, SourceType, Source
-from fud.utils import shell, TmpDir, log
+import simplejson as sjson
+
+from fud import errors
+from fud.stages import Source, SourceType, Stage, futil
 from fud.stages.verilator.json_to_dat import convert2dat, convert2json
-from fud.stages import futil
-import fud.errors as errors
+from fud.utils import TmpDir, log, shell
 
 
 class IcarusBaseStage(Stage):
@@ -88,22 +88,13 @@ class IcarusBaseStage(Stage):
             if json_path.data:
                 convert2dat(
                     tmp_dir.name,
-                    sjson.load(open(json_path.data), use_decimal=True),
+                    sjson.load(open(json_path.data), use_decimal=True),  # noqa: SIM115
                     "dat",
                     round_float_to_fixed,
                 )
 
         # Step 3: compile with verilator
-        cmd = " ".join(
-            [
-                cmd,
-                "-g2012",
-                "-o",
-                "{exec_path}",
-                testbench,
-                "{input_path}",
-            ]
-        )
+        cmd = f"{cmd} -g2012 -o {{exec_path}} {testbench} {{input_path}}"
 
         @builder.step(description=cmd)
         def compile_with_iverilog(
@@ -128,7 +119,7 @@ class IcarusBaseStage(Stage):
                 [
                     f"{tmpdir.name}/{self.object_name}",
                     f"+DATA={tmpdir.name}",
-                    f"+CYCLE_LIMIT={str(cycle_limit)}",
+                    f"+CYCLE_LIMIT={cycle_limit!s}",
                     f"+OUT={tmpdir.name}/output.vcd",
                     f"+NOTRACE={0 if self.is_vcd else 1}",
                 ]

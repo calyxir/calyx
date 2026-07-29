@@ -1,10 +1,11 @@
-from typing import List, Tuple
+from __future__ import annotations
 
 from collections import namedtuple
+
 import networkx as nx  # type: ignore
 
-from fud import stages, errors
-from fud.errors import UndefinedState, MultiplePaths
+from fud import errors, stages
+from fud.errors import MultiplePaths, UndefinedState
 
 # An edge in the state graph
 Edge = namedtuple("Edge", ["dest", "stage"])
@@ -21,7 +22,7 @@ class Registry:
         self.config = config
         self.graph = nx.DiGraph()
 
-    def get_states(self, stage: str) -> List[Tuple[str, str]]:
+    def get_states(self, stage: str) -> list[tuple[str, str]]:
         """
         Returns the pairs of input and output states that the given stage
         operates upon.
@@ -50,7 +51,7 @@ class Registry:
 
         self.graph.add_edge(stage.src_state, stage.target_state, stage=stage)
 
-    def make_path(self, start: str, dest: str, through=[]) -> List[stages.Stage]:
+    def make_path(self, start: str, dest: str, through=None) -> list[stages.Stage]:
         """
         Compute a path from `start` to `dest` that contains all stages
         mentioned in `through`.
@@ -58,6 +59,8 @@ class Registry:
         (start, dest) pair.
         """
 
+        if through is None:
+            through = []
         nodes = self.graph.nodes()
         if start not in nodes:
             raise UndefinedState(start, "Validate source state of the path")
@@ -82,8 +85,7 @@ class Registry:
             # Cost of the Path
             path_cost = None
             for src, dst in path:
-                if src in through_check:
-                    through_check.remove(src)
+                through_check.discard(src)
                 stage = self.graph.get_edge_data(src, dst)["stage"]
                 stage_path.append(stage)
                 # Get the cost of the path if there is any

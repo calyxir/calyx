@@ -1,14 +1,14 @@
 import copy
+from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 
-from .stack_element import StackElement, StackElementType
+from .adl import Adl, AdlMap
 from .cell_metadata import CellMetadata
 from .control_metadata import ControlMetadata
-from .adl import AdlMap, Adl
-from .summaries import Summary
 from .errors import ProfilerException
-from collections import defaultdict
+from .stack_element import StackElement, StackElementType
+from .summaries import Summary
 
 
 class ControlRegUpdateType(Enum):
@@ -55,7 +55,7 @@ class CycleTrace:
 
     def __repr__(self):
         out = ""
-        out = "\n".join(map(lambda x: f"\t{x}", sorted(self.stacks)))
+        out = "\n".join(f"\t{x}" for x in sorted(self.stacks))
         return out
 
     def __init__(self, stacks_this_cycle: list[list[StackElement]] | None = None):
@@ -84,13 +84,13 @@ class CycleTrace:
         for stack in self.stacks:
             match mode:
                 case FlameMapMode.CALYX:
-                    stack_str = ";".join(map(lambda elem: str(elem), stack))
+                    stack_str = ";".join(str(elem) for elem in stack)
                 case FlameMapMode.ADL:
                     assert self.sourceloc_info_added
-                    stack_str = ";".join(map(lambda elem: elem.adl_str(), stack))
+                    stack_str = ";".join(elem.adl_str() for elem in stack)
                 case FlameMapMode.MIXED:
                     assert self.sourceloc_info_added
-                    stack_str = ";".join(map(lambda elem: elem.mixed_str(), stack))
+                    stack_str = ";".join(elem.mixed_str() for elem in stack)
             stack_str_set.add(stack_str)
         return stack_str_set
 
@@ -188,7 +188,7 @@ class Utilization:
         """
         Get a set of unaccessed modules in the utilization map.
         """
-        module_set = set(k for k in self.map)
+        module_set = set(self.map)
         return module_set.difference(self.accessed)
 
 
@@ -347,9 +347,7 @@ class PTrace:
         self.trace.append(cycle_trace)
 
     def string_repr(self, mode: FlameMapMode) -> list[set[str]]:
-        return sorted(
-            list(map(lambda cycletrace: cycletrace.get_stack_str_set(mode), self.trace))
-        )
+        return sorted([cycletrace.get_stack_str_set(mode) for cycletrace in self.trace])
 
     def __getitem__(self, index):
         assert index < len(self.trace)

@@ -1,9 +1,11 @@
 from __future__ import annotations  # Used for circular dependencies.
-from dataclasses import dataclass, field
-from typing import Dict, List, Any, Tuple, Optional
-from calyx.utils import block
+
 import inspect
 import os
+from dataclasses import dataclass, field
+from typing import Any
+
+from calyx.utils import block
 
 """
 The base path that fileinfos will be relative with respect to. If None, absolute paths will be used.
@@ -25,10 +27,16 @@ class Emittable:
         print(self.doc())
 
 
+class AstException(Exception):
+    """
+    An error caught by the Calyx-Py AST emitter.
+    """
+
+
 class FileTable:
     # global counter to ensure unique ids
     counter: int = 0
-    table: Dict[str, int] = {}
+    table: dict[str, int] = {}  # noqa: RUF012
 
     @staticmethod
     def get_fileid(filename):
@@ -47,10 +55,12 @@ class FileTable:
 
 class PosTable:
     counter: int = 0
-    table: Dict[Tuple[int, int], int] = {}  # contents: (fileid, linenum) -> positionId
+    table: dict[
+        tuple[int, int], int
+    ] = {}  # contents: (fileid, linenum) -> positionId  # noqa: RUF012
 
     @staticmethod
-    def determine_source_loc() -> Optional[int]:
+    def determine_source_loc() -> int | None:
         """Inspects the call stack to determine the first call site outside the calyx-py library."""
         if not EMIT_SOURCELOC:
             return None
@@ -117,8 +127,8 @@ class Import(Emittable):
 
 @dataclass
 class Program(Emittable):
-    imports: List[Import]
-    components: List[Component]
+    imports: list[Import]
+    components: list[Component]
     meta: dict[Any, str] = field(default_factory=dict)
 
     def doc(self) -> str:
@@ -150,8 +160,8 @@ class Component:
     wires: list[Structure]
     cells: list[Cell]
     controls: Control
-    latency: Optional[int]
-    loc: Optional[int]
+    latency: int | None
+    loc: int | None
 
     def __init__(
         self,
@@ -160,8 +170,8 @@ class Component:
         outputs: list[PortDef],
         structs: list[Structure],
         controls: Control,
-        attributes: Optional[set[CompAttribute]] = None,
-        latency: Optional[int] = None,
+        attributes: set[CompAttribute] | None = None,
+        latency: int | None = None,
     ):
         self.name = name
         self.attributes = attributes
@@ -182,7 +192,7 @@ class Component:
         for cell in self.cells:
             if cell.id.name == name:
                 return cell
-        raise Exception(
+        raise AstException(
             f"Cell `{name}' not found in component {self.name}. Currently defined cells: {[c.id.name for c in self.cells]}"
         )
 
@@ -224,7 +234,7 @@ class CombComponent:
     outputs: list[PortDef]
     wires: list[Structure]
     cells: list[Cell]
-    loc: Optional[int]
+    loc: int | None
 
     def __init__(
         self,
@@ -232,7 +242,7 @@ class CombComponent:
         inputs: list[PortDef],
         outputs: list[PortDef],
         structs: list[Structure],
-        attributes: Optional[set[CompAttribute]] = None,
+        attributes: set[CompAttribute] | None = None,
     ):
         self.name = name
         self.attributes = attributes
@@ -251,7 +261,7 @@ class CombComponent:
         for cell in self.cells:
             if cell.id.name == name:
                 return cell
-        raise Exception(
+        raise AstException(
             f"Cell `{name}' not found in component {self.name}. Currently defined cells: {[c.id.name for c in self.cells]}"
         )
 
@@ -295,7 +305,7 @@ class CompAttribute(Attribute):
 @dataclass
 class CellAttribute(Attribute):
     name: str
-    value: Optional[int] = None
+    value: int | None = None
 
     def __hash__(self):
         return hash((self.name, self.value))
@@ -327,7 +337,7 @@ class GroupAttribute(Attribute):
 @dataclass
 class PortAttribute(Attribute):
     name: str
-    value: Optional[int] = None
+    value: int | None = None
 
     def __hash__(self):
         return hash((self.name, self.value))
@@ -436,7 +446,7 @@ class Cell(Structure):
     is_external: bool = False
     is_ref: bool = False
     attributes: set[CellAttribute] = field(default_factory=set)
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: int | None = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
         assert not (self.is_ref and self.is_external), (
@@ -459,7 +469,7 @@ class Cell(Structure):
 class Connect(Structure):
     dest: Port
     src: Port
-    guard: Optional[GuardExpr] = None
+    guard: GuardExpr | None = None
 
     def doc(self) -> str:
         source = (
@@ -475,9 +485,9 @@ class Group(Structure):
     id: CompVar
     connections: list[Connect]
     # XXX: This is a static group now. Remove this and add a new StaticGroup class.
-    static_delay: Optional[int] = None
+    static_delay: int | None = None
     attributes: set[GroupAttribute] = field(default_factory=set)
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: int | None = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
         if self.static_delay is not None:
@@ -499,7 +509,7 @@ class Group(Structure):
 class CombGroup(Structure):
     id: CompVar
     connections: list[Connect]
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: int | None = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
         attribute_annotation = (
@@ -516,7 +526,7 @@ class StaticGroup(Structure):
     id: CompVar
     connections: list[Connect]
     latency: int
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: int | None = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
         attribute_annotation = (
@@ -642,7 +652,7 @@ class Control(Emittable):
     pass
 
 
-def ctrl_with_pos_attribute(source: str, loc: Optional[int]) -> str:
+def ctrl_with_pos_attribute(source: str, loc: int | None) -> str:
     """adds the @pos attribute of loc is not None"""
     if loc is None:
         return source
@@ -653,7 +663,7 @@ def ctrl_with_pos_attribute(source: str, loc: Optional[int]) -> str:
 @dataclass
 class Enable(Control):
     stmt: str
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: int | None = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
         return ctrl_with_pos_attribute(f"{self.stmt};", self.loc)
@@ -662,7 +672,7 @@ class Enable(Control):
 @dataclass
 class SeqComp(Control):
     stmts: list[Control]
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: int | None = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
         return ctrl_with_pos_attribute(
@@ -673,7 +683,7 @@ class SeqComp(Control):
 @dataclass
 class StaticSeqComp(Control):
     stmts: list[Control]
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: int | None = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
         return ctrl_with_pos_attribute(
@@ -684,7 +694,7 @@ class StaticSeqComp(Control):
 @dataclass
 class ParComp(Control):
     stmts: list[Control]
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: int | None = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
         return ctrl_with_pos_attribute(
@@ -695,7 +705,7 @@ class ParComp(Control):
 @dataclass
 class StaticParComp(Control):
     stmts: list[Control]
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: int | None = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
         return ctrl_with_pos_attribute(
@@ -706,12 +716,12 @@ class StaticParComp(Control):
 @dataclass
 class Invoke(Control):
     id: CompVar
-    in_connects: List[Tuple[str, Port]]
-    out_connects: List[Tuple[str, Port]]
-    ref_cells: List[Tuple[str, CompVar]] = field(default_factory=list)
-    comb_group: Optional[CompVar] = None
-    attributes: set[Tuple[str, int]] = field(default_factory=set)
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    in_connects: list[tuple[str, Port]]
+    out_connects: list[tuple[str, Port]]
+    ref_cells: list[tuple[str, CompVar]] = field(default_factory=list)
+    comb_group: CompVar | None = None
+    attributes: set[tuple[str, int]] = field(default_factory=set)
+    loc: int | None = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
         inv = f"invoke {self.id.doc()}"
@@ -751,10 +761,10 @@ class Invoke(Control):
 @dataclass
 class StaticInvoke(Control):
     id: CompVar
-    in_connects: List[Tuple[str, Port]]
-    out_connects: List[Tuple[str, Port]]
-    ref_cells: List[Tuple[str, CompVar]] = field(default_factory=list)
-    attributes: set[Tuple[str, int]] = field(default_factory=set)
+    in_connects: list[tuple[str, Port]]
+    out_connects: list[tuple[str, Port]]
+    ref_cells: list[tuple[str, CompVar]] = field(default_factory=list)
+    attributes: set[tuple[str, int]] = field(default_factory=set)
 
     def doc(self) -> str:
         inv = f"static invoke {self.id.doc()}"
@@ -791,9 +801,9 @@ class StaticInvoke(Control):
 class While(Control):
     port: Port
     # XXX: This should probably be called the cond_group.
-    cond: Optional[CompVar]
+    cond: CompVar | None
     body: Control
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: int | None = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
         cond = ""
@@ -823,10 +833,10 @@ class Empty(Control):
 class If(Control):
     port: Port
     # XXX: This should probably be called the cond_group.
-    cond: Optional[CompVar]
+    cond: CompVar | None
     true_branch: Control
     false_branch: Control = field(default_factory=Empty)
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: int | None = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
         cond = ""
@@ -848,7 +858,7 @@ class StaticIf(Control):
     port: Port
     true_branch: Control
     false_branch: Control = field(default_factory=Empty)
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: int | None = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
         cond = f"static if {self.port.doc()}"

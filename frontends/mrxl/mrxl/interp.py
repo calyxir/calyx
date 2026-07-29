@@ -1,13 +1,12 @@
 from functools import reduce
-from typing import List, Dict, Union
+
 from . import ast
 
-
-Scalar = Union[float, int]
-Array = Union[List[float], List[int]]
-Value = Union[Scalar, Array]
-Env = Dict[str, Value]
-ScalarEnv = Dict[str, Scalar]
+Scalar = float | int
+Array = list[float] | list[int]
+Value = Scalar | Array
+Env = dict[str, Value]
+ScalarEnv = dict[str, Scalar]
 
 
 class InterpError(Exception):

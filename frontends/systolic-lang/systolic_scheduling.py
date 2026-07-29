@@ -1,8 +1,9 @@
-import calyx.builder as cb
-from gen_pe import BITWIDTH
 from enum import Enum
-from systolic_arg_parser import SystolicConfiguration
+
+import calyx.builder as cb
 import numpy as np
+from gen_pe import BITWIDTH
+from systolic_arg_parser import SystolicConfiguration
 
 
 class CalyxAdd:
@@ -56,7 +57,7 @@ class ScheduleInstance:
         self.i1 = i1
         self.i2 = i2
         if type == ScheduleType.INTERVAL and self.i2 is None:
-            raise Exception("INTERVAL type must specify beginning and end")
+            raise Exception("INTERVAL type must specify beginning and end")  # noqa: TRY002
 
     def __lt__(self, other):
         return (self.type, self.i1, self.i2) < (other.type, other.i1, other.i2)
@@ -70,14 +71,12 @@ class Schedule:
         self.mappings = {}
 
     def add_instances(self, name, schedule_instances):
-        """ """
         self.mappings[name] = schedule_instances
         for schedule_instance in schedule_instances.flatten():
             self.instances[schedule_instance] = None
 
     def __instantiate_calyx_adds(self, comp) -> list:
-        """ """
-        for schedule_instance in self.instances.keys():
+        for schedule_instance in self.instances:
             if type(schedule_instance.i1) is CalyxAdd:
                 schedule_instance.i1.implement_add(comp)
             if type(schedule_instance.i2) is CalyxAdd:
@@ -153,14 +152,13 @@ class Schedule:
                 and_.left = ge.out
 
     def build_hardware(self, comp: cb.ComponentBuilder, idx_reg: cb.CellBuilder):
-        """ """
         # instantiate groups that handles the idx variables
         # Dictionary to keep consistent ordering.
         ge_ranges = {}
         lt_ranges = {}
         eq_ranges = {}
         interval_ranges = {}
-        for schedule_instance in self.instances.keys():
+        for schedule_instance in self.instances:
             sched_type = schedule_instance.type
             if sched_type == ScheduleType.GE:
                 ge_ranges[schedule_instance.i1] = None
@@ -219,8 +217,8 @@ def gen_schedules(
     pe_sched = np.zeros((left_length, top_length), dtype=object)
     pe_accum_cond = np.zeros((left_length, top_length), dtype=object)
     pe_write_sched = np.zeros((left_length, top_length), dtype=object)
-    for row in range(0, left_length):
-        for col in range(0, top_length):
+    for row in range(left_length):
+        for col in range(top_length):
             pos = row + col
             update_sched[row][col] = ScheduleInstance(
                 ScheduleType.INTERVAL, pos, depth_plus_const(pos)

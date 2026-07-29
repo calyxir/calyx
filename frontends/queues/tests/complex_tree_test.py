@@ -1,10 +1,10 @@
 # pylint: disable=import-error
 import sys
+
 import calyx.builder as cb
-import queues.queue_call as qc
-import queues.strict_or_rr as strict_or_rr
-import queues.fifo as fifo
 import queues.flow_inference as fi
+import queues.queue_call as qc
+from queues import fifo, strict_or_rr
 
 # This complex tree has the shape rr(strict(A, B, C), rr(D, E, F), strict(G, H))
 

@@ -1,10 +1,11 @@
-import cocotb
-from cocotb.clock import Clock
-from cocotbext.axi import AxiBus, AxiRam
-from cocotb.triggers import Timer, ClockCycles
 import mmap
 import struct
-from typing import Union, Literal, List
+from typing import Literal
+
+import cocotb
+from cocotb.clock import Clock
+from cocotb.triggers import ClockCycles, Timer
+from cocotbext.axi import AxiBus, AxiRam
 
 # TODO(nathanielnrn): If optional signals like WSTRB are not recognized,
 # install cocotb-bus directly from github, as 0.2.1 has a bug
@@ -55,7 +56,7 @@ async def read_channels_extra_mmap_data(main):
 ##################
 
 
-async def assert_mem_content(mem, expected: List[int]):
+async def assert_mem_content(mem, expected: list[int]):
     """Checks that `mem` content inside the verilog module (as opposed to
     cocotb axi-ram matches expected
     """
@@ -67,7 +68,7 @@ async def assert_mem_content(mem, expected: List[int]):
 
 
 async def assert_axi_ram_content(
-    axi_ram, expected: List[int], address=0x0000, length=8 * 4
+    axi_ram, expected: list[int], address=0x0000, length=8 * 4
 ):
     """Checks that `mem` content inside the cocotb (as opposed to
     verilog module matches expected starting at address for length bytes
@@ -84,9 +85,9 @@ async def assert_axi_ram_content(
 
 async def run_module(
     module,
-    A0_data: List[int],
-    B0_data: List[int],
-    Sum0_expected: List[int],
+    A0_data: list[int],
+    B0_data: list[int],
+    Sum0_expected: list[int],
 ):
     """Create an mmap with data of `data_vec` and use this to initialize
     a cocotb-axi-ram (read only) with this data. Assert that the data that
@@ -190,9 +191,7 @@ async def run_module(
 # Returns 4-byte representation of an integer
 # Does not yet support unsigned, can be changed by changing to `i` as opposed to `I`.
 # Not supported cause haven't yet thought about how AXI is affected
-def int_to_bytes(
-    integers, byteorder: Union[Literal["little"], Literal["big"]] = "little"
-):
+def int_to_bytes(integers, byteorder: Literal["little", "big"] = "little"):
     frmt = get_format(byteorder, integers)
     return struct.pack(frmt, *integers)
 
@@ -208,7 +207,7 @@ def bytes_to_int(bytes, byteorder="little"):
 
 
 # Returns format used by Struct, assuming we are interested in integers (so 4 bytes)
-def get_format(byteorder: Union[Literal["little"], Literal["big"]], input_list):
+def get_format(byteorder: Literal["little", "big"], input_list):
     frmt = ""
     if byteorder == "little":
         frmt += "<"
@@ -228,8 +227,8 @@ def get_format(byteorder: Union[Literal["little"], Literal["big"]], input_list):
 
 
 # Takes in top level cocotb memory structure and returns integers of bytes contained in it.
-def cocotb_mem_to_ints(memory) -> List[int]:
-    integers = list(map(lambda e: e.integer, memory.mem.value))
+def cocotb_mem_to_ints(memory) -> list[int]:
+    integers = [e.integer for e in memory.mem.value]
     # Cocotb mem.value seems to store integers in reverse order? So memory cell 0 is
     # at index -1 and memory cell n-1 is at index 0
     return integers[::-1]

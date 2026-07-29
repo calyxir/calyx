@@ -1,8 +1,8 @@
-from fud.stages import Stage, SourceType, Source
-from fud.utils import shell, TmpDir
-from fud.errors import MissingDynamicConfiguration
-
 from pathlib import Path
+
+from fud.errors import MissingDynamicConfiguration
+from fud.stages import Source, SourceType, Stage
+from fud.utils import TmpDir, shell
 
 # The temporary filename used for converting mrxl.data to verilog.data
 _DATA_FILE = "data.json"
@@ -77,7 +77,7 @@ class MrXLStage(Stage):
 
         @builder.step(description=cmd)
         def run_mrxl(mrxl_prog: SourceType.Path) -> SourceType.Stream:
-            return shell(f"{cmd} {str(mrxl_prog)} {flags}")
+            return shell(f"{cmd} {mrxl_prog!s} {flags}")
 
         # Define a schedule using the steps.
         # A schedule *looks* like an imperative program but actually represents
@@ -157,7 +157,7 @@ class MrXLDataStage(Stage):
             """
             Converts MrXL input into calyx input
             """
-            return shell(f"{cmd} {str(mrxl_prog.data)} --data {data_path} --convert")
+            return shell(f"{cmd} {mrxl_prog.data!s} --data {data_path} --convert")
 
         # Define a schedule using the steps.
         # A schedule *looks* like an imperative program but actually represents

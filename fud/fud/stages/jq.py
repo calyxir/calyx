@@ -1,4 +1,4 @@
-from fud.stages import Stage, SourceType
+from fud.stages import SourceType, Stage
 from fud.utils import shell
 
 

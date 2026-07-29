@@ -1,15 +1,15 @@
 import os
+from collections import defaultdict
+from dataclasses import dataclass
 
 from profiler.classes.tracedata import (
-    PTrace,
-    CycleType,
-    CycleTrace,
-    TraceData,
     ControlRegUpdateType,
+    CycleTrace,
+    CycleType,
     FlameMapMode,
+    PTrace,
+    TraceData,
 )
-from dataclasses import dataclass
-from collections import defaultdict
 
 SCALED_FLAME_MULTIPLIER = (
     1000  # [flame graph] multiplier so scaled flame graph will not round up.
@@ -43,13 +43,13 @@ class FlameTrace:
                 self.scaled_flame_map[stack_id] += (
                     slice_to_add * SCALED_FLAME_MULTIPLIER
                 )
-                acc += 1
+                acc += 1  # noqa: SIM113
 
     def write_flame_maps(
         self,
         flames_out_dir: str,
         flame_out_file: str,
-        scaled_flame_out_file: str = None,
+        scaled_flame_out_file: str | None = None,
     ):
         """
         Utility function for writing flat and scaled flame maps to file.
@@ -71,15 +71,16 @@ class FlameTrace:
         Utility function for outputting a flame graph to file.
         """
         with open(flame_out_file, "w") as flame_out:
-            for stack in sorted(flame_map):
-                flame_out.write(f"{stack} {flame_map[stack]}\n")
+            flame_out.writelines(
+                f"{stack} {flame_map[stack]}\n" for stack in sorted(flame_map)
+            )
 
 
 def create_and_write_flame_maps(
     trace: PTrace,
     out_dir: str,
     flame_out: str,
-    scaled_flame_out: str = None,
+    scaled_flame_out: str | None = None,
     mode: FlameMapMode = FlameMapMode.CALYX,
 ) -> tuple[dict[str, int], dict[str, int]]:
     """
@@ -126,7 +127,7 @@ def create_flame_maps(
                 scaled_flame_map[stack_id] = slice_to_add * SCALED_FLAME_MULTIPLIER
             else:
                 scaled_flame_map[stack_id] += slice_to_add * SCALED_FLAME_MULTIPLIER
-            acc += 1
+            acc += 1  # noqa: SIM113
 
     return flat_flame_map, scaled_flame_map
 

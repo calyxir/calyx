@@ -1,11 +1,12 @@
-import simplejson as sjson
 import re
 from pathlib import Path
 
+import simplejson as sjson
+
+from fud import config as cfg
 from fud import errors
 from fud.stages import Source, SourceType, Stage
 from fud.utils import TmpDir, shell
-from fud import config as cfg
 
 from .json_to_dat import convert2dat, convert2json
 
@@ -98,7 +99,7 @@ class VerilatorStage(Stage):
         )
 
         if mem not in ["vcd", "dat"]:
-            raise Exception("mem has to be 'vcd' or 'dat'")
+            raise Exception("mem has to be 'vcd' or 'dat'")  # noqa: TRY002
         self.vcd = mem == "vcd"
 
     def known_opts(self):
@@ -150,12 +151,13 @@ class VerilatorStage(Stage):
             round_float_to_fixed = config["stages", self.name, "round_float_to_fixed"]
             # if verilog.data was not given, do nothing
             if json_path.data:
-                convert2dat(
-                    tmp_dir.name,
-                    sjson.load(open(json_path.data), use_decimal=True),
-                    "dat",
-                    round_float_to_fixed,
-                )
+                with open(json_path.data) as d:
+                    convert2dat(
+                        tmp_dir.name,
+                        sjson.load(d, use_decimal=True),
+                        "dat",
+                        round_float_to_fixed,
+                    )
 
         # Step 3: compile with verilator
         testbench_sv = str(
@@ -196,7 +198,7 @@ class VerilatorStage(Stage):
                 [
                     f"{tmpdir.name}/Vtoplevel",
                     f"+DATA={tmpdir.name}",
-                    f"+CYCLE_LIMIT={str(cycle_limit)}",
+                    f"+CYCLE_LIMIT={cycle_limit!s}",
                     f"+OUT={tmpdir.name}/output.vcd",
                     f"+NOTRACE={0 if self.vcd else 1}",
                 ]

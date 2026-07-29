@@ -1,5 +1,6 @@
-from itertools import product
 from decimal import Decimal
+from itertools import product
+
 from calyx.numeric_types import FixedPoint
 
 
@@ -45,9 +46,7 @@ def compute_exp_frac_table(frac_width: int):
 
     # Gets the permutations of 2^f_bit,
     # in increasing order.
-    binary_permutations = map(
-        lambda li: list(li), product(["0", "1"], repeat=frac_width)
-    )
+    binary_permutations = (list(li) for li in product(["0", "1"], repeat=frac_width))
 
     e_table = [0] * (2**frac_width)
     for permutation in binary_permutations:

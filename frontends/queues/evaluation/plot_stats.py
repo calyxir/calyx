@@ -1,7 +1,8 @@
+import json
 import os
 import sys
-import json
 from enum import Enum
+
 import matplotlib.pyplot as plt
 
 
@@ -16,14 +17,14 @@ def append_path_prefix(file):
     return path_to_file
 
 
-def parse(stat, file):
+def parse(stat, filepath):
     out = {
         "binheap": {"round_robin": {}, "strict": {}},
         "specialized": {"round_robin": {}, "strict": {}},
     }
 
-    data = json.load(file)
-    for file, data in data.items():
+    json_data = json.load(filepath)
+    for file, data in json_data.items():
         if isinstance(data, dict):
             data = data[stat]
 
@@ -94,18 +95,17 @@ if __name__ == "__main__":
     if stat == "total_time":
         file1 = sys.argv[2]
         file2 = sys.argv[3]
-        with open(file1) as file1:
-            with open(file2) as file2:
-                cycle_data = parse("cycles", file1)
-                slack_data = parse("worst_slack", file2)
+        with open(file1) as file1, open(file2) as file2:
+            cycle_data = parse("cycles", file1)
+            slack_data = parse("worst_slack", file2)
 
-                data = cycle_data.copy()
-                for impl in data.keys():
-                    for logic in data[impl].keys():
-                        for flow_no in data[impl][logic].keys():
-                            cycles = cycle_data[impl][logic][flow_no]
-                            slack = slack_data[impl][logic][flow_no]
-                            data[impl][logic][flow_no] = (1000 * cycles) / (7 - slack)
+            data = cycle_data.copy()
+            for impl in data:
+                for logic in data[impl]:
+                    for flow_no in data[impl][logic]:
+                        cycles = cycle_data[impl][logic][flow_no]
+                        slack = slack_data[impl][logic][flow_no]
+                        data[impl][logic][flow_no] = (1000 * cycles) / (7 - slack)
     else:
         file = sys.argv[2]
         with open(file) as file:

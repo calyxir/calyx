@@ -1,5 +1,6 @@
 from collections import defaultdict
 from dataclasses import dataclass
+
 from profiler.classes.errors import ProfilerException
 
 
