@@ -1,8 +1,0 @@
----CODE---
-1
----STDERR---
-Traceback (most recent call last):
-  File "/Users/ayaka/projects/calyx/calyx-py/test/numeric_types.py", line 4, in <module>
-    import pytest  # type: ignore
-    ^^^^^^^^^^^^^
-ModuleNotFoundError: No module named 'pytest'

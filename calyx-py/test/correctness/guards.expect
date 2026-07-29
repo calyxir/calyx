@@ -1,4 +1,5 @@
----CODE---
-1
----STDERR---
-Error: ninja exited with exit status: 127
+{
+  "mem": [
+    42
+  ]
+}
