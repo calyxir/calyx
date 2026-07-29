@@ -14,37 +14,28 @@ pub fn is_hexstring(s: &str) -> bool {
     s.starts_with("0x")
 }
 
+#[inline]
+fn rm_prefix<'a>(s: &'a str, pre: &str) -> Option<&'a str> {
+    s.trim_start().strip_prefix(pre)
+}
+
 /// Read a string containing a hex literal into a [BitVecValue] of maximum width ``width``
 pub fn read_hexstring(
     s: &str,
     _end: Endian,
     width: usize,
 ) -> Result<baa::BitVecValue, NumParseErr> {
-    let Some(cleaned_str) = s.trim_start().strip_prefix("0x") else {
-        return Err(NumParseErr::HexRead(format!(
-            "could not strip prefix from {}",
-            s
-        )));
-    };
-    let Ok(val) = baa::BitVecValue::from_hex_str(cleaned_str) else {
-        return Err(NumParseErr::HexRead(format!(
-            "baa could not read {} as hex",
-            s
-        )));
-    };
+    let cleaned_str = rm_prefix(s, "0x").ok_or(NumParseErr::HexRead(
+        format!("could not strip prefix from {}", s),
+    ))?;
 
-    if val.width() > (width as u32) {
-        return Err(NumParseErr::HexRead(format!(
-            "bad hexstring {}: incorrect width, not {}",
-            s, width
-        )));
-    }
-    Ok(val)
+    baa::BitVecValue::from_str_radix(cleaned_str, 16, width as u32)
+        .map_err(|e| NumParseErr::Baa(cleaned_str.to_string(), e))
 }
 
 /// Read a string containing a float literal into a [BitVecValue]. ``width`` must be 32 or 64, as only ``f32`` and ``f64`` are supported.
 pub fn float_read(
-    s: String,
+    s: &str,
     _end: Endian,
     width: usize,
 ) -> Result<baa::BitVecValue, NumParseErr> {
@@ -77,7 +68,7 @@ pub fn float_write(b: &baa::BitVecValue, _end: Endian, width: usize) -> String {
 
 /// Read a string containing an integer literal into a ``BitVecValue`` with max bit length ``width``. Interpret signs if the ``signed`` option is true, otherwise it is impossible to 'coerce' a negative number into an unsigned during this call.
 pub fn int_read(
-    s: String,
+    s: &str,
     _end: Endian,
     width: usize,
     signed: bool,
@@ -88,7 +79,7 @@ pub fn int_read(
         ));
     }
     BitVecValue::from_str_radix(&s, 10, width as u32)
-        .map_err(|e| NumParseErr::Baa(s, e))
+        .map_err(|e| NumParseErr::Baa(s.to_string(), e))
 }
 
 /// Interpret the contents of ``b`` as representing an integer of ``width`` bits. If ``signed`` is provided, treat as two's complement.
@@ -108,12 +99,16 @@ pub fn int_write(
 
 /// Read a string containing only 1, 0 into a [BitVecValue].
 pub fn bits_read(
-    s: String,
+    s: &str,
     _end: Endian,
     width: usize,
 ) -> Result<BitVecValue, NumParseErr> {
-    BitVecValue::from_str_radix(&s, 2, width as u32)
-        .map_err(|e| NumParseErr::Baa(s, e))
+    let cleaned_str = rm_prefix(s, "0b").ok_or(NumParseErr::HexRead(
+        format!("could not strip prefix from {}", s),
+    ))?;
+
+    BitVecValue::from_str_radix(&cleaned_str, 2, width as u32)
+        .map_err(|e| NumParseErr::Baa(s.to_string(), e))
 }
 
 /// Write out the bits of ``b``, prefixed with ``0b``
@@ -124,7 +119,7 @@ pub fn bits_write(b: &BitVecValue, _end: Endian) -> String {
 
 /// Read a string containing a fixed-point literal into a [BitVecValue] with max bit length ``width``. Interpret signs if the ``signed`` option is included, otherwise it is impossible to 'coerce' a negative number into an unsigned during this call. ``exp_mag`` is used to control the factor by which ``f = float(s)`` is scaled, i.e. ``fixed = 2**exp_mag * f``
 pub fn fixed_read(
-    s: String,
+    s: &str,
     _end: Endian,
     width: usize,
     signed: bool,
@@ -199,9 +194,7 @@ mod tests {
 
     #[test]
     fn test_fixed_from_string() {
-        let result =
-            fixed_read(String::from("-0.5"), Endian::Little, 32, true, 16)
-                .unwrap();
+        let result = fixed_read("-0.5", Endian::Little, 32, true, 16).unwrap();
 
         // test by getting bits from -0.5 float directly using fixed
         let equiv_bits = 0xffff_8000_u32;
@@ -250,8 +243,7 @@ mod tests {
         use std::str::FromStr;
         let ref_bits = f32::from_str("0.123").unwrap().to_bits();
 
-        let comp_bits =
-            float_read(String::from("0.123"), Endian::Little, 32).unwrap();
+        let comp_bits = float_read("0.123", Endian::Little, 32).unwrap();
         assert_eq!(ref_bits as u64, comp_bits.to_u64().unwrap());
     }
 
@@ -277,13 +269,11 @@ mod tests {
     fn test_int_from_string() {
         let ref_bits = u64::from_str_radix("ffffffff", 16).unwrap();
         let comp_bits =
-            int_read(String::from("4294967295"), Endian::Little, 64, false)
-                .unwrap();
+            int_read("4294967295", Endian::Little, 64, false).unwrap();
         assert_eq!(ref_bits, comp_bits.to_u64().unwrap());
 
         let ref_bits = u64::MAX;
-        let comp_bits =
-            int_read(String::from("-1"), Endian::Little, 64, true).unwrap();
+        let comp_bits = int_read("-1", Endian::Little, 64, true).unwrap();
         assert_eq!(ref_bits, comp_bits.to_u64().unwrap());
     }
 
@@ -297,8 +287,7 @@ mod tests {
     #[test]
     fn test_bits_from_string() {
         let ref_bits = u64::from_str_radix("4", 16).unwrap();
-        let comp_bits =
-            bits_read(String::from("100"), Endian::Little, 64).unwrap();
+        let comp_bits = bits_read("0b100", Endian::Little, 64).unwrap();
         assert_eq!(ref_bits, comp_bits.to_u64().unwrap());
     }
 }

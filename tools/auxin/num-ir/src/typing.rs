@@ -70,13 +70,13 @@ pub struct TypeSpec {
 }
 impl TypeSpec {
     /// Attempt to read ``s`` into a [BitVecValue] given the current [TypeSpec]
-    pub fn read_string(
+    pub fn read_str(
         &self,
-        s: String,
+        s: &str,
         _end: Endian,
     ) -> Result<baa::BitVecValue, NumParseErr> {
-        if numimpl::is_hexstring(&s) {
-            return numimpl::read_hexstring(&s, _end, self.width);
+        if numimpl::is_hexstring(s) {
+            return numimpl::read_hexstring(s, _end, self.width);
         }
         let r = match self.class {
             TypeClass::Bits => numimpl::bits_read(s, _end, self.width)?,
@@ -91,7 +91,7 @@ impl TypeSpec {
                 return Err(NumParseErr::UnknownType(u));
             }
         };
-        debug_assert!(r.width() <= self.width as u32);
+        debug_assert!(r.width() == self.width as u32);
         Ok(r)
     }
 
@@ -140,10 +140,6 @@ pub enum Endian {
     Big,
 }
 
-// needs a direction, and then enum
-
-// TODO: add a from_bytes form?
-
 /// Errors associated with reading a number in
 #[derive(Debug, thiserror::Error)]
 pub enum NumParseErr {
@@ -161,4 +157,20 @@ pub enum NumParseErr {
     UnknownType(usize),
     #[error("misc: {0}")]
     Misc(String),
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::typing::*;
+
+    #[test]
+    fn read_int() {
+        let t = TypeSpec {
+            width: 32,
+            signed: false,
+            class: TypeClass::Bits,
+        };
+        let e = t.read_str("0x1234", Endian::Little).unwrap();
+        println!("{}", e.width());
+    }
 }

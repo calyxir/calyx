@@ -202,12 +202,8 @@ impl JsonDataEntry {
         let data: Vec<_> = vals
             .iter()
             .map(|e| match e {
-                Value::Number(_) => {
-                    t.read_string(e.to_string(), Endian::Little)
-                }
-                Value::String(s) => {
-                    t.read_string(s.to_string(), Endian::Little)
-                }
+                Value::Number(_) => t.read_str(&e.to_string(), Endian::Little),
+                Value::String(s) => t.read_str(&s.to_string(), Endian::Little),
                 _ => panic!("unknown type"),
             })
             .collect::<Result<_, _>>()?;
