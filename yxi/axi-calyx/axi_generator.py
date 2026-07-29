@@ -8,18 +8,19 @@
 # 3. To interface correctly with Xilinx/XRT, we need to add subordinate axi controller logic from add_control_subordinate.py
 
 
+import json
+import sys
+from math import ceil, log2
+from typing import Literal
+
 from calyx.builder import (
     Builder,
     add_comp_ports,
     invoke,
-    while_with,
     par,
     while_,
+    while_with,
 )
-from typing import Literal
-from math import log2, ceil
-import json
-import sys
 
 # In general, ports to the wrapper are uppercase, internal registers are lower case.
 
@@ -263,7 +264,7 @@ def add_read_channel(prog, mem):
     # TODO(nathanielnrn): Currently we assume that width is a power of 2 due to xSIZE.
     # In the future we should allow for non-power of 2 widths, will need some
     # splicing for this.
-    # See https://cucapra.slack.com/archives/C05TRBNKY93/p1705587169286609?thread_ts=1705524171.974079&cid=C05TRBNKY93 # noqa: E501
+    # See https://cucapra.slack.com/archives/C05TRBNKY93/p1705587169286609?thread_ts=1705524171.974079&cid=C05TRBNKY93
     curr_addr_axi_incr = read_channel.incr(
         curr_addr_axi, width_in_bytes(mem[width_key])
     )
@@ -380,7 +381,7 @@ def add_write_channel(prog, mem):
         # TODO(nathanielnrn): Currently we assume that width is a power of 2.
         # In the future we should allow for non-power of 2 widths, will need some
         # splicing for this.
-        # See https://cucapra.slack.com/archives/C05TRBNKY93/p1705587169286609?thread_ts=1705524171.974079&cid=C05TRBNKY93 # noqa: E501
+        # See https://cucapra.slack.com/archives/C05TRBNKY93/p1705587169286609?thread_ts=1705524171.974079&cid=C05TRBNKY93
         curr_addr_axi_incr = write_channel.incr(curr_addr_axi, ceil(mem[width_key] / 8))
         curr_transfer_count_incr = write_channel.incr(curr_transfer_count, 1)
 
@@ -703,16 +704,16 @@ def check_mems_welformed(mems):
 if __name__ == "__main__":
     yxifilename = "input.yxi"  # default
     if len(sys.argv) > 2:
-        raise Exception("axi generator takes 1 yxi file name as argument")
+        raise Exception("axi generator takes 1 yxi file name as argument")  # noqa: TRY002
     else:
         try:
             yxifilename = sys.argv[1]
             if not yxifilename.endswith(".yxi"):
-                raise Exception("axi generator requires an yxi file")
-        except Exception:
+                raise Exception("axi generator requires an yxi file")  # noqa: TRY002
+        except Exception:  # noqa: BLE001, S110
             pass  # no arg passed
     with open(yxifilename, "r", encoding="utf-8") as yxifile:
-        yxifile = open(yxifilename)
+        yxifile = open(yxifilename)  # noqa: SIM115
         yxi = json.load(yxifile)
         mems = yxi["memories"]
         build().emit()

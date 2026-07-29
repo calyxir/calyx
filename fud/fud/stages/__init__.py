@@ -1,11 +1,13 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, List, Optional, Union, Any, Dict, Callable, Iterable
+
 import functools
 import inspect
 import logging as log
+from collections.abc import Callable, Iterable
 from enum import Enum, auto
 from io import IOBase
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from ..utils import Conversions as conv
 from ..utils import Directory, is_debug
@@ -44,7 +46,7 @@ class Step:
 
         if is_debug():
             args = list(self.args)
-            arg_str = ", ".join(map(lambda a: str(a), args))
+            arg_str = ", ".join(str(a) for a in args)
             log.debug(f"{self.name}({arg_str})")
             self.args = args
         self.output.data = self.func(*self.args)
@@ -94,7 +96,7 @@ class SourceType(Enum):
 
 
 class Source:
-    convert_map: Dict[SourceType, Dict[SourceType, Callable[[Any], Any]]] = {
+    convert_map: dict[SourceType, dict[SourceType, Callable[[Any], Any]]] = {
         SourceType.Path: {
             SourceType.Directory: conv.path_to_directory,
             SourceType.Stream: conv.path_to_stream,
@@ -125,12 +127,12 @@ class Source:
     }
 
     @staticmethod
-    def path(path: Optional[Union[str, Path]] = None) -> Source:
+    def path(path: str | Path | None = None) -> Source:
         if path is not None and isinstance(path, str):
             path = Path(str(path))
         return Source(path, SourceType.Path)
 
-    def __init__(self, data: Optional[Any], typ: SourceType):
+    def __init__(self, data: Any | None, typ: SourceType):
         self.typ = typ
         # check to make sure data is the right type
         if data is not None:
@@ -207,7 +209,7 @@ class Stage:
 
         self.description = description
 
-    def known_opts(self) -> Optional[List[str]]:
+    def known_opts(self) -> list[str] | None:
         """
         Return a list of known options for this stage.
         If None, we don't know what options are available.
@@ -222,7 +224,7 @@ class Stage:
         if known:
             # Get all the options defined for this stage
             opts = config["stages", self.name]
-            for opt in opts.keys():
+            for opt in opts:
                 if opt not in known:
                     log.warning(
                         f"Unknown option `{self.name}.{opt}' for stage `{self.name}'"
@@ -231,7 +233,7 @@ class Stage:
     def setup(
         self,
         config: Configuration,
-        builder: Optional[ComputationGraph] = None,
+        builder: ComputationGraph | None = None,
     ) -> ComputationGraph:
         """
         Construct a computation graph for this stage.
@@ -263,7 +265,6 @@ class Stage:
         When executed, each step will be added to this Stage's computation
         graph.
         """
-        pass
 
 
 class ComputationGraph:
@@ -278,14 +279,14 @@ class ComputationGraph:
         self.output_type = output_type
 
         # Steps defined for this execution graph.
-        self.steps: List[Step] = []
+        self.steps: list[Step] = []
         # Input this computation graph
         self._input = Source(None, self.input_type)
 
         # Current context. Used to providing better stage names.
-        self.ctx: List[str] = []
+        self.ctx: list[str] = []
 
-        self.output: Optional[Source] = None
+        self.output: Source | None = None
 
     def dry_run(self):
         """
@@ -321,7 +322,7 @@ class ComputationGraph:
         """
         return stage._define_steps(input, self, config)
 
-    def and_then_path(self, path: List[Stage], config: Configuration):
+    def and_then_path(self, path: list[Stage], config: Configuration):
         """
         Convenience method to stage all the computations in a path.
         """
@@ -329,7 +330,7 @@ class ComputationGraph:
             stage.setup(config, self)
 
     def also_do_path(
-        self, input: Source, path: List[Stage], config: Configuration
+        self, input: Source, path: list[Stage], config: Configuration
     ) -> Source:
         """
         A branch of the computation graph that uses `input` and executes the
@@ -352,8 +353,7 @@ class ComputationGraph:
         """
         self._input.data = input_data.convert_to(self.input_type).data
 
-        for step in self.steps:
-            yield step
+        yield from self.steps
 
     def convert_source_to(self, input: Source, output_type: SourceType) -> Source:
         """
@@ -402,7 +402,7 @@ class ComputationGraph:
                         " Steps require `SourceType` types for all arguments"
                     )
                 annotations.append(ty.annotation)
-            input_types: List[SourceType] = tuple(annotations)
+            input_types: list[SourceType] = tuple(annotations)
 
             # TODO: handle tuples return types
             output_types = sig.return_annotation
@@ -437,8 +437,8 @@ class ComputationGraph:
                 # convert the args to the right types and unwrap them
                 # NOTE(rachit): This is a *LAZY* computation and only occurs when
                 # the step's data has been filled.
-                unwrapped_args = map(
-                    lambda a: a[0].convert_to(a[1]).data, zip(args, input_types)
+                unwrapped_args = (
+                    a[0].convert_to(a[1]).data for a in zip(args, input_types)
                 )
                 if builder.ctx:
                     name = f"{'.'.join(builder.ctx)}.{function.__name__}"

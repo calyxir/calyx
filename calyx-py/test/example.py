@@ -1,5 +1,6 @@
-import calyx.py_ast as ast
 import os
+
+import calyx.py_ast as ast
 
 ast.FILEINFO_BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 

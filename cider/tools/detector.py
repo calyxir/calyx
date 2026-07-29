@@ -1,13 +1,13 @@
 #! python3
 
-from argparse import ArgumentParser
+import difflib
 import random
 import shutil
-from pathlib import Path
-import difflib
-import sys
-import subprocess
 import signal
+import subprocess
+import sys
+from argparse import ArgumentParser
+from pathlib import Path
 
 WORKDIR_NAME = ".fud2_datarace_baseline"
 
@@ -21,7 +21,7 @@ def run(
         case "random":
             policy_str = "random"
 
-    entangle_str = " ".join((f"--entangle '{item}'" for item in entangle))
+    entangle_str = " ".join(f"--entangle '{item}'" for item in entangle)
 
     arg_list = [
         "fud2",
@@ -38,11 +38,7 @@ def run(
     if data_file is not None:
         arg_list += ["-s", f"sim.data={data_file}"]
 
-    process = subprocess.run(
-        arg_list,
-        capture_output=True,
-        text=True,
-    )
+    process = subprocess.run(arg_list, capture_output=True, text=True, check=False)
 
     if process.returncode != 0:
         print(process.stderr, file=sys.stderr)
@@ -53,10 +49,10 @@ def run(
 
 
 def rerun() -> str:
-    subprocess.run(["rm", "interp_out.dump"], cwd=WORKDIR_NAME)
+    subprocess.run(["rm", "interp_out.dump"], cwd=WORKDIR_NAME, check=False)
 
     process = subprocess.run(
-        ["ninja"], cwd=WORKDIR_NAME, text=True, capture_output=True
+        ["ninja"], cwd=WORKDIR_NAME, text=True, capture_output=True, check=False
     )
 
     if process.returncode != 0:

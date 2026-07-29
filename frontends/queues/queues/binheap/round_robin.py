@@ -1,7 +1,8 @@
 # pylint: disable=import-error
 import calyx.builder as cb
-from calyx.utils import bits_needed
 from queues.binheap.stable_binheap import insert_stable_binheap
+
+from calyx.utils import bits_needed
 
 FACTOR = 4
 
@@ -27,7 +28,7 @@ def insert_binheap_rr(prog, name, n, flow_infer, queue_size_factor=FACTOR):
     infer_flow_out = cb.invoke(flow_infer, in_value=ans.out, ref_flow=flow)
 
     rank_ptrs = [comp.reg(32, f"r_{i}") for i in range(n)]
-    rank_ptr_incrs = dict([(i, comp.incr(rank_ptrs[i], n)) for i in range(n)])
+    rank_ptr_incrs = {i: comp.incr(rank_ptrs[i], n) for i in range(n)}
 
     turn = comp.reg(bits_needed(n - 1), "turn")
     turn_neq_flow = comp.neq_use(turn.out, flow.out)
@@ -52,9 +53,7 @@ def insert_binheap_rr(prog, name, n, flow_infer, queue_size_factor=FACTOR):
             ref_err=err,
         )
 
-    binheap_invokes = dict(
-        [(i, binheap_invoke(value, rank_ptrs[i].out)) for i in range(n)]
-    )
+    binheap_invokes = {i: binheap_invoke(value, rank_ptrs[i].out) for i in range(n)}
 
     update_state_pop = [
         infer_flow_out,

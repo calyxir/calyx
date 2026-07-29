@@ -1,3 +1,4 @@
+#!python3
 # Usage: python3 parse_pcap.py <PCAP> <Out> [Options]...
 #
 # Parses PCAP files to generate data files
@@ -34,10 +35,12 @@
 # Example:
 #   python3 parse_pcap.py example.pcap example.data --start 10 --end 20 --num-flows 3
 
-import sys
-import json
-import dpkt
 import argparse
+import json
+import sys
+
+import dpkt
+
 from calyx.utils import bits_needed
 
 CMD_PUSH = 1
@@ -75,8 +78,8 @@ class ArgumentParserWithCustomError(argparse.ArgumentParser):
 
     def error(self, msg=None):
         if msg:
-            print("ERROR: %s" % msg)
-        file = open(sys.argv[0])
+            print(f"ERROR: {msg}")
+        file = open(sys.argv[0])  # noqa: SIM115
         for i, line in enumerate(file):
             if line[0] == "#":
                 print(line[2:].rstrip("\n"))
@@ -152,7 +155,7 @@ def parse_pcap(pcap_file):
 
     # converts numeric address to hexadecimal strings
     def mac_addr(addr):
-        return ":".join("%02x" % dpkt.compat.compat_ord(b) for b in addr)
+        return ":".join(f"{dpkt.compat.compat_ord(b):02x}" for b in addr)
 
     pcap = dpkt.pcap.Reader(pcap_file)
 
@@ -310,8 +313,8 @@ def dump_json(data, data_file):
 if __name__ == "__main__":
     opts = parse_cmdline()
 
-    pcap_file = open(opts.PCAP, "rb")
-    addr2int_json = None if opts.addr2int is None else open(opts.addr2int)
+    pcap_file = open(opts.PCAP, "rb")  # noqa: SIM115
+    addr2int_json = None if opts.addr2int is None else open(opts.addr2int)  # noqa: SIM115
 
     # unpack command line arguments
     ADDR2INT = None if addr2int_json is None else json.load(addr2int_json)
@@ -325,7 +328,7 @@ if __name__ == "__main__":
     data = parse_pcap(pcap_file)
 
     # construct data file in `data_file`
-    data_file = open(opts.Out, "w")
+    data_file = open(opts.Out, "w")  # noqa: SIM115
     dump_json(data, data_file)
 
     # report stats

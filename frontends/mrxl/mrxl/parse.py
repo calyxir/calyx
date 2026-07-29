@@ -1,6 +1,6 @@
 import lark
-from . import ast
 
+from . import ast
 
 GRAMMAR = """
 start: decls stmts

@@ -1,15 +1,14 @@
-from typing import List
 from math import log
+
+from calyx import numeric_types
+from calyx.builder import HI, Builder, CellBuilder, ComponentBuilder, invoke, par
+from calyx.gen_msb import gen_msb_calc
 from calyx.py_ast import (
-    Stdlib,
     Component,
     Import,
+    Stdlib,
 )
 from calyx.utils import float_to_fixed_point
-from calyx import numeric_types
-from calyx.gen_msb import gen_msb_calc
-
-from calyx.builder import Builder, ComponentBuilder, CellBuilder, HI, par, invoke
 
 
 def gen_constant_cell(
@@ -210,7 +209,7 @@ def generate_pade_groups(comp: ComponentBuilder):
         get_res.done = res_reg.done
 
 
-def gen_pade_approx(width: int, int_width: int, is_signed: bool) -> List[Component]:
+def gen_pade_approx(width: int, int_width: int, is_signed: bool) -> list[Component]:
     """
     Component to approximate ln(x).
     Uses the 2nd order Pade Approximant of ln(x) at x = 1.5. Therefore, we only
@@ -250,7 +249,7 @@ def gen_pade_approx(width: int, int_width: int, is_signed: bool) -> List[Compone
     return [comp.component]
 
 
-def generate_ln(width: int, int_width: int, is_signed: bool) -> List[Component]:
+def generate_ln(width: int, int_width: int, is_signed: bool) -> list[Component]:
     """
     Generates a component that approximates ln(x) for x >= 1.
     Notice that x = 2^n * y for some natural number n, and some p between 1 and 2.
@@ -366,7 +365,7 @@ if __name__ == "__main__":
 
     width, int_width = None, None
     required_fields = [args.width, args.int_width]
-    if all(map(lambda x: x is not None, required_fields)):
+    if all(x is not None for x in required_fields):
         width = args.width
         int_width = args.int_width
     elif args.file is not None:

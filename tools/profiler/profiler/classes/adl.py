@@ -1,8 +1,9 @@
-from functools import reduce
 import json
 import os
 from dataclasses import dataclass
 from enum import Enum
+from functools import reduce
+
 from .errors import ProfilerException
 
 
@@ -152,8 +153,9 @@ class DahliaAdlMap(AdlMap):
         Helper function for _process_dahlia_parent_map()
         JSON is annoying and requires string keys. This function returns a map obtained from parent_map_file, but with int keys instead.
         """
-        m = json.load(open(parent_map_file))
-        return {int(k): m[k] for k in m}
+        with open(parent_map_file) as p:
+            m = json.load(p)
+            return {int(k): m[k] for k in m}
 
     def _process_dahlia_parent_map(self, dahlia_block_map: str | None):
         """
@@ -201,9 +203,7 @@ class DahliaAdlMap(AdlMap):
             elif linum in all_block_linums:
                 # this line is a parent line that itself has parents
                 block_track_id = self.block_name(line_contents)
-                ancestor_list = list(
-                    map((lambda p: linum_to_block[p]), json_parent_map[linum])
-                )
+                ancestor_list = [linum_to_block[p] for p in json_parent_map[linum]]
 
                 # this line's parent is the block version of this line.
                 statement_to_block_ancestors[line_contents] = [
@@ -216,12 +216,10 @@ class DahliaAdlMap(AdlMap):
             elif len(json_parent_map[linum]) > 0:
                 # this line is a "normal" line with ancestors.
                 # use block version of the actual ancestors.
-                ancestor_list = list(
-                    map(
-                        (lambda p: self.block_name(self.adl_linum_map[p])),
-                        json_parent_map[linum],
-                    )
-                )
+                ancestor_list = [
+                    self.block_name(self.adl_linum_map[p])
+                    for p in json_parent_map[linum]
+                ]
 
                 statement_to_block_ancestors[line_contents] = ancestor_list
 

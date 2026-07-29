@@ -1,8 +1,9 @@
-import sys
-import queues
-import util
 import json
 import os
+import sys
+
+import queues
+import util
 
 
 def create(data, lower, upper, length):

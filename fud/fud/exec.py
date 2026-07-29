@@ -1,16 +1,16 @@
-from typing import List, Optional, Dict
+from __future__ import annotations
 
 import logging as log
 import shutil
 import sys
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
 
 from halo import Halo  # type: ignore
 
-from . import errors, utils, executor
+from . import errors, executor, utils
 from .config import Configuration
-from .stages import Source, SourceType, ComputationGraph, Stage
+from .stages import ComputationGraph, Source, SourceType, Stage
 
 
 @dataclass
@@ -20,15 +20,15 @@ class RunConf:
     # Run configuration
     source: str
     dest: str
-    through: List[str]
+    through: list[str]
     # Input/output configuration
-    input_file: Optional[str]
-    output_file: Optional[str]
+    input_file: str | None
+    output_file: str | None
     # Other configuration
     dry_run: bool
     quiet: bool
     csv: bool
-    profiled_stages: Optional[List[str]]
+    profiled_stages: list[str] | None
 
     @classmethod
     def from_args(cls, args):
@@ -61,7 +61,7 @@ class RunConf:
         )
 
 
-def report_profiling(durations: Dict[str, float], is_csv: bool):
+def report_profiling(durations: dict[str, float], is_csv: bool):
     """
     Report profiling information collected during execution.
     """
@@ -71,7 +71,7 @@ def report_profiling(durations: Dict[str, float], is_csv: bool):
 
 
 def chain_stages(
-    path: List[Stage], config: Configuration, builder: Optional[ComputationGraph] = None
+    path: list[Stage], config: Configuration, builder: ComputationGraph | None = None
 ) -> ComputationGraph:
     """
     Transform a path into a staged computation
@@ -112,14 +112,16 @@ def get_fud_output(args: RunConf, config: Configuration):
 
     # check if input is needed
     inp_type = path[0].input_type
-    if args.input_file is None:
-        if inp_type not in [SourceType.UnTyped, SourceType.Terminal, SourceType.Stream]:
-            raise errors.NeedInputSpecified(path[0])
+    if args.input_file is None and inp_type not in [
+        SourceType.UnTyped,
+        SourceType.Terminal,
+        SourceType.Stream,
+    ]:
+        raise errors.NeedInputSpecified(path[0])
 
     # check if we need `-o` specified
-    if args.output_file is None:
-        if path[-1].output_type == SourceType.Directory:
-            raise errors.NeedOutputSpecified(path[-1])
+    if args.output_file is None and path[-1].output_type == SourceType.Directory:
+        raise errors.NeedOutputSpecified(path[-1])
 
     staged = chain_stages(path, config)
 

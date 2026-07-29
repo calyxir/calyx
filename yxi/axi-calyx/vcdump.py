@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 import sys
 
-
 # Usage: `./vcdump.py <path-to-file>` will add dump lines required to get icarus to create vcds
 
 
@@ -17,7 +16,7 @@ def replace_line(file_path, old_line, new_line):
                 else:
                     file.write(line)
         print(f"Replacement in '{file_path}' successful.")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"Error: {e}")
 
 

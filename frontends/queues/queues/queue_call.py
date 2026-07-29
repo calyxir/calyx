@@ -1,6 +1,6 @@
 # pylint: disable=import-error
-from calyx.py_ast import Empty
 import calyx.builder as cb
+from calyx.py_ast import Empty
 
 ERR_CODE = 2**32 - 1
 PUSH_CODE = 2**32 - 2

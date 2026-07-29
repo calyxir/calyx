@@ -1,9 +1,10 @@
 import sys
+
 import calyx.builder as cb
-import queues.queue_call as qc
-import queues.sim_pcap as sp
 import queues.binheap.round_robin as rr
 import queues.flow_inference as fi
+import queues.queue_call as qc
+import queues.sim_pcap as sp
 
 NUMFLOWS = 6
 

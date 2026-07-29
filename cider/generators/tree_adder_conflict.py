@@ -1,5 +1,6 @@
-from calyx.builder import HI, Builder, ComponentBuilder, par
 from math import log2
+
+from calyx.builder import HI, Builder, ComponentBuilder, par
 
 
 def gen_iteration(

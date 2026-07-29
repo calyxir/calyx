@@ -1,8 +1,10 @@
 from random import randint
-from calyx.numeric_types import FixedPoint, Bitnum, InvalidNumericType
-from hypothesis import given, strategies as st  # type: ignore
+
 import numpy as np
 import pytest  # type: ignore
+from calyx.numeric_types import Bitnum, FixedPoint, InvalidNumericType
+from hypothesis import given  # type: ignore
+from hypothesis import strategies as st
 
 
 @given(bits=st.lists(st.booleans(), min_size=2, max_size=256), is_signed=st.booleans())

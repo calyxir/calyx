@@ -1,5 +1,6 @@
-import cocotb
 import os
+
+import cocotb
 
 # Idea is to have
 

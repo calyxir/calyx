@@ -1,17 +1,16 @@
-from dataclasses import dataclass, field
 import uuid
+from dataclasses import dataclass, field
 
-
-from perfetto.trace_builder.proto_builder import TraceProtoBuilder
 from perfetto.protos.perfetto.trace.perfetto_trace_pb2 import (
     TrackEvent,
 )
+from perfetto.trace_builder.proto_builder import TraceProtoBuilder
 
-from profiler.classes.primitive_metadata import PrimitiveMetadata
-from profiler.classes.errors import ProfilerException
-from profiler.classes.tracedata import TraceData
-from profiler.classes.cell_metadata import CellMetadata
 from profiler.classes.adl import DahliaAdlMap
+from profiler.classes.cell_metadata import CellMetadata
+from profiler.classes.errors import ProfilerException
+from profiler.classes.primitive_metadata import PrimitiveMetadata
+from profiler.classes.tracedata import TraceData
 
 
 @dataclass
@@ -401,7 +400,7 @@ class DahliaProtoTimeline:
         self.create_tracks(self.dahlia_map)
 
         # FIXME: defunct way of creating a lookup for primitives
-        for _, p_map in primitive_metadata.p_map.items():
+        for p_map in primitive_metadata.p_map.values():
             self.primitive_name_to_type.update(p_map)
 
     def create_tracks(
@@ -473,11 +472,11 @@ class DahliaProtoTimeline:
                     intermediate_parent_name=parent_track_id,
                 )
             else:
-                new_thread = sorted(
+                new_thread = min(
                     self.block_to_constructed_threads[parent_track_id].difference(
                         active_threads
                     )
-                )[0]
+                )
             # register in self.block_to_active_threads that the statement will be using the new thread
             self.block_to_active_threads[parent_track_id][statement] = new_thread
             return new_thread

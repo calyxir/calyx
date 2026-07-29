@@ -1,8 +1,9 @@
-from calyx.builder import Builder, add_comp_ports, invoke, const, par, while_
-from typing import Literal
-from math import log2
 import json
 import sys
+from math import log2
+from typing import Literal
+
+from calyx.builder import Builder, add_comp_ports, const, invoke, par, while_
 
 # In general, ports to the wrapper are uppercase, internal registers are lower case.
 
@@ -608,13 +609,13 @@ def check_mems_welformed(mems):
 if __name__ == "__main__":
     yxi_filename = "input.yxi"  # default
     if len(sys.argv) > 2:
-        raise Exception("The controller generator takes 1 yxi file name as argument")
+        raise Exception("The controller generator takes 1 yxi file name as argument")  # noqa: TRY002
     else:
         yxi_filename = sys.argv[1]
         if not yxi_filename.endswith(".yxi"):
-            raise Exception("controller generator requires an yxi file")
+            raise Exception("controller generator requires an yxi file")  # noqa: TRY002
     with open(yxi_filename, "r", encoding="utf-8") as yxifile:
-        yxifile = open(yxi_filename)
+        yxifile = open(yxi_filename)  # noqa: SIM115
         yxi = json.load(yxifile)
         mems = yxi["memories"]
         build().emit()

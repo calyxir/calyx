@@ -1,6 +1,7 @@
+import json
 import os
 import sys
-import json
+
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 

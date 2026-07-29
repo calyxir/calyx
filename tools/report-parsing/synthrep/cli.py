@@ -1,11 +1,13 @@
-from synthrep.extract import place_and_route_extract, hls_extract
-from synthrep.rpt import RPTParser
+import argparse
+import json
+import re
 from pathlib import Path, PurePath
+
 import pandas as pd
 import plotly.express as px
-import argparse
-import re
-import json
+
+from synthrep.extract import hls_extract, place_and_route_extract
+from synthrep.rpt import RPTParser
 
 
 def summary(dir, top):
@@ -83,7 +85,7 @@ def plotly_viz(filename, fn, val, verbose=False):
         ids="id",
     )
     if fn == px.treemap:
-        fig.update_traces(marker=dict(cornerradius=5))
+        fig.update_traces(marker={"cornerradius": 5})
     fig.show()
 
 

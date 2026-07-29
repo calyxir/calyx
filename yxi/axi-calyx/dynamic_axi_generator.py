@@ -2,12 +2,13 @@
 # in and out of the computational kernel as needed. Compare with the
 # read-compute-write implementation in the original `axi_generator`.
 
-from calyx.builder import Builder, add_comp_ports, invoke, par, while_, if_
-from axi_controller_generator import add_control_subordinate
-from typing import Literal
-from math import log2
 import argparse
 import json
+from math import log2
+from typing import Literal
+
+from axi_controller_generator import add_control_subordinate
+from calyx.builder import Builder, add_comp_ports, if_, invoke, par, while_
 
 parser = argparse.ArgumentParser("Config settings for AXI generation.")
 parser.add_argument(
@@ -309,7 +310,7 @@ def add_write_channel(prog: Builder, mem):
     # TODO(nathanielnrn): Currently we assume that width is a power of 2.
     # In the future we should allow for non-power of 2 widths, will need some
     # splicing for this.
-    # See https://cucapra.slack.com/archives/C05TRBNKY93/p1705587169286609?thread_ts=1705524171.974079&cid=C05TRBNKY93 # noqa: E501
+    # See https://cucapra.slack.com/archives/C05TRBNKY93/p1705587169286609?thread_ts=1705524171.974079&cid=C05TRBNKY93
 
     # Control
     write_channel.control += [
@@ -918,7 +919,7 @@ def check_mems_wellformed(mems):
 if __name__ == "__main__":
     yxi_filename = args.yxi_filename
     if not yxi_filename.endswith(".yxi"):
-        raise Exception("axi generator requires a .yxi file")
+        raise Exception("axi generator requires a .yxi file")  # noqa: TRY002
     with open(yxi_filename, "r", encoding="utf-8") as yxifile:
         yxi = json.load(yxifile)
         mems = yxi["memories"]

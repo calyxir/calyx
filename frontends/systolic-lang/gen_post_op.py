@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
+# noqa: EXE001
+from gen_array_component import NAME_SCHEME
+from gen_pe import BITWIDTH, FRACWIDTH, INTWIDTH
+from systolic_arg_parser import SystolicConfiguration
 
 from calyx import builder as cb
-from calyx import py_ast
-from gen_array_component import NAME_SCHEME
-from gen_pe import BITWIDTH, INTWIDTH, FRACWIDTH
-from calyx import numeric_types
-from calyx.utils import float_to_fixed_point
-from systolic_arg_parser import SystolicConfiguration
-from calyx.utils import bits_needed
-
+from calyx import numeric_types, py_ast
+from calyx.utils import bits_needed, float_to_fixed_point
 
 # Name of the ouput array
 OUT_MEM = "out_mem"

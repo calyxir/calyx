@@ -1,10 +1,10 @@
 import json
-from pathlib import Path, PurePath
+import logging as log
 import re
 import traceback
-import logging as log
+from pathlib import Path, PurePath
 
-import synthrep.rpt as rpt
+from synthrep import rpt
 
 
 def find_row(table, colname, key, certain=True):
@@ -124,7 +124,7 @@ def place_and_route_extract(
             }
         )
 
-    except Exception:
+    except Exception:  # noqa: BLE001
         log.error(traceback.format_exc())
         log.error("Failed to extract utilization information")
 

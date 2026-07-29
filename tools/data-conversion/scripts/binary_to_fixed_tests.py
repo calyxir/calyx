@@ -1,5 +1,5 @@
-import random
 import os
+import random
 import subprocess
 
 
@@ -14,7 +14,7 @@ def generate_tests(num_tests):
     for _ in range(num_tests):
         # Generate a random binary string (up to 32 bits for u32 in Rust)
         binary_string = generate_binary_string(random.randint(1, 24))
-        tests.append((binary_string))
+        tests.append(binary_string)
 
     return tests
 
@@ -49,13 +49,15 @@ def convert_binary_to_fixed(binary_string, exponent):
     fixed_point_number = binary_value * (
         2**exponent
     )  # Calculate the fixed-point number
-    formatted = "{:.8e}".format(fixed_point_number)
+    formatted = f"{fixed_point_number:.8e}"
     return formatted + "\n"
 
 
 def run_rust_function(input_file, output_file, exponent):
     rust_command = f"../../target/debug/data-conversion --from {input_file} --to {output_file} --ftype 'binary' --totype 'fixed' --exp {exponent}"
-    result = subprocess.run(rust_command, shell=True, capture_output=True, text=True)
+    result = subprocess.run(
+        rust_command, shell=True, capture_output=True, text=True, check=False
+    )
     if result.returncode != 0:
         print("Can't run rust function")
     return result.returncode == 0

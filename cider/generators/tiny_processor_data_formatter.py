@@ -1,5 +1,4 @@
 from enum import Enum
-from typing import List, Tuple
 
 
 class Op(Enum):
@@ -27,7 +26,7 @@ def format_instruction(op: Op, left: int, right: int, dest: int) -> int:
     return out
 
 
-def decode(input: int) -> Tuple[Op, int, int, int]:
+def decode(input: int) -> tuple[Op, int, int, int]:
     left = input & 0xFF
     right = (input & (0xFF << 16)) >> 16
     dest = (input & (0xFF << 32)) >> 32
@@ -36,7 +35,7 @@ def decode(input: int) -> Tuple[Op, int, int, int]:
     return (Op(op), left, right, dest)
 
 
-def instruction_stream(input: List[Tuple[Op, int, int, int]]) -> List[int]:
+def instruction_stream(input: list[tuple[Op, int, int, int]]) -> list[int]:
     return [format_instruction(*args) for args in input]
 
 
@@ -45,17 +44,14 @@ instructions = [
     (Op.ADD, 0, 1, 31),
     (Op.SUB, 2, 3, 32),
     (Op.MUL, 4, 5, 33),
-    #
     (Op.MUL, 30, 5, 40),
     (Op.ADD, 15, 3, 41),
     (Op.SUB, 17, 2, 42),
     (Op.MUL, 20, 15, 43),
-    #
     (Op.ADD, 30, 31, 30),
     (Op.ADD, 32, 33, 31),
     (Op.ADD, 15, 17, 37),
     (Op.ADD, 10, 10, 38),
-    #
     (Op.MUL, 13, 15, 34),
     (Op.MUL, 12, 15, 34),
     (Op.SUB, 21, 22, 35),
