@@ -25,7 +25,7 @@ class KernelTB:
     async def setup_rams(self, data: Mapping[str, Any]):
         # Create cocotb AxiRams
         rams = {}
-        for mem, value in data:
+        for mem, value in data.items():
             assert not isinstance(value["data"][0], list)
             size = mem_size_in_bytes(mem, data)
             width = data_width_in_bytes(mem, data)
