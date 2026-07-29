@@ -44,10 +44,10 @@ class KernelTB:
 
             # NOTE: This defaults to little endian to match AxiRam defaults
             data_in_bytes = encode(
-                data[mem]["data"],
+                value["data"],
                 width,
                 byteorder="little",
-                signed=bool(data[mem]["format"]["is_signed"]),
+                signed=bool(value["format"]["is_signed"]),
             )
             addr = 0x0000
             rams[mem].write(addr, data_in_bytes)
