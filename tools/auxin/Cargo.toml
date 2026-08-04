@@ -16,7 +16,6 @@ serde_json = { workspace = true, features = ["arbitrary_precision"] }
 itertools = { workspace = true }
 argh.workspace = true
 thiserror.workspace = true
-nom = "7.1"
 num-traits = { version = "0.2" }
 baa.workspace = true
 
