@@ -5,7 +5,7 @@ use core::str;
 use num_ir::typing;
 use std::{
     fs::File,
-    io::{self, Read, Write},
+    io::{self, BufWriter, Read, Write},
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -243,7 +243,10 @@ fn get_output_handle(
     let output: Box<dyn Write> = opts
         .output_path
         .as_ref()
-        .map(|path| File::create(path).map(|x| Box::new(x) as Box<dyn Write>))
+        .map(|path| {
+            File::create(path)
+                .map(|x| Box::new(BufWriter::new(x)) as Box<dyn Write>)
+        })
         .unwrap_or(Ok(Box::new(io::stdout())))?;
     Ok(output)
 }

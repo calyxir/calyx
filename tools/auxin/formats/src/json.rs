@@ -238,6 +238,8 @@ struct ArrayParseInfo {
     data: Vec<String>,
     dim_sizes: Vec<usize>,
 }
+
+#[inline]
 fn write_value<W: Write>(
     v: &str,
     r: &mut JsonStreamWriter<W>,
@@ -482,7 +484,7 @@ impl filerep::FileIO for JsonData {
             sw.begin_object()?;
             sw.name("data")?;
             let ap = ArrayParseInfo {
-                data: v.data.clone(),
+                data: v.data.clone(), // TODO: get rid of this clone
                 dim_sizes: v.dim_sizes.clone(),
             };
             ap.write_nested_inner(&mut sw, false)?;
