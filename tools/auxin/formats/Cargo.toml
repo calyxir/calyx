@@ -14,6 +14,7 @@ thiserror.workspace = true
 nom = "7.1"
 num-ir = {path = "../num-ir"}
 baa.workspace = true
+smallvec.workspace = true
 struson = { version = "0.7.2", features = ["serde"] }
 
 [dev-dependencies]

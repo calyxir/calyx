@@ -864,6 +864,7 @@ dependencies = [
  "proptest",
  "serde",
  "serde_json",
+ "smallvec",
  "struson",
  "thiserror 2.0.18",
 ]

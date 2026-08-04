@@ -2,6 +2,7 @@
 
 use crate::typing::*;
 use baa::BitVecOps;
+use smallvec::SmallVec;
 
 // TODO: the below is probably quite bad but. works
 
@@ -11,8 +12,7 @@ use baa::BitVecOps;
 #[derive(Debug)]
 pub struct SingleMem {
     pub(self) data: Vec<baa::BitVecValue>, // container for the data elements
-    pub dimensions: [usize; 4], // begrudgingly, multi-dimensional memories are supported
-    pub num_dimensions: usize,
+    pub dimensions: SmallVec<[usize; 4]>, // begrudgingly, multi-dimensional memories are supported
     // [dtype] is not stored with every element of the data vec for space efficiency
     dtype: TypeSpec,
     pub end: Endian,
@@ -23,15 +23,13 @@ impl SingleMem {
     /// Create a new [SingleMem] from the specified parameters.
     pub fn new(
         data: Vec<baa::BitVecValue>,
-        dimensions: [usize; 4],
-        num_dimensions: usize,
+        dimensions: SmallVec<[usize; 4]>,
         dtype: TypeSpec,
         end: Endian,
     ) -> Self {
         SingleMem {
             data,
             dimensions,
-            num_dimensions,
             dtype,
             end,
         }

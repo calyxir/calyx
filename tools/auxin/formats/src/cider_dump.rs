@@ -8,10 +8,11 @@ use crate::filerep::FileFmtErr;
 use num_ir::memrep as nr;
 
 use num_ir::typing::*;
+use smallvec::smallvec;
 
 fn as_cider_dims(inp: &nr::SingleMem) -> cs::Dimensions {
     use cs::Dimensions as Dim;
-    match inp.num_dimensions {
+    match inp.dimensions.len() {
         1 => Dim::D1(inp.dimensions[0]),
         2 => Dim::D2(inp.dimensions[0], inp.dimensions[1]),
         3 => Dim::D3(inp.dimensions[0], inp.dimensions[1], inp.dimensions[2]),
@@ -136,18 +137,17 @@ impl fr::TryToIR for cs::DataDump {
                 })
                 .collect();
             let data = c?;
-            let (dimensions, num_dimensions) = match mem.dimensions {
-                cs::Dimensions::D1(d1) => ([d1, 0, 0, 0], 1),
-                cs::Dimensions::D2(d1, d2) => ([d1, d2, 0, 0], 2),
-                cs::Dimensions::D3(d1, d2, d3) => ([d1, d2, d3, 0], 3),
-                cs::Dimensions::D4(d1, d2, d3, d4) => ([d1, d2, d3, d4], 4),
+            let dimensions = match mem.dimensions {
+                cs::Dimensions::D1(d1) => smallvec![d1],
+                cs::Dimensions::D2(d1, d2) => smallvec![d1, d2],
+                cs::Dimensions::D3(d1, d2, d3) => smallvec![d1, d2, d3],
+                cs::Dimensions::D4(d1, d2, d3, d4) => smallvec![d1, d2, d3, d4],
             };
             res.mems.insert(
                 mem.name.clone(),
                 nr::SingleMem::new(
                     data,
                     dimensions,
-                    num_dimensions,
                     assoc_type.clone(),
                     Endian::Little,
                 ),

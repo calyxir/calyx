@@ -7,6 +7,8 @@ use crate::json_common::*;
 use num_ir::memrep::*;
 use num_ir::typing::*;
 
+use smallvec::SmallVec;
+
 use struson::{
     reader::*,
     writer::{JsonStreamWriter, JsonWriter},
@@ -15,7 +17,7 @@ use struson::{
 pub struct JsonEntry {
     data: Vec<String>,
     format: Option<FormatInfo>,
-    dim_sizes: Vec<usize>,
+    dim_sizes: SmallVec<[usize; 4]>,
     is_quoted: bool,
 }
 
@@ -24,7 +26,7 @@ impl Default for JsonEntry {
         Self {
             data: Vec::with_capacity(10),
             format: None,
-            dim_sizes: Vec::with_capacity(4),
+            dim_sizes: SmallVec::with_capacity(4),
             is_quoted: false,
         }
     }
@@ -123,14 +125,13 @@ impl JsonEntry {
         debug_assert!(
             self.data.len() == self.dim_sizes.iter().product::<usize>()
         );
-        w.begin_array()?;
         match self.dim_sizes.len() {
             1 => {
                 write_arr_from_iterable(self.data.iter(), w, self.is_quoted)?;
             }
             2 => {
                 let d1_size = self.dim_sizes[1];
-
+                w.begin_array()?;
                 for d1_chunk in self.data.chunks(d1_size) {
                     write_arr_from_iterable(
                         d1_chunk.iter(),
@@ -138,10 +139,12 @@ impl JsonEntry {
                         self.is_quoted,
                     )?;
                 }
+                w.end_array()?;
             }
             3 => {
                 let d1_size: usize = self.dim_sizes[1..3].iter().product();
                 let d2_size = self.dim_sizes[2];
+                w.begin_array()?;
                 for d1_chunk in self.data.chunks(d1_size) {
                     w.begin_array()?;
                     for d2_chunk in d1_chunk.chunks(d2_size) {
@@ -154,11 +157,13 @@ impl JsonEntry {
 
                     w.end_array()?;
                 }
+                w.end_array()?;
             }
             4 => {
                 let d1_size: usize = self.dim_sizes[1..4].iter().product();
                 let d2_size: usize = self.dim_sizes[2..4].iter().product();
                 let d3_size = self.dim_sizes[3];
+                w.begin_array()?;
                 for d1_chunk in self.data.chunks(d1_size) {
                     w.begin_array()?;
                     for d2_chunk in d1_chunk.chunks(d2_size) {
@@ -175,12 +180,12 @@ impl JsonEntry {
 
                     w.end_array()?;
                 }
+                w.end_array()?;
             }
             _ => {
                 return Err(json_err("cannot write an array of >4 dimensions"));
             }
         }
-        w.end_array()?;
 
         Ok(())
     }
@@ -195,11 +200,6 @@ impl JsonEntry {
             .map(|e| t.read_str(e, Endian::Little))
             .collect::<Result<_, _>>()?;
 
-        let mut d = [0; 4];
-        for (idx, v) in self.dim_sizes.iter().enumerate() {
-            d[idx] = *v;
-        }
-
         // TODO: get this working again
         // assert_eq!(
         //     self.dim_sizes
@@ -210,14 +210,13 @@ impl JsonEntry {
         // );
         Ok(SingleMem::new(
             data,
-            d,
-            self.dim_sizes.len(),
+            self.dim_sizes,
             t.clone(),
             Endian::Little,
         ))
     }
     fn try_entry_from_ir(
-        inp: &SingleMem,
+        inp: SingleMem,
         opts: Option<&filerep::OutputOpts>,
     ) -> Result<JsonEntry, filerep::FileFmtErr> {
         let is_bin = inp.ty().class == TypeClass::Bits;
@@ -236,7 +235,7 @@ impl JsonEntry {
         Ok(JsonEntry {
             data: as_num,
             format: Some(FormatInfo::try_from(inp.ty())?),
-            dim_sizes: inp.dimensions[..inp.num_dimensions].to_vec(),
+            dim_sizes: inp.dimensions,
             is_quoted: is_hex || is_bin,
         })
     }
@@ -289,8 +288,8 @@ pub struct JsonData(pub BTreeMap<String, JsonEntry>);
 impl filerep::TryFromIR for JsonData {
     fn try_from_ir(inp: FileMems) -> Result<Self, filerep::FileFmtErr> {
         let mut res = BTreeMap::new();
-        for (k, v) in inp.mems.iter() {
-            res.insert(k.to_string(), JsonEntry::try_entry_from_ir(v, None)?);
+        for (k, v) in inp.mems.into_iter() {
+            res.insert(k, JsonEntry::try_entry_from_ir(v, None)?);
         }
         Ok(JsonData(res))
     }
@@ -302,11 +301,8 @@ impl JsonData {
         opts: &filerep::OutputOpts,
     ) -> Result<Self, FileFmtErr> {
         let mut res = BTreeMap::new();
-        for (k, v) in inp.mems.iter() {
-            res.insert(
-                k.to_string(),
-                JsonEntry::try_entry_from_ir(v, Some(opts))?,
-            );
+        for (k, v) in inp.mems.into_iter() {
+            res.insert(k, JsonEntry::try_entry_from_ir(v, Some(opts))?);
         }
         Ok(JsonData(res))
     }
