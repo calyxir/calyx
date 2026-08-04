@@ -2405,6 +2405,7 @@ dependencies = [
  "itertools 0.14.0",
  "num-traits",
  "proptest",
+ "smallvec",
  "thiserror 2.0.18",
 ]
 

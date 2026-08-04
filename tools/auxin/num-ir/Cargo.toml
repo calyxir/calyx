@@ -16,6 +16,8 @@ num-traits = { version = "0.2" }
 # this can probably be feature-reduced, we don't use all of it
 baa.workspace = true
 
+smallvec.workspace = true
+
 
 [dev-dependencies]
 proptest = "1.0.0"

@@ -120,7 +120,7 @@ impl TypeSpec {
         b: &baa::BitVecValue,
         _end: Endian,
     ) -> String {
-        b.to_hex_str()
+        format!("0x{}", b.to_hex_str())
     }
 
     // try from bytes should be a 'blanket' part of TypeSpec

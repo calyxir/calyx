@@ -60,11 +60,7 @@ impl DirIO for cs::DataDump {
 
         Ok(cs::DataDump { header, data })
     }
-    fn write_out_dir(
-        &self,
-        dest: &Path,
-        ext: String,
-    ) -> Result<(), FileFmtErr> {
+    fn write_out_dir(self, dest: &Path, ext: String) -> Result<(), FileFmtErr> {
         if dest.exists() && !dest.is_dir() {
             return Err(FileFmtErr::FileSpecific(format!(
                 "{:?}: not a directory",

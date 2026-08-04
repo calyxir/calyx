@@ -43,7 +43,7 @@ where
     Self: Sized,
 {
     fn read_into(src: Box<dyn Read>) -> Result<Self, FileFmtErr>;
-    fn write_out(&self, dest: Box<dyn Write>) -> Result<(), FileFmtErr>;
+    fn write_out(self, dest: Box<dyn Write>) -> Result<(), FileFmtErr>;
 }
 
 // equivalent of FileIO but for formats which output to a directory
@@ -52,8 +52,7 @@ where
     Self: Sized,
 {
     fn read_into_dir(src: &Path, ext: String) -> Result<Self, FileFmtErr>;
-    fn write_out_dir(&self, dest: &Path, ext: String)
-    -> Result<(), FileFmtErr>;
+    fn write_out_dir(self, dest: &Path, ext: String) -> Result<(), FileFmtErr>;
 }
 
 pub trait TryFromIR

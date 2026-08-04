@@ -78,7 +78,7 @@ pub fn int_read(
             "found sign when parsing unsigned int".to_string(),
         ));
     }
-    BitVecValue::from_str_radix(&s, 10, width as u32)
+    BitVecValue::from_str_radix(s, 10, width as u32)
         .map_err(|e| NumParseErr::Baa(s.to_string(), e))
 }
 
@@ -107,7 +107,7 @@ pub fn bits_read(
         format!("could not strip prefix from {}", s),
     ))?;
 
-    BitVecValue::from_str_radix(&cleaned_str, 2, width as u32)
+    BitVecValue::from_str_radix(cleaned_str, 2, width as u32)
         .map_err(|e| NumParseErr::Baa(s.to_string(), e))
 }
 

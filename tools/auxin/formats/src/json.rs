@@ -1,9 +1,9 @@
-use serde::{self, Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::io::{Read, Write};
 use struson::writer::WriterSettings;
 
 use crate::filerep::{self, FileFmtErr, FileMems};
+use crate::json_common::*;
 use num_ir::memrep::*;
 use num_ir::typing::*;
 
@@ -12,145 +12,179 @@ use struson::{
     writer::{JsonStreamWriter, JsonWriter},
 };
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, Eq, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum JsonTypes {
-    Bitnum,
-    #[serde(alias = "fixed_point")]
-    Fixed,
-    #[serde(alias = "ieee754_float")]
-    IEEE754Float,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct FormatInfo {
-    pub numeric_type: JsonTypes,
-    pub is_signed: bool,
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub width: Option<u32>,
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub int_width: Option<u32>,
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub frac_width: Option<u32>,
-}
-
-fn json_err<T: ToString>(s: T) -> FileFmtErr {
-    FileFmtErr::FileSpecific(format!("json: {}", s.to_string()))
-}
-
-/*
-    ideally would also check for overspecified format (i.e. non-fixed_point with frac_width defined)
-*/
-impl FormatInfo {
-    // returns fixed-point as (overall width, frac_width)
-    // a bit verbose, but roughly self-documenting
-    #[inline]
-    fn normalise_fixed(&self) -> Result<(usize, i32), FileFmtErr> {
-        if let Some(w) = self.width {
-            if w > 64 {
-                return Err(json_err("fixed width > 64"));
-            }
-            match (self.int_width, self.frac_width) {
-                (Some(i), Some(f)) if i + f == w => Ok((w as usize, f as i32)),
-                (None, Some(f)) if f < w => Ok((w as usize, f as i32)),
-                (Some(i), None) if i < w => {
-                    Ok((w as usize, (w as i32 - (i as i32))))
-                }
-                _ => Err(json_err(format!("malformed fixed type {self:?}"))),
-            }
-        } else {
-            match (self.int_width, self.frac_width) {
-                (Some(i), Some(f)) if i + f <= 64 => {
-                    Ok(((i + f) as usize, f as i32))
-                }
-                _ => Err(json_err(format!("malformed fixed type {self:?}"))),
-            }
-        }
-    }
-}
-
-impl TryFrom<&TypeSpec> for FormatInfo {
-    type Error = FileFmtErr;
-
-    fn try_from(value: &TypeSpec) -> Result<Self, Self::Error> {
-        use TypeClass as tc;
-        let mut frac_width = None;
-        let numeric_type = match value.class {
-            tc::Bits => JsonTypes::Bitnum,
-            tc::Int => JsonTypes::Bitnum,
-            tc::Float => JsonTypes::IEEE754Float,
-            tc::Fixed { exp_mag: e } => {
-                frac_width = Some(if e < 0 { 0 } else { e } as u32);
-                JsonTypes::Fixed
-            }
-            _ => {
-                return Err(FileFmtErr::FileSpecific(format!(
-                    "unknown type class {:?}",
-                    value.class
-                )));
-            }
-        };
-        Ok(FormatInfo {
-            numeric_type,
-            is_signed: value.signed,
-            width: Some(value.width as u32),
-            int_width: None,
-            frac_width,
-        })
-    }
-}
-
-impl TryFrom<&FormatInfo> for TypeSpec {
-    type Error = FileFmtErr;
-    fn try_from(value: &FormatInfo) -> Result<Self, Self::Error> {
-        use TypeClass as tc;
-
-        use JsonTypes::*;
-        let mut total_width = value.width;
-        let class = match value.numeric_type {
-            Bitnum => tc::Int,
-            IEEE754Float => tc::Float,
-            Fixed => {
-                let (t, frac_width) = value.normalise_fixed()?;
-                total_width = Some(t as u32);
-                tc::Fixed {
-                    exp_mag: frac_width,
-                }
-            }
-        };
-        Ok(TypeSpec {
-            width: total_width.unwrap() as usize,
-            signed: value.is_signed,
-            class,
-        })
-    }
-}
-
-fn try_parse_format<R: Read>(
-    r: &mut JsonStreamReader<R>,
-) -> Result<FormatInfo, FileFmtErr> {
-    r.deserialize_next().map_err(|e| {
-        FileFmtErr::FileSpecific(format!("json: {}", e.to_string()))
-    })
-}
-
-/*
-    NOTE: as implemented, some fixed point numbers which exceed the precision of f64 but are still valid fixed-point may not work.
-
-    ``Value`` is maybe not the ideal way to do this, but is good enough
-*/
-
-struct JsonEntry {
+pub struct JsonEntry {
     data: Vec<String>,
-    format: FormatInfo,
+    format: Option<FormatInfo>,
     dim_sizes: Vec<usize>,
     is_quoted: bool,
 }
 
+impl Default for JsonEntry {
+    fn default() -> Self {
+        Self {
+            data: Vec::with_capacity(10),
+            format: None,
+            dim_sizes: Vec::with_capacity(4),
+            is_quoted: false,
+        }
+    }
+}
+
+// NOTE: expects elements to be ordered "format" "data"
 impl JsonEntry {
+    fn try_read<R: Read>(
+        r: &mut JsonStreamReader<R>,
+    ) -> Result<Self, FileFmtErr> {
+        r.begin_object()?;
+        let mut res = JsonEntry::default();
+        let e1 = r.next_name()?;
+        if e1 != "data" {
+            return Err(json_err(format!("expected data. got {}", e1)));
+        }
+        res.read_arr(r, 0)?;
+        let e2 = r.next_name()?;
+        if e2 != "format" {
+            return Err(json_err(format!("expected format. got {}", e2)));
+        }
+        res.format = r.deserialize_next()?;
+
+        r.end_object()?;
+        Ok(res)
+    }
+
+    fn try_write<W: Write>(
+        mut self,
+        w: &mut JsonStreamWriter<W>,
+    ) -> Result<(), FileFmtErr> {
+        w.begin_object()?;
+        w.name("data")?;
+        let f = std::mem::take(&mut self.format).unwrap();
+        self.write_nested_inner(w)?;
+        w.name("format")?;
+        w.serialize_value(&f)?;
+        w.end_object()?;
+
+        Ok(())
+    }
+
+    /// assumes that we are at the start of the array, no key attached to it
+    fn read_arr<R: Read>(
+        &mut self,
+        r: &mut JsonStreamReader<R>,
+        curr_dim: usize,
+    ) -> Result<(), FileFmtErr> {
+        r.begin_array()?;
+        let mut curr_type: Option<ValueType> = None; // type of current level
+        let mut item_ct = 0;
+        if self.dim_sizes.len() == curr_dim {
+            self.dim_sizes.push(0)
+        }
+        while r.has_next()? {
+            let nt = r.peek()?;
+            if curr_type.is_none() {
+                curr_type = Some(nt)
+            }
+            if nt != curr_type.unwrap() {
+                return Err(json_err("hit elements of mismatched type"));
+            }
+            match nt {
+                ValueType::Array => self.read_arr(r, curr_dim + 1)?,
+                ValueType::String => {
+                    let s = r.next_string()?;
+                    self.data.push(s)
+                }
+                ValueType::Number => {
+                    let n = r.next_number_as_string()?;
+                    self.data.push(n)
+                }
+                _ => return Err(json_err("unknown type")),
+            };
+            item_ct += 1;
+        }
+        if self.dim_sizes[curr_dim] == 0 {
+            self.dim_sizes[curr_dim] = item_ct
+        } else if self.dim_sizes[curr_dim] != item_ct {
+            return Err(json_err("hit elements of mismatched length"));
+        }
+        if matches!(curr_type, Some(ValueType::String)) {
+            self.is_quoted = true;
+        }
+        r.end_array()?;
+        Ok(())
+    }
+
+    // TODO: make this less evil
+    /// basically no type verification, the assumption is that we're provided with some string array already
+    /// this is pretty terrible but should suffice
+    fn write_nested_inner<W: Write>(
+        self,
+        w: &mut JsonStreamWriter<W>,
+    ) -> Result<(), FileFmtErr> {
+        debug_assert!(
+            self.data.len() == self.dim_sizes.iter().product::<usize>()
+        );
+        w.begin_array()?;
+        match self.dim_sizes.len() {
+            1 => {
+                write_arr_from_iterable(self.data.iter(), w, self.is_quoted)?;
+            }
+            2 => {
+                let d1_size = self.dim_sizes[1];
+
+                for d1_chunk in self.data.chunks(d1_size) {
+                    write_arr_from_iterable(
+                        d1_chunk.iter(),
+                        w,
+                        self.is_quoted,
+                    )?;
+                }
+            }
+            3 => {
+                let d1_size: usize = self.dim_sizes[1..3].iter().product();
+                let d2_size = self.dim_sizes[2];
+                for d1_chunk in self.data.chunks(d1_size) {
+                    w.begin_array()?;
+                    for d2_chunk in d1_chunk.chunks(d2_size) {
+                        write_arr_from_iterable(
+                            d2_chunk.iter(),
+                            w,
+                            self.is_quoted,
+                        )?;
+                    }
+
+                    w.end_array()?;
+                }
+            }
+            4 => {
+                let d1_size: usize = self.dim_sizes[1..4].iter().product();
+                let d2_size: usize = self.dim_sizes[2..4].iter().product();
+                let d3_size = self.dim_sizes[3];
+                for d1_chunk in self.data.chunks(d1_size) {
+                    w.begin_array()?;
+                    for d2_chunk in d1_chunk.chunks(d2_size) {
+                        w.begin_array()?;
+                        for d3_chunk in d2_chunk.chunks(d3_size) {
+                            write_arr_from_iterable(
+                                d3_chunk.iter(),
+                                w,
+                                self.is_quoted,
+                            )?;
+                        }
+                        w.end_array()?;
+                    }
+
+                    w.end_array()?;
+                }
+            }
+            _ => {
+                return Err(json_err("cannot write an array of >4 dimensions"));
+            }
+        }
+        w.end_array()?;
+
+        Ok(())
+    }
+
     fn try_entry_to_ir(
         self,
         t: &TypeSpec,
@@ -158,7 +192,7 @@ impl JsonEntry {
         let data: Vec<_> = self
             .data
             .iter()
-            .map(|e| t.read_str(&e.to_string(), Endian::Little))
+            .map(|e| t.read_str(e, Endian::Little))
             .collect::<Result<_, _>>()?;
 
         let mut d = [0; 4];
@@ -166,6 +200,7 @@ impl JsonEntry {
             d[idx] = *v;
         }
 
+        // TODO: get this working again
         // assert_eq!(
         //     self.dim_sizes
         //         .iter()
@@ -200,7 +235,7 @@ impl JsonEntry {
             .collect();
         Ok(JsonEntry {
             data: as_num,
-            format: FormatInfo::try_from(inp.ty())?,
+            format: Some(FormatInfo::try_from(inp.ty())?),
             dim_sizes: inp.dimensions[..inp.num_dimensions].to_vec(),
             is_quoted: is_hex || is_bin,
         })
@@ -231,27 +266,6 @@ impl From<struson::serde::DeserializerError> for FileFmtErr {
     }
 }
 
-// maps dimension : width
-
-#[derive(Default)]
-struct ArrayParseInfo {
-    data: Vec<String>,
-    dim_sizes: Vec<usize>,
-}
-
-#[inline]
-fn write_value<W: Write>(
-    v: &str,
-    r: &mut JsonStreamWriter<W>,
-    are_str: bool,
-) -> Result<(), FileFmtErr> {
-    if are_str {
-        r.string_value(v).map_err(|e| json_err(e))
-    } else {
-        r.number_value_from_string(v).map_err(|e| json_err(e))
-    }
-}
-
 fn write_arr_from_iterable<'a, W: Write>(
     i: impl Iterator<Item = &'a String>,
     w: &mut JsonStreamWriter<W>,
@@ -260,122 +274,15 @@ fn write_arr_from_iterable<'a, W: Write>(
     w.begin_array()?;
 
     for el in i {
-        write_value(&el, w, are_str)?;
+        if are_str {
+            w.string_value(el).map_err(json_err)?;
+        } else {
+            w.number_value_from_string(el).map_err(json_err)?;
+        }
     }
     w.end_array()?;
     Ok(())
 }
-
-impl ArrayParseInfo {
-    /// assumes that we are at the start of the array, no key attached to it
-    fn parse_nested_inner<R: Read>(
-        &mut self,
-        r: &mut JsonStreamReader<R>,
-        curr_dim: usize,
-    ) -> Result<(), FileFmtErr> {
-        r.begin_array()?;
-        let mut curr_type: Option<ValueType> = None; // type of current level
-        let mut item_ct = 0;
-        if self.dim_sizes.len() == curr_dim {
-            self.dim_sizes.push(0)
-        }
-        while r.has_next()? {
-            let nt = r.peek()?;
-            if curr_type.is_none() {
-                curr_type = Some(nt)
-            }
-            if nt != curr_type.unwrap() {
-                return Err(json_err("hit elements of mismatched type"));
-            }
-            match nt {
-                ValueType::Array => self.parse_nested_inner(r, curr_dim + 1)?,
-                ValueType::String => {
-                    let s = r.next_string()?;
-                    self.data.push(s)
-                }
-                ValueType::Number => {
-                    let n = r.next_number_as_string()?;
-                    self.data.push(n)
-                }
-                _ => return Err(json_err("unknown type")),
-            };
-            item_ct += 1;
-        }
-        if self.dim_sizes[curr_dim] == 0 {
-            self.dim_sizes[curr_dim] = item_ct
-        } else if self.dim_sizes[curr_dim] != item_ct {
-            return Err(json_err("hit elements of mismatched length"));
-        }
-        r.end_array()?;
-        Ok(())
-    }
-
-    // TODO: make this less evil
-    /// basically no type verification, the assumption is that we're provided with some string array already
-    /// this is pretty terrible but should suffice
-    fn write_nested_inner<W: Write>(
-        self,
-        w: &mut JsonStreamWriter<W>,
-        are_str: bool,
-    ) -> Result<(), FileFmtErr> {
-        debug_assert!(
-            self.data.len() == self.dim_sizes.iter().product::<usize>()
-        );
-        w.begin_array()?;
-        match self.dim_sizes.len() {
-            1 => {
-                write_arr_from_iterable(self.data.iter(), w, are_str)?;
-            }
-            2 => {
-                let d1_size = self.dim_sizes[1];
-
-                for d1_chunk in self.data.chunks(d1_size) {
-                    write_arr_from_iterable(d1_chunk.iter(), w, are_str)?;
-                }
-            }
-            3 => {
-                let d1_size: usize = self.dim_sizes[1..3].iter().product();
-                let d2_size = self.dim_sizes[2];
-                for d1_chunk in self.data.chunks(d1_size) {
-                    w.begin_array()?;
-                    for d2_chunk in d1_chunk.chunks(d2_size) {
-                        write_arr_from_iterable(d2_chunk.iter(), w, are_str)?;
-                    }
-
-                    w.end_array()?;
-                }
-            }
-            4 => {
-                let d1_size: usize = self.dim_sizes[1..4].iter().product();
-                let d2_size: usize = self.dim_sizes[2..4].iter().product();
-                let d3_size = self.dim_sizes[3];
-                for d1_chunk in self.data.chunks(d1_size) {
-                    w.begin_array()?;
-                    for d2_chunk in d1_chunk.chunks(d2_size) {
-                        w.begin_array()?;
-                        for d3_chunk in d2_chunk.chunks(d3_size) {
-                            write_arr_from_iterable(
-                                d3_chunk.iter(),
-                                w,
-                                are_str,
-                            )?;
-                        }
-                        w.end_array()?;
-                    }
-
-                    w.end_array()?;
-                }
-            }
-            _ => panic!("bad dim_ct"),
-        }
-        w.end_array()?;
-
-        Ok(())
-    }
-}
-
-// using a hashmap here means that the serialization is non-deterministic but
-// for now that's probably fine
 
 pub struct JsonData(pub BTreeMap<String, JsonEntry>);
 
@@ -436,61 +343,29 @@ impl filerep::FileIO for JsonData {
 
         while sr.has_next()? {
             let k = sr.next_name_owned()?;
+            let v = JsonEntry::try_read(&mut sr)?;
 
-            sr.begin_object()?;
-            let e1 = sr.next_name()?;
-            if e1 != "data" {
-                panic!("not data")
-            }
-            let mut ap = ArrayParseInfo::default();
-            ap.parse_nested_inner(&mut sr, 0)?;
-            let e2 = sr.next_name()?;
-            if e2 != "format" {
-                panic!("not format")
-            }
-            let f: FormatInfo = sr.deserialize_next()?;
-            res.insert(
-                k,
-                JsonEntry {
-                    data: ap.data,
-                    format: f,
-                    dim_sizes: ap.dim_sizes,
-                    is_quoted: false,
-                },
-            );
-            sr.end_object()?;
+            res.insert(k, v);
         }
         sr.end_object()?;
 
         Ok(JsonData(res))
     }
     fn write_out(
-        &self,
+        self,
         dest: Box<dyn std::io::Write>,
     ) -> Result<(), FileFmtErr> {
-        // let mut sw = JsonStreamWriter::new(dest);
-
         let mut sw = JsonStreamWriter::new_custom(
             dest,
             WriterSettings {
                 pretty_print: true,
-                // For all other settings use the default
                 ..Default::default()
             },
         );
         sw.begin_object()?;
-        for (k, v) in self.0.iter() {
-            sw.name(k)?;
-            sw.begin_object()?;
-            sw.name("data")?;
-            let ap = ArrayParseInfo {
-                data: v.data.clone(), // TODO: get rid of this clone
-                dim_sizes: v.dim_sizes.clone(),
-            };
-            ap.write_nested_inner(&mut sw, false)?;
-            sw.name("format")?;
-            sw.serialize_value(&v.format)?;
-            sw.end_object()?;
+        for (k, v) in self.0.into_iter() {
+            sw.name(&k)?;
+            v.try_write(&mut sw)?;
         }
         sw.end_object()?;
 
@@ -502,7 +377,10 @@ impl filerep::ExtractType for JsonData {
     fn extract_types(&self) -> Result<HashMap<String, TypeSpec>, FileFmtErr> {
         let mut res = HashMap::new();
         for (k, v) in self.0.iter() {
-            let new_spec = TypeSpec::try_from(&v.format)?;
+            let Some(ref t) = v.format else {
+                return Err(json_err(format!("{} has no type", k)));
+            };
+            let new_spec = TypeSpec::try_from(t)?;
             res.insert(k.clone(), new_spec);
         }
         Ok(res)

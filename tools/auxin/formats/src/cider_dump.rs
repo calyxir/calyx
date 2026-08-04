@@ -172,7 +172,7 @@ impl fr::FileIO for cs::DataDump {
         Ok(res)
     }
     fn write_out(
-        &self,
+        self,
         dest: Box<dyn std::io::prelude::Write>,
     ) -> Result<(), FileFmtErr> {
         self.serialize(dest)?;
