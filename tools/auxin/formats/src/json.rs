@@ -313,21 +313,13 @@ impl filerep::TryToIR for JsonData {
         self,
         types: &HashMap<String, TypeSpec>,
     ) -> Result<FileMems, filerep::FileFmtErr> {
-        let mut new_mems = FileMems {
-            mems: HashMap::new(),
-        };
+        let mut new_mems = FileMems::default();
 
         for (k, v) in self.0.into_iter() {
             let ty = types.get(&k).unwrap();
             new_mems.mems.insert(k, v.try_entry_to_ir(ty)?);
         }
         Ok(new_mems)
-    }
-}
-
-impl From<serde_json::Error> for FileFmtErr {
-    fn from(value: serde_json::Error) -> Self {
-        Self::FileSpecific(format!("json: {}", value))
     }
 }
 

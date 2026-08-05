@@ -239,7 +239,6 @@ dependencies = [
  "num-traits",
  "proptest",
  "serde",
- "serde_json",
  "thiserror 2.0.18",
 ]
 
@@ -863,7 +862,6 @@ dependencies = [
  "num-ir",
  "proptest",
  "serde",
- "serde_json",
  "smallvec",
  "struson",
  "thiserror 2.0.18",

@@ -35,9 +35,6 @@ enum CiderDataConverterError {
     UnknownTarget,
 
     #[error(transparent)]
-    SerdeError(#[from] serde_json::Error),
-
-    #[error(transparent)]
     DataDumpError(#[from] SerializationError),
 
     #[error(

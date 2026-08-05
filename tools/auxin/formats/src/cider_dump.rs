@@ -119,9 +119,7 @@ impl fr::TryToIR for cs::DataDump {
         self,
         types: &HashMap<String, TypeSpec>,
     ) -> Result<fr::FileMems, fr::FileFmtErr> {
-        let mut res = fr::FileMems {
-            mems: HashMap::new(),
-        };
+        let mut res = fr::FileMems::default();
         for mem in self.header.memories.iter() {
             let byte_data = self.get_data(&mem.name).unwrap();
             let assoc_type = types.get(&mem.name).unwrap();

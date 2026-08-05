@@ -1,6 +1,6 @@
 // format-agnostic file interface
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::io::{Read, Write};
 use std::path::Path;
 
@@ -62,9 +62,10 @@ where
     fn try_from_ir(inp: FileMems) -> Result<Self, FileFmtErr>;
 }
 
-#[derive(Debug)]
+// uses btreemap to preserve ordering
+#[derive(Debug, Default)]
 pub struct FileMems {
-    pub mems: HashMap<String, nr::SingleMem>,
+    pub mems: BTreeMap<String, nr::SingleMem>,
 }
 
 /// file formats which include typing can implement the [ExtractType] trait
