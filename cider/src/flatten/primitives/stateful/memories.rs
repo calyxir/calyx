@@ -23,8 +23,10 @@ use crate::{
             thread::{ThreadIdx, ThreadMap},
         },
     },
-    serialization::{Dimensions, LazySerializable, PrintCode},
+    formatting::{LazySerializable, PrintCode},
 };
+
+use cider_serde::Dimensions;
 
 use baa::{BitVecOps, BitVecValue};
 

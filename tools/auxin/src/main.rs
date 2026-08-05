@@ -1,5 +1,5 @@
 use argh::FromArgs;
-use cider::serialization::{DataDump, SerializationError};
+use cider_serde::{DataDump, SerializationError};
 use conv_formats::filerep::HintedTryToIR;
 use core::str;
 use num_ir::typing;

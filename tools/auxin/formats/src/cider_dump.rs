@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use baa::BitVecOps;
-use cider::serialization as cs;
+use cider_serde as cs;
 
 use crate::filerep as fr;
 use crate::filerep::FileFmtErr;

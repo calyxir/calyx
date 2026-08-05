@@ -3,10 +3,12 @@ use itertools::Itertools;
 use serde::Serialize;
 use std::fmt::{Debug, Display, Write};
 
-use crate::{
-    flatten::{flat_ir::cell_prototype::MemoryDimensions, text_utils::Color},
-    serialization::Dimensions,
+use crate::flatten::{
+    flat_ir::cell_prototype::MemoryDimensions, text_utils::Color,
 };
+
+use cider_serde::Dimensions;
+
 use baa::{BitVecOps, BitVecValue, WidthInt};
 
 impl From<&MemoryDimensions> for Dimensions {
@@ -192,7 +194,7 @@ impl<'a> LazySerializable<'a> {
 pub enum LazySerializeValue<'a> {
     Empty,
     Val(&'a BitVecValue),
-    Array(&'a [BitVecValue], crate::serialization::Dimensions),
+    Array(&'a [BitVecValue], Dimensions),
 }
 
 impl<'a> LazySerializeValue<'a> {
@@ -200,9 +202,7 @@ impl<'a> LazySerializeValue<'a> {
         !matches!(self, Self::Empty)
     }
 
-    pub fn as_array(
-        &self,
-    ) -> Option<(&'a [BitVecValue], &crate::serialization::Dimensions)> {
+    pub fn as_array(&self) -> Option<(&'a [BitVecValue], &Dimensions)> {
         if let Self::Array(v, d) = &self {
             Some((*v, d))
         } else {
@@ -396,4 +396,124 @@ fn format_array(
     }
 
     out_str
+}
+
+#[cfg(test)]
+mod test {
+    use crate::flatten::{
+        flat_ir::{indexes::GlobalCellIdx, prelude::GlobalPortIdx},
+        primitives::{
+            Primitive,
+            stateful::{CombMemD1, MemConfigInfo, SeqMemD1},
+        },
+        structures::environment::MemoryMap,
+    };
+    use cider_idx::IndexRef;
+
+    use cider_serde::*;
+    use proptest::prelude::*;
+
+    prop_compose! {
+        fn arb_memory_declaration()(name in any::<String>(), signed in any::<bool>(), width in 1_u32..=256, size in 1_usize..=500) -> MemoryDeclaration {
+            MemoryDeclaration::new_bitnum(name.to_string(), width, Dimensions::D1(size), signed)
+        }
+    }
+
+    prop_compose! {
+        fn arb_data_header()(
+            top_level in any::<String>(),
+            mut memories in prop::collection::vec(arb_memory_declaration(), 1..3)
+        ) -> DataHeader {
+            // This is a silly hack to force unique names for the memories
+            for (i, memory) in memories.iter_mut().enumerate() {
+                memory.name = format!("{}_{i}", memory.name);
+            }
+
+            DataHeader { top_level, memories }
+        }
+    }
+
+    prop_compose! {
+        fn arb_data(size: usize)(
+            data in prop::collection::vec(0u8..=255, size)
+        )  -> Vec<u8> {
+            data
+        }
+    }
+
+    fn arb_data_dump() -> impl Strategy<Value = DataDump> {
+        let data = arb_data_header().prop_flat_map(|header| {
+            let data = arb_data(header.data_size());
+            (Just(header), data)
+        });
+
+        data.prop_map(|(header, mut header_data)| {
+            let mut cursor = 0_usize;
+            // Need to go through the upper byte of each value in the memory to
+            // remove any 1s in the padding region since that causes the memory
+            // produced from the memory primitive to not match the one
+            // serialized into it in the first place
+            for mem in &header.memories {
+                let bytes_per_val = mem.width().div_ceil(8) as usize;
+                let rem = mem.width() % 8;
+                let mask = if rem != 0 { 255u8 >> (8 - rem) } else { 255_u8 };
+
+                for bytes in &mut header_data[cursor..cursor + mem.byte_count()]
+                    .chunks_exact_mut(bytes_per_val)
+                {
+                    *bytes.last_mut().unwrap() &= mask;
+                }
+
+                assert!(
+                    header_data[cursor..cursor + mem.byte_count()]
+                        .chunks_exact(bytes_per_val)
+                        .remainder()
+                        .is_empty()
+                );
+                cursor += mem.byte_count();
+            }
+
+            DataDump {
+                header,
+                data: header_data,
+            }
+        })
+    }
+
+    proptest! {
+        #[test]
+        fn prop_roundtrip(dump in arb_data_dump()) {
+            let mut buf = Vec::new();
+            dump.serialize(&mut buf)?;
+
+            let reparsed_dump = DataDump::deserialize(&mut buf.as_slice())?;
+            prop_assert_eq!(dump, reparsed_dump)
+
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn comb_roundtrip(dump in arb_data_dump()) {
+            let mut state_map = MemoryMap::new();
+            for mem in &dump.header.memories {
+                let memory_config = MemConfigInfo::new(GlobalPortIdx::new(0), GlobalCellIdx::new(0), mem.width(), false, mem.size());
+                let memory_prim = CombMemD1::new_with_init(memory_config, dump.get_data(&mem.name).unwrap(), &mut None, &mut state_map);
+                let data = memory_prim.serializer().unwrap().dump_data(&state_map);
+                prop_assert_eq!(dump.get_data(&mem.name).unwrap(), data);
+            }
+        }
+
+        #[test]
+        fn seq_roundtrip(dump in arb_data_dump()) {
+            let mut state_map = MemoryMap::new();
+
+            for mem in &dump.header.memories {
+                let memory_config = MemConfigInfo::new(GlobalPortIdx::new(0), GlobalCellIdx::new(0), mem.width(), false, mem.size());
+                let memory_prim = SeqMemD1::new_with_init(memory_config, dump.get_data(&mem.name).unwrap(), &mut None, &mut state_map);
+                let data = memory_prim.serializer().unwrap().dump_data(&state_map);
+                prop_assert_eq!(dump.get_data(&mem.name).unwrap(), data);
+            }
+        }
+    }
 }

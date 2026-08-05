@@ -232,11 +232,9 @@ version = "0.1.0"
 dependencies = [
  "argh",
  "baa",
- "cider",
+ "cider-serde",
  "conv-formats",
- "itertools 0.14.0",
  "num-ir",
- "num-traits",
  "proptest",
  "serde",
  "thiserror 2.0.18",
@@ -649,6 +647,7 @@ dependencies = [
  "calyx-utils",
  "ciborium",
  "cider-idx",
+ "cider-serde",
  "delegate",
  "fraction",
  "fst-writer",
@@ -699,6 +698,17 @@ dependencies = [
  "proptest",
  "serde",
  "smallvec",
+]
+
+[[package]]
+name = "cider-serde"
+version = "0.1.0"
+dependencies = [
+ "ciborium",
+ "proptest",
+ "serde",
+ "smallvec",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -857,7 +867,7 @@ name = "conv-formats"
 version = "0.1.0"
 dependencies = [
  "baa",
- "cider",
+ "cider-serde",
  "nom 7.1.3",
  "num-ir",
  "proptest",
@@ -2401,8 +2411,6 @@ name = "num-ir"
 version = "0.1.0"
 dependencies = [
  "baa",
- "itertools 0.14.0",
- "num-traits",
  "proptest",
  "smallvec",
  "thiserror 2.0.18",

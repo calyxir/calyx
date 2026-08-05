@@ -10,12 +10,10 @@ version = "0.1.0"
 [dependencies]
 num-ir = {path = "num-ir"}
 conv-formats = {path="formats"}
-cider.workspace = true
+cider-serde.workspace = true
 serde.workspace = true
-itertools = { workspace = true }
 argh.workspace = true
 thiserror.workspace = true
-num-traits = { version = "0.2" }
 baa.workspace = true
 
 [dev-dependencies]

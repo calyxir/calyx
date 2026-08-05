@@ -6,7 +6,7 @@ edition.workspace = true
 version = "0.1.0"
 
 [dependencies]
-cider.workspace = true
+cider-serde.workspace = true
 serde.workspace = true
 
 thiserror.workspace = true

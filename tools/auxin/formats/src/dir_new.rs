@@ -24,6 +24,17 @@ impl TryFromIR for DirData {
     }
 }
 
+// extract a hexstring of given length from the String
+// does very basic things to reject commented strings
+fn discard_comment(s: &String) -> &str {
+    let comment_idx = s.find("//");
+    if let Some(idx) = comment_idx {
+        let (res, _) = s.split_at(idx);
+        return res;
+    }
+    &s
+}
+
 // TODO: type inference will be forever broken
 impl TryToIR for DirData {
     fn try_to_ir(
@@ -31,7 +42,7 @@ impl TryToIR for DirData {
         types: &HashMap<String, TypeSpec>,
     ) -> Result<FileMems, FileFmtErr> {
         let mut new_mems = FileMems {
-            mems: HashMap::new(),
+            mems: BTreeMap::new(),
         };
 
         for (k, v) in self.0.into_iter() {
@@ -56,8 +67,8 @@ impl DirIO for DirData {
 
         let mut header_info: HashMap<String, MemInfo> = HashMap::new();
 
-        let mut header_file = File::open(src.join(".header"))?;
-        let mut header_r = BufReader::new(header_file);
+        let header_file = File::open(src.join(".header"))?;
+        let header_r = BufReader::new(header_file);
 
         let mut sr = JsonStreamReader::new(header_r);
         sr.begin_object()?;
@@ -81,10 +92,9 @@ impl DirIO for DirData {
 
             for line in mem_file.lines() {
                 let line = line?;
-                if let Some(line_data) = unwrap_line_or_comment(&line) {
-                    let v = expc_t.read_str(line_data, Endian::Little)?;
-                    data.push(v);
-                }
+                let line_data = discard_comment(&line);
+                let v = expc_t.read_str(line_data, Endian::Little)?;
+                data.push(v);
             }
 
             assert_eq!(data.len(), mi.info.total_size as usize);

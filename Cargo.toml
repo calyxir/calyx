@@ -13,6 +13,7 @@ members = [
     "cider",
     "cider/idx",
     "cider/dap",
+    "cider/serialization",
 
     # Fud2
     "fud2",
@@ -59,6 +60,7 @@ calyx-opt = { path = "calyx/opt", version = "0.7.1" }
 calyx-backend = { path = "calyx/backend", version = "0.7.1" }
 cider = { path = "cider", version = "0.1.0" }
 cider-idx = { path = "cider/idx", version = "0.1.0" }
+cider-serde = {path = "cider/serialization", version = "0.1.0"}
 
 # External crates
 # When adding a new dependency, do not pin the minor version, i.e., use `0.1`

@@ -3,7 +3,7 @@ use std::{fs::File, io::BufReader, path::Path};
 
 use crate::dat_parser::*;
 use crate::filerep::*;
-use cider::serialization as cs;
+use cider_serde as cs;
 
 const HEADER_FILENAME: &str = "header";
 

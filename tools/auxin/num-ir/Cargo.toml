@@ -8,10 +8,7 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-itertools = { workspace = true }
 thiserror.workspace = true
-
-num-traits = { version = "0.2" }
 
 # this can probably be feature-reduced, we don't use all of it
 baa.workspace = true

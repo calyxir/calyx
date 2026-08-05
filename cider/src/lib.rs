@@ -2,9 +2,9 @@ mod as_raw;
 pub mod configuration;
 pub mod debugger;
 pub mod errors;
+mod formatting;
 pub mod logging;
 mod macros;
-pub mod serialization;
 mod tests;
 
 pub mod flatten;
