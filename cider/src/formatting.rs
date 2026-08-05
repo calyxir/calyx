@@ -198,10 +198,6 @@ pub enum LazySerializeValue<'a> {
 }
 
 impl<'a> LazySerializeValue<'a> {
-    pub fn has_state(&self) -> bool {
-        !matches!(self, Self::Empty)
-    }
-
     pub fn as_array(&self) -> Option<(&'a [BitVecValue], &Dimensions)> {
         if let Self::Array(v, d) = &self {
             Some((*v, d))
