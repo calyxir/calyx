@@ -1,8 +1,7 @@
-use std::collections::{BTreeMap, HashMap};
 use std::io::{Read, Write};
 use struson::writer::WriterSettings;
 
-use crate::filerep::{self, FileFmtErr, FileMems};
+use crate::filerep::{self, FileFmtErr, FileMems, OutputOpts};
 use crate::json_common::*;
 use num_ir::memrep::*;
 use num_ir::typing::*;
@@ -190,10 +189,11 @@ impl JsonEntry {
         Ok(())
     }
 
-    fn try_entry_to_ir(
-        self,
-        t: &TypeSpec,
-    ) -> Result<SingleMem, filerep::FileFmtErr> {
+    fn try_entry_to_ir(self) -> Result<SingleMem, filerep::FileFmtErr> {
+        let Some(f) = self.format else {
+            return Err(FileFmtErr::FileSpecific("untyped json".to_string()));
+        };
+        let t = TypeSpec::try_from(&f)?;
         let data: Vec<_> = self
             .data
             .iter()
@@ -283,77 +283,29 @@ fn write_arr_from_iterable<'a, W: Write>(
     Ok(())
 }
 
-pub struct JsonData(pub BTreeMap<String, JsonEntry>);
-
-impl filerep::TryFromIR for JsonData {
-    fn try_from_ir(inp: FileMems) -> Result<Self, filerep::FileFmtErr> {
-        let mut res = BTreeMap::new();
-        for (k, v) in inp.mems.into_iter() {
-            res.insert(k, JsonEntry::try_entry_from_ir(v, None)?);
-        }
-        Ok(JsonData(res))
-    }
+pub struct JsonRx {
+    pub src: Box<dyn Read>,
 }
 
-impl JsonData {
-    pub fn try_from_ir_fmt(
-        inp: FileMems,
-        opts: &filerep::OutputOpts,
-    ) -> Result<Self, FileFmtErr> {
-        let mut res = BTreeMap::new();
-        for (k, v) in inp.mems.into_iter() {
-            res.insert(k, JsonEntry::try_entry_from_ir(v, Some(opts))?);
-        }
-        Ok(JsonData(res))
-    }
+pub struct JsonTx {
+    pub dest: Box<dyn Write>,
+    pub out_args: Option<OutputOpts>,
 }
 
-impl filerep::TryToIR for JsonData {
-    fn try_to_ir(
-        self,
-        types: &HashMap<String, TypeSpec>,
-    ) -> Result<FileMems, filerep::FileFmtErr> {
-        let mut new_mems = FileMems::default();
-
-        for (k, v) in self.0.into_iter() {
-            let ty = types.get(&k).unwrap();
-            new_mems.mems.insert(k, v.try_entry_to_ir(ty)?);
-        }
-        Ok(new_mems)
-    }
-}
-
-impl filerep::FileIO for JsonData {
-    fn read_into(src: Box<dyn std::io::Read>) -> Result<JsonData, FileFmtErr> {
-        let mut sr = JsonStreamReader::new(src);
-        let mut res = BTreeMap::<String, JsonEntry>::new();
-        sr.begin_object()?;
-
-        while sr.has_next()? {
-            let k = sr.next_name_owned()?;
-            let v = JsonEntry::try_read(&mut sr)?;
-
-            res.insert(k, v);
-        }
-        sr.end_object()?;
-
-        Ok(JsonData(res))
-    }
-    fn write_out(
-        self,
-        dest: Box<dyn std::io::Write>,
-    ) -> Result<(), FileFmtErr> {
+impl filerep::TryFromIR for JsonTx {
+    fn try_from_ir(self, inp: FileMems) -> Result<(), FileFmtErr> {
         let mut sw = JsonStreamWriter::new_custom(
-            dest,
+            self.dest,
             WriterSettings {
                 pretty_print: true,
                 ..Default::default()
             },
         );
         sw.begin_object()?;
-        for (k, v) in self.0.into_iter() {
+        for (k, v) in inp.mems.into_iter() {
             sw.name(&k)?;
-            v.try_write(&mut sw)?;
+            let je = JsonEntry::try_entry_from_ir(v, self.out_args.as_ref())?;
+            je.try_write(&mut sw)?;
         }
         sw.end_object()?;
 
@@ -361,18 +313,18 @@ impl filerep::FileIO for JsonData {
     }
 }
 
-impl filerep::ExtractType for JsonData {
-    fn extract_types(&self) -> Result<HashMap<String, TypeSpec>, FileFmtErr> {
-        let mut res = HashMap::new();
-        for (k, v) in self.0.iter() {
-            let Some(ref t) = v.format else {
-                return Err(json_err(format!("{} has no type", k)));
-            };
-            let new_spec = TypeSpec::try_from(t)?;
-            res.insert(k.clone(), new_spec);
+impl filerep::TryToIR for JsonRx {
+    fn try_to_ir(self) -> Result<FileMems, filerep::FileFmtErr> {
+        let mut new_mems = FileMems::default();
+        let mut sr = JsonStreamReader::new(self.src);
+        sr.begin_object()?;
+
+        while sr.has_next()? {
+            let k = sr.next_name_owned()?;
+            let v = JsonEntry::try_read(&mut sr)?;
+            new_mems.mems.insert(k, v.try_entry_to_ir()?);
         }
-        Ok(res)
+        sr.end_object()?;
+        Ok(new_mems)
     }
 }
-
-impl filerep::HintedTryToIR for JsonData {}

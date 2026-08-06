@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use std::io::Read;
+use std::io::Write;
 
 use baa::BitVecOps;
 use cider_serde as cs;
@@ -10,7 +11,7 @@ use num_ir::memrep as nr;
 use num_ir::typing::*;
 use smallvec::smallvec;
 
-fn as_cider_dims(inp: &nr::SingleMem) -> cs::Dimensions {
+pub(crate) fn as_cider_dims(inp: &nr::SingleMem) -> cs::Dimensions {
     use cs::Dimensions as Dim;
     match inp.dimensions.len() {
         1 => Dim::D1(inp.dimensions[0]),
@@ -26,7 +27,9 @@ fn as_cider_dims(inp: &nr::SingleMem) -> cs::Dimensions {
     }
 }
 
-fn try_type_to_cider(value: &TypeSpec) -> Result<cs::FormatInfo, FileFmtErr> {
+pub(crate) fn try_type_to_cider(
+    value: &TypeSpec,
+) -> Result<cs::FormatInfo, FileFmtErr> {
     use cs::FormatInfo as cider_t;
 
     let res = match value.class {
@@ -60,7 +63,9 @@ fn try_type_to_cider(value: &TypeSpec) -> Result<cs::FormatInfo, FileFmtErr> {
     Ok(res)
 }
 
-fn try_type_from_cider(value: &cs::FormatInfo) -> Result<TypeSpec, FileFmtErr> {
+pub(crate) fn try_type_from_cider(
+    value: &cs::FormatInfo,
+) -> Result<TypeSpec, FileFmtErr> {
     use cs::FormatInfo;
     let res = match *value {
         FormatInfo::Bitnum { signed, width } => TypeSpec {
@@ -88,8 +93,16 @@ fn try_type_from_cider(value: &cs::FormatInfo) -> Result<TypeSpec, FileFmtErr> {
     Ok(res)
 }
 
-impl fr::TryFromIR for cs::DataDump {
-    fn try_from_ir(inp: fr::FileMems) -> Result<cs::DataDump, fr::FileFmtErr> {
+pub struct CiderTx {
+    pub dest: Box<dyn Write>,
+}
+
+pub struct CiderRx {
+    pub src: Box<dyn Read>,
+}
+
+impl fr::TryFromIR for CiderTx {
+    fn try_from_ir(self, inp: fr::FileMems) -> Result<(), FileFmtErr> {
         let mut out_res = cs::DataDump::new_empty();
         for (k, v) in inp.mems.iter() {
             let t = v.ty();
@@ -109,20 +122,19 @@ impl fr::TryFromIR for cs::DataDump {
                 }),
             );
         }
-
-        Ok(out_res)
+        out_res.serialize(self.dest)?;
+        Ok(())
     }
 }
 
-impl fr::TryToIR for cs::DataDump {
-    fn try_to_ir(
-        self,
-        types: &HashMap<String, TypeSpec>,
-    ) -> Result<fr::FileMems, fr::FileFmtErr> {
+impl fr::TryToIR for CiderRx {
+    fn try_to_ir(self) -> Result<fr::FileMems, FileFmtErr> {
+        let dump = cs::DataDump::deserialize(self.src)?;
         let mut res = fr::FileMems::default();
-        for mem in self.header.memories.iter() {
-            let byte_data = self.get_data(&mem.name).unwrap();
-            let assoc_type = types.get(&mem.name).unwrap();
+        for mem in dump.header.memories.iter() {
+            let byte_data = dump.get_data(&mem.name).unwrap();
+            let assoc_type = try_type_from_cider(&mem.format)?;
+
             assert!(byte_data.len().is_multiple_of(assoc_type.num_bytes()));
             let c: Result<Vec<baa::BitVecValue>, _> = byte_data
                 .chunks(assoc_type.num_bytes())
@@ -161,34 +173,3 @@ impl From<cs::SerializationError> for FileFmtErr {
         Self::FileSpecific(value.to_string())
     }
 }
-
-impl fr::FileIO for cs::DataDump {
-    fn read_into(
-        src: Box<dyn std::io::prelude::Read>,
-    ) -> Result<Self, FileFmtErr> {
-        let res = cs::DataDump::deserialize(src)?;
-        Ok(res)
-    }
-    fn write_out(
-        self,
-        dest: Box<dyn std::io::prelude::Write>,
-    ) -> Result<(), FileFmtErr> {
-        self.serialize(dest)?;
-        Ok(())
-    }
-}
-
-impl fr::ExtractType for cs::DataDump {
-    fn extract_types(
-        &self,
-    ) -> Result<HashMap<String, TypeSpec>, fr::FileFmtErr> {
-        let mut res = HashMap::new();
-        for mem in self.header.memories.iter() {
-            let new_spec = try_type_from_cider(&mem.format)?;
-            res.insert(mem.name.clone(), new_spec);
-        }
-        Ok(res)
-    }
-}
-
-impl fr::HintedTryToIR for cs::DataDump {}

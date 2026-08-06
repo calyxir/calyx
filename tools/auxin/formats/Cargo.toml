@@ -10,7 +10,6 @@ cider-serde.workspace = true
 serde.workspace = true
 
 thiserror.workspace = true
-nom = "7.1"
 num-ir = {path = "../num-ir"}
 baa.workspace = true
 smallvec.workspace = true

@@ -1,7 +1,8 @@
 // format-agnostic file interface
 
-use std::collections::{BTreeMap, HashMap};
-use std::io::{Read, Write};
+use std::collections::BTreeMap;
+use std::fmt::Write;
+use std::io::Read;
 use std::path::Path;
 
 use num_ir::memrep as nr;
@@ -18,13 +19,6 @@ pub enum FileFmtErr {
 
 // TODO: string formats should at least perform cursory input validation on their I/O, bin formats are allowed to but not required to.
 
-pub trait TryToIR {
-    fn try_to_ir(
-        self,
-        types: &HashMap<String, TypeSpec>,
-    ) -> Result<FileMems, FileFmtErr>;
-}
-
 /// a structure for passing options to the string file interfaces.
 pub struct OutputOpts {
     // a struct so other output options can be added in the future
@@ -38,48 +32,38 @@ TODO:
 
 */
 
-pub trait FileIO
+// these build an object containing opts
+// TODO: implement boilerplate types for storing opts per format (?)
+// just. think about modularity
+
+pub trait DirFmtOpts
 where
     Self: Sized,
 {
-    fn read_into(src: Box<dyn Read>) -> Result<Self, FileFmtErr>;
-    fn write_out(self, dest: Box<dyn Write>) -> Result<(), FileFmtErr>;
+    fn from_path(src: &Path, ext: String) -> Result<Self, FileFmtErr>;
 }
 
-// equivalent of FileIO but for formats which output to a directory
-pub trait DirIO
+pub trait FileFmtOpts
 where
     Self: Sized,
 {
-    fn read_into_dir(src: &Path, ext: String) -> Result<Self, FileFmtErr>;
-    fn write_out_dir(self, dest: &Path, ext: String) -> Result<(), FileFmtErr>;
+    fn with_src(src: Box<dyn Read>);
+    fn with_dest(dest: Box<dyn Write>);
 }
 
 pub trait TryFromIR
 where
     Self: Sized,
 {
-    fn try_from_ir(inp: FileMems) -> Result<Self, FileFmtErr>;
+    fn try_from_ir(self, inp: FileMems) -> Result<(), FileFmtErr>;
+}
+
+pub trait TryToIR {
+    fn try_to_ir(self) -> Result<FileMems, FileFmtErr>;
 }
 
 // uses btreemap to preserve ordering
 #[derive(Debug, Default)]
 pub struct FileMems {
     pub mems: BTreeMap<String, nr::SingleMem>,
-}
-
-/// file formats which include typing can implement the [ExtractType] trait
-/// and gain access to a generalised [HintedTryToIR], which pre-loads types from the file.
-pub trait ExtractType {
-    fn extract_types(&self) -> Result<HashMap<String, TypeSpec>, FileFmtErr>;
-}
-
-pub trait HintedTryToIR
-where
-    Self: ExtractType + TryToIR + Sized,
-{
-    fn hinted_try_to_ir(self) -> Result<FileMems, FileFmtErr> {
-        let types = self.extract_types()?;
-        self.try_to_ir(&types)
-    }
 }

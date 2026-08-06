@@ -54,12 +54,6 @@ pub enum TypeClass {
     Unknown(usize), // just needs to contain something for future expansion
 }
 
-// impl std::fmt::Display for TypeClass {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         f.write_fmt(format_args!("{:?}", self))
-//     }
-// }
-
 // types are instances of typespec rather than traits
 /// A specific type of ``class``.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]

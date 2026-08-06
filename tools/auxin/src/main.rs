@@ -1,6 +1,11 @@
 use argh::FromArgs;
-use cider_serde::{DataDump, SerializationError};
-use conv_formats::filerep::HintedTryToIR;
+use cider_serde::SerializationError;
+use conv_formats::{
+    cider_dump::{CiderRx, CiderTx},
+    dat_dir::DirOpts,
+    filerep::{OutputOpts, TryToIR},
+    json::{JsonRx, JsonTx},
+};
 use core::str;
 use num_ir::typing;
 use std::{
@@ -154,7 +159,7 @@ fn main() -> Result<(), CiderDataConverterError> {
         opts.output_format = infer_format(p);
     }
 
-    use conv_formats::filerep::{FileIO, TryFromIR};
+    use conv_formats::filerep::TryFromIR;
 
     let Some(in_fmt) = opts.input_format else {
         return Err(CiderDataConverterError::BadInTarget);
@@ -163,8 +168,8 @@ fn main() -> Result<(), CiderDataConverterError> {
     let mut loaded_ir = match in_fmt {
         Formats::Json => {
             let input = get_read_handle(&opts)?;
-            let parsed_json = conv_formats::json::JsonData::read_into(input)?;
-            parsed_json.hinted_try_to_ir()?
+            let jrx = JsonRx { src: input };
+            jrx.try_to_ir()?
         }
         Formats::Dat => {
             // TODO: default 'dat' into untyped
@@ -172,15 +177,16 @@ fn main() -> Result<(), CiderDataConverterError> {
             let Some(ref path) = opts.input_path else {
                 return Err(CiderDataConverterError::UnknownTarget);
             };
-            use conv_formats::filerep::DirIO;
-            let dump =
-                DataDump::read_into_dir(path, opts.file_extension.clone())?;
-            dump.hinted_try_to_ir()?
+            let d = DirOpts {
+                dir: path.to_path_buf(),
+                ext: opts.file_extension.clone(),
+            };
+            d.try_to_ir()?
         }
         Formats::DataDump => {
             let input = get_read_handle(&opts)?;
-            let parsed_dump = DataDump::read_into(input)?;
-            parsed_dump.hinted_try_to_ir()?
+            let crx = CiderRx { src: input };
+            crx.try_to_ir()?
         }
     };
 
@@ -204,30 +210,32 @@ fn main() -> Result<(), CiderDataConverterError> {
 
     match out_fmt {
         Formats::Json => {
-            let jd = if opts.hex {
-                conv_formats::json::JsonData::try_from_ir_fmt(
-                    loaded_ir,
-                    &conv_formats::filerep::OutputOpts { print_hex: true },
-                )?
-            } else {
-                conv_formats::json::JsonData::try_from_ir(loaded_ir)?
-            };
             let output = get_output_handle(&opts)?;
-            jd.write_out(output)?;
+
+            let jtx = JsonTx {
+                dest: output,
+                out_args: if opts.hex {
+                    Some(OutputOpts { print_hex: true })
+                } else {
+                    None
+                },
+            };
+            jtx.try_from_ir(loaded_ir)?;
         }
         Formats::Dat => {
             if opts.output_path.is_none() {
                 return Err(CiderDataConverterError::MissingDatOutputPath);
             }
-            let dd = DataDump::try_from_ir(loaded_ir)?;
-            use conv_formats::filerep::DirIO;
-            dd.write_out_dir(&opts.output_path.unwrap(), opts.file_extension)?;
+            let di = DirOpts {
+                dir: opts.output_path.unwrap(),
+                ext: opts.file_extension,
+            };
+            di.try_from_ir(loaded_ir)?;
         }
         Formats::DataDump => {
             let output = get_output_handle(&opts)?;
-            let dd = DataDump::try_from_ir(loaded_ir)?;
-
-            dd.write_out(output)?;
+            let ctx = CiderTx { dest: output };
+            ctx.try_from_ir(loaded_ir)?;
         }
     }
 
