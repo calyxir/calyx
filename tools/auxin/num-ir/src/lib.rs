@@ -4,3 +4,6 @@ pub mod vbfp;
 
 pub mod typing;
 // pub mod cast;
+
+#[cfg(feature = "short-types")]
+pub mod short;

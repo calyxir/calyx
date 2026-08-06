@@ -54,11 +54,11 @@ pub enum TypeClass {
     Unknown(usize), // just needs to contain something for future expansion
 }
 
-impl std::fmt::Display for TypeClass {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{:?}", self))
-    }
-}
+// impl std::fmt::Display for TypeClass {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         f.write_fmt(format_args!("{:?}", self))
+//     }
+// }
 
 // types are instances of typespec rather than traits
 /// A specific type of ``class``.
@@ -149,7 +149,7 @@ pub enum NumParseErr {
     Float(#[from] ParseFloatError),
     #[error("bad int {0:?}")]
     Int(#[from] ParseIntError),
-    #[error("incorrect width {0} for {1}")]
+    #[error("incorrect width {0} for {1:?}")]
     Width(usize, TypeClass),
     #[error("baa internal: passed {0}, {1:?} ")]
     Baa(String, baa::ParseIntError),

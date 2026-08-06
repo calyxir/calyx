@@ -9,11 +9,14 @@ version = "0.1.0"
 
 [dependencies]
 thiserror.workspace = true
+smallvec.workspace = true
 
 # this can probably be feature-reduced, we don't use all of it
 baa.workspace = true
 
-smallvec.workspace = true
+[features]
+default = ["short-types"]
+short-types = []
 
 
 [dev-dependencies]

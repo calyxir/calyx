@@ -7,6 +7,6 @@ mod json_common;
 
 // mod yxi;
 
-// mod dir_new;
+mod dir_new;
 
 // mod json_new;

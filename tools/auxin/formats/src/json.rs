@@ -33,6 +33,7 @@ impl Default for JsonEntry {
 }
 
 // NOTE: expects elements to be ordered "format" "data"
+// when not reading to string, if format is not first, need to set a seek at current point, scan forwards until find format, read, go back, and then skip format
 impl JsonEntry {
     fn try_read<R: Read>(
         r: &mut JsonStreamReader<R>,
