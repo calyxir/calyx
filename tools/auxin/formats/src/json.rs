@@ -39,16 +39,15 @@ impl JsonEntry {
     ) -> Result<Self, FileFmtErr> {
         r.begin_object()?;
         let mut res = JsonEntry::default();
-        let e1 = r.next_name()?;
-        if e1 != "data" {
-            return Err(json_err(format!("expected data. got {}", e1)));
+
+        while r.has_next()? {
+            let el_name = r.next_name()?;
+            match el_name {
+                "data" => res.read_arr(r, 0)?,
+                "format" => res.format = r.deserialize_next()?,
+                _ => r.skip_value()?,
+            }
         }
-        res.read_arr(r, 0)?;
-        let e2 = r.next_name()?;
-        if e2 != "format" {
-            return Err(json_err(format!("expected format. got {}", e2)));
-        }
-        res.format = r.deserialize_next()?;
 
         r.end_object()?;
         Ok(res)
