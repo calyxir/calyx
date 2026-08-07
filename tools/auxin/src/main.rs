@@ -168,8 +168,11 @@ fn main() -> Result<(), CiderDataConverterError> {
     let mut loaded_ir = match in_fmt {
         Formats::Json => {
             let input = get_read_handle(&opts)?;
-            let jrx = JsonRx { src: input };
-            jrx.try_to_ir()?
+            let t = conv_formats::json::read_types(input)?;
+            let input = get_read_handle(&opts)?;
+            conv_formats::json::read_data(input, t)?
+            // let jrx = JsonRx { src: input };
+            // jrx.try_to_ir()?
         }
         Formats::Dat => {
             // TODO: default 'dat' into untyped

@@ -54,9 +54,7 @@ while the 'interpreter' python equivalent to ``json_to_dat.py`` is still in-tree
 # future work
 
 - deprecate the ``bits`` typeclass or properly define it
-- dimensions: fixed-size vec instead of array
 - add an option to preserve shapes or entirely flatten higher-dim arrays?
-- support shape.json?
 - add 'real' cast functionality via ops: other than bitcasts, also support some value-preserving casts.
 - add 'guarded' constructors for TypeClass, fixed-point, which checks if values are permitted
 - some redundancy between the ``vbfp`` 'definition' of fixed-point and TypeSpec. probably get rid of this
@@ -68,5 +66,17 @@ while the 'interpreter' python equivalent to ``json_to_dat.py`` is still in-tree
     - as in, beyond a 'map' operation, is it posible to use pre-computed masks?
   - upstream a ``to_dec_str_signed`` function
 
-- ``formats`` crate could be cleaned up
-- toplevel dependencies could be cleaned up
+- json interface
+  - ``struson`` is streaming. better for memory efficiency when reading files, however, it does introduce order sensitivity: as in, if the ``formats`` field is after the ``data`` field, we have to read ``format`` first and then go back and read ``data``, if we don't want to make a copy of ``data`` somewhere.
+  - currently, reading json requires two passes through: one to read types, one to read data. it'd be nice to figure out an overall 'better' way of managing this
+
+- plain csv format
+  - building off of the directory format, we could have CSVs to represent each memory rather than the hex ``.dat`` format
+  - this is very possible, but isn't a priority.
+
+## a note on flattened output
+
+(discuss why shaped output is bad. thus, will *read* shaped json, but will not produce it.)
+(shape will be retained when reading cider information to IR. ir also has support for writing it out. this is *not* necessary, though)
+
+(shape not retained when reading / writing dir, always 1d)
