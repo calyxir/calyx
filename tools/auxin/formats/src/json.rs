@@ -1,9 +1,8 @@
 use baa::BitVecValue;
 use std::collections::HashMap;
 use std::io::{Read, Write};
-use struson::writer::WriterSettings;
 
-use crate::filerep::{self, FileFmtErr, FileMems, OutputOpts};
+use crate::filerep::*;
 use crate::json_common::*;
 use num_ir::memrep::*;
 use num_ir::typing::*;
@@ -15,24 +14,6 @@ use struson::{
     writer::{JsonStreamWriter, JsonWriter},
 };
 
-pub struct JsonEntry {
-    data: Vec<String>,
-    format: Option<FormatInfo>,
-    dim_sizes: SmallVec<[usize; 4]>,
-    is_quoted: bool,
-}
-
-impl Default for JsonEntry {
-    fn default() -> Self {
-        Self {
-            data: Vec::with_capacity(10),
-            format: None,
-            dim_sizes: SmallVec::with_capacity(4),
-            is_quoted: false,
-        }
-    }
-}
-
 // private b/c only used during the array read operation
 #[derive(Default)]
 pub struct ArrayReader {
@@ -42,6 +23,7 @@ pub struct ArrayReader {
 }
 
 // TODO: can use number of elements in dim, once known, as guiding assumption
+// we can do this a lot more unsafely / maybe faster by trying to read ``n`` elements of (current level's type) once we know the type and the number of elements in the level
 impl ArrayReader {
     fn read_arr_helper<R: Read>(
         &mut self,
@@ -63,16 +45,17 @@ impl ArrayReader {
             if nt != curr_type.unwrap() {
                 return Err(json_err("hit elements of mismatched type"));
             }
+
             match nt {
                 ValueType::Array => self.read_arr_helper(r, t, curr_dim + 1)?,
                 ValueType::String => {
-                    let s = r.next_string()?;
-                    let parsed = t.read_str(&s, Endian::Little)?;
+                    let s = r.next_str()?;
+                    let parsed = t.read_str(s, Endian::Little)?;
                     self.data.push(parsed)
                 }
                 ValueType::Number => {
-                    let n = r.next_number_as_string()?;
-                    let parsed = t.read_str(&n, Endian::Little)?;
+                    let n = r.next_number_as_str()?;
+                    let parsed = t.read_str(n, Endian::Little)?;
                     self.data.push(parsed)
                 }
                 _ => return Err(json_err("unknown type")),
@@ -92,132 +75,62 @@ impl ArrayReader {
     }
 }
 
-pub mod ops {
-    use std::{io::Read, io::Write};
+/// assumes that we are at the start of the array, no key attached to it
+pub fn try_read_arr<R: Read>(
+    r: &mut JsonStreamReader<R>,
+    t: &TypeSpec,
+) -> Result<ArrayReader, FileFmtErr> {
+    let mut a = ArrayReader::default();
+    let _ = a.read_arr_helper(r, t, 0)?;
+    Ok(a)
+}
+//     // TODO: get this working again
+//     // assert_eq!(
+//     //     self.dim_sizes
+//     //         .iter()
+//     //         .filter(|e| { e != 0 })
+//     //         .product::<usize>(),
+//     //     data.len()
+//     // );
 
-    use num_ir::{
-        memrep::SingleMem,
-        typing::{Endian, TypeClass, TypeSpec},
-    };
-    use struson::{
-        json_path,
-        reader::{JsonReader, JsonStreamReader, json_path::JsonPath},
-        writer::{JsonStreamWriter, JsonWriter},
-    };
+pub fn try_write_obj<W: Write>(
+    m: SingleMem,
+    w: &mut JsonStreamWriter<W>,
+    is_hex: bool,
+) -> Result<(), FileFmtErr> {
+    let is_bin = m.ty().class == TypeClass::Bits;
 
-    use crate::{
-        filerep::FileFmtErr,
-        json::ArrayReader,
-        json_common::{FormatInfo, json_err},
-    };
+    w.begin_object()?;
+    w.name("data")?;
 
-    /// assumes that we are at the start of the array, no key attached to it
-    pub fn try_read_arr<R: Read>(
-        r: &mut JsonStreamReader<R>,
-        t: &TypeSpec,
-    ) -> Result<super::ArrayReader, FileFmtErr> {
-        let mut a = ArrayReader::default();
-        let _ = a.read_arr_helper(r, t, 0)?;
-        Ok(a)
-    }
+    // debug_assert!(
+    //     self.data.len() == self.dim_sizes.iter().product::<usize>()
+    // );
 
-    // NOTE: expects elements to be ordered "format" "data"
-    // when not reading to string, if format is not first, need to set a seek at current point, scan forwards until find format, read, go back, and then skip format
+    // when writing out json data, only do so in a 1D array.
+    w.begin_array()?;
 
-    // pub fn try_read_obj<R: Read>(
-    //     r: &mut JsonStreamReader<R>,
-    // ) -> Result<SingleMem, FileFmtErr> {
-    //     r.begin_object()?;
-
-    //     while r.has_next()? {
-    //         let el_name = r.next_name_owned()?;
-    //         if el_name == "data" {
-    //             if ty == None {
-    //                 println!("no format");
-    //                 r.seek_to(&json_path!["format"])?;
-    //                 return_path = true;
-    //                 continue;
-    //             } else {
-    //                 println!("m2");
-    //                 let t_ref = ty.as_ref();
-    //                 ar = Some(try_read_arr(r, t_ref.unwrap())?);
-    //             }
-    //         } else if el_name == "format" {
-    //             println!("m3");
-
-    //             let f: FormatInfo = r.deserialize_next()?;
-    //             ty = Some(TypeSpec::try_from(&f)?);
-    //             if return_path {
-    //                 r.seek_back(&json_path!["format"])?;
-    //                 return_path = false;
-    //             }
-    //         } else {
-    //             r.skip_value()?;
-    //         }
-    //     }
-
-    //     r.end_object()?;
-
-    //     // TODO: get this working again
-    //     // assert_eq!(
-    //     //     self.dim_sizes
-    //     //         .iter()
-    //     //         .filter(|e| { e != 0 })
-    //     //         .product::<usize>(),
-    //     //     data.len()
-    //     // );
-    //     let Some(d) = ar else {
-    //         return Err(FileFmtErr::FileSpecific("bad".to_string()));
-    //     };
-
-    //     Ok(SingleMem::new(
-    //         d.data,
-    //         d.dim_sizes,
-    //         ty.unwrap(),
-    //         Endian::Little,
-    //     ))
-    // }
-
-    pub fn try_write_obj<W: Write>(
-        m: SingleMem,
-        w: &mut JsonStreamWriter<W>,
-    ) -> Result<(), FileFmtErr> {
-        let is_bin = m.ty().class == TypeClass::Bits;
-        // let is_hex = opts.is_some_and(|x| x.print_hex);
-        let is_hex = false;
-
-        w.begin_object()?;
-        w.name("data")?;
-
-        // debug_assert!(
-        //     self.data.len() == self.dim_sizes.iter().product::<usize>()
-        // );
-
-        // when writing out json data, only do so in a 1D array.
-        w.begin_array()?;
-
-        for el in m.iter_data() {
-            let s_to_write = if is_hex {
-                m.ty().write_hexstring(el, Endian::Little)
-            } else {
-                m.ty().write_string(el, Endian::Little)
-            };
-            if is_bin || is_hex {
-                w.string_value(&s_to_write).map_err(json_err)?;
-            } else {
-                w.number_value_from_string(&s_to_write).map_err(json_err)?;
-            }
+    for el in m.iter_data() {
+        let s_to_write = if is_hex {
+            m.ty().write_hexstring(el, Endian::Little)
+        } else {
+            m.ty().write_string(el, Endian::Little)
+        };
+        if is_bin || is_hex {
+            w.string_value(&s_to_write).map_err(json_err)?;
+        } else {
+            w.number_value_from_string(&s_to_write).map_err(json_err)?;
         }
-        w.end_array()?;
-
-        w.name("format")?;
-        let json_t = FormatInfo::try_from(m.ty())?;
-
-        w.serialize_value(&json_t)?;
-        w.end_object()?;
-
-        Ok(())
     }
+    w.end_array()?;
+
+    w.name("format")?;
+    let json_t = FormatInfo::try_from(m.ty())?;
+
+    w.serialize_value(&json_t)?;
+    w.end_object()?;
+
+    Ok(())
 }
 
 impl From<struson::reader::ReaderError> for FileFmtErr {
@@ -244,53 +157,50 @@ impl From<struson::serde::DeserializerError> for FileFmtErr {
     }
 }
 
-pub struct JsonRx {
-    pub src: Box<dyn Read>,
+// if more options exist in the future, we could split JsonReader / JsonWriter.
+pub struct JsonHandler {
+    pub out_hex: bool, // output results as hexstrings
 }
 
-pub struct JsonTx {
-    pub dest: Box<dyn Write>,
-    pub out_args: Option<OutputOpts>,
-}
+// TODO: add back support for reading from stdin
 
-impl filerep::TryToIR for JsonRx {
-    fn try_to_ir(self) -> Result<FileMems, filerep::FileFmtErr> {
-        let mut new_mems = FileMems::default();
-        let mut sr = JsonStreamReader::new(self.src);
-        let mut typemap: HashMap<String, TypeSpec> = HashMap::new();
-        sr.begin_object()?;
-
-        // read types first
-        let type_p = struson::json_path!["format"];
-        while sr.has_next()? {
-            let k = sr.next_name_owned()?;
-            sr.seek_to(&type_p)?;
-            let v: FormatInfo = sr.deserialize_next()?;
-            sr.seek_back(&type_p)?;
-            typemap.insert(k, TypeSpec::try_from(&v)?);
+impl TryWriteThrough<FileSink> for JsonHandler {
+    fn try_write(
+        &self,
+        dest: FileSink,
+        inp: FileMems,
+    ) -> Result<(), FileFmtErr> {
+        use struson::writer::WriterSettings;
+        let write_handle = dest.get_writer()?;
+        let mut sw = JsonStreamWriter::new_custom(
+            write_handle,
+            WriterSettings {
+                pretty_print: true,
+                ..Default::default()
+            },
+        );
+        sw.begin_object()?;
+        for (k, v) in inp.mems.into_iter() {
+            sw.name(&k)?;
+            try_write_obj(v, &mut sw, self.out_hex)?;
         }
-        sr.end_object()?;
+        sw.end_object()?;
 
-        // then, read data
-        let data_p = struson::json_path!["data"];
-        sr.begin_object()?;
-        while sr.has_next()? {
-            let k = sr.next_name_owned()?;
-            sr.seek_to(&data_p)?;
-            let t = typemap.remove(&k).unwrap();
-            let v = crate::json::ops::try_read_arr(&mut sr, &t)?;
-
-            new_mems.mems.insert(
-                k,
-                SingleMem::new(v.data, v.dim_sizes, t, Endian::Little),
-            );
-        }
-        sr.end_object()?;
-
-        Ok(new_mems)
+        Ok(())
     }
 }
 
+impl TryReadFrom<FileSink> for JsonHandler {
+    fn try_read(&self, src: FileSink) -> Result<FileMems, FileFmtErr> {
+        if matches!(src, FileSink::Stream) {
+            return todo!();
+        }
+        let t = read_types(src.get_reader()?)?;
+        read_data(src.get_reader()?, t)
+    }
+}
+
+// TODO: rather than seeks, can we do skips?
 pub fn read_types<R: Read>(
     inp: R,
 ) -> Result<HashMap<String, TypeSpec>, FileFmtErr> {
@@ -299,9 +209,9 @@ pub fn read_types<R: Read>(
     sr.begin_object()?;
 
     // read types first
+    let type_p = struson::json_path!["format"];
     while sr.has_next()? {
         let k = sr.next_name_owned()?;
-        let type_p = struson::json_path!["format"];
         sr.seek_to(&type_p)?;
         let v: FormatInfo = sr.deserialize_next()?;
         sr.seek_back(&type_p)?;
@@ -325,7 +235,7 @@ pub fn read_data<R: Read>(
         let k = sr.next_name_owned()?;
         sr.seek_to(&data_p)?;
         let t = t.remove(&k).unwrap();
-        let v = crate::json::ops::try_read_arr(&mut sr, &t)?;
+        let v = try_read_arr(&mut sr, &t)?;
         sr.seek_back(&data_p)?;
 
         new_mems

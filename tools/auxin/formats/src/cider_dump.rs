@@ -1,11 +1,7 @@
-use std::io::Read;
-use std::io::Write;
-
 use baa::BitVecOps;
 use cider_serde as cs;
 
-use crate::filerep as fr;
-use crate::filerep::FileFmtErr;
+use crate::filerep::*;
 use num_ir::memrep as nr;
 
 use num_ir::typing::*;
@@ -93,23 +89,21 @@ pub(crate) fn try_type_from_cider(
     Ok(res)
 }
 
-pub struct CiderTx {
-    pub dest: Box<dyn Write>,
-}
+pub struct CiderHandler;
 
-pub struct CiderRx {
-    pub src: Box<dyn Read>,
-}
-
-impl fr::TryFromIR for CiderTx {
-    fn try_from_ir(self, inp: fr::FileMems) -> Result<(), FileFmtErr> {
+impl TryWriteThrough<FileSink> for CiderHandler {
+    fn try_write(
+        &self,
+        dest: FileSink,
+        inp: FileMems,
+    ) -> Result<(), FileFmtErr> {
         let mut out_res = cs::DataDump::new_empty();
-        for (k, v) in inp.mems.iter() {
+        for (k, v) in inp.mems.into_iter() {
             let t = v.ty();
 
             let meminfo = cs::MemoryDeclaration::new(
                 k.to_string(),
-                as_cider_dims(v),
+                as_cider_dims(&v),
                 try_type_to_cider(t)?,
             );
 
@@ -122,20 +116,24 @@ impl fr::TryFromIR for CiderTx {
                 }),
             );
         }
-        out_res.serialize(self.dest)?;
+        let d = dest.get_writer()?;
+        out_res.serialize(d)?;
         Ok(())
     }
 }
 
-impl fr::TryToIR for CiderRx {
-    fn try_to_ir(self) -> Result<fr::FileMems, FileFmtErr> {
-        let dump = cs::DataDump::deserialize(self.src)?;
-        let mut res = fr::FileMems::default();
+impl TryReadFrom<FileSink> for CiderHandler {
+    fn try_read(&self, src: FileSink) -> Result<FileMems, FileFmtErr> {
+        let r = src.get_reader()?;
+        let dump = cs::DataDump::deserialize(r)?;
+        let mut res = FileMems::default();
         for mem in dump.header.memories.iter() {
             let byte_data = dump.get_data(&mem.name).unwrap();
             let assoc_type = try_type_from_cider(&mem.format)?;
 
-            assert!(byte_data.len().is_multiple_of(assoc_type.num_bytes()));
+            debug_assert!(
+                byte_data.len().is_multiple_of(assoc_type.num_bytes())
+            );
             let c: Result<Vec<baa::BitVecValue>, _> = byte_data
                 .chunks(assoc_type.num_bytes())
                 .map(|e| {

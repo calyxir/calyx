@@ -86,7 +86,7 @@ impl ToShort for TypeSpec {
         match t.class {
             TypeClass::Bits => format!("b{}", t.width),
             TypeClass::Int => {
-                format!("{} {}", if t.signed { "i" } else { "u" }, t.width)
+                format!("{}{}", if t.signed { "i" } else { "u" }, t.width)
             }
             TypeClass::Float => {
                 format!("f{}", t.width)
@@ -96,6 +96,35 @@ impl ToShort for TypeSpec {
                     "d{}{}:{}",
                     if t.signed { "i" } else { "u" },
                     t.width,
+                    e
+                )
+            }
+            _ => panic!("can't shorten an unknown typeclass"),
+        }
+    }
+}
+
+impl std::fmt::Display for TypeSpec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.class {
+            TypeClass::Bits => write!(f, "b{}", self.width),
+            TypeClass::Int => {
+                write!(
+                    f,
+                    "{}{}",
+                    if self.signed { "i" } else { "u" },
+                    self.width
+                )
+            }
+            TypeClass::Float => {
+                write!(f, "f{}", self.width)
+            }
+            TypeClass::Fixed { exp_mag: e } => {
+                write!(
+                    f,
+                    "d{}{}:{}",
+                    if self.signed { "i" } else { "u" },
+                    self.width,
                     e
                 )
             }

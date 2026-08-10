@@ -1,29 +1,51 @@
-use std::collections::HashMap;
-use std::io::{BufRead, BufWriter, Read, Write};
-use std::path::PathBuf;
-use std::{fs::File, io::BufReader};
-
-use crate::cider_dump::*;
 use crate::filerep::*;
 use baa::{BitVecOps, BitVecValue};
-use cider_serde as cs;
 use num_ir::memrep::SingleMem;
 use num_ir::typing::Endian;
+use std::io::{BufRead, BufWriter, Read, Write};
+use std::{fs::File, io::BufReader};
 
 use smallvec::smallvec;
 
 const HEADER_FILENAME: &str = "header";
 
-// in the original cider data converter code, directory I/O was bolted onto the cider datadump format, this is retained.
+// some use of https://nnethercote.github.io/perf-book/heap-allocations.html#reading-lines-from-a-file throughout. it does actually have a measurable impact.
 
-pub struct DirData {
-    pub header: cs::DataHeader,
-    pub mems: HashMap<String, Vec<baa::BitVecValue>>,
+use std::collections::HashMap;
+
+use num_ir::{short::TryFromShort, typing::TypeSpec};
+
+use crate::filerep::FileFmtErr;
+
+pub struct HeadEntry {
+    pub ty: TypeSpec,
+    pub len: usize,
 }
 
-pub struct DirOpts {
-    pub dir: PathBuf,
-    pub ext: String,
+/// read functionality for a plain text directory header format.
+///
+/// format: ``name,short_t,len\n``
+///
+/// no spaces inside. trailing / leading spaces will work, but are frowned upon.
+pub fn read_header<R: Read>(
+    mut inp: BufReader<R>,
+) -> Result<HashMap<String, HeadEntry>, FileFmtErr> {
+    let mut res = HashMap::new();
+    let mut linebuf = String::with_capacity(20);
+    while inp.read_line(&mut linebuf)? != 0 {
+        let parts: Vec<&str> = linebuf.trim().split(",").collect();
+        if parts.len() != 3 {
+            return Err(FileFmtErr::FileSpecific("bad format".to_string()));
+        }
+        let ty = TypeSpec::read_short_t(parts[1])
+            .map_err(|e| FileFmtErr::FileSpecific(e.to_string()))?;
+        let len = parts[2]
+            .parse::<usize>()
+            .map_err(|e| FileFmtErr::FileSpecific(e.to_string()))?;
+        res.insert(parts[0].to_string(), HeadEntry { ty, len });
+        linebuf.clear();
+    }
+    Ok(res)
 }
 
 impl From<std::io::Error> for FileFmtErr {
@@ -32,81 +54,88 @@ impl From<std::io::Error> for FileFmtErr {
     }
 }
 
-impl TryFromIR for DirOpts {
-    fn try_from_ir(self, inp: FileMems) -> Result<(), FileFmtErr> {
-        let header_fn = self.dir.join(HEADER_FILENAME);
-        if self.dir.exists() && !self.dir.is_dir() {
-            return Err(FileFmtErr::FileSpecific(format!(
-                "{:?}: not a directory",
-                self.dir
-            )));
-        } else if !self.dir.exists() {
-            std::fs::create_dir(&self.dir)?;
-        }
-        let mut header_info = cs::DataHeader::new("".to_string(), vec![]);
+pub struct DirHandler;
 
-        for (mem_name, mem) in inp.mems {
+impl TryWriteThrough<DirSink> for DirHandler {
+    fn try_write(
+        &self,
+        dest: DirSink,
+        inp: FileMems,
+    ) -> Result<(), FileFmtErr> {
+        let header_fn = dest.path.join(HEADER_FILENAME);
+        dest.is_dir()?;
+        if !dest.path.exists() {
+            std::fs::create_dir(&dest.path)?;
+        }
+        let header_output = File::create(header_fn)?;
+        let mut header_w = BufWriter::new(header_output);
+
+        // NOTE: there's probably efficiencies to be searched for in here
+        for (mem_name, mem) in inp.mems.into_iter() {
+            writeln!(header_w, "{},{},{}", mem_name, mem.ty(), mem.size())?;
+
+            // write memory contents
             let file = File::create(
-                self.dir.join(format!("{}.{}", mem_name, self.ext)),
+                dest.path.join(format!("{}.{}", mem_name, dest.ext)),
             )?;
             let mut writer = BufWriter::new(file);
             for val in mem.iter_data() {
-                write!(writer, "{}\n", val.to_hex_str())?;
+                writeln!(writer, "{}", val.to_hex_str())?;
             }
-            header_info.memories.push(cider_serde::MemoryDeclaration {
-                name: mem_name.clone(),
-                dimensions: as_cider_dims(&mem),
-                format: try_type_to_cider(mem.ty())?,
-            });
         }
 
-        let mut header_output = File::create(header_fn)?;
-        header_output.write_all(&header_info.serialize()?)?;
         Ok(())
     }
 }
 
-impl TryToIR for DirOpts {
-    fn try_to_ir(self) -> Result<FileMems, FileFmtErr> {
-        if !self.dir.is_dir() {
+impl TryReadFrom<DirSink> for DirHandler {
+    fn try_read(&self, src: DirSink) -> Result<FileMems, FileFmtErr> {
+        if !src.path.is_dir() {
             return Err(FileFmtErr::FileSpecific(format!(
                 "{:?}: not a directory",
-                self.dir
+                src.path
             )));
         }
 
-        let header = {
-            let mut header_file = File::open(self.dir.join(HEADER_FILENAME))?;
-            let mut raw_header = vec![];
-            header_file.read_to_end(&mut raw_header)?;
-
-            cs::DataHeader::deserialize(&raw_header)?
+        let mut header = {
+            let header_file = File::open(src.path.join(HEADER_FILENAME))?;
+            let header_r = BufReader::new(header_file);
+            read_header(header_r)?
         };
         let mut res = FileMems::default();
 
-        for mem_dec in &header.memories {
-            let mut data = Vec::with_capacity(mem_dec.size());
-            let mem_file = BufReader::new(File::open(
-                self.dir.join(format!("{}.{}", mem_dec.name, self.ext)),
+        // owned buffer for file reads, because lines() returns a vector of string :(
+        let mut linebuf = String::with_capacity(20);
+
+        for (mem_name, info) in header.drain() {
+            let mut data = Vec::with_capacity(info.len);
+            let mut mem_file = BufReader::new(File::open(
+                src.path.join(format!("{}.{}", mem_name, src.ext)),
             )?);
 
-            for line in mem_file.lines() {
-                let line = line?;
-                let wo_comment = discard_comment(&line);
-                data.push(BitVecValue::from_hex_str(wo_comment)?);
+            // TODO: add a length check
+            while mem_file.read_line(&mut linebuf)? != 0 {
+                let cleaned = linebuf.trim();
+                let wo_comment = discard_comment(cleaned);
+                if wo_comment.is_empty() {
+                    linebuf.clear();
+                    continue;
+                }
+                let v = BitVecValue::from_str_radix(
+                    wo_comment,
+                    16,
+                    info.ty.width as u32,
+                )?;
+                data.push(v);
+                linebuf.clear();
             }
 
             let dimensions = smallvec![data.len()];
+            debug_assert_eq!(data.len(), info.len);
 
-            // assert_eq!(data.len() - starting_len, mem_dec.byte_count());
             res.mems.insert(
-                mem_dec.name.clone(),
-                SingleMem::new(
-                    data,
-                    dimensions,
-                    try_type_from_cider(&mem_dec.format)?,
-                    Endian::Little,
-                ),
+                mem_name.clone(),
+                SingleMem::new(data, dimensions, info.ty, Endian::Little),
             );
         }
 

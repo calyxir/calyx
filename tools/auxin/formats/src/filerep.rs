@@ -1,9 +1,11 @@
 // format-agnostic file interface
 
 use std::collections::BTreeMap;
-use std::fmt::Write;
+use std::fs::File;
+use std::io::BufWriter;
 use std::io::Read;
-use std::path::Path;
+use std::io::Write;
+use std::path::PathBuf;
 
 use num_ir::memrep as nr;
 use num_ir::typing::*;
@@ -19,47 +21,67 @@ pub enum FileFmtErr {
 
 // TODO: string formats should at least perform cursory input validation on their I/O, bin formats are allowed to but not required to.
 
-/// a structure for passing options to the string file interfaces.
-pub struct OutputOpts {
-    // a struct so other output options can be added in the future
-    pub print_hex: bool,
+// files can read accept path or stdin / stdout, directories must use a path
+
+/// with the current set of supported formats, there aren't any 'global' options which need to be passed to every read / write implementation. as such, format-specific quirks are implemented within the 'handler' struct for each format.
+
+pub enum FileSink {
+    P(PathBuf),
+    Stream,
 }
 
-/*
-TODO:
-- FileIO most likely doesn't need to be dyn
-- DirIO could probably be more structured, s.t. implementer has to do less work.
+impl FileSink {
+    pub fn get_writer(&self) -> Result<Box<dyn Write>, FileFmtErr> {
+        let e = match &self {
+            FileSink::P(path) => {
+                let f = File::create(path).map(|x| BufWriter::new(x))?;
+                Box::new(f) as Box<dyn Write>
+            }
+            FileSink::Stream => Box::new(std::io::stdout()),
+        };
+        Ok(e)
+    }
 
-*/
+    pub fn get_reader(&self) -> Result<Box<dyn Read>, FileFmtErr> {
+        let e = match &self {
+            FileSink::P(path) => {
+                let f = File::open(path)?;
+                Box::new(f) as Box<dyn Read>
+            }
+            FileSink::Stream => Box::new(std::io::stdin()),
+        };
+        Ok(e)
+    }
+}
 
-// these build an object containing opts
-// TODO: implement boilerplate types for storing opts per format (?)
-// just. think about modularity
+pub struct DirSink {
+    pub path: PathBuf,
+    pub ext: String,
+}
 
-pub trait DirFmtOpts
+impl DirSink {
+    pub fn is_dir(&self) -> Result<(), FileFmtErr> {
+        if self.path.exists() && !self.path.is_dir() {
+            return Err(FileFmtErr::FileSpecific(format!(
+                "{:?}: not a directory",
+                self.path
+            )));
+        }
+        Ok(())
+    }
+}
+
+// T will usually be FileSink or DirSink. it could possibly be expanded in the future.
+
+pub trait TryWriteThrough<T>
 where
     Self: Sized,
 {
-    fn from_path(src: &Path, ext: String) -> Result<Self, FileFmtErr>;
+    fn try_write(&self, dest: T, inp: FileMems) -> Result<(), FileFmtErr>;
 }
 
-pub trait FileFmtOpts
-where
-    Self: Sized,
-{
-    fn with_src(src: Box<dyn Read>);
-    fn with_dest(dest: Box<dyn Write>);
-}
-
-pub trait TryFromIR
-where
-    Self: Sized,
-{
-    fn try_from_ir(self, inp: FileMems) -> Result<(), FileFmtErr>;
-}
-
-pub trait TryToIR {
-    fn try_to_ir(self) -> Result<FileMems, FileFmtErr>;
+pub trait TryReadFrom<T> {
+    fn try_read(&self, src: T) -> Result<FileMems, FileFmtErr>;
 }
 
 // uses btreemap to preserve ordering

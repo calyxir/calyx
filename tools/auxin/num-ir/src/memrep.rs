@@ -35,6 +35,11 @@ impl SingleMem {
         }
     }
 
+    pub fn size(&self) -> usize {
+        // self.dimensions.iter().product()
+        self.data.len()
+    }
+
     /// return an immutable iterator to the memory contents
     pub fn iter_data<'a>(&'a self) -> std::slice::Iter<'a, baa::BitVecValue> {
         self.data.iter()

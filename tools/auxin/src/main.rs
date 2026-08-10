@@ -1,11 +1,6 @@
 use argh::FromArgs;
 use cider_serde::SerializationError;
-use conv_formats::{
-    cider_dump::{CiderRx, CiderTx},
-    dat_dir::DirOpts,
-    filerep::{OutputOpts, TryToIR},
-    json::{JsonRx, JsonTx},
-};
+use conv_formats::filerep::{DirSink, FileSink, TryReadFrom, TryWriteThrough};
 use core::str;
 use num_ir::typing;
 use std::{
@@ -159,20 +154,14 @@ fn main() -> Result<(), CiderDataConverterError> {
         opts.output_format = infer_format(p);
     }
 
-    use conv_formats::filerep::TryFromIR;
-
     let Some(in_fmt) = opts.input_format else {
         return Err(CiderDataConverterError::BadInTarget);
     };
 
     let mut loaded_ir = match in_fmt {
         Formats::Json => {
-            let input = get_read_handle(&opts)?;
-            let t = conv_formats::json::read_types(input)?;
-            let input = get_read_handle(&opts)?;
-            conv_formats::json::read_data(input, t)?
-            // let jrx = JsonRx { src: input };
-            // jrx.try_to_ir()?
+            let jh = conv_formats::json::JsonHandler { out_hex: false };
+            jh.try_read(adapt_input(&opts))?
         }
         Formats::Dat => {
             // TODO: default 'dat' into untyped
@@ -180,16 +169,17 @@ fn main() -> Result<(), CiderDataConverterError> {
             let Some(ref path) = opts.input_path else {
                 return Err(CiderDataConverterError::UnknownTarget);
             };
-            let d = DirOpts {
-                dir: path.to_path_buf(),
+            let d = DirSink {
+                path: path.to_path_buf(),
                 ext: opts.file_extension.clone(),
             };
-            d.try_to_ir()?
+
+            let h = conv_formats::dat_dir::DirHandler;
+            h.try_read(d)?
         }
         Formats::DataDump => {
-            let input = get_read_handle(&opts)?;
-            let crx = CiderRx { src: input };
-            crx.try_to_ir()?
+            let ch = conv_formats::cider_dump::CiderHandler;
+            ch.try_read(adapt_input(&opts))?
         }
     };
 
@@ -213,59 +203,41 @@ fn main() -> Result<(), CiderDataConverterError> {
 
     match out_fmt {
         Formats::Json => {
-            let output = get_output_handle(&opts)?;
-
-            let jtx = JsonTx {
-                dest: output,
-                out_args: if opts.hex {
-                    Some(OutputOpts { print_hex: true })
-                } else {
-                    None
-                },
-            };
-            jtx.try_from_ir(loaded_ir)?;
+            let jh = conv_formats::json::JsonHandler { out_hex: opts.hex };
+            jh.try_write(adapt_output(&opts), loaded_ir)?
         }
         Formats::Dat => {
             if opts.output_path.is_none() {
                 return Err(CiderDataConverterError::MissingDatOutputPath);
             }
-            let di = DirOpts {
-                dir: opts.output_path.unwrap(),
-                ext: opts.file_extension,
+            let p = opts.output_path.unwrap();
+            let d = DirSink {
+                path: p.to_path_buf(),
+                ext: opts.file_extension.clone(),
             };
-            di.try_from_ir(loaded_ir)?;
+
+            let h = conv_formats::dat_dir::DirHandler;
+            h.try_write(d, loaded_ir)?;
         }
         Formats::DataDump => {
-            let output = get_output_handle(&opts)?;
-            let ctx = CiderTx { dest: output };
-            ctx.try_from_ir(loaded_ir)?;
+            let ch = conv_formats::cider_dump::CiderHandler;
+            ch.try_write(adapt_output(&opts), loaded_ir)?
         }
     }
 
     Ok(())
 }
 
-fn get_output_handle(
-    opts: &Opts,
-) -> Result<Box<dyn Write>, CiderDataConverterError> {
-    let output: Box<dyn Write> = opts
-        .output_path
-        .as_ref()
-        .map(|path| {
-            File::create(path)
-                .map(|x| Box::new(BufWriter::new(x)) as Box<dyn Write>)
-        })
-        .unwrap_or(Ok(Box::new(io::stdout())))?;
-    Ok(output)
+fn adapt_input(opts: &Opts) -> FileSink {
+    match &opts.input_path {
+        Some(path) => FileSink::P(path.to_path_buf()),
+        None => FileSink::Stream,
+    }
 }
 
-fn get_read_handle(
-    opts: &Opts,
-) -> Result<Box<dyn Read>, CiderDataConverterError> {
-    let input: Box<dyn Read> = opts
-        .input_path
-        .as_ref()
-        .map(|path| File::open(path).map(|x| Box::new(x) as Box<dyn Read>))
-        .unwrap_or(Ok(Box::new(io::stdin())))?;
-    Ok(input)
+fn adapt_output(opts: &Opts) -> FileSink {
+    match &opts.output_path {
+        Some(path) => FileSink::P(path.to_path_buf()),
+        None => FileSink::Stream,
+    }
 }
