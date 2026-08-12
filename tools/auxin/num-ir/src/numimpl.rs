@@ -25,12 +25,9 @@ pub fn read_hexstring(
     _end: Endian,
     width: usize,
 ) -> Result<baa::BitVecValue, NumParseErr> {
-    let cleaned_str = rm_prefix(s, "0x").ok_or(NumParseErr::HexRead(
-        format!("could not strip prefix from {}", s),
-    ))?;
-
-    baa::BitVecValue::from_str_radix(cleaned_str, 16, width as u32)
-        .map_err(|e| NumParseErr::Baa(cleaned_str.to_string(), e))
+    let to_parse = rm_prefix(s, "0x").unwrap_or(s);
+    baa::BitVecValue::from_str_radix(to_parse, 16, width as u32)
+        .map_err(|e| NumParseErr::Baa(s.to_string(), e))
 }
 
 /// Read a string containing a float literal into a [BitVecValue]. ``width`` must be 32 or 64, as only ``f32`` and ``f64`` are supported.

@@ -1,6 +1,6 @@
 use baa::BitVecValue;
 use std::collections::HashMap;
-use std::io::{Read, Write};
+use std::io::{BufRead, Read, Write};
 
 use crate::filerep::*;
 use crate::json_common::*;
@@ -22,6 +22,37 @@ pub struct ArrayReader {
     is_quoted: bool,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum JsonErr {
+    #[error("error reading array at {0:?}")]
+    ArrayRead(struson::reader::JsonReaderPosition),
+
+    #[error(transparent)]
+    NumIR(#[from] NumParseErr),
+
+    #[error(transparent)]
+    Typing(#[from] JsonTypeError),
+    #[error(transparent)]
+    JsonRead(#[from] struson::reader::ReaderError),
+
+    #[error(transparent)]
+    JsonNum(#[from] struson::writer::JsonNumberError),
+
+    #[error(transparent)]
+    JsonSer(#[from] struson::serde::SerializerError),
+
+    #[error(transparent)]
+    JsonDe(#[from] struson::serde::DeserializerError),
+
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+}
+
+#[inline(always)]
+fn arr_err<R: Read>(r: &JsonStreamReader<R>) -> JsonErr {
+    JsonErr::ArrayRead(r.current_position(false))
+}
+
 // TODO: can use number of elements in dim, once known, as guiding assumption
 // we can do this a lot more unsafely / maybe faster by trying to read ``n`` elements of (current level's type) once we know the type and the number of elements in the level
 impl ArrayReader {
@@ -30,7 +61,7 @@ impl ArrayReader {
         r: &mut JsonStreamReader<R>,
         t: &TypeSpec,
         curr_dim: usize,
-    ) -> Result<(), FileFmtErr> {
+    ) -> Result<(), JsonErr> {
         r.begin_array()?;
         let mut curr_type: Option<ValueType> = None; // type of current level
         let mut item_ct = 0;
@@ -43,7 +74,7 @@ impl ArrayReader {
                 curr_type = Some(nt)
             }
             if nt != curr_type.unwrap() {
-                return Err(json_err("hit elements of mismatched type"));
+                return Err(arr_err(r));
             }
 
             match nt {
@@ -58,14 +89,14 @@ impl ArrayReader {
                     let parsed = t.read_str(n, Endian::Little)?;
                     self.data.push(parsed)
                 }
-                _ => return Err(json_err("unknown type")),
+                _ => return Err(arr_err(r)),
             };
             item_ct += 1;
         }
         if self.dim_sizes[curr_dim] == 0 {
             self.dim_sizes[curr_dim] = item_ct
         } else if self.dim_sizes[curr_dim] != item_ct {
-            return Err(json_err("hit elements of mismatched length"));
+            return Err(arr_err(r));
         }
         if matches!(curr_type, Some(ValueType::String)) {
             self.is_quoted = true;
@@ -79,9 +110,9 @@ impl ArrayReader {
 pub fn try_read_arr<R: Read>(
     r: &mut JsonStreamReader<R>,
     t: &TypeSpec,
-) -> Result<ArrayReader, FileFmtErr> {
+) -> Result<ArrayReader, JsonErr> {
     let mut a = ArrayReader::default();
-    let _ = a.read_arr_helper(r, t, 0)?;
+    a.read_arr_helper(r, t, 0)?;
     Ok(a)
 }
 //     // TODO: get this working again
@@ -97,7 +128,7 @@ pub fn try_write_obj<W: Write>(
     m: SingleMem,
     w: &mut JsonStreamWriter<W>,
     is_hex: bool,
-) -> Result<(), FileFmtErr> {
+) -> Result<(), JsonErr> {
     let is_bin = m.ty().class == TypeClass::Bits;
 
     w.begin_object()?;
@@ -117,9 +148,9 @@ pub fn try_write_obj<W: Write>(
             m.ty().write_string(el, Endian::Little)
         };
         if is_bin || is_hex {
-            w.string_value(&s_to_write).map_err(json_err)?;
+            w.string_value(&s_to_write)?;
         } else {
-            w.number_value_from_string(&s_to_write).map_err(json_err)?;
+            w.number_value_from_string(&s_to_write)?;
         }
     }
     w.end_array()?;
@@ -133,47 +164,28 @@ pub fn try_write_obj<W: Write>(
     Ok(())
 }
 
-impl From<struson::reader::ReaderError> for FileFmtErr {
-    fn from(value: struson::reader::ReaderError) -> Self {
-        FileFmtErr::FileSpecific(value.to_string())
-    }
-}
-
-impl From<struson::writer::JsonNumberError> for FileFmtErr {
-    fn from(value: struson::writer::JsonNumberError) -> Self {
-        FileFmtErr::FileSpecific(value.to_string())
-    }
-}
-
-impl From<struson::serde::SerializerError> for FileFmtErr {
-    fn from(value: struson::serde::SerializerError) -> Self {
-        FileFmtErr::FileSpecific(value.to_string())
-    }
-}
-
-impl From<struson::serde::DeserializerError> for FileFmtErr {
-    fn from(value: struson::serde::DeserializerError) -> Self {
-        FileFmtErr::FileSpecific(value.to_string())
-    }
-}
-
 // if more options exist in the future, we could split JsonReader / JsonWriter.
 pub struct JsonHandler {
     pub out_hex: bool, // output results as hexstrings
 }
 
 // TODO: add back support for reading from stdin
+impl FileStore for JsonHandler {
+    type Err = JsonErr;
+    fn read_to_ir<R: BufRead>(&self, src: R) -> Result<MemsMap, Self::Err> {
+        let mut handle = src;
+        let t = read_types(&mut handle)?;
+        read_data(handle, t)
+    }
 
-impl TryWriteThrough<FileSink> for JsonHandler {
-    fn try_write(
+    fn write_from_ir<W: Write>(
         &self,
-        dest: FileSink,
-        inp: FileMems,
-    ) -> Result<(), FileFmtErr> {
+        inp: MemsMap,
+        dest: W,
+    ) -> Result<(), Self::Err> {
         use struson::writer::WriterSettings;
-        let write_handle = dest.get_writer()?;
         let mut sw = JsonStreamWriter::new_custom(
-            write_handle,
+            dest,
             WriterSettings {
                 pretty_print: true,
                 ..Default::default()
@@ -188,22 +200,22 @@ impl TryWriteThrough<FileSink> for JsonHandler {
 
         Ok(())
     }
-}
-
-impl TryReadFrom<FileSink> for JsonHandler {
-    fn try_read(&self, src: FileSink) -> Result<FileMems, FileFmtErr> {
-        if matches!(src, FileSink::Stream) {
-            return todo!();
-        }
-        let t = read_types(src.get_reader()?)?;
-        read_data(src.get_reader()?, t)
+    fn write_stdout(
+        &self,
+        inp: MemsMap,
+        handle: std::io::Stdout,
+    ) -> Result<(), Self::Err> {
+        unimplemented!()
+    }
+    fn read_stdin(&self, handle: std::io::Stdin) -> Result<MemsMap, Self::Err> {
+        unimplemented!()
     }
 }
 
 // TODO: rather than seeks, can we do skips?
 pub fn read_types<R: Read>(
     inp: R,
-) -> Result<HashMap<String, TypeSpec>, FileFmtErr> {
+) -> Result<HashMap<String, TypeSpec>, JsonErr> {
     let mut sr = JsonStreamReader::new(inp);
     let mut typemap: HashMap<String, TypeSpec> = HashMap::new();
     sr.begin_object()?;
@@ -224,8 +236,8 @@ pub fn read_types<R: Read>(
 pub fn read_data<R: Read>(
     inp: R,
     mut t: HashMap<String, TypeSpec>,
-) -> Result<FileMems, FileFmtErr> {
-    let mut new_mems = FileMems::default();
+) -> Result<MemsMap, JsonErr> {
+    let mut new_mems = MemsMap::default();
 
     let mut sr = JsonStreamReader::new(inp);
 

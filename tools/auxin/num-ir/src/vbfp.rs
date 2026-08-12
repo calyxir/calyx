@@ -61,4 +61,27 @@ impl FixedDef {
         };
         in_as_fp * (f64::powi(2., -self.exp_mag))
     }
+
+    #[cfg(feature = "rand1")]
+    pub fn rand_fixed_bounded(
+        &self,
+        int_bits: usize,
+        exp_bits: usize,
+    ) -> BitVecValue {
+        // generate a fixed-point with at most ``int_bits`` of integer magnitude, ``exp_bits`` of exponent magnitude
+        // exp_bits will be disregarded if self.exp_mag < 0
+        unimplemented!()
+    }
+    // TODO: a function for generating bounds?
+}
+
+/// given a fixed-point definition and expected/got values, determine whether they're really different, or if any inequality is simply due to fixed-points' limit on precision
+pub fn within_precision(fd: &FixedDef, expc: f64, got: &BitVecValue) -> bool {
+    unimplemented!()
+}
+
+#[cfg(feature = "rand1")]
+pub fn rand_fixed_def() -> FixedDef {
+    // generate a random fixed-point definition, with only positive exp_mag produced.
+    todo!()
 }

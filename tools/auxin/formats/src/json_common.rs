@@ -1,12 +1,6 @@
 use num_ir::typing::{TypeClass, TypeSpec};
 use serde::{self, Deserialize, Serialize};
 
-use crate::filerep::FileFmtErr;
-
-pub fn json_err<T: ToString>(s: T) -> FileFmtErr {
-    FileFmtErr::FileSpecific(format!("json: {}", s.to_string()))
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, Eq, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum JsonTypes {
@@ -15,6 +9,18 @@ pub enum JsonTypes {
     Fixed,
     #[serde(alias = "ieee754_float")]
     IEEE754Float,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum JsonTypeError {
+    #[error("can't normalise {0} as fixed-point")]
+    BadFixed(String),
+
+    #[error("array read error at line {0}")]
+    BadArray(u64),
+
+    #[error("bad class {0:?}")]
+    BadClass(TypeClass),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -39,7 +45,7 @@ impl FormatInfo {
     // returns fixed-point as (overall width, frac_width)
     // a bit verbose, but roughly self-documenting
     #[inline]
-    fn normalise_fixed(&self) -> Result<(usize, i32), FileFmtErr> {
+    fn normalise_fixed(&self) -> Result<(usize, i32), JsonTypeError> {
         if let Some(w) = self.width {
             match (self.int_width, self.frac_width) {
                 (Some(i), Some(f)) if i + f == w => Ok((w as usize, f as i32)),
@@ -47,19 +53,19 @@ impl FormatInfo {
                 (Some(i), None) if i < w => {
                     Ok((w as usize, (w as i32 - (i as i32))))
                 }
-                _ => Err(json_err(format!("malformed fixed type {self:?}"))),
+                _ => Err(JsonTypeError::BadFixed(format!("{self:?}"))),
             }
         } else {
             match (self.int_width, self.frac_width) {
                 (Some(i), Some(f)) => Ok(((i + f) as usize, f as i32)),
-                _ => Err(json_err(format!("malformed fixed type {self:?}"))),
+                _ => Err(JsonTypeError::BadFixed(format!("{self:?}"))),
             }
         }
     }
 }
 
 impl TryFrom<&TypeSpec> for FormatInfo {
-    type Error = FileFmtErr;
+    type Error = JsonTypeError;
 
     fn try_from(value: &TypeSpec) -> Result<Self, Self::Error> {
         use TypeClass as tc;
@@ -73,10 +79,7 @@ impl TryFrom<&TypeSpec> for FormatInfo {
                 JsonTypes::Fixed
             }
             _ => {
-                return Err(FileFmtErr::FileSpecific(format!(
-                    "unknown type class {:?}",
-                    value.class
-                )));
+                return Err(JsonTypeError::BadClass(value.class.clone()));
             }
         };
         Ok(FormatInfo {
@@ -90,7 +93,7 @@ impl TryFrom<&TypeSpec> for FormatInfo {
 }
 
 impl TryFrom<&FormatInfo> for TypeSpec {
-    type Error = FileFmtErr;
+    type Error = JsonTypeError;
     fn try_from(value: &FormatInfo) -> Result<Self, Self::Error> {
         use TypeClass as tc;
 

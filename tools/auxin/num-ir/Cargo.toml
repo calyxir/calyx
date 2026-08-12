@@ -11,12 +11,15 @@ version = "0.1.0"
 thiserror.workspace = true
 smallvec.workspace = true
 
+rand = { version = "0.10", optional = true, features = [] }
+
 # this can probably be feature-reduced, we don't use all of it
 baa.workspace = true
 
 [features]
 default = ["short-types"]
 short-types = []
+rand1 = ["dep:rand", "baa/rand1"]
 
 
 [dev-dependencies]

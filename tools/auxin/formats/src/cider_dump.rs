@@ -7,6 +7,18 @@ use num_ir::memrep as nr;
 use num_ir::typing::*;
 use smallvec::smallvec;
 
+#[derive(Debug, thiserror::Error)]
+pub enum CiderErr {
+    #[error("lib cider_serde: {0}")]
+    Serde(#[from] cs::SerializationError),
+
+    #[error("can't represent format {0}")]
+    Format(String),
+
+    #[error("numparse: {0}")]
+    NumParse(#[from] NumParseErr),
+}
+
 pub(crate) fn as_cider_dims(inp: &nr::SingleMem) -> cs::Dimensions {
     use cs::Dimensions as Dim;
     match inp.dimensions.len() {
@@ -25,7 +37,7 @@ pub(crate) fn as_cider_dims(inp: &nr::SingleMem) -> cs::Dimensions {
 
 pub(crate) fn try_type_to_cider(
     value: &TypeSpec,
-) -> Result<cs::FormatInfo, FileFmtErr> {
+) -> Result<cs::FormatInfo, CiderErr> {
     use cs::FormatInfo as cider_t;
 
     let res = match value.class {
@@ -50,10 +62,7 @@ pub(crate) fn try_type_to_cider(
             }
         }
         _ => {
-            return Err(FileFmtErr::FileSpecific(format!(
-                "could not write {:?} in cider",
-                value
-            )));
+            return Err(CiderErr::Format(format!("{:?}", value)));
         }
     };
     Ok(res)
@@ -61,7 +70,7 @@ pub(crate) fn try_type_to_cider(
 
 pub(crate) fn try_type_from_cider(
     value: &cs::FormatInfo,
-) -> Result<TypeSpec, FileFmtErr> {
+) -> Result<TypeSpec, CiderErr> {
     use cs::FormatInfo;
     let res = match *value {
         FormatInfo::Bitnum { signed, width } => TypeSpec {
@@ -91,12 +100,14 @@ pub(crate) fn try_type_from_cider(
 
 pub struct CiderHandler;
 
-impl TryWriteThrough<FileSink> for CiderHandler {
-    fn try_write(
+impl FileStore for CiderHandler {
+    type Err = CiderErr;
+
+    fn write_from_ir<W: std::io::Write>(
         &self,
-        dest: FileSink,
-        inp: FileMems,
-    ) -> Result<(), FileFmtErr> {
+        inp: MemsMap,
+        dest: W,
+    ) -> Result<(), CiderErr> {
         let mut out_res = cs::DataDump::new_empty();
         for (k, v) in inp.mems.into_iter() {
             let t = v.ty();
@@ -116,17 +127,15 @@ impl TryWriteThrough<FileSink> for CiderHandler {
                 }),
             );
         }
-        let d = dest.get_writer()?;
-        out_res.serialize(d)?;
+        out_res.serialize(dest)?;
         Ok(())
     }
-}
-
-impl TryReadFrom<FileSink> for CiderHandler {
-    fn try_read(&self, src: FileSink) -> Result<FileMems, FileFmtErr> {
-        let r = src.get_reader()?;
-        let dump = cs::DataDump::deserialize(r)?;
-        let mut res = FileMems::default();
+    fn read_to_ir<R: std::io::Read>(
+        &self,
+        src: R,
+    ) -> Result<MemsMap, CiderErr> {
+        let dump = cs::DataDump::deserialize(src)?;
+        let mut res = MemsMap::default();
         for mem in dump.header.memories.iter() {
             let byte_data = dump.get_data(&mem.name).unwrap();
             let assoc_type = try_type_from_cider(&mem.format)?;
@@ -163,11 +172,5 @@ impl TryReadFrom<FileSink> for CiderHandler {
         }
 
         Ok(res)
-    }
-}
-
-impl From<cs::SerializationError> for FileFmtErr {
-    fn from(value: cs::SerializationError) -> Self {
-        Self::FileSpecific(value.to_string())
     }
 }

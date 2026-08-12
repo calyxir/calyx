@@ -36,13 +36,13 @@ pub trait ToShort {
 
 fn destruct_signed(s: &str) -> Result<(usize, bool), ShortTypeErr> {
     if let Some(rem_s) = s.strip_prefix("i") {
-        let width = usize::from_str_radix(rem_s, 10)?;
+        let width = rem_s.parse::<usize>()?;
         return Ok((width, true));
     } else if let Some(rem_u) = s.strip_prefix("u") {
-        let width = usize::from_str_radix(rem_u, 10)?;
+        let width = rem_u.parse::<usize>()?;
         return Ok((width, false));
     }
-    return Err(ShortTypeErr::Parsing(format!("can't parse {}", s)));
+    Err(ShortTypeErr::Parsing(format!("can't parse {}", s)))
 }
 
 // TODO: definitely could be made more optimal
@@ -50,7 +50,7 @@ impl TryFromShort for TypeSpec {
     /// requires that the string is already trimmed.
     fn read_short_t(s: &str) -> Result<Self, ShortTypeErr> {
         if let Some(rem_f) = s.strip_prefix("f") {
-            let width = usize::from_str_radix(rem_f, 10)?;
+            let width = rem_f.parse::<usize>()?;
             if width == 32 || width == 64 {
                 return Ok(TypeSpec {
                     width,
@@ -58,25 +58,25 @@ impl TryFromShort for TypeSpec {
                     class: TypeClass::Float,
                 });
             }
-            return Err(ShortTypeErr::FloatSpec(width));
+            Err(ShortTypeErr::FloatSpec(width))
         } else if let Some(rem_d) = s.strip_prefix("d") {
             let Some((p, n)) = rem_d.split_once(":") else {
                 return Err(ShortTypeErr::Parsing(rem_d.to_string()));
             };
             let (width, signed) = destruct_signed(p)?;
-            let exp_mag = i32::from_str_radix(n, 10)?;
-            return Ok(TypeSpec {
+            let exp_mag = n.parse::<i32>()?;
+            Ok(TypeSpec {
                 width,
                 signed,
                 class: TypeClass::Fixed { exp_mag },
-            });
+            })
         } else {
             let (width, signed) = destruct_signed(s)?;
-            return Ok(TypeSpec {
+            Ok(TypeSpec {
                 width,
                 signed,
                 class: TypeClass::Int,
-            });
+            })
         }
     }
 }

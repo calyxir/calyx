@@ -1,13 +1,10 @@
 use crate::filerep::*;
-use baa::{BitVecOps, BitVecValue};
+use baa::BitVecOps;
 use num_ir::memrep::SingleMem;
 use num_ir::typing::Endian;
-use std::io::{BufRead, BufWriter, Read, Write};
-use std::{fs::File, io::BufReader};
+use std::io::{BufRead, Write};
 
 use smallvec::smallvec;
-
-const HEADER_FILENAME: &str = "header";
 
 // some use of https://nnethercote.github.io/perf-book/heap-allocations.html#reading-lines-from-a-file throughout. it does actually have a measurable impact.
 
@@ -15,11 +12,23 @@ use std::collections::HashMap;
 
 use num_ir::{short::TryFromShort, typing::TypeSpec};
 
-use crate::filerep::FileFmtErr;
-
 pub struct HeadEntry {
     pub ty: TypeSpec,
     pub len: usize,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum DirError {
+    #[error("can't read {0}")]
+    Header(String),
+    #[error("header int parsing: {0}")]
+    IntParse(#[from] std::num::ParseIntError),
+    #[error("io: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("short type: {0}")]
+    ShortT(#[from] num_ir::short::ShortTypeErr),
+    #[error("num_ir parse: {0}")]
+    NumIr(#[from] num_ir::typing::NumParseErr),
 }
 
 /// read functionality for a plain text directory header format.
@@ -27,141 +36,96 @@ pub struct HeadEntry {
 /// format: ``name,short_t,len\n``
 ///
 /// no spaces inside. trailing / leading spaces will work, but are frowned upon.
-pub fn read_header<R: Read>(
-    mut inp: BufReader<R>,
-) -> Result<HashMap<String, HeadEntry>, FileFmtErr> {
+pub fn read_header<R: BufRead>(
+    mut inp: R,
+) -> Result<HashMap<String, HeadEntry>, DirError> {
     let mut res = HashMap::new();
     let mut linebuf = String::with_capacity(20);
     while inp.read_line(&mut linebuf)? != 0 {
         let parts: Vec<&str> = linebuf.trim().split(",").collect();
         if parts.len() != 3 {
-            return Err(FileFmtErr::FileSpecific("bad format".to_string()));
+            return Err(DirError::Header(linebuf));
         }
-        let ty = TypeSpec::read_short_t(parts[1])
-            .map_err(|e| FileFmtErr::FileSpecific(e.to_string()))?;
-        let len = parts[2]
-            .parse::<usize>()
-            .map_err(|e| FileFmtErr::FileSpecific(e.to_string()))?;
+        let ty = TypeSpec::read_short_t(parts[1])?;
+        let len = parts[2].parse::<usize>()?;
         res.insert(parts[0].to_string(), HeadEntry { ty, len });
         linebuf.clear();
     }
     Ok(res)
 }
 
-impl From<std::io::Error> for FileFmtErr {
-    fn from(value: std::io::Error) -> Self {
-        Self::FileSpecific(format!("data dir: {}", value))
-    }
-}
-
 pub struct DirHandler;
 
-impl TryWriteThrough<DirSink> for DirHandler {
-    fn try_write(
+impl DirStore for DirHandler {
+    type MemInfo = HeadEntry;
+    type Err = DirError;
+    fn read_header<R: BufRead>(
         &self,
-        dest: DirSink,
-        inp: FileMems,
-    ) -> Result<(), FileFmtErr> {
-        let header_fn = dest.path.join(HEADER_FILENAME);
-        dest.is_dir()?;
-        if !dest.path.exists() {
-            std::fs::create_dir(&dest.path)?;
-        }
-        let header_output = File::create(header_fn)?;
-        let mut header_w = BufWriter::new(header_output);
+        src: R,
+    ) -> Result<HashMap<String, Self::MemInfo>, Self::Err> {
+        read_header(src)
+    }
+    fn read_data<R: BufRead>(
+        &self,
+        mut src: R,
+        inf: Self::MemInfo,
+    ) -> Result<SingleMem, Self::Err> {
+        let mut data = Vec::with_capacity(inf.len);
+        let mut linebuf = String::with_capacity(20); // TODO: move outside all?
 
-        // NOTE: there's probably efficiencies to be searched for in here
-        for (mem_name, mem) in inp.mems.into_iter() {
-            writeln!(header_w, "{},{},{}", mem_name, mem.ty(), mem.size())?;
-
-            // write memory contents
-            let file = File::create(
-                dest.path.join(format!("{}.{}", mem_name, dest.ext)),
-            )?;
-            let mut writer = BufWriter::new(file);
-            for val in mem.iter_data() {
-                writeln!(writer, "{}", val.to_hex_str())?;
+        // TODO: add a length check
+        while src.read_line(&mut linebuf)? != 0 {
+            let wo_comment = discard_comment(&linebuf);
+            if wo_comment.is_empty() {
+                linebuf.clear();
+                continue;
             }
+            let v = num_ir::numimpl::read_hexstring(
+                wo_comment,
+                Endian::Little,
+                inf.ty.width,
+            )?;
+            data.push(v);
+            linebuf.clear();
         }
 
+        let dimensions = smallvec![data.len()];
+        debug_assert_eq!(data.len(), inf.len);
+        Ok(SingleMem::new(data, dimensions, inf.ty, Endian::Little))
+    }
+    fn write_header_part<W: Write>(
+        &self,
+        inp: &SingleMem,
+        mem_name: &str,
+        mut dest: W,
+    ) -> Result<(), Self::Err> {
+        writeln!(dest, "{},{},{}", mem_name, inp.ty(), inp.size())?;
         Ok(())
     }
-}
-
-impl TryReadFrom<DirSink> for DirHandler {
-    fn try_read(&self, src: DirSink) -> Result<FileMems, FileFmtErr> {
-        if !src.path.is_dir() {
-            return Err(FileFmtErr::FileSpecific(format!(
-                "{:?}: not a directory",
-                src.path
-            )));
+    fn write_data<W: Write>(
+        &self,
+        inp: SingleMem,
+        _mem_name: String,
+        mut dest: W,
+    ) -> Result<(), Self::Err> {
+        for val in inp.iter_data() {
+            writeln!(dest, "{}", val.to_hex_str())?;
         }
-
-        let mut header = {
-            let header_file = File::open(src.path.join(HEADER_FILENAME))?;
-            let header_r = BufReader::new(header_file);
-            read_header(header_r)?
-        };
-        let mut res = FileMems::default();
-
-        // owned buffer for file reads, because lines() returns a vector of string :(
-        let mut linebuf = String::with_capacity(20);
-
-        for (mem_name, info) in header.drain() {
-            let mut data = Vec::with_capacity(info.len);
-            let mut mem_file = BufReader::new(File::open(
-                src.path.join(format!("{}.{}", mem_name, src.ext)),
-            )?);
-
-            // TODO: add a length check
-            while mem_file.read_line(&mut linebuf)? != 0 {
-                let cleaned = linebuf.trim();
-                let wo_comment = discard_comment(cleaned);
-                if wo_comment.is_empty() {
-                    linebuf.clear();
-                    continue;
-                }
-                let v = BitVecValue::from_str_radix(
-                    wo_comment,
-                    16,
-                    info.ty.width as u32,
-                )?;
-                data.push(v);
-                linebuf.clear();
-            }
-
-            let dimensions = smallvec![data.len()];
-            debug_assert_eq!(data.len(), info.len);
-
-            res.mems.insert(
-                mem_name.clone(),
-                SingleMem::new(data, dimensions, info.ty, Endian::Little),
-            );
-        }
-
-        Ok(res)
-    }
-}
-
-impl From<baa::ParseIntError> for FileFmtErr {
-    fn from(value: baa::ParseIntError) -> Self {
-        FileFmtErr::BadVal(num_ir::typing::NumParseErr::Baa(
-            "".to_string(),
-            value,
-        ))
+        Ok(())
     }
 }
 
 // extract a hexstring of given length from the String
 // does very basic things to reject commented strings
-// TODO: needs to relax 0x restrictions
+// TODO: may need to relax 0x restrictions
 fn discard_comment(s: &str) -> &str {
-    let comment_idx = s.find("//");
+    let tr = s.trim();
+    let comment_idx = tr.find("//");
     if let Some(idx) = comment_idx {
-        let (res, _) = s.split_at(idx);
+        let (res, _) = tr.split_at(idx);
         return res;
     }
-    &s
+    tr
 }
 
 // TODO: proptest comment discarding

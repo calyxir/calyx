@@ -232,7 +232,6 @@ version = "0.1.0"
 dependencies = [
  "argh",
  "baa",
- "cider-serde",
  "conv-formats",
  "num-ir",
  "proptest",
@@ -249,6 +248,7 @@ dependencies = [
  "fraction",
  "num-bigint",
  "paste",
+ "rand 0.9.2",
  "serde",
 ]
 
@@ -2411,6 +2411,7 @@ version = "0.1.0"
 dependencies = [
  "baa",
  "proptest",
+ "rand 0.10.2",
  "smallvec",
  "thiserror 2.0.18",
 ]

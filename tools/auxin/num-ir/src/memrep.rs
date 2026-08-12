@@ -4,8 +4,6 @@ use crate::typing::*;
 use baa::BitVecOps;
 use smallvec::SmallVec;
 
-// TODO: the below is probably quite bad but. works
-
 /// [SingleMem] contains the contents of a memory.
 ///
 /// A memory is defined as a set of data with the same type. Modifying memory contents is discouraged, thus contents are hidden.
@@ -136,4 +134,10 @@ impl SingleMem {
             ..self
         })
     }
+}
+
+#[cfg(feature = "rand1")]
+pub fn rand_dims(num_dims: usize, dim_max: usize) -> SmallVec<[usize; 4]> {
+    // generates a random shape with num_dims elements, and with a maximum of dim_max for each dimension
+    unimplemented!();
 }

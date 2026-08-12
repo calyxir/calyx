@@ -54,6 +54,13 @@ pub enum TypeClass {
     Unknown(usize), // just needs to contain something for future expansion
 }
 
+#[cfg(feature = "rand1")]
+pub fn rand_class(r: &mut impl rand::Rng) -> TypeClass {
+    // generate a random, valid typeclass
+    // currently, only fixed of positive exp_mag will be generated
+    unimplemented!()
+}
+
 // types are instances of typespec rather than traits
 /// A specific type of ``class``.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -121,6 +128,13 @@ impl TypeSpec {
     /// return number of bytes required to store a value of ``&self``
     pub fn num_bytes(&self) -> usize {
         self.width.div_ceil(8)
+    }
+
+    #[cfg(feature = "rand1")]
+    pub fn rand_of_spec(&self) -> BitVecValue {
+        // creates a value which satisfies the given spec
+        // largely a convenience function, except we might have to do special things with float to ensure not NaN
+        unimplemented!()
     }
 }
 
