@@ -74,7 +74,7 @@ impl TryFromShort for TypeSpec {
             return Err(ShortTypeErr::Parsing(s.to_string()));
         };
         let (width, signed, class) = if first_c == 'f'
-            && let Some(w) = destruct_float_width(s)
+            && let Some(w) = destruct_float_width(rem)
         {
             (w, false, TypeClass::Float)
         } else if first_c == 'd'
@@ -135,5 +135,48 @@ impl std::fmt::Display for TypeSpec {
             }
             _ => panic!("can't shorten an unknown typeclass"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+    #[test]
+    fn parse_ints(s in "[iu][1-9][0-9]{6}"){
+        let t = TypeSpec::read_short_t(&s)?;
+        prop_assert_eq!(t.class.clone(), TypeClass::Int);
+        prop_assert_eq!(t.to_string(), s);
+    }
+
+    #[test]
+    fn parse_float(s in "f.*"){
+        if s == "f64" || s == "f32"{
+            prop_assert!(TypeSpec::read_short_t(&s).is_ok());
+        } else{
+             prop_assert!(TypeSpec::read_short_t(&s).is_err());
+        }
+    }
+
+    #[test]
+    fn parse_bits(s in "b[1-9][0-9]{6}"){
+        let t= TypeSpec::read_short_t(&s)?;
+        prop_assert_eq!(t.class.clone(), TypeClass::Bits);
+        prop_assert_eq!(t.to_string(), s);
+    }
+
+    #[test]
+    fn parse_fixed(s in "d[iu]", w in 1..i32::MAX, exp in any::<i32>()){
+        // typenames wider than 64 are okay. but parsing a decimal wider than f64 might not
+        prop_assume!(exp <= (w as i32));
+        let full = format!("{}{}:{}",s,w,exp);
+        let t= TypeSpec::read_short_t(&full)?;
+        prop_assert_eq!(t.class.clone(), TypeClass::Fixed{exp_mag: exp});
+        prop_assert_eq!(t.to_string(), full);
+    }
+
+
     }
 }
