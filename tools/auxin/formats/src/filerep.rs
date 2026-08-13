@@ -11,7 +11,7 @@ use num_ir::memrep::SingleMem;
 
 // files can read accept path or stdin / stdout, directories must use a path
 
-/// with the current set of supported formats, there aren't any 'global' options which need to be passed to every read / write implementation. as such, format-specific quirks are implemented within the 'handler' struct for each format.
+// with the current set of supported formats, there aren't any 'global' options which need to be passed to every read / write implementation. as such, format-specific quirks are implemented within the 'handler' struct for each format.
 
 pub trait FileStore {
     type Err: std::error::Error;

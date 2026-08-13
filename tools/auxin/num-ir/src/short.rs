@@ -73,25 +73,28 @@ impl TryFromShort for TypeSpec {
         let Some((first_c, rem)) = strip_first_char(s) else {
             return Err(ShortTypeErr::Parsing(s.to_string()));
         };
-        let (width, signed, class) = match first_c {
-            'f' if let Some(w) = destruct_float_width(s) => {
-                (w, false, TypeClass::Float)
+        let (width, signed, class) = if first_c == 'f'
+            && let Some(w) = destruct_float_width(s)
+        {
+            (w, false, TypeClass::Float)
+        } else if first_c == 'd'
+            && let Some((p, n)) = rem.split_once(':')
+            && let Some((width, signed)) = destruct_signed(p)
+        {
+            let exp_mag = n.parse::<i32>()?;
+            if exp_mag > (width as i32) {
+                return Err(ShortTypeErr::Parsing(s.to_string()));
             }
-            'd' if let Some((p, n)) = rem.split_once(':')
-                && let Some((width, signed)) = destruct_signed(p) =>
-            {
-                let exp_mag = n.parse::<i32>()?;
-                if exp_mag > (width as i32) {
-                    return Err(ShortTypeErr::Parsing(s.to_string()));
-                }
 
-                (width, signed, TypeClass::Fixed { exp_mag })
-            }
-            'b' => (rem.parse::<usize>()?, false, TypeClass::Bits),
-            'i' | 'u' if let Some((w, sgn)) = destruct_signed(s) => {
-                (w, sgn, TypeClass::Int)
-            }
-            _ => return Err(ShortTypeErr::Parsing(s.to_string())),
+            (width, signed, TypeClass::Fixed { exp_mag })
+        } else if first_c == 'b' {
+            (rem.parse::<usize>()?, false, TypeClass::Bits)
+        } else if (first_c == 'i' || first_c == 'u')
+            && let Some((w, sgn)) = destruct_signed(s)
+        {
+            (w, sgn, TypeClass::Int)
+        } else {
+            return Err(ShortTypeErr::Parsing(s.to_string()));
         };
 
         // TODO: this type of thing is why we need guarded constructors
