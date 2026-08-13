@@ -11,6 +11,7 @@ use crate::typing::*;
 
 // 'd' is used as the prefix to make parsing easier
 
+// TODO: some number of these are probably redundant at this point
 #[derive(Debug, thiserror::Error)]
 pub enum ShortTypeErr {
     #[error("cannot represent float with size {0}")]
@@ -34,73 +35,74 @@ pub trait ToShort {
     fn as_short_t(t: &Self) -> String;
 }
 
-fn destruct_signed(s: &str) -> Result<(usize, bool), ShortTypeErr> {
-    if let Some(rem_s) = s.strip_prefix("i") {
-        let width = rem_s.parse::<usize>()?;
-        return Ok((width, true));
-    } else if let Some(rem_u) = s.strip_prefix("u") {
-        let width = rem_u.parse::<usize>()?;
-        return Ok((width, false));
+#[inline]
+fn strip_first_char(s: &str) -> Option<(char, &str)> {
+    let mut c_iter = s.char_indices();
+    if let Some((_, first_char)) = c_iter.next()
+        && let Some((rem_start, _)) = c_iter.next()
+    {
+        return Some((first_char, &s[rem_start..]));
     }
-    Err(ShortTypeErr::Parsing(format!("can't parse {}", s)))
+
+    None
 }
 
-// TODO: definitely could be made more optimal
+fn destruct_signed(s: &str) -> Option<(usize, bool)> {
+    if let Some((first_c, rem)) = strip_first_char(s)
+        && (first_c == 'i' || first_c == 'u')
+    {
+        let width = rem.parse::<usize>().ok()?;
+        return Some((width, first_c == 'i'));
+    }
+    None
+}
+
+fn destruct_float_width(s: &str) -> Option<usize> {
+    if s == "32" {
+        Some(32)
+    } else if s == "64" {
+        Some(64)
+    } else {
+        None
+    }
+}
+
 impl TryFromShort for TypeSpec {
     /// requires that the string is already trimmed.
     fn read_short_t(s: &str) -> Result<Self, ShortTypeErr> {
-        if let Some(rem_f) = s.strip_prefix("f") {
-            let width = rem_f.parse::<usize>()?;
-            if width == 32 || width == 64 {
-                return Ok(TypeSpec {
-                    width,
-                    signed: false,
-                    class: TypeClass::Float,
-                });
+        let Some((first_c, rem)) = strip_first_char(s) else {
+            return Err(ShortTypeErr::Parsing(s.to_string()));
+        };
+        let (width, signed, class) = match first_c {
+            'f' if let Some(w) = destruct_float_width(s) => {
+                (w, false, TypeClass::Float)
             }
-            Err(ShortTypeErr::FloatSpec(width))
-        } else if let Some(rem_d) = s.strip_prefix("d") {
-            let Some((p, n)) = rem_d.split_once(":") else {
-                return Err(ShortTypeErr::Parsing(rem_d.to_string()));
-            };
-            let (width, signed) = destruct_signed(p)?;
-            let exp_mag = n.parse::<i32>()?;
-            Ok(TypeSpec {
-                width,
-                signed,
-                class: TypeClass::Fixed { exp_mag },
-            })
-        } else {
-            let (width, signed) = destruct_signed(s)?;
-            Ok(TypeSpec {
-                width,
-                signed,
-                class: TypeClass::Int,
-            })
-        }
-    }
-}
+            'd' if let Some((p, n)) = rem.split_once(':')
+                && let Some((width, signed)) = destruct_signed(p) =>
+            {
+                let exp_mag = n.parse::<i32>()?;
+                if exp_mag > (width as i32) {
+                    return Err(ShortTypeErr::Parsing(s.to_string()));
+                }
 
-impl ToShort for TypeSpec {
-    fn as_short_t(t: &Self) -> String {
-        match t.class {
-            TypeClass::Bits => format!("b{}", t.width),
-            TypeClass::Int => {
-                format!("{}{}", if t.signed { "i" } else { "u" }, t.width)
+                (width, signed, TypeClass::Fixed { exp_mag })
             }
-            TypeClass::Float => {
-                format!("f{}", t.width)
+            'b' => (rem.parse::<usize>()?, false, TypeClass::Bits),
+            'i' | 'u' if let Some((w, sgn)) = destruct_signed(s) => {
+                (w, sgn, TypeClass::Int)
             }
-            TypeClass::Fixed { exp_mag: e } => {
-                format!(
-                    "d{}{}:{}",
-                    if t.signed { "i" } else { "u" },
-                    t.width,
-                    e
-                )
-            }
-            _ => panic!("can't shorten an unknown typeclass"),
+            _ => return Err(ShortTypeErr::Parsing(s.to_string())),
+        };
+
+        // TODO: this type of thing is why we need guarded constructors
+        if width == 0 {
+            return Err(ShortTypeErr::Parsing(s.to_string()));
         }
+        Ok(TypeSpec {
+            width,
+            signed,
+            class,
+        })
     }
 }
 
@@ -112,7 +114,7 @@ impl std::fmt::Display for TypeSpec {
                 write!(
                     f,
                     "{}{}",
-                    if self.signed { "i" } else { "u" },
+                    if self.signed { 'i' } else { 'u' },
                     self.width
                 )
             }
@@ -123,7 +125,7 @@ impl std::fmt::Display for TypeSpec {
                 write!(
                     f,
                     "d{}{}:{}",
-                    if self.signed { "i" } else { "u" },
+                    if self.signed { 'i' } else { 'u' },
                     self.width,
                     e
                 )

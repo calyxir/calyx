@@ -1,6 +1,6 @@
 use baa::BitVecValue;
 use std::collections::HashMap;
-use std::io::{BufRead, Read, Write};
+use std::io::{BufRead, Read, Seek, Write};
 
 use crate::filerep::*;
 use crate::json_common::*;
@@ -172,17 +172,35 @@ pub struct JsonHandler {
 // TODO: add back support for reading from stdin
 impl FileStore for JsonHandler {
     type Err = JsonErr;
-    fn read_to_ir<R: BufRead>(&self, src: R) -> Result<MemsMap, Self::Err> {
+
+    fn read_stream<R: BufRead>(
+        &self,
+        mut handle: R,
+    ) -> Result<MemsMap, Self::Err> {
+        let mut e: Vec<u8> = Vec::new();
+        let mut linebuf = String::with_capacity(20);
+        while handle.read_line(&mut linebuf)? != 0 {
+            let cleaned = linebuf.trim();
+            e.extend_from_slice(cleaned.as_bytes());
+            linebuf.clear();
+        }
+        let mut s: &[u8] = e.as_slice();
+        let t = read_types(&mut s)?;
+        let s: &[u8] = e.as_slice();
+        read_data(s, t)
+    }
+
+    fn read_filelike<R: BufRead + Seek>(
+        &self,
+        src: R,
+    ) -> Result<MemsMap, Self::Err> {
         let mut handle = src;
         let t = read_types(&mut handle)?;
+        handle.rewind()?;
         read_data(handle, t)
     }
 
-    fn write_from_ir<W: Write>(
-        &self,
-        inp: MemsMap,
-        dest: W,
-    ) -> Result<(), Self::Err> {
+    fn write<W: Write>(&self, inp: MemsMap, dest: W) -> Result<(), Self::Err> {
         use struson::writer::WriterSettings;
         let mut sw = JsonStreamWriter::new_custom(
             dest,
@@ -199,16 +217,6 @@ impl FileStore for JsonHandler {
         sw.end_object()?;
 
         Ok(())
-    }
-    fn write_stdout(
-        &self,
-        inp: MemsMap,
-        handle: std::io::Stdout,
-    ) -> Result<(), Self::Err> {
-        unimplemented!()
-    }
-    fn read_stdin(&self, handle: std::io::Stdin) -> Result<MemsMap, Self::Err> {
-        unimplemented!()
     }
 }
 

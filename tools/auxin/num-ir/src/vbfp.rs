@@ -14,7 +14,7 @@ pub struct FixedDef {
 }
 
 impl FixedDef {
-    // TODO: below could accept a closure for behaviour in either direction
+    // TODO: below could accept a closure for rounding / mapping behaviour in from and to directions
     // https://en.wikipedia.org/wiki/Fixed-point_arithmetic#Conversion_to_and_from_floating-point
 
     /// Create a fixed-point representation of the value ``inp`` using the current [FixedDef]. The new fixed-point value will attempt to approximate the value of ``inp``, with rounding on even ties.
@@ -23,65 +23,86 @@ impl FixedDef {
         inp: f64,
     ) -> Result<BitVecValue, NumParseErr> {
         let scale: f64 = f64::powi(2., self.exp_mag);
-        let scaled_inp = inp * scale;
-        if self.signed {
-            let corr_int = scaled_inp.round_ties_even() as i64;
-            Ok(BitVecValue::from_i64(corr_int, self.total_size as u32))
+        let scaled_inp = (inp * scale).round_ties_even();
+        let inner_val = if self.signed {
+            BitVecValue::from_i64(scaled_inp as i64, self.total_size as u32)
+        } else if inp >= 0. {
+            BitVecValue::from_u64(scaled_inp as u64, self.total_size as u32)
         } else {
-            if inp < 0. {
-                return Err(NumParseErr::Misc(format!(
-                    "can't read {inp} as unsigned fixed-point"
-                )));
-            }
-            Ok(BitVecValue::from_u64(
-                scaled_inp.round_ties_even() as u64,
-                self.total_size as u32,
-            ))
-        }
+            return Err(NumParseErr::Misc(format!(
+                "can't read {inp} as unsigned fixed-point"
+            )));
+        };
+        Ok(inner_val)
     }
 
-    // TODO: make a generic 'to_fp_closure'
     /// Given ``inp``, return the corresponding ``f64`` using the current [FixedDef].
     pub fn to_fp_rounded(&self, inp: &BitVecValue) -> f64 {
         let in_as_fp = if self.signed {
-            let Some(in_num) = inp.to_i64() else {
-                panic!(
-                    "input cannot be put into 64 bits, thus cannot fit in f64"
-                )
-            };
-
-            in_num as f64
+            inp.to_i64().map(|e| e as f64)
         } else {
-            let Some(in_num) = inp.to_u64() else {
-                panic!(
-                    "input cannot be put into 64 bits, thus cannot fit in f64"
-                )
-            };
-            in_num as f64
+            inp.to_u64().map(|e| e as f64)
         };
-        in_as_fp * (f64::powi(2., -self.exp_mag))
+        let Some(v) = in_as_fp else {
+            panic!("can't fit input to 64 bits")
+        };
+        v * (f64::powi(2., -self.exp_mag))
     }
 
     #[cfg(feature = "rand1")]
+    /// generate a fixed-point value within ``bound``. if the [FixedDef] is signed, negative values will be generated; else positive only.
+    ///
+    /// bound must be >= 0.
     pub fn rand_fixed_bounded(
         &self,
-        int_bits: usize,
-        exp_bits: usize,
+        bound: f64,
+        rng: &mut impl rand::Rng,
     ) -> BitVecValue {
-        // generate a fixed-point with at most ``int_bits`` of integer magnitude, ``exp_bits`` of exponent magnitude
-        // exp_bits will be disregarded if self.exp_mag < 0
-        unimplemented!()
+        use rand::RngExt;
+
+        assert!(bound >= 0.0);
+        let rv: f64 = if self.signed {
+            rng.random_range(-bound..bound)
+        } else {
+            rng.random_range(0.0..bound)
+        };
+        self.from_fp_rounded(rv).unwrap()
     }
-    // TODO: a function for generating bounds?
 }
 
 /// given a fixed-point definition and expected/got values, determine whether they're really different, or if any inequality is simply due to fixed-points' limit on precision
 pub fn within_precision(fd: &FixedDef, expc: f64, got: &BitVecValue) -> bool {
-    unimplemented!()
+    // NOTE: vbfp is currently limited by fidelity of f64, so this relatively naive imeplementations should work. more precision will likely require implementation changes
+    let got_fl = fd.to_fp_rounded(got);
+    let diff = (got_fl - expc).abs();
+    // TODO: would taking log2(diff) of both sides of this comparison be better?
+    diff < 0.5 * f64::exp2(-fd.exp_mag as f64)
 }
 
-#[cfg(feature = "rand1")]
-pub fn rand_fixed_def() -> FixedDef {
-    // generate a random fixed-point definition, with only positive exp_mag produced.
-    todo!()
+#[cfg(test)]
+
+mod tests {
+    use super::*;
+
+    use rand::RngExt;
+    #[test]
+    fn within_precision_test() {
+        let expc = 0.7;
+        let fd = FixedDef {
+            total_size: 32,
+            exp_mag: 4,
+            signed: false,
+        };
+        let t = fd.from_fp_rounded(expc).unwrap(); // should be 0.6875
+        assert!(within_precision(&fd, expc, &t));
+        assert!(!within_precision(&fd, 0.75, &t));
+
+        // TODO: below should be more like a proptest
+        for _ in 0..100 {
+            let mut r = rand::rng();
+            let v: f64 = r.random_range(0.0..0.03);
+            let t = BitVecValue::zero(32);
+            assert!(within_precision(&fd, v, &t))
+        }
+    }
 }

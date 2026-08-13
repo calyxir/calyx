@@ -103,7 +103,7 @@ pub struct CiderHandler;
 impl FileStore for CiderHandler {
     type Err = CiderErr;
 
-    fn write_from_ir<W: std::io::Write>(
+    fn write<W: std::io::Write>(
         &self,
         inp: MemsMap,
         dest: W,
@@ -118,19 +118,15 @@ impl FileStore for CiderHandler {
                 try_type_to_cider(t)?,
             );
 
-            // below is exceptionally evil
             out_res.push_memory(
                 meminfo,
-                v.iter_data().flat_map(|e| {
-                    let whole = &e.to_bytes_le();
-                    whole.to_vec()
-                }),
+                v.iter_data().flat_map(|e| e.to_bytes_le()),
             );
         }
         out_res.serialize(dest)?;
         Ok(())
     }
-    fn read_to_ir<R: std::io::Read>(
+    fn read_stream<R: std::io::Read>(
         &self,
         src: R,
     ) -> Result<MemsMap, CiderErr> {

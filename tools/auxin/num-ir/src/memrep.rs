@@ -137,7 +137,17 @@ impl SingleMem {
 }
 
 #[cfg(feature = "rand1")]
-pub fn rand_dims(num_dims: usize, dim_max: usize) -> SmallVec<[usize; 4]> {
+pub fn rand_dims(
+    num_dims: usize,
+    dim_max: usize,
+    rng: &mut impl rand::Rng,
+) -> SmallVec<[usize; 4]> {
+    use rand::RngExt;
     // generates a random shape with num_dims elements, and with a maximum of dim_max for each dimension
-    unimplemented!();
+    assert!(num_dims <= 4);
+    let rvec = (0..num_dims)
+        .into_iter()
+        .map(|_| rng.random_range(1..dim_max))
+        .collect();
+    SmallVec::from_vec(rvec)
 }

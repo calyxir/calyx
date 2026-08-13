@@ -12,13 +12,13 @@ pub(crate) enum AuxinError {
     IoError(#[from] std::io::Error),
 
     #[error("Failed to parse \"to\" argument: {0}")]
-    BadToArgument(String),
+    ToArgErr(String),
 
     #[error("internal: {0}")]
-    BadInternal(String),
+    InternalErr(String),
 
-    #[error("Bad input target. Specify manually?")]
-    BadInTarget,
+    #[error("Unknown input format. Specify manually?")]
+    UnknownIn,
 
     #[error(
         "Unable to guess the conversion target. Please specify the target using the \"--to\" argument"
@@ -37,7 +37,7 @@ fn wrap_specific_err<E: std::error::Error>(
     err: E,
     slug: &'static str,
 ) -> AuxinError {
-    AuxinError::BadInternal(format!("{}: {}", slug, err))
+    AuxinError::InternalErr(format!("{}: {}", slug, err))
 }
 
 pub(crate) fn file_read<T: FileStore>(
@@ -46,10 +46,11 @@ pub(crate) fn file_read<T: FileStore>(
     slug: &'static str,
 ) -> Result<MemsMap, AuxinError> {
     if let Some(specific) = path {
-        let f = File::open(specific).map(|x| BufReader::new(x))?;
-        through.read_to_ir(f)
+        let f = File::open(specific).map(BufReader::new)?;
+        through.read_filelike(f)
     } else {
-        through.read_stdin(std::io::stdin())
+        let l = std::io::stdin().lock();
+        through.read_stream(l)
     }
     .map_err(|e| wrap_specific_err(e, slug))
 }
@@ -61,10 +62,10 @@ pub(crate) fn file_write<T: FileStore>(
     slug: &'static str,
 ) -> Result<(), AuxinError> {
     if let Some(specific) = path {
-        let f = File::create(specific).map(|x| BufWriter::new(x))?;
-        through.write_from_ir(inp, f)
+        let f = File::create(specific).map(BufWriter::new)?;
+        through.write(inp, f)
     } else {
-        through.write_stdout(inp, std::io::stdout())
+        through.write(inp, std::io::stdout())
     }
     .map_err(|e| wrap_specific_err(e, slug))
 }

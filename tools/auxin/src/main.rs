@@ -15,7 +15,7 @@ const DAT_EXTENSION: &str = "dat";
 
 impl From<typing::OpError> for io::AuxinError {
     fn from(value: typing::OpError) -> Self {
-        Self::BadInternal(format!("typing / conversion: {value}"))
+        Self::InternalErr(format!("typing / conversion: {value}"))
     }
 }
 
@@ -40,7 +40,7 @@ impl FromStr for Formats {
             "dat" | "verilog-dat" | "verilog" | "verilator" | "icarus" => {
                 Ok(Formats::Dat)
             }
-            _ => Err(io::AuxinError::BadToArgument(s.to_string())),
+            _ => Err(io::AuxinError::ToArgErr(s.to_string())),
         }
     }
 }
@@ -100,7 +100,7 @@ fn main() -> Result<(), AuxinError> {
 
     if opts.input_format.is_none() {
         let Some(ref p) = opts.input_path else {
-            return Err(AuxinError::BadInTarget);
+            return Err(AuxinError::UnknownIn);
         };
         opts.input_format = infer_format(p);
     }
@@ -112,7 +112,7 @@ fn main() -> Result<(), AuxinError> {
     }
 
     let Some(in_fmt) = opts.input_format else {
-        return Err(AuxinError::BadInTarget);
+        return Err(AuxinError::UnknownIn);
     };
 
     let Some(out_fmt) = opts.output_format else {

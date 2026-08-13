@@ -1,7 +1,7 @@
 use num_ir::typing::{TypeClass, TypeSpec};
 use serde::{self, Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum JsonTypes {
     Bitnum,
@@ -14,13 +14,10 @@ pub enum JsonTypes {
 #[derive(Debug, thiserror::Error)]
 pub enum JsonTypeError {
     #[error("can't normalise {0} as fixed-point")]
-    BadFixed(String),
-
-    #[error("array read error at line {0}")]
-    BadArray(u64),
+    FixedErr(String),
 
     #[error("bad class {0:?}")]
-    BadClass(TypeClass),
+    ClassErr(TypeClass),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -53,12 +50,12 @@ impl FormatInfo {
                 (Some(i), None) if i < w => {
                     Ok((w as usize, (w as i32 - (i as i32))))
                 }
-                _ => Err(JsonTypeError::BadFixed(format!("{self:?}"))),
+                _ => Err(JsonTypeError::FixedErr(format!("{self:?}"))),
             }
         } else {
             match (self.int_width, self.frac_width) {
                 (Some(i), Some(f)) => Ok(((i + f) as usize, f as i32)),
-                _ => Err(JsonTypeError::BadFixed(format!("{self:?}"))),
+                _ => Err(JsonTypeError::FixedErr(format!("{self:?}"))),
             }
         }
     }
@@ -79,7 +76,7 @@ impl TryFrom<&TypeSpec> for FormatInfo {
                 JsonTypes::Fixed
             }
             _ => {
-                return Err(JsonTypeError::BadClass(value.class.clone()));
+                return Err(JsonTypeError::ClassErr(value.class.clone()));
             }
         };
         Ok(FormatInfo {

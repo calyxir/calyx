@@ -17,10 +17,10 @@ rand = { version = "0.10", optional = true, features = [] }
 baa.workspace = true
 
 [features]
-default = ["short-types"]
+default = ["short-types", "rand1"]
 short-types = []
 rand1 = ["dep:rand", "baa/rand1"]
 
-
 [dev-dependencies]
 proptest = "1.0.0"
+rand = { version = "0.10"}

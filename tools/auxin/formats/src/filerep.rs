@@ -3,29 +3,11 @@
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::io::BufRead;
+use std::io::Seek;
 use std::io::Write;
-use std::path::PathBuf;
 
 use num_ir::memrep as nr;
 use num_ir::memrep::SingleMem;
-use num_ir::typing::*;
-
-#[derive(Debug, thiserror::Error)]
-pub enum FileFmtErr {
-    #[error("format-specific: {0}")]
-    FileSpecific(String),
-
-    #[error("numparse: {0}")]
-    BadVal(#[from] NumParseErr),
-}
-
-// impl<T: ToString> From<T> for FileFmtErr {
-//     fn from(value: T) -> Self {
-//         FileFmtErr::FileSpecific(value.to_string())
-//     }
-// }
-
-// TODO: string formats should at least perform cursory input validation on their I/O, bin formats are allowed to but not required to.
 
 // files can read accept path or stdin / stdout, directories must use a path
 
@@ -34,32 +16,23 @@ pub enum FileFmtErr {
 pub trait FileStore {
     type Err: std::error::Error;
 
-    fn read_to_ir<R: BufRead>(&self, src: R) -> Result<MemsMap, Self::Err>;
-    fn write_from_ir<W: Write>(
+    fn read_filelike<R: BufRead + Seek>(
         &self,
-        inp: MemsMap,
-        dest: W,
-    ) -> Result<(), Self::Err>;
-
-    fn read_stdin(&self, handle: std::io::Stdin) -> Result<MemsMap, Self::Err> {
-        let locked = handle.lock();
-        self.read_to_ir(locked)
+        src: R,
+    ) -> Result<MemsMap, Self::Err> {
+        self.read_stream(src)
     }
 
-    fn write_stdout(
-        &self,
-        inp: MemsMap,
-        handle: std::io::Stdout,
-    ) -> Result<(), Self::Err> {
-        self.write_from_ir(inp, handle)
-    }
+    fn read_stream<R: BufRead>(&self, handle: R) -> Result<MemsMap, Self::Err>;
+
+    fn write<W: Write>(&self, inp: MemsMap, handle: W)
+    -> Result<(), Self::Err>;
 }
 
 pub trait DirStore {
     type MemInfo;
     type Err: std::error::Error;
-    /// read the entirety of the header file into the aux type T
-    /// we can't necessarily know the information obtained from the header, so this returns unit
+    /// read the entirety of the header file into a ``HashMap`` with [MemInfo]
     fn read_header<R: BufRead>(
         &self,
         src: R,
@@ -88,17 +61,6 @@ pub trait DirStore {
         mem_name: String,
         dest: W,
     ) -> Result<(), Self::Err>;
-}
-
-pub trait TryWriteThrough<T>
-where
-    Self: Sized,
-{
-    fn try_write(&self, dest: T, inp: MemsMap) -> Result<(), FileFmtErr>;
-}
-
-pub trait TryReadFrom<T> {
-    fn try_read(&self, src: T) -> Result<MemsMap, FileFmtErr>;
 }
 
 // uses btreemap to preserve ordering

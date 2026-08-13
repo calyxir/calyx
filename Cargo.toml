@@ -35,7 +35,7 @@ members = [
 
     # Playground crate
     "web/rust"
-]
+, "tools/fixed_cli"]
 exclude = ["site"]
 
 [workspace.package]

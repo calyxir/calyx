@@ -55,10 +55,18 @@ pub enum TypeClass {
 }
 
 #[cfg(feature = "rand1")]
-pub fn rand_class(r: &mut impl rand::Rng) -> TypeClass {
-    // generate a random, valid typeclass
-    // currently, only fixed of positive exp_mag will be generated
-    unimplemented!()
+/// generate a random, valid typeclass
+/// since fixed-point magnitude is dependent on larger type width, it is zero.
+pub fn rand_class(rng: &mut impl rand::Rng) -> TypeClass {
+    use rand::RngExt;
+    let class_choice = rng.random_range(0..4);
+    match class_choice {
+        0 => TypeClass::Bits,
+        1 => TypeClass::Int,
+        2 => TypeClass::Float,
+        3 => TypeClass::Fixed { exp_mag: 0 },
+        _ => panic!("chose random that's not in [0,1,2,3]"),
+    }
 }
 
 // types are instances of typespec rather than traits
@@ -129,12 +137,33 @@ impl TypeSpec {
     pub fn num_bytes(&self) -> usize {
         self.width.div_ceil(8)
     }
+}
 
-    #[cfg(feature = "rand1")]
-    pub fn rand_of_spec(&self) -> BitVecValue {
-        // creates a value which satisfies the given spec
-        // largely a convenience function, except we might have to do special things with float to ensure not NaN
-        unimplemented!()
+#[cfg(feature = "rand1")]
+/// create a random, valid type
+pub fn rand_type(rng: &mut impl rand::Rng) -> TypeSpec {
+    use rand::RngExt;
+
+    let mut class = rand_class(rng);
+    let width: usize = match &mut class {
+        TypeClass::Float => {
+            if rng.random_bool(0.5) {
+                64
+            } else {
+                32
+            }
+        }
+        TypeClass::Fixed { exp_mag: e } => {
+            let w: usize = rng.random_range(0..128);
+            *e = rng.random_range(0..w) as i32;
+            w
+        }
+        _ => rng.random_range(0..128),
+    };
+    TypeSpec {
+        width,
+        signed: rng.random_bool(0.5),
+        class,
     }
 }
 

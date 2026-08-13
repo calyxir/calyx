@@ -60,9 +60,6 @@ pub fn float_write(b: &baa::BitVecValue, _end: Endian, width: usize) -> String {
     }
 }
 
-// TODO: this conditional-heavy thing can probably be simplified
-// TODO: probably needs range checks
-
 /// Read a string containing an integer literal into a ``BitVecValue`` with max bit length ``width``. Interpret signs if the ``signed`` option is true, otherwise it is impossible to 'coerce' a negative number into an unsigned during this call.
 pub fn int_read(
     s: &str,

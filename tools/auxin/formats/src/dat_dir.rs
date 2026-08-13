@@ -23,11 +23,14 @@ pub enum DirError {
     Header(String),
     #[error("header int parsing: {0}")]
     IntParse(#[from] std::num::ParseIntError),
-    #[error("io: {0}")]
+    #[error("more entries in a file than expected")]
+    BadLen,
+
+    #[error(transparent)]
     Io(#[from] std::io::Error),
-    #[error("short type: {0}")]
+    #[error(transparent)]
     ShortT(#[from] num_ir::short::ShortTypeErr),
-    #[error("num_ir parse: {0}")]
+    #[error(transparent)]
     NumIr(#[from] num_ir::typing::NumParseErr),
 }
 
@@ -73,11 +76,15 @@ impl DirStore for DirHandler {
         let mut data = Vec::with_capacity(inf.len);
         let mut linebuf = String::with_capacity(20); // TODO: move outside all?
 
-        // TODO: add a length check
+        let mut lines_read = 0;
         while src.read_line(&mut linebuf)? != 0 {
+            if lines_read > inf.len {
+                return Err(DirError::BadLen);
+            }
             let wo_comment = discard_comment(&linebuf);
             if wo_comment.is_empty() {
                 linebuf.clear();
+                lines_read += 1;
                 continue;
             }
             let v = num_ir::numimpl::read_hexstring(
@@ -87,6 +94,7 @@ impl DirStore for DirHandler {
             )?;
             data.push(v);
             linebuf.clear();
+            lines_read += 1;
         }
 
         let dimensions = smallvec![data.len()];
@@ -117,7 +125,6 @@ impl DirStore for DirHandler {
 
 // extract a hexstring of given length from the String
 // does very basic things to reject commented strings
-// TODO: may need to relax 0x restrictions
 fn discard_comment(s: &str) -> &str {
     let tr = s.trim();
     let comment_idx = tr.find("//");
