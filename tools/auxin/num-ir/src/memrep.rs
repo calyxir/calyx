@@ -1,4 +1,4 @@
-// abstractions for describing representation(s) of numbers
+//! abstractions around a uniformly-typed 'memory' containing several elements.
 
 use crate::typing::*;
 use baa::BitVecOps;
@@ -11,6 +11,7 @@ use smallvec::SmallVec;
 pub struct SingleMem {
     pub(self) data: Vec<baa::BitVecValue>, // container for the data elements
     pub dimensions: SmallVec<[usize; 4]>, // begrudgingly, multi-dimensional memories are supported
+
     // [dtype] is not stored with every element of the data vec for space efficiency
     dtype: TypeSpec,
     pub end: Endian,
@@ -54,7 +55,7 @@ impl SingleMem {
         num_bits: usize,
     ) -> Result<(), crate::typing::OpError> {
         if num_bits > self.dtype.width {
-            Err(String::from("truncation to size larger than input"))
+            Err(OpError::TruncWider)
         } else if num_bits == self.dtype.width {
             // effectively nops
             self.dtype.class = TypeClass::Bits;
@@ -76,9 +77,7 @@ impl SingleMem {
         num_bits: usize,
     ) -> Result<(), crate::typing::OpError> {
         if num_bits < self.dtype.width {
-            Err(String::from(
-                "trying to sign-extend to width less than current width. use truncate instead.",
-            ))
+            Err(OpError::SENarrower)
         } else if num_bits == self.dtype.width {
             // effectively nops
             self.dtype.class = TypeClass::Bits;
@@ -97,9 +96,7 @@ impl SingleMem {
         out_t: TypeSpec,
     ) -> Result<(), crate::typing::OpError> {
         if out_t.width < self.dtype.width {
-            Err(String::from(
-                "attempted bitcast to width smaller than current size. use a truncate first if this is intended.",
-            ))
+            Err(OpError::BitcastNarrower)
         } else {
             self.dtype = out_t;
             Ok(())

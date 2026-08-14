@@ -1,3 +1,5 @@
+//! implements the [crate::filerep::FileStore] trait for [JsonHandler]
+
 use baa::BitVecValue;
 use std::collections::HashMap;
 use std::io::{BufRead, Read, Seek, Write};
@@ -14,9 +16,8 @@ use struson::{
     writer::{JsonStreamWriter, JsonWriter},
 };
 
-// private b/c only used during the array read operation
 #[derive(Default)]
-pub struct ArrayReader {
+struct ArrayReader {
     data: Vec<BitVecValue>,
     dim_sizes: SmallVec<[usize; 4]>,
     is_quoted: bool,
@@ -59,7 +60,7 @@ impl ArrayReader {
     fn read_arr_helper<R: Read>(
         &mut self,
         r: &mut JsonStreamReader<R>,
-        t: &TypeSpec,
+        ty: &TypeSpec,
         curr_dim: usize,
     ) -> Result<(), JsonErr> {
         r.begin_array()?;
@@ -78,15 +79,17 @@ impl ArrayReader {
             }
 
             match nt {
-                ValueType::Array => self.read_arr_helper(r, t, curr_dim + 1)?,
+                ValueType::Array => {
+                    self.read_arr_helper(r, ty, curr_dim + 1)?
+                }
                 ValueType::String => {
                     let s = r.next_str()?;
-                    let parsed = t.read_str(s, Endian::Little)?;
+                    let parsed = ty.read_str(s, Endian::Little)?;
                     self.data.push(parsed)
                 }
                 ValueType::Number => {
-                    let n = r.next_number_as_str()?;
-                    let parsed = t.read_str(n, Endian::Little)?;
+                    let num_s = r.next_number_as_str()?;
+                    let parsed = ty.read_str(num_s, Endian::Little)?;
                     self.data.push(parsed)
                 }
                 _ => return Err(arr_err(r)),
@@ -106,25 +109,21 @@ impl ArrayReader {
     }
 }
 
-/// assumes that we are at the start of the array, no key attached to it
-pub fn try_read_arr<R: Read>(
+/// Attempt to read only the array portion (i.e. the 'value') part of a fud2 data entry.
+///
+/// assumes that reader is at the start of the array, and the key has already been consumed.
+fn try_read_arr<R: Read>(
     r: &mut JsonStreamReader<R>,
-    t: &TypeSpec,
+    ty: &TypeSpec,
 ) -> Result<ArrayReader, JsonErr> {
     let mut a = ArrayReader::default();
-    a.read_arr_helper(r, t, 0)?;
+    a.read_arr_helper(r, ty, 0)?;
+    debug_assert_eq!(a.dim_sizes.iter().product::<usize>(), a.data.len());
     Ok(a)
 }
-//     // TODO: get this working again
-//     // assert_eq!(
-//     //     self.dim_sizes
-//     //         .iter()
-//     //         .filter(|e| { e != 0 })
-//     //         .product::<usize>(),
-//     //     data.len()
-//     // );
 
-pub fn try_write_obj<W: Write>(
+/// Attempt to write a [SingleMem] as a object containing both ``format`` and ``data``.
+fn try_write_obj<W: Write>(
     m: SingleMem,
     w: &mut JsonStreamWriter<W>,
     is_hex: bool,
@@ -134,9 +133,7 @@ pub fn try_write_obj<W: Write>(
     w.begin_object()?;
     w.name("data")?;
 
-    // debug_assert!(
-    //     self.data.len() == self.dim_sizes.iter().product::<usize>()
-    // );
+    debug_assert_eq!(m.size(), m.dimensions.iter().product::<usize>());
 
     // when writing out json data, only do so in a 1D array.
     w.begin_array()?;
@@ -166,28 +163,28 @@ pub fn try_write_obj<W: Write>(
 
 // if more options exist in the future, we could split JsonReader / JsonWriter.
 pub struct JsonHandler {
-    pub out_hex: bool, // output results as hexstrings
+    /// whether to output results as hexstrings, regardless of specified type.
+    pub out_hex: bool,
 }
 
-// TODO: add back support for reading from stdin
 impl FileStore for JsonHandler {
     type Err = JsonErr;
 
+    /// this implementation is particularly slow, avoid if performance is necessary.
+    /// because we use a streaming JSON library, and need to read a file two times, [JsonHandler::read_stream] copies ``stdin`` to a buffer.  this naturally introduces overhead.
     fn read_stream<R: BufRead>(
         &self,
         mut handle: R,
     ) -> Result<MemsMap, Self::Err> {
-        let mut e: Vec<u8> = Vec::new();
+        let mut stdin_buf: Vec<u8> = Vec::new();
         let mut linebuf = String::with_capacity(20);
         while handle.read_line(&mut linebuf)? != 0 {
             let cleaned = linebuf.trim();
-            e.extend_from_slice(cleaned.as_bytes());
+            stdin_buf.extend_from_slice(cleaned.as_bytes());
             linebuf.clear();
         }
-        let mut s: &[u8] = e.as_slice();
-        let t = read_types(&mut s)?;
-        let s: &[u8] = e.as_slice();
-        read_data(s, t)
+        let typemap = read_types(&mut stdin_buf.as_slice())?;
+        read_data(stdin_buf.as_slice(), typemap)
     }
 
     fn read_filelike<R: BufRead + Seek>(
@@ -195,9 +192,9 @@ impl FileStore for JsonHandler {
         src: R,
     ) -> Result<MemsMap, Self::Err> {
         let mut handle = src;
-        let t = read_types(&mut handle)?;
+        let typemap = read_types(&mut handle)?;
         handle.rewind()?;
-        read_data(handle, t)
+        read_data(handle, typemap)
     }
 
     fn write<W: Write>(&self, inp: MemsMap, dest: W) -> Result<(), Self::Err> {
@@ -210,9 +207,9 @@ impl FileStore for JsonHandler {
             },
         );
         sw.begin_object()?;
-        for (k, v) in inp.mems.into_iter() {
-            sw.name(&k)?;
-            try_write_obj(v, &mut sw, self.out_hex)?;
+        for (mem_name, mem) in inp.mems.into_iter() {
+            sw.name(&mem_name)?;
+            try_write_obj(mem, &mut sw, self.out_hex)?;
         }
         sw.end_object()?;
 
@@ -221,6 +218,9 @@ impl FileStore for JsonHandler {
 }
 
 // TODO: rather than seeks, can we do skips?
+/// Read the "format" keys and values within a ``fud2`` .data file.
+///
+/// Because JSON does not require any key ordering, we read the whole file twice. Types are read first. [read_data] then uses the type information to convert numerical data into [SingleMem], without first copying the strings out.
 pub fn read_types<R: Read>(
     inp: R,
 ) -> Result<HashMap<String, TypeSpec>, JsonErr> {
@@ -231,16 +231,19 @@ pub fn read_types<R: Read>(
     // read types first
     let type_p = struson::json_path!["format"];
     while sr.has_next()? {
-        let k = sr.next_name_owned()?;
+        let mem_name = sr.next_name_owned()?;
         sr.seek_to(&type_p)?;
         let v: FormatInfo = sr.deserialize_next()?;
         sr.seek_back(&type_p)?;
-        typemap.insert(k, TypeSpec::try_from(&v)?);
+        typemap.insert(mem_name, TypeSpec::try_from(&v)?);
     }
     sr.end_object()?;
     Ok(typemap)
 }
 
+/// Read the "data" keys and values within a ``fud2`` .data file.
+///
+/// See [read_types] for details on usage.
 pub fn read_data<R: Read>(
     inp: R,
     mut t: HashMap<String, TypeSpec>,
@@ -252,15 +255,16 @@ pub fn read_data<R: Read>(
     let data_p = struson::json_path!["data"];
     sr.begin_object()?;
     while sr.has_next()? {
-        let k = sr.next_name_owned()?;
+        let mem_name = sr.next_name_owned()?;
         sr.seek_to(&data_p)?;
-        let t = t.remove(&k).unwrap();
-        let v = try_read_arr(&mut sr, &t)?;
+        let mem_ty = t.remove(&mem_name).unwrap();
+        let v = try_read_arr(&mut sr, &mem_ty)?;
         sr.seek_back(&data_p)?;
 
-        new_mems
-            .mems
-            .insert(k, SingleMem::new(v.data, v.dim_sizes, t, Endian::Little));
+        new_mems.mems.insert(
+            mem_name,
+            SingleMem::new(v.data, v.dim_sizes, mem_ty, Endian::Little),
+        );
     }
     sr.end_object()?;
 

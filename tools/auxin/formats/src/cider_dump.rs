@@ -1,8 +1,9 @@
+//! implements the [crate::filerep::FileStore] trait for [CiderHandler]
 use baa::BitVecOps;
 use cider_serde as cs;
 
 use crate::filerep::*;
-use num_ir::memrep as nr;
+use num_ir::memrep::SingleMem;
 
 use num_ir::typing::*;
 use smallvec::smallvec;
@@ -19,7 +20,7 @@ pub enum CiderErr {
     NumParse(#[from] NumParseErr),
 }
 
-pub(crate) fn as_cider_dims(inp: &nr::SingleMem) -> cs::Dimensions {
+pub(crate) fn as_cider_dims(inp: &SingleMem) -> cs::Dimensions {
     use cs::Dimensions as Dim;
     match inp.dimensions.len() {
         1 => Dim::D1(inp.dimensions[0]),
@@ -98,6 +99,7 @@ pub(crate) fn try_type_from_cider(
     Ok(res)
 }
 
+/// handler for the cider ``.dump`` format. uses [cider_serde] internally.
 pub struct CiderHandler;
 
 impl FileStore for CiderHandler {
@@ -109,23 +111,25 @@ impl FileStore for CiderHandler {
         dest: W,
     ) -> Result<(), CiderErr> {
         let mut out_res = cs::DataDump::new_empty();
-        for (k, v) in inp.mems.into_iter() {
-            let t = v.ty();
+        for (mem_name, mem) in inp.mems.into_iter() {
+            let t = mem.ty();
 
             let meminfo = cs::MemoryDeclaration::new(
-                k.to_string(),
-                as_cider_dims(&v),
+                mem_name.to_string(),
+                as_cider_dims(&mem),
                 try_type_to_cider(t)?,
             );
 
+            // NOTE: does not handle endianness
             out_res.push_memory(
                 meminfo,
-                v.iter_data().flat_map(|e| e.to_bytes_le()),
+                mem.iter_data().flat_map(|e| e.to_bytes_le()),
             );
         }
         out_res.serialize(dest)?;
         Ok(())
     }
+
     fn read_stream<R: std::io::Read>(
         &self,
         src: R,
@@ -139,7 +143,7 @@ impl FileStore for CiderHandler {
             debug_assert!(
                 byte_data.len().is_multiple_of(assoc_type.num_bytes())
             );
-            let c: Result<Vec<baa::BitVecValue>, _> = byte_data
+            let contents: Result<Vec<baa::BitVecValue>, _> = byte_data
                 .chunks(assoc_type.num_bytes())
                 .map(|e| {
                     num_ir::numimpl::try_from_bytes(
@@ -149,7 +153,7 @@ impl FileStore for CiderHandler {
                     )
                 })
                 .collect();
-            let data = c?;
+            let data = contents?;
             let dimensions = match mem.dimensions {
                 cs::Dimensions::D1(d1) => smallvec![d1],
                 cs::Dimensions::D2(d1, d2) => smallvec![d1, d2],
@@ -158,7 +162,7 @@ impl FileStore for CiderHandler {
             };
             res.mems.insert(
                 mem.name.clone(),
-                nr::SingleMem::new(
+                SingleMem::new(
                     data,
                     dimensions,
                     assoc_type.clone(),

@@ -11,6 +11,9 @@ pub(crate) enum AuxinError {
     #[error("Failed to read file: {0}")]
     IoError(#[from] std::io::Error),
 
+    #[error("typing op: {0}")]
+    OpError(#[from] num_ir::typing::OpError),
+
     #[error("Failed to parse \"to\" argument: {0}")]
     ToArgErr(String),
 
@@ -29,6 +32,9 @@ pub(crate) enum AuxinError {
         "Missing output path. This is required for the \"to dat\" conversion"
     )]
     MissingDatOutputPath,
+
+    #[error("destination path is already file")]
+    BadDirPath,
 }
 
 const HEADER_FILENAME: &str = "header";
@@ -46,11 +52,11 @@ pub(crate) fn file_read<T: FileStore>(
     slug: &'static str,
 ) -> Result<MemsMap, AuxinError> {
     if let Some(specific) = path {
-        let f = File::open(specific).map(BufReader::new)?;
-        through.read_filelike(f)
+        let filebuf = File::open(specific).map(BufReader::new)?;
+        through.read_filelike(filebuf)
     } else {
-        let l = std::io::stdin().lock();
-        through.read_stream(l)
+        let stdin_l = std::io::stdin().lock();
+        through.read_stream(stdin_l)
     }
     .map_err(|e| wrap_specific_err(e, slug))
 }
@@ -62,8 +68,8 @@ pub(crate) fn file_write<T: FileStore>(
     slug: &'static str,
 ) -> Result<(), AuxinError> {
     if let Some(specific) = path {
-        let f = File::create(specific).map(BufWriter::new)?;
-        through.write(inp, f)
+        let filebuf = File::create(specific).map(BufWriter::new)?;
+        through.write(inp, filebuf)
     } else {
         through.write(inp, std::io::stdout())
     }
@@ -72,7 +78,7 @@ pub(crate) fn file_write<T: FileStore>(
 
 fn is_dir(p: &Path) -> Result<(), AuxinError> {
     if p.exists() && !p.is_dir() {
-        unimplemented!();
+        return Err(AuxinError::BadDirPath);
     }
     Ok(())
 }
@@ -120,7 +126,6 @@ pub(crate) fn dir_write(
     let header_output = File::create(header_fn)?;
     let mut header_w = BufWriter::new(header_output);
 
-    // NOTE: there's probably efficiencies to be searched for in here
     for (mem_name, mem) in inp.mems.into_iter() {
         through
             .write_header_part(&mem, &mem_name, &mut header_w)

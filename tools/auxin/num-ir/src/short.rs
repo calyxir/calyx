@@ -1,15 +1,15 @@
+//! read / write compact types
+//!
+//! compact types are of form:
+//! - ints: ``[u/i]<SIZE>``
+//! - floats: ``f<SIZE>``
+//! - fixed: ``d[u/i]<SIZE>:<EXP_MAG>``
+//!
+//! 'd' is used as the prefix to make parsing easier
+
 use std::num::ParseIntError;
 
 use crate::typing::*;
-
-// read / write compact types
-
-// compact types are of form:
-// ints: [u/i]<SIZE>
-// floats: f<SIZE>
-// fixed: d[u/i]<SIZE>:<EXP_MAG>
-
-// 'd' is used as the prefix to make parsing easier
 
 // TODO: some number of these are probably redundant at this point
 #[derive(Debug, thiserror::Error)]
@@ -149,6 +149,8 @@ mod tests {
         let t = TypeSpec::read_short_t(&s)?;
         prop_assert_eq!(t.class.clone(), TypeClass::Int);
         prop_assert_eq!(t.to_string(), s);
+        let o = t.to_string();
+        prop_assert_eq!(t, TypeSpec::read_short_t(&o)?)
     }
 
     #[test]
@@ -165,6 +167,8 @@ mod tests {
         let t= TypeSpec::read_short_t(&s)?;
         prop_assert_eq!(t.class.clone(), TypeClass::Bits);
         prop_assert_eq!(t.to_string(), s);
+        let o = t.to_string();
+        prop_assert_eq!(t, TypeSpec::read_short_t(&o)?)
     }
 
     #[test]
@@ -175,6 +179,8 @@ mod tests {
         let t= TypeSpec::read_short_t(&full)?;
         prop_assert_eq!(t.class.clone(), TypeClass::Fixed{exp_mag: exp});
         prop_assert_eq!(t.to_string(), full);
+        let o = t.to_string();
+        prop_assert_eq!(t, TypeSpec::read_short_t(&o)?)
     }
 
 

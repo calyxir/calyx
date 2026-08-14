@@ -1,3 +1,5 @@
+//! Types and structures for assigning a 'type' to binary information
+
 use baa::{BitVecOps, BitVecValue};
 use std::{
     num::{ParseFloatError, ParseIntError},
@@ -15,7 +17,20 @@ pub enum OpTypes {
 }
 
 /// An error caused by an [OpTypes] operation failing
-pub type OpError = String;
+#[derive(Debug, thiserror::Error)]
+pub enum OpError {
+    #[error("PLACEHOLDER: op failed")]
+    OpFailed,
+
+    #[error("can't truncate to size larger than input")]
+    TruncWider,
+
+    #[error("can't sign-extend to width less than input")]
+    SENarrower,
+
+    #[error("bitcast to width smaller than current size")]
+    BitcastNarrower,
+}
 
 impl FromStr for OpTypes {
     type Err = OpError;
@@ -25,7 +40,7 @@ impl FromStr for OpTypes {
             "trunc" => Ok(OpTypes::Truncate),
             "bitcast" => Ok(OpTypes::Bitcast),
             "sgn-ext" => Ok(OpTypes::SignExtend),
-            _ => Err(format!("unknown op {}", s)),
+            _ => Err(OpError::OpFailed),
         }
     }
 }
@@ -46,17 +61,20 @@ pub enum TypeClass {
     #[default]
     Bits,
     Int,
+    /// refers to ieee754. implementaion relies onRust's ``f32`` and ``f64``, custom mantissa / exponent configurations are unsupported.
     Float,
     /// ``fixed_val = (Binrep) * (2^ (-exp_mag))``
     Fixed {
         exp_mag: i32,
     },
+    /// A placeholder for future custom type handling. Attempting to use this with other library functions will currently return an error.
     Unknown(usize), // just needs to contain something for future expansion
 }
 
 #[cfg(feature = "rand1")]
 /// generate a random, valid typeclass
-/// since fixed-point magnitude is dependent on larger type width, it is zero.
+///
+/// since fixed-point magnitude is constrained by the width of its containing type, it is set to zero.
 pub fn rand_class(rng: &mut impl rand::Rng) -> TypeClass {
     use rand::RngExt;
     let class_choice = rng.random_range(0..4);
@@ -70,15 +88,18 @@ pub fn rand_class(rng: &mut impl rand::Rng) -> TypeClass {
 }
 
 // types are instances of typespec rather than traits
-/// A specific type of ``class``.
+/// A specific type of a [TypeClass].
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct TypeSpec {
     pub width: usize,
+    /// Signedness (usually two's complement). Disregarded for floating-point and bits [TypeClass]es
     pub signed: bool,
     pub class: TypeClass,
 }
 impl TypeSpec {
     /// Attempt to read ``s`` into a [BitVecValue] given the current [TypeSpec]
+    ///
+    /// If ``s`` is a hex string (i.e. a sequence of chracters 0-f prefixed by ``0x``), ``self.width`` bits will be read in and interpreted as ``self``'s type.
     pub fn read_str(
         &self,
         s: &str,
@@ -104,7 +125,7 @@ impl TypeSpec {
         Ok(r)
     }
 
-    /// Interpret ``b`` as containing information of the current [TypeSpec]
+    /// Interpret ``b`` as containing information of the current [TypeSpec], and return a string containing the corresponding information.
     pub fn write_string(&self, b: &baa::BitVecValue, _end: Endian) -> String {
         debug_assert!(b.width() <= self.width as u32);
 
@@ -123,7 +144,7 @@ impl TypeSpec {
         }
     }
 
-    /// write out the hexadecimal representation of ``b``
+    /// write out the hexadecimal representation of ``b``, prefixed by ``0x``
     pub fn write_hexstring(
         &self,
         b: &baa::BitVecValue,
@@ -132,7 +153,6 @@ impl TypeSpec {
         format!("0x{}", b.to_hex_str())
     }
 
-    // try from bytes should be a 'blanket' part of TypeSpec
     /// return number of bytes required to store a value of ``&self``
     pub fn num_bytes(&self) -> usize {
         self.width.div_ceil(8)
@@ -140,7 +160,7 @@ impl TypeSpec {
 }
 
 #[cfg(feature = "rand1")]
-/// create a random, valid type
+/// create a random, valid [TypeSpec]
 pub fn rand_type(rng: &mut impl rand::Rng) -> TypeSpec {
     use rand::RngExt;
 
@@ -167,9 +187,11 @@ pub fn rand_type(rng: &mut impl rand::Rng) -> TypeSpec {
     }
 }
 
-/*
-    endianness conversions can happen without knowledge of type, so it's in a separate field
-*/
+/// Endianness.
+///
+/// No functions currently implement support for endianness, but it is included for future use.
+///
+/// Endian conversions can happen independent of type, so it is separated from [TypeClass]
 #[derive(Clone, Debug, Default)]
 pub enum Endian {
     #[default]
@@ -190,6 +212,8 @@ pub enum NumParseErr {
     Width(usize, TypeClass),
     #[error("baa internal: passed {0}, {1:?} ")]
     Baa(String, baa::ParseIntError),
+    #[error("provided string too large for {0}")]
+    TooLarge(usize), // TODO: this is a temporary patch over deficient baa functionality. patch alter.
     #[error("unknown typeclass: {0}")]
     UnknownType(usize),
     #[error("misc: {0}")]
@@ -199,15 +223,88 @@ pub enum NumParseErr {
 #[cfg(test)]
 mod tests {
     use crate::typing::*;
+    use proptest::prelude::*;
 
-    #[test]
-    fn read_int() {
-        let t = TypeSpec {
-            width: 32,
-            signed: false,
-            class: TypeClass::Bits,
-        };
-        let e = t.read_str("0x1234", Endian::Little).unwrap();
-        println!("{}", e.width());
+    proptest! {
+        #[test]
+        fn int_unsign_roundtrip(s in any::<u64>()){
+            let u64_spec = TypeSpec{
+                width: 64,
+                signed: false,
+                class: TypeClass::Int
+            };
+
+            let u32_spec = TypeSpec{
+                width: 32,
+                signed: false,
+                class: TypeClass::Int
+            };
+
+            let sform = format!("{}", s);
+            let i = u64_spec.read_str(&sform, Endian::Little).unwrap();
+            let res = u64_spec.write_string(&i, Endian::Little);
+            prop_assert_eq!(res, sform.clone());
+            if s > (u32::MAX.into()){
+                prop_assert!(u32_spec.read_str(&sform, Endian::Little).is_err());
+            }
+        }
+
+
+        #[test]
+        fn int_sign_roundtrip(s in any::<i64>()){
+            let i64_spec = TypeSpec{
+                width: 64,
+                signed: true,
+                class: TypeClass::Int
+            };
+
+            let i32_spec = TypeSpec{
+                width: 32,
+                signed: true,
+                class: TypeClass::Int
+            };
+
+            let sform = format!("{}", s);
+            let i = i64_spec.read_str(&sform, Endian::Little).unwrap();
+            let res = i64_spec.write_string(&i, Endian::Little);
+            prop_assert_eq!(res, sform.clone());
+            if s > (i32::MAX.into()){
+                prop_assert!(i32_spec.read_str(&sform, Endian::Little).is_err());
+            }
+        }
+
+
+        #[test]
+        fn float_roundtrip(s in any::<f64>()){
+            let f64_spec = TypeSpec{
+                width: 64,
+                signed: false,
+                class: TypeClass::Float
+            };
+
+            let sform = format!("{}", s);
+            let i = f64_spec.read_str(&sform, Endian::Little).unwrap();
+            let res = f64_spec.write_string(&i, Endian::Little);
+            prop_assert_eq!(res, sform.clone());
+
+        }
+
+        #[test]
+        fn bits_roundtrip(s in any::<u32>()){
+
+
+            let u32_spec = TypeSpec{
+                width: 32,
+                signed: false,
+                class: TypeClass::Bits
+            };
+
+            let sform = format!("{:#034b}", s); // 32 + the '0b'
+            let i = u32_spec.read_str(&sform, Endian::Little).unwrap();
+            let res = u32_spec.write_string(&i, Endian::Little);
+            prop_assert_eq!(res, sform);
+
+        }
+
     }
 }

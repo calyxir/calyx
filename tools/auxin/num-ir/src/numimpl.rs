@@ -1,9 +1,10 @@
+//! implementation of additional features relating to number representation
+//!
+//! these largely have to do with reading a value in from a string, and writing a value to a string.
 use baa::{BitVecOps, BitVecValue};
 
 use crate::typing::{Endian, NumParseErr};
 use crate::vbfp::*;
-
-// implementation of additional features relating to number representation
 
 // the below read/write implementations are to make the implementations in TypeSpec more manageable
 // TODO: is it worth making specific, static variants of these?
@@ -19,15 +20,19 @@ fn rm_prefix<'a>(s: &'a str, pre: &str) -> Option<&'a str> {
     s.trim_start().strip_prefix(pre)
 }
 
-/// Read a string containing a hex literal into a [BitVecValue] of maximum width ``width``
+/// Read a string containing a hex literal into a [BitVecValue] of maximum width ``width``. Discards leading ``0x``, if given.
 pub fn read_hexstring(
     s: &str,
     _end: Endian,
     width: usize,
 ) -> Result<baa::BitVecValue, NumParseErr> {
     let to_parse = rm_prefix(s, "0x").unwrap_or(s);
-    baa::BitVecValue::from_str_radix(to_parse, 16, width as u32)
-        .map_err(|e| NumParseErr::Baa(s.to_string(), e))
+    let v = baa::BitVecValue::from_str_radix(to_parse, 16, width as u32)
+        .map_err(|e| NumParseErr::Baa(s.to_string(), e))?;
+    if v.min_width() > (width as u32) {
+        return Err(NumParseErr::TooLarge(width));
+    }
+    Ok(v.slice((width - 1) as u32, 0))
 }
 
 /// Read a string containing a float literal into a [BitVecValue]. ``width`` must be 32 or 64, as only ``f32`` and ``f64`` are supported.
@@ -72,8 +77,12 @@ pub fn int_read(
             "found sign when parsing unsigned int".to_string(),
         ));
     }
-    BitVecValue::from_str_radix(s, 10, width as u32)
-        .map_err(|e| NumParseErr::Baa(s.to_string(), e))
+    let v = BitVecValue::from_str_radix(s, 10, width as u32)
+        .map_err(|e| NumParseErr::Baa(s.to_string(), e))?;
+    if v.min_width() > (width as u32) {
+        return Err(NumParseErr::TooLarge(width));
+    }
+    Ok(v.slice((width - 1) as u32, 0))
 }
 
 /// Interpret the contents of ``b`` as representing an integer of ``width`` bits. If ``signed`` is provided, treat as two's complement.
@@ -91,18 +100,20 @@ pub fn int_write(
     }
 }
 
-/// Read a string containing only 1, 0 into a [BitVecValue].
+/// Read a string containing only 1, 0 into a [BitVecValue]. Discards leading ``0b``, if given
 pub fn bits_read(
     s: &str,
     _end: Endian,
     width: usize,
 ) -> Result<BitVecValue, NumParseErr> {
-    let cleaned_str = rm_prefix(s, "0b").ok_or(NumParseErr::HexRead(
-        format!("could not strip prefix from {}", s),
-    ))?;
+    let cleaned_str = rm_prefix(s, "0b").unwrap_or(s);
 
-    BitVecValue::from_str_radix(cleaned_str, 2, width as u32)
-        .map_err(|e| NumParseErr::Baa(s.to_string(), e))
+    let v = BitVecValue::from_str_radix(cleaned_str, 2, width as u32)
+        .map_err(|e| NumParseErr::Baa(s.to_string(), e))?;
+    if v.min_width() > (width as u32) {
+        return Err(NumParseErr::TooLarge(width));
+    }
+    Ok(v.slice((width - 1) as u32, 0))
 }
 
 /// Write out the bits of ``b``, prefixed with ``0b``
@@ -111,7 +122,11 @@ pub fn bits_write(b: &BitVecValue, _end: Endian) -> String {
     format!("0b{}", b.to_bit_str())
 }
 
-/// Read a string containing a fixed-point literal into a [BitVecValue] with max bit length ``width``. Interpret signs if the ``signed`` option is included, otherwise it is impossible to 'coerce' a negative number into an unsigned during this call. ``exp_mag`` is used to control the factor by which ``f = float(s)`` is scaled, i.e. ``fixed = 2**exp_mag * f``
+/// Read a string containing a fixed-point literal into a [BitVecValue] with max bit length ``width``.
+///
+/// Interpret signs if the ``signed`` option is included, otherwise it is impossible to 'coerce' a negative number into an unsigned during this call.
+///
+/// ``exp_mag`` is used to control the factor by which ``f = float(s)`` is scaled, i.e. ``fixed = (2**exp_mag) * f``
 pub fn fixed_read(
     s: &str,
     _end: Endian,
@@ -156,6 +171,7 @@ pub fn fixed_write(
 
 // we can't always tell from bytes alone whether a number is 'correctly' typed, so instead just use same byteslice-based Thing for all of them
 
+// TODO: better semantics, maybe warn if b is too long rather than truncating?
 /// Read bytes ``b`` into a [BitVecValue] with number of bits ``width``.
 pub fn try_from_bytes(
     b: &[u8],
@@ -175,16 +191,7 @@ pub fn try_from_bytes(
 #[cfg(test)]
 mod tests {
 
-    // use crate::numrep::ReprType;
-
     use super::*;
-
-    // #[test]
-    // fn get_fixed_refs() {
-    //     let e = fixed::FixedI32::<fixed::types::extra::U16>::from_str("-0.5")
-    //         .unwrap();
-    //     println!("{:#x}", e.to_bits())
-    // }
 
     #[test]
     fn test_fixed_from_string() {

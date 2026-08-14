@@ -20,6 +20,7 @@ pub enum JsonTypeError {
     ClassErr(TypeClass),
 }
 
+/// a serde struct mapping to json format object
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FormatInfo {
     pub numeric_type: JsonTypes,
@@ -41,6 +42,10 @@ pub struct FormatInfo {
 impl FormatInfo {
     // returns fixed-point as (overall width, frac_width)
     // a bit verbose, but roughly self-documenting
+
+    /// call only on fixed points.
+    ///
+    /// return fixed-point information as (overall width, exp magnitude)
     #[inline]
     fn normalise_fixed(&self) -> Result<(usize, i32), JsonTypeError> {
         if let Some(w) = self.width {

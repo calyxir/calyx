@@ -1,3 +1,5 @@
+//! implements the [crate::filerep::DirStore] trait for [DirHandler]
+
 use crate::filerep::*;
 use baa::BitVecOps;
 use num_ir::memrep::SingleMem;
@@ -12,6 +14,7 @@ use std::collections::HashMap;
 
 use num_ir::{short::TryFromShort, typing::TypeSpec};
 
+/// the remainder of what a line within a data header should contain: type and length (number of elements) within a memory.
 pub struct HeadEntry {
     pub ty: TypeSpec,
     pub len: usize,
@@ -38,7 +41,7 @@ pub enum DirError {
 ///
 /// format: ``name,short_t,len\n``
 ///
-/// no spaces inside. trailing / leading spaces will work, but are frowned upon.
+/// no spaces within the string. trailing / leading spaces will work, but are frowned upon.
 pub fn read_header<R: BufRead>(
     mut inp: R,
 ) -> Result<HashMap<String, HeadEntry>, DirError> {
@@ -57,42 +60,47 @@ pub fn read_header<R: BufRead>(
     Ok(res)
 }
 
+/// handler for the verilator / icarus hex directory format.
 pub struct DirHandler;
 
 impl DirStore for DirHandler {
     type MemInfo = HeadEntry;
     type Err = DirError;
+
     fn read_header<R: BufRead>(
         &self,
         src: R,
     ) -> Result<HashMap<String, Self::MemInfo>, Self::Err> {
         read_header(src)
     }
+
     fn read_data<R: BufRead>(
         &self,
         mut src: R,
         inf: Self::MemInfo,
     ) -> Result<SingleMem, Self::Err> {
         let mut data = Vec::with_capacity(inf.len);
-        let mut linebuf = String::with_capacity(20); // TODO: move outside all?
+        /*
+            NOTE: this buffer used to be shared amongst all file reads, but isn't now due to structural changes. it isn't too consequential now, but re-sharing it would be nice.
+        */
+        let mut linebuf = String::with_capacity(20);
 
         let mut lines_read = 0;
         while src.read_line(&mut linebuf)? != 0 {
             if lines_read > inf.len {
                 return Err(DirError::BadLen);
             }
-            let wo_comment = discard_comment(&linebuf);
-            if wo_comment.is_empty() {
+            let cleaned_s = discard_comment(&linebuf);
+            if cleaned_s.is_empty() {
                 linebuf.clear();
-                lines_read += 1;
                 continue;
             }
-            let v = num_ir::numimpl::read_hexstring(
-                wo_comment,
+            let lineval = num_ir::numimpl::read_hexstring(
+                cleaned_s,
                 Endian::Little,
                 inf.ty.width,
             )?;
-            data.push(v);
+            data.push(lineval);
             linebuf.clear();
             lines_read += 1;
         }
@@ -117,6 +125,7 @@ impl DirStore for DirHandler {
         mut dest: W,
     ) -> Result<(), Self::Err> {
         for val in inp.iter_data() {
+            // NOTE: does not handle endianness
             writeln!(dest, "{}", val.to_hex_str())?;
         }
         Ok(())

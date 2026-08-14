@@ -53,22 +53,33 @@ while the 'interpreter' python equivalent to ``json_to_dat.py`` is still in-tree
 
 # future work
 
-- deprecate the ``bits`` typeclass or properly define it
-- add an option to preserve shapes or entirely flatten higher-dim arrays?
-- add 'real' cast functionality via ops: other than bitcasts, also support some value-preserving casts.
-- add 'guarded' constructors for TypeClass, fixed-point, which checks if values are permitted
-- some redundancy between the ``vbfp`` 'definition' of fixed-point and TypeSpec. probably get rid of this
+- functionality
+  - add 'real' cast functionality via ops: other than bitcasts, also support some value-preserving casts.
+  - add equivalents of ``write_string`` for ``std::format::Formatter`` (basically a display-like)
 
+- library work
+  - add 'guarded' constructors for TypeClass, fixed-point, which checks if values are permitted
+  - some redundancy between the ``vbfp`` 'definition' of fixed-point and TypeSpec. probably get rid of this
+  - endianness support is shoddy, ``Endian`` is not ``Copy``.
+  - deprecate the ``bits`` typeclass or properly define it
+  - solidify dimension handling rules (see flattened output section)
+
+- optimisation
+  - formats / ``num_ir``: there is still an excessive amount of string cleaning for hexstrings
+    - we can also use the width of a type to hint how many characters to read.
+  - unfortunately data still gets copied around. when serializing in particular there are areas where ``Strings`` are probably used unnecessarily.
+  - many other places
 
 - baa improvements / extensions:
   - mutable iterator to elements in the bitvec arrays? (or generally, more intuitive approaches to working with array values)
-  - 'batched' ops for bitvec arrays?
-    - as in, beyond a 'map' operation, is it posible to use pre-computed masks?
+  - ``Vec<BitVecValue>`` duplicates metadata for each ``BitVecValue``. find an alternative.
+  - smarter approaches to 'batching' an op over an array: how can we permit some data sharing while also limiting what a mutator can do to the array?
   - upstream a ``to_dec_str_signed`` function
 
 - json interface
-  - ``struson`` is streaming. better for memory efficiency when reading files, however, it does introduce order sensitivity: as in, if the ``formats`` field is after the ``data`` field, we have to read ``format`` first and then go back and read ``data``, if we don't want to make a copy of ``data`` somewhere.
-  - currently, reading json requires two passes through: one to read types, one to read data. it'd be nice to figure out an overall 'better' way of managing this
+  - ``struson`` is streaming. better for memory efficiency when reading files. however, currently, reading json requires two passes through: one to read types, one to read data. it'd be nice to figure out an overall 'better' way of managing this
+  - ``struson``'s ``next_number_as_str`` is still pretty slow, not necessarily due to validity checks. i *think* it's because it goes byte-by-byte?
+  - find a better solution to ``stdin`` reads than copying it. 
 
 - plain csv format
   - building off of the directory format, we could have CSVs to represent each memory rather than the hex ``.dat`` format

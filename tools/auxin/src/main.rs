@@ -1,5 +1,4 @@
 use argh::FromArgs;
-use core::str;
 use num_ir::typing;
 use std::{
     path::{Path, PathBuf},
@@ -12,12 +11,6 @@ use crate::io::AuxinError;
 const JSON_EXTENSION: &str = "data";
 const CIDER_EXTENSION: &str = "dump";
 const DAT_EXTENSION: &str = "dat";
-
-impl From<typing::OpError> for io::AuxinError {
-    fn from(value: typing::OpError) -> Self {
-        Self::InternalErr(format!("typing / conversion: {value}"))
-    }
-}
 
 /// What are we converting the input to
 #[derive(Debug, Clone, Copy)]
@@ -126,13 +119,12 @@ fn main() -> Result<(), AuxinError> {
         }
         Formats::Dat => {
             // TODO: default 'dat' into untyped
-            // NOTE: if a header does not exist, this will fail!
             let Some(ref path) = opts.input_path else {
                 return Err(AuxinError::UnknownTarget);
             };
 
-            let h = conv_formats::dat_dir::DirHandler;
-            io::dir_read(&h, path, opts.file_extension.clone())?
+            let dh = conv_formats::dat_dir::DirHandler;
+            io::dir_read(&dh, path, opts.file_extension.clone())?
         }
         Formats::DataDump => {
             let ch = conv_formats::cider_dump::CiderHandler;
@@ -164,8 +156,8 @@ fn main() -> Result<(), AuxinError> {
                 return Err(AuxinError::MissingDatOutputPath);
             };
 
-            let h = conv_formats::dat_dir::DirHandler;
-            io::dir_write(&h, loaded_ir, &p, opts.file_extension.clone())?;
+            let dh = conv_formats::dat_dir::DirHandler;
+            io::dir_write(&dh, loaded_ir, &p, opts.file_extension.clone())?;
         }
         Formats::DataDump => {
             let ch = conv_formats::cider_dump::CiderHandler;
