@@ -246,9 +246,9 @@ dependencies = [
 
 [[package]]
 name = "baa"
-version = "0.17.1"
+version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea4360b1d39baa675bc0ee8ee0fbf02ed089567682dc0e620bff950533a4b649"
+checksum = "f798ac8ab04d717f6fcd8306c3eb5eba97a15af033c3329ac8804c2664fe6851"
 dependencies = [
  "fraction",
  "num-bigint",
