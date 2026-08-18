@@ -76,6 +76,8 @@ pub enum TypeClass {
 ///
 /// since fixed-point magnitude is constrained by the width of its containing type, it is set to zero.
 pub fn rand_class(rng: &mut impl rand::Rng) -> TypeClass {
+    use rand::RngExt;
+
     let class_choice = rng.random_range(0..4);
     match class_choice {
         0 => TypeClass::Bits,
@@ -161,6 +163,8 @@ impl TypeSpec {
 #[cfg(feature = "rand1")]
 /// create a random, valid [TypeSpec]
 pub fn rand_type(rng: &mut impl rand::Rng) -> TypeSpec {
+    use rand::RngExt;
+
     let mut class = rand_class(rng);
     let width: usize = match &mut class {
         TypeClass::Float => {

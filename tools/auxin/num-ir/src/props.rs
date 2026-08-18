@@ -66,8 +66,8 @@ pub fn arb_type_excl_bits() -> BoxedStrategy<TypeSpec> {
 // preferably don't use this with very large widths
 
 pub fn bitvec_of_width(width: u32) -> impl Strategy<Value = BitVecValue> {
-    Just(width)
-        .prop_perturb(|centre, mut rng| BitVecValue::random(&mut rng, centre))
+    // below doesn't use prop_perturb because proptest is behind on rand versions :))
+    Just(width).prop_map(|w| BitVecValue::random(&mut rand::rng(), w))
 }
 
 pub fn bitvec_width_max(

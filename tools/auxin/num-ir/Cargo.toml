@@ -10,9 +10,9 @@ version = "0.1.0"
 [dependencies]
 thiserror.workspace = true
 smallvec.workspace = true
-proptest = {version = "1.0.0", optional = true}
+proptest = {version = "1.11", optional = true}
 
-rand = { version = "0.9.2", optional = true, features = [] }
+rand = {workspace = true, optional = true}
 
 # this can probably be feature-reduced, we don't use all of it
 baa.workspace = true
@@ -24,5 +24,5 @@ rand1 = ["dep:rand", "baa/rand1"]
 prop-utils = ["dep:proptest"]
 
 [dev-dependencies]
-proptest = "1.0.0"
-rand = { version = "0.9.2"}
+proptest = "1.11"
+rand.workspace = true

@@ -98,6 +98,8 @@ impl FixedDef {
         bound: f64,
         rng: &mut impl rand::Rng,
     ) -> BitVecValue {
+        use rand::RngExt;
+
         assert!(bound >= 0.0);
         let rv: f64 = if self.signed {
             rng.random_range(-bound..bound)

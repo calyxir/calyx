@@ -1,3 +1,7 @@
+use std::fs::File;
+use std::io::BufWriter;
+use std::path::PathBuf;
+
 use argh::FromArgs;
 use baa::{BitVecMutOps, BitVecValue};
 use num_ir::short::TryFromShort;
@@ -26,6 +30,10 @@ struct Opts {
     /// the number of numbers to generate
     #[argh(positional)]
     amt: usize,
+
+    /// destination path
+    #[argh(option, short = 'o')]
+    out_path: Option<PathBuf>,
 
     /// abs. bound of range of random values
     #[argh(option, long = "fixed-bound")]
@@ -57,6 +65,11 @@ fn main() -> Result<(), DataGenErr> {
     } else {
         SmallRng::from_rng(&mut rand::rng())
     };
+    let mut filebuf = if let Some(p) = opts.out_path {
+        File::create(p).map(BufWriter::new).unwrap()
+    } else {
+        panic!("no output");
+    };
 
     let mut bitvec_buf = BitVecValue::zero(opts.short_t.width as u32);
     let mut fd: Option<FixedDef> = None;
@@ -87,7 +100,8 @@ fn main() -> Result<(), DataGenErr> {
                 .short_t
                 .write_string(&bitvec_buf, num_ir::typing::Endian::Little)
         };
-        print!("{}{}", print_s, opts.sep);
+        use std::io::Write;
+        write!(filebuf, "{}{}", print_s, opts.sep).unwrap();
 
         if opts.use_stderr && opts.hex {
             eprintln!(
