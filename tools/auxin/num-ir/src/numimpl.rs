@@ -7,7 +7,6 @@ use crate::typing::{Endian, NumParseErr};
 use crate::vbfp::*;
 
 // the below read/write implementations are to make the implementations in TypeSpec more manageable
-// TODO: is it worth making specific, static variants of these?
 
 /// Determine if a string starts with ``0x``, and is thus a hex literal
 #[inline]
@@ -169,8 +168,6 @@ pub fn fixed_write(
     format!("{}", r)
 }
 
-// we can't always tell from bytes alone whether a number is 'correctly' typed, so instead just use same byteslice-based Thing for all of them
-
 // TODO: better semantics, maybe warn if b is too long rather than truncating?
 /// Read bytes ``b`` into a [BitVecValue] with number of bits ``width``.
 pub fn try_from_bytes(
@@ -203,20 +200,6 @@ mod tests {
             try_from_bytes(&equiv_bits.to_le_bytes(), 32, Endian::Little)
                 .unwrap();
         assert_eq!(equiv, result)
-    }
-
-    #[test]
-    fn test_fixed_roundtrip() {
-        // attempt to roundtrip a value in bytes through the fixed expression
-        let orig_bits = 0x0000_8000_u32; // +0.5
-
-        let thru_bits =
-            try_from_bytes(&orig_bits.to_le_bytes(), 32, Endian::Little)
-                .unwrap();
-
-        let out_bits = thru_bits.to_u64().unwrap();
-
-        assert_eq!(orig_bits as u64, out_bits);
     }
 
     #[test]
@@ -257,16 +240,6 @@ mod tests {
     }
 
     #[test]
-    fn test_int_roundtrip() {
-        let orig_bytes = (-1_i64).to_le_bytes();
-
-        let thru_bits =
-            try_from_bytes(&orig_bytes, 64, Endian::Little).unwrap();
-
-        assert_eq!(thru_bits.to_u64().unwrap(), u64::from_le_bytes(orig_bytes));
-    }
-
-    #[test]
     fn test_int_from_string() {
         let ref_bits = u64::from_str_radix("ffffffff", 16).unwrap();
         let comp_bits =
@@ -290,5 +263,40 @@ mod tests {
         let ref_bits = u64::from_str_radix("4", 16).unwrap();
         let comp_bits = bits_read("0b100", Endian::Little, 64).unwrap();
         assert_eq!(ref_bits, comp_bits.to_u64().unwrap());
+    }
+
+    #[cfg(feature = "prop-utils")]
+    mod prop_tests {
+        use super::*;
+        use crate::props::*;
+        use proptest::prelude::*;
+        proptest! {
+        // the following roundtrip tests generate a random bitvec, attempt to serialise it, then read the result back.
+        // floats aren't tested because rounding will inevitably lead to the loss of some bits
+        #[test]
+        fn bits_roundtrip((v, width) in bitvec_width_max(128)){
+            let equiv_str = bits_write(&v, Endian::Little);
+            let read_back = bits_read(&equiv_str, Endian::Little, width as usize).unwrap();
+            prop_assert_eq!(v, read_back);
+        }
+
+        #[test]
+        fn int_roundtrip((v, width) in bitvec_width_max(128), signed in any::<bool>()){
+            let equiv_str = int_write(&v, Endian::Little, width as usize, signed);
+            let read_back = int_read(&equiv_str, Endian::Little, width as usize, signed).unwrap();
+            prop_assert_eq!(v, read_back);
+        }
+
+        // these are done with fixed exp_width for convenience.
+        // 50 is chosen to avoid overflowing f64
+        #[test]
+        fn fixed_roundtrip((v, width) in bitvec_width_max(50), signed in any::<bool>()){
+                let exp_width = width.saturating_sub(16) as i32;
+                let equiv_str = fixed_write(&v, Endian::Little, width as usize, signed, exp_width);
+            let read_back = fixed_read(&equiv_str, Endian::Little, width as usize, signed, exp_width).unwrap();
+            prop_assert_eq!(v, read_back);
+        }
+
+        }
     }
 }

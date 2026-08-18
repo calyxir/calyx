@@ -15,5 +15,8 @@ baa.workspace = true
 smallvec.workspace = true
 struson = { version = "0.7.2", features = ["serde"] }
 
+
+
 [dev-dependencies]
 proptest = "1.0.0"
+num-ir = {path = "../num-ir", features = ["prop-utils"]}

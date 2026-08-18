@@ -5,3 +5,6 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc 37f04225d55ac35ca3a9e4478830ab2e2a49ef9aca972e828fac10cef53398fc # shrinks to s = ""
+cc 8f32b1867ebd320eceaba0c42a0137b3e43daea77836a6e76b7ecfff1b71cb6e # shrinks to t = TypeSpec { width: 0, signed: false, class: Bits }
+cc 7b3b86a0477fd44650576344b899eec340fc545048c816cab39d9078a5f0008a # shrinks to t = TypeSpec { width: 493383107559293, signed: false, class: Fixed { exp_mag: 317948383 } }
+cc 1792172e35ca98825146c427e21ae2d815165b7170bbcd085587468673186521 # shrinks to t = TypeSpec { width: 54301243424533, signed: false, class: Fixed { exp_mag: -2059320503 } }

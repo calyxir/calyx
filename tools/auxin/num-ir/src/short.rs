@@ -5,23 +5,24 @@
 //! - floats: ``f<SIZE>``
 //! - fixed: ``d[u/i]<SIZE>:<EXP_MAG>``
 //!
-//! 'd' is used as the prefix to make parsing easier
+//! 'd' is used as the prefix to simplify parsing
 
 use std::num::ParseIntError;
 
 use crate::typing::*;
 
-// TODO: some number of these are probably redundant at this point
 #[derive(Debug, thiserror::Error)]
 pub enum ShortTypeErr {
-    #[error("cannot represent float with size {0}")]
-    FloatSpec(usize),
+    #[error("invalid floating-point: not f32 / f64")]
+    FloatSpec,
     #[error("cannot represent fixed with exp {1} in width {0}")]
     FixedSpec(usize, i32),
     #[error("cannot parse {0}")]
     Parsing(String),
     #[error("parseint: {0}")]
     ParseInt(#[from] ParseIntError),
+    #[error("tried to parse type with width 0")]
+    WidthZero,
 }
 
 pub trait TryFromShort
@@ -73,17 +74,17 @@ impl TryFromShort for TypeSpec {
         let Some((first_c, rem)) = strip_first_char(s) else {
             return Err(ShortTypeErr::Parsing(s.to_string()));
         };
-        let (width, signed, class) = if first_c == 'f'
-            && let Some(w) = destruct_float_width(rem)
-        {
-            (w, false, TypeClass::Float)
+        let (width, signed, class) = if first_c == 'f' {
+            let float_w =
+                destruct_float_width(rem).ok_or(ShortTypeErr::FloatSpec)?;
+            (float_w, false, TypeClass::Float)
         } else if first_c == 'd'
             && let Some((p, n)) = rem.split_once(':')
             && let Some((width, signed)) = destruct_signed(p)
         {
             let exp_mag = n.parse::<i32>()?;
-            if exp_mag > (width as i32) {
-                return Err(ShortTypeErr::Parsing(s.to_string()));
+            if (exp_mag > 0) && (exp_mag as usize) > width {
+                return Err(ShortTypeErr::FixedSpec(width, exp_mag));
             }
 
             (width, signed, TypeClass::Fixed { exp_mag })
@@ -99,7 +100,7 @@ impl TryFromShort for TypeSpec {
 
         // TODO: this type of thing is why we need guarded constructors
         if width == 0 {
-            return Err(ShortTypeErr::Parsing(s.to_string()));
+            return Err(ShortTypeErr::WidthZero);
         }
         Ok(TypeSpec {
             width,
@@ -138,11 +139,12 @@ impl std::fmt::Display for TypeSpec {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "prop-utils"))]
 mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    // proptests on arbitrary 'things which might look parseable'
     proptest! {
     #[test]
     fn parse_ints(s in "[iu][1-9][0-9]{6}"){
@@ -184,5 +186,18 @@ mod tests {
     }
 
 
+    }
+
+    // make sure that types roundtrip through short_t correctly
+    use crate::props::*;
+    proptest! {
+        #[test]
+        fn roundtrip(t in arb_type()){
+            let s = t.to_string();
+            let res = TypeSpec::read_short_t(&s).unwrap();
+            compare_typeclasses(&res, &t)?;
+
+
+        }
     }
 }

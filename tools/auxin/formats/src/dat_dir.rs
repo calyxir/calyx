@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use num_ir::{short::TryFromShort, typing::TypeSpec};
 
 /// the remainder of what a line within a data header should contain: type and length (number of elements) within a memory.
+#[derive(Debug)]
 pub struct HeadEntry {
     pub ty: TypeSpec,
     pub len: usize,
@@ -85,13 +86,14 @@ impl DirStore for DirHandler {
         */
         let mut linebuf = String::with_capacity(20);
 
-        let mut lines_read = 0;
+        let mut lines_read = 0; // tracked to avoid overflow
         while src.read_line(&mut linebuf)? != 0 {
             if lines_read > inf.len {
                 return Err(DirError::BadLen);
             }
             let cleaned_s = discard_comment(&linebuf);
             if cleaned_s.is_empty() {
+                // nothing remains after the comment, discard
                 linebuf.clear();
                 continue;
             }
@@ -126,6 +128,7 @@ impl DirStore for DirHandler {
     ) -> Result<(), Self::Err> {
         for val in inp.iter_data() {
             // NOTE: does not handle endianness
+            // NOTE: returns String, this is probably bad for performance
             writeln!(dest, "{}", val.to_hex_str())?;
         }
         Ok(())
@@ -148,17 +151,65 @@ fn discard_comment(s: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use num_ir::props::*;
+    use proptest::prelude::*;
+
     #[test]
     fn test_discard_comment() {
         assert_eq!(discard_comment("//"), "");
         assert_eq!(discard_comment("// abcde"), "");
         assert_eq!(discard_comment("// abcd // defhqwjewqe"), "");
-        assert_eq!(discard_comment("       // abcd // defhqwjewqe"), "       ");
-        assert_eq!(discard_comment("abcdef "), "abcdef ");
+        assert_eq!(discard_comment("       // abcd // defhqwjewqe"), "");
+        assert_eq!(discard_comment("abcdef "), "abcdef");
         assert_eq!(discard_comment("abcdef // foo"), "abcdef ");
         assert_eq!(discard_comment("abcdef // foo bar // baz"), "abcdef ");
         assert_eq!(discard_comment("abcdef//foobar"), "abcdef");
         assert_eq!(discard_comment("abcdef // foo baz"), "abcdef ");
         assert_eq!(discard_comment("abcdef"), "abcdef");
+    }
+
+    prop_compose! {
+        fn header_entry()(len in 1..usize::MAX,  t in arb_type()) -> HeadEntry{
+            HeadEntry{ty: t, len}
+        }
+    }
+
+    fn mk_header() -> impl Strategy<Value = HashMap<String, HeadEntry>> {
+        prop::collection::hash_map("[[:word:]]*", header_entry(), 10)
+    }
+
+    proptest! {
+    // discarding comment should generally not crash
+    #[test]
+    fn discard_safety(s in "\\PC*"){
+        discard_comment(&s);
+    }
+    // we don't handle extra "/" well, but for our purposes it should be fine.
+    #[test]
+    fn prop_discard_comment(before in "[[:word:]]*", after in "[[:word:]]*"){
+        let line = format!("{}//{}", before, after);
+        prop_assert_eq!(discard_comment(&line), before);
+
+    }
+
+    #[test]
+    fn header_roundtrip(hd in mk_header()){
+        let mut t: Vec<u8> = Vec::new();
+        for (k,v) in hd.iter(){
+            writeln!(t, "{},{},{}", k, v.ty, v.len).unwrap();
+        }
+        let nh = read_header(t.as_slice()).unwrap();
+        for k in nh.keys(){
+            prop_assert!(hd.contains_key(k));
+            let expc_e = hd.get(k).unwrap();
+            let got_e = nh.get(k).unwrap();
+            prop_assert_eq!(expc_e.len, got_e.len);
+            compare_typeclasses(&expc_e.ty,
+                &got_e.ty)?;
+        }
+
+
+    }
+
     }
 }

@@ -54,8 +54,11 @@ fn arr_err<R: Read>(r: &JsonStreamReader<R>) -> JsonErr {
     JsonErr::ArrayRead(r.current_position(false))
 }
 
-// TODO: can use number of elements in dim, once known, as guiding assumption
-// we can do this a lot more unsafely / maybe faster by trying to read ``n`` elements of (current level's type) once we know the type and the number of elements in the level
+/*
+TODO: can use number of elements in dim, once known, as guiding assumption.
+once the number of elements in a dim is known, try to read that many, terminate, and then continue to next level. this'd hopefully decrease recursion.
+
+*/
 impl ArrayReader {
     fn read_arr_helper<R: Read>(
         &mut self,
@@ -64,8 +67,10 @@ impl ArrayReader {
         curr_dim: usize,
     ) -> Result<(), JsonErr> {
         r.begin_array()?;
-        let mut curr_type: Option<ValueType> = None; // type of current level
-        let mut item_ct = 0;
+        let mut curr_type: Option<ValueType> = None; // type of current dimension
+        let mut item_ct = 0; // number of items in current dim
+
+        // set up a counter for this dimension
         if self.dim_sizes.len() == curr_dim {
             self.dim_sizes.push(0)
         }
@@ -216,6 +221,13 @@ impl FileStore for JsonHandler {
         Ok(())
     }
 }
+
+/*
+    seek_to consumes the "key". so, if seeking to "bar", in "foo" don't need to next_name() the "bar" part.
+
+
+    seek back still 'advances' in the file, but goes to the nesting level recorded in seek_to. i.e. if seeking to "bar" while in object "foo", a seek_back will go back a nesting level to "foo", but skip all other keys / values in "foo". so "foo.baz" would be skipped.
+*/
 
 // TODO: rather than seeks, can we do skips?
 /// Read the "format" keys and values within a ``fud2`` .data file.

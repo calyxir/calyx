@@ -40,25 +40,26 @@ pub(crate) fn try_type_to_cider(
     value: &TypeSpec,
 ) -> Result<cs::FormatInfo, CiderErr> {
     use cs::FormatInfo as cider_t;
+    let width: u32 = value.width.try_into().unwrap();
 
     let res = match value.class {
         TypeClass::Bits => cider_t::Bitnum {
             signed: false,
-            width: value.width as u32,
+            width,
         },
         TypeClass::Int => cider_t::Bitnum {
             signed: value.signed,
-            width: value.width as u32,
+            width,
         },
         TypeClass::Float => cider_t::IEEFloat {
             signed: value.signed,
-            width: value.width as u32,
+            width,
         },
         TypeClass::Fixed { exp_mag } => {
-            let frac_width = (if exp_mag <= 0 { 0 } else { exp_mag }) as u32;
+            let frac_width = exp_mag.try_into().unwrap();
             cider_t::Fixed {
                 signed: value.signed,
-                int_width: (value.width as u32) - frac_width,
+                int_width: width - frac_width,
                 frac_width,
             }
         }
@@ -102,6 +103,7 @@ pub(crate) fn try_type_from_cider(
 /// handler for the cider ``.dump`` format. uses [cider_serde] internally.
 pub struct CiderHandler;
 
+// fairly straightforward, similar to how it used to work in cider data converter
 impl FileStore for CiderHandler {
     type Err = CiderErr;
 
@@ -121,6 +123,8 @@ impl FileStore for CiderHandler {
             );
 
             // NOTE: does not handle endianness
+
+            // cider serialisation requires providing an iter on u8, hence the flat map
             out_res.push_memory(
                 meminfo,
                 mem.iter_data().flat_map(|e| e.to_bytes_le()),
@@ -140,9 +144,13 @@ impl FileStore for CiderHandler {
             let byte_data = dump.get_data(&mem.name).unwrap();
             let assoc_type = try_type_from_cider(&mem.format)?;
 
+            // check on whether a memory's contents align with type.
             debug_assert!(
                 byte_data.len().is_multiple_of(assoc_type.num_bytes())
             );
+
+            // obtain byte data, then chunk into the number of bytes required for the current type
+            // then, use try_from_bytes
             let contents: Result<Vec<baa::BitVecValue>, _> = byte_data
                 .chunks(assoc_type.num_bytes())
                 .map(|e| {
@@ -162,15 +170,28 @@ impl FileStore for CiderHandler {
             };
             res.mems.insert(
                 mem.name.clone(),
-                SingleMem::new(
-                    data,
-                    dimensions,
-                    assoc_type.clone(),
-                    Endian::Little,
-                ),
+                SingleMem::new(data, dimensions, assoc_type, Endian::Little),
             );
         }
 
         Ok(res)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use num_ir::props::*;
+
+    use proptest::prelude::*;
+
+    use super::*;
+    proptest! {
+        #[test]
+        fn type_roundtrip(t in arb_type_excl_bits() ){
+            let cider_t = try_type_to_cider(&t).unwrap();
+            let back = try_type_from_cider(&cider_t).unwrap();
+            prop_assert_eq!(t, back);
+
+        }
     }
 }

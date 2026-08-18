@@ -1,6 +1,8 @@
 use num_ir::typing::{TypeClass, TypeSpec};
 use serde::{self, Deserialize, Serialize};
 
+// some common type-related stuff for fud2 json. separated in case a future format might use similar FormatInfo
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum JsonTypes {
@@ -36,9 +38,6 @@ pub struct FormatInfo {
     pub frac_width: Option<u32>,
 }
 
-/*
-    ideally would also check for overspecified format (i.e. non-fixed_point with frac_width defined)
-*/
 impl FormatInfo {
     // returns fixed-point as (overall width, frac_width)
     // a bit verbose, but roughly self-documenting
@@ -87,7 +86,7 @@ impl TryFrom<&TypeSpec> for FormatInfo {
         Ok(FormatInfo {
             numeric_type,
             is_signed: value.signed,
-            width: Some(value.width as u32),
+            width: Some(TryInto::<u32>::try_into(value.width).unwrap()),
             int_width: None,
             frac_width,
         })
@@ -117,5 +116,23 @@ impl TryFrom<&FormatInfo> for TypeSpec {
             signed: value.is_signed,
             class,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use num_ir::props::*;
+
+    use proptest::prelude::*;
+
+    use super::*;
+    proptest! {
+        #[test]
+        fn type_roundtrip(t in arb_type_excl_bits() ){
+            let json_t = FormatInfo::try_from(&t).unwrap();
+            let back = TypeSpec::try_from(&json_t).unwrap();
+            prop_assert_eq!(t, back);
+
+        }
     }
 }

@@ -7,3 +7,6 @@ pub mod typing;
 
 #[cfg(feature = "short-types")]
 pub mod short;
+
+#[cfg(feature = "prop-utils")]
+pub mod props;
