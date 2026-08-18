@@ -1,10 +1,11 @@
 import sys
+
 import calyx.builder as cb
+import queues.flow_inference as fi
 import queues.queue_call as qc
 import queues.sim_pcap as sp
 import queues.strict_or_rr as st_or_rr
-import queues.fifo as fifo
-import queues.flow_inference as fi
+from queues import fifo
 
 NUMFLOWS = 5
 

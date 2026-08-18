@@ -1,5 +1,6 @@
-import calyx.builder as cb
 import os
+
+import calyx.builder as cb
 
 
 def insert_foo_component(prog):

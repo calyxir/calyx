@@ -1,4 +1,7 @@
-from typing import List
+import os
+
+from calyx.builder import Builder
+from calyx.gen_exp import generate_exp_taylor_series_approximation, generate_fp_pow_full
 
 # from calyx.py_ast import *
 from dahlia_utils import (
@@ -10,10 +13,9 @@ from dahlia_utils import (
     get_dims,
     next_character,
 )
-from calyx.gen_exp import generate_exp_taylor_series_approximation, generate_fp_pow_full
+
 from calyx.utils import float_to_fixed_point
-from calyx.builder import Builder
-import os
+
 ### Dahlia Implementations for Relay Call Nodes ###
 
 # Context: While implementing a Relay frontend for
@@ -62,11 +64,11 @@ def broadcast(fd: DahliaFuncDef) -> str:
 
     # Get memory sizes in reversed order.
     op1_sizes, op2_sizes, res_sizes = [], [], []
-    for i in reversed(range(0, op1_dims)):
+    for i in reversed(range(op1_dims)):
         op1_sizes.append(op1.comp.args[i + 1])
-    for i in reversed(range(0, op2_dims)):
+    for i in reversed(range(op2_dims)):
         op2_sizes.append(op2.comp.args[i + 1])
-    for i in reversed(range(0, res_dims)):
+    for i in reversed(range(res_dims)):
         res_sizes.append(res.comp.args[i + 1])
 
     # Gets the last variable name for indexing, since
@@ -77,7 +79,7 @@ def broadcast(fd: DahliaFuncDef) -> str:
     # This will either be a variable name or `0`.
     index_zero = "[0]"
     op1_indices, op2_indices, res_indices = [], [], []
-    for i in range(0, len(res_sizes)):
+    for i in range(len(res_sizes)):
         current_dimension = f"[__{index_var}]"
         res_indices.append(current_dimension)
         if op1_dims > op2_dims and len(op2_sizes) <= i:
@@ -317,11 +319,11 @@ def batch_matmul(fd: DahliaFuncDef) -> str:
     """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.batch_matmul"""
     a, b, res = fd.args[0], fd.args[1], fd.dest
     type = fd.data_type
-    bitwidth, M1_size0, M1_size1, M1_size2 = a.comp.args[0:4]
-    M1_index_size0, M1_index_size1, M1_index_size2 = a.comp.args[4:7]
+    _bitwidth, M1_size0, M1_size1, _M1_size2 = a.comp.args[0:4]
+    M1_index_size0, M1_index_size1, _M1_index_size2 = a.comp.args[4:7]
 
     M2_size0, M2_size1, M2_size2 = b.comp.args[1:4]
-    M2_index_size0, M2_index_size1, M2_index_size2 = b.comp.args[4:7]
+    _M2_index_size0, M2_index_size1, M2_index_size2 = b.comp.args[4:7]
 
     return emit_dahlia_definition(
         fd,
@@ -401,7 +403,7 @@ def dense(fd: DahliaFuncDef, save_mem=True) -> str:
 def conv2d(fd: DahliaFuncDef) -> str:
     """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.conv2d"""
     data, weight, res = fd.args[0], fd.args[1], fd.dest
-    data_size0, data_size1, data_size2, data_size3 = data.comp.args[1:5]
+    _data_size0, data_size1, data_size2, data_size3 = data.comp.args[1:5]
     data_type = fd.data_type
     strides = fd.attributes.get_int_tuple("strides")
     kernel_size = fd.attributes.get_int_tuple("kernel_size")
@@ -483,7 +485,7 @@ def reshape(fd: DahliaFuncDef) -> str:
     newshape = fd.attributes.get_int_tuple("newshape")
     ddims = get_dims(data.comp)
     rdims = get_dims(res.comp)
-    size0, size1 = data.comp.args[1:3]
+    _size0, _size1 = data.comp.args[1:3]
 
     assert rdims == 2, "can only support reshaping into a 2d array"
 
@@ -820,7 +822,7 @@ RelayCallNodes = {
 BinaryOps = {"add": "+", "divide": "/", "multiply": "*", "subtract": "-"}
 
 
-def emit_components(func_defs: List[DahliaFuncDef], save_mem=True) -> str:
+def emit_components(func_defs: list[DahliaFuncDef], save_mem=True) -> str:
     """Returns a string containing all the components
     created from the list of Dahlia function definitions.
     This does not include the import statement.

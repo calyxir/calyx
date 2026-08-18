@@ -1,10 +1,10 @@
 import json
 import os
-
 from collections import defaultdict
-from profiler.classes.primitive_metadata import PrimitiveMetadata
+
 from profiler.classes.cell_metadata import CellMetadata
 from profiler.classes.control_metadata import ControlMetadata
+from profiler.classes.primitive_metadata import PrimitiveMetadata
 
 
 def read_shared_cells_map(shared_cells_json) -> dict[str, dict[str, str]]:
@@ -17,14 +17,15 @@ def read_shared_cells_map(shared_cells_json) -> dict[str, dict[str, str]]:
             f"[read_shared_cells_map] {shared_cells_json} not found! Either cell sharing was not run, or there's a bug."
         )
         return {}
-    json_map = json.load(open(shared_cells_json))
-    for component in json_map:
-        shared_cells_map[component] = {}
-        for entry in json_map[component]:
-            original = entry["original"]
-            new = entry["new"]
-            shared_cells_map[component][original] = new
-    return shared_cells_map
+    with open(shared_cells_json) as s:
+        json_map = json.load(s)
+        for component in json_map:
+            shared_cells_map[component] = {}
+            for entry in json_map[component]:
+                original = entry["original"]
+                new = entry["new"]
+                shared_cells_map[component][original] = new
+        return shared_cells_map
 
 
 def build_components_to_cells(
@@ -57,59 +58,61 @@ def read_component_cell_names_json(json_file):
     filled by VCDConverter.enddefinitions(). (This is because the simulator-specific prefix
     also depends on the OS being used, and may be different based on the machine.)
     """
-    cell_json = json.load(open(json_file))
-    primitive_metadata = PrimitiveMetadata()
-    # For each component, contains a map from each cell name to its corresponding component
-    # component name --> { cell name --> component name }
-    cells_to_components = {}
-    main_component = ""
-    for curr_component_entry in cell_json:
-        component_name = curr_component_entry["component"]
-        cell_map = {}  # mapping cell names to component names for all cells in the current component
-        primitive_map = {}  # primitive cell name --> primitive type
-        if curr_component_entry["is_main_component"]:
-            main_component = component_name
-        for cell_info in curr_component_entry["cell_info"]:
-            cell_map[cell_info["cell_name"]] = cell_info["component_name"]
-        for primitive_info in curr_component_entry["primitive_info"]:
-            primitive_map[primitive_info["cell_name"]] = primitive_info[
-                "primitive_type"
-            ]
-        cells_to_components[component_name] = cell_map
-        # FIXME: avoid direct assignment
-        primitive_metadata.p_map[component_name] = primitive_map
-    components_to_cells = {
-        main_component: [main_component]
-    }  # come up with a better name for this
-    build_components_to_cells(
-        main_component, main_component, cells_to_components, components_to_cells
-    )
-    # semi-fully_qualified_cell_name --> component name (of cell)
-    # I say semi-here because the prefix depends on the simulator + OS
-    # (ex. "TOP.toplevel" for Verilator on ubuntu)
-    cell_names_to_components = {}
-    for component in components_to_cells:
-        for cell in components_to_cells[component]:
-            cell_names_to_components[cell] = component
+    with open(json_file) as j:
+        cell_json = json.load(j)
+        primitive_metadata = PrimitiveMetadata()
+        # For each component, contains a map from each cell name to its corresponding component
+        # component name --> { cell name --> component name }
+        cells_to_components = {}
+        main_component = ""
+        for curr_component_entry in cell_json:
+            component_name = curr_component_entry["component"]
+            cell_map = {}  # mapping cell names to component names for all cells in the current component
+            primitive_map = {}  # primitive cell name --> primitive type
+            if curr_component_entry["is_main_component"]:
+                main_component = component_name
+            for cell_info in curr_component_entry["cell_info"]:
+                cell_map[cell_info["cell_name"]] = cell_info["component_name"]
+            for primitive_info in curr_component_entry["primitive_info"]:
+                primitive_map[primitive_info["cell_name"]] = primitive_info[
+                    "primitive_type"
+                ]
+            cells_to_components[component_name] = cell_map
+            # FIXME: avoid direct assignment
+            primitive_metadata.p_map[component_name] = primitive_map
+        components_to_cells = {
+            main_component: [main_component]
+        }  # come up with a better name for this
+        build_components_to_cells(
+            main_component, main_component, cells_to_components, components_to_cells
+        )
+        # semi-fully_qualified_cell_name --> component name (of cell)
+        # I say semi-here because the prefix depends on the simulator + OS
+        # (ex. "TOP.toplevel" for Verilator on ubuntu)
+        cell_names_to_components = {}
+        for component, cells in components_to_cells.items():
+            for cell in cells:
+                cell_names_to_components[cell] = component
 
-    return CellMetadata(main_component, components_to_cells), primitive_metadata
+        return CellMetadata(main_component, components_to_cells), primitive_metadata
 
 
 def read_ctrl_metadata_file(ctrl_map_file: str):
     component_to_pos_to_loc_str: defaultdict[str, defaultdict[int, str]] = defaultdict()
 
-    json_data = json.load(open(ctrl_map_file, "r"))
-    for component in json_data:
-        component_to_pos_to_loc_str[component] = defaultdict(str)
-        for entry in json_data[component]:
-            pos_num = entry["pos_num"]
-            line_num = entry["linenum"]
-            ctrl_node_name = entry["ctrl_node"]
-            component_to_pos_to_loc_str[component][pos_num] = (
-                f"L{line_num}:{ctrl_node_name}"
-            )
+    with open(ctrl_map_file, "r") as j:
+        json_data = json.load(j)
+        for component in json_data:
+            component_to_pos_to_loc_str[component] = defaultdict(str)
+            for entry in json_data[component]:
+                pos_num = entry["pos_num"]
+                line_num = entry["linenum"]
+                ctrl_node_name = entry["ctrl_node"]
+                component_to_pos_to_loc_str[component][pos_num] = (
+                    f"L{line_num}:{ctrl_node_name}"
+                )
 
-    return component_to_pos_to_loc_str
+        return component_to_pos_to_loc_str
 
 
 def read_path_descriptor_json(
@@ -117,25 +120,28 @@ def read_path_descriptor_json(
     pos_to_control_group: dict[int, str],
     control_metadata: ControlMetadata,
 ):
-    json_data = json.load(open(path_descriptor_json_file))
-    control_metadata.component_to_enable_to_desc = {}
-    control_metadata.component_to_ctrl_group_to_desc = {}
-    for component in json_data:
-        # the map for enables is straightforward.
-        # the map for control statements is harder because we need to filter out
-        # ADL positions.
-        control_metadata.component_to_enable_to_desc[component] = json_data[component][
-            "enables"
-        ]
-        control_metadata.component_to_ctrl_group_to_desc[component] = {}
-        for ctrl_desc, pos_set in json_data[component]["control_pos"].items():
-            calyx_pos_list = list(filter(lambda x: x in pos_to_control_group, pos_set))
-            assert len(calyx_pos_list) <= 1
-            if len(calyx_pos_list) == 1:
-                pos = calyx_pos_list[0]
-                control_metadata.component_to_ctrl_group_to_desc[component][
-                    pos_to_control_group[pos]
-                ] = ctrl_desc
+    with open(path_descriptor_json_file) as f:
+        json_data = json.load(f)
+        control_metadata.component_to_enable_to_desc = {}
+        control_metadata.component_to_ctrl_group_to_desc = {}
+        for component in json_data:
+            # the map for enables is straightforward.
+            # the map for control statements is harder because we need to filter out
+            # ADL positions.
+            control_metadata.component_to_enable_to_desc[component] = json_data[
+                component
+            ]["enables"]
+            control_metadata.component_to_ctrl_group_to_desc[component] = {}
+            for ctrl_desc, pos_set in json_data[component]["control_pos"].items():
+                calyx_pos_list = list(
+                    filter(lambda x: x in pos_to_control_group, pos_set)
+                )
+                assert len(calyx_pos_list) <= 1
+                if len(calyx_pos_list) == 1:
+                    pos = calyx_pos_list[0]
+                    control_metadata.component_to_ctrl_group_to_desc[component][
+                        pos_to_control_group[pos]
+                    ] = ctrl_desc
 
 
 def read_tdcc_file(
@@ -146,12 +152,12 @@ def read_tdcc_file(
 ):
     if component_to_pos_to_loc_str is not None:
         control_metadata.component_to_ctrl_group_to_pos_str = defaultdict()
-        for component in cell_metadata.component_to_cells.keys():
+        for component in cell_metadata.component_to_cells:
             control_metadata.component_to_ctrl_group_to_pos_str[component] = (
                 defaultdict(str)
             )
     pos_to_control_group: dict[int, str] = {}
-    json_data = json.load(open(tdcc_json_file))
+    json_data = json.load(open(tdcc_json_file))  # noqa: SIM115
     for json_entry in json_data:
         if "Fsm" in json_entry:
             entry = json_entry["Fsm"]
@@ -209,7 +215,7 @@ def read_tdcc_file(
                 )
                 pos_to_control_group[calyx_pos_list[0]] = par
             for cell in cell_metadata.component_to_cells[component]:
-                fully_qualified_par = ".".join((cell, par))
+                fully_qualified_par = f"{cell}.{par}"
                 # add information to control_metadata
                 control_metadata.register_fully_qualified_ctrl_gp(fully_qualified_par)
 
@@ -217,7 +223,7 @@ def read_tdcc_file(
                 for child in entry["child_groups"]:
                     child_pd_reg = child["register"]
                     control_metadata.add_par_done_reg(
-                        component, par, child_pd_reg, ".".join((cell, child_pd_reg))
+                        component, par, child_pd_reg, f"{cell}.{child_pd_reg}"
                     )
 
     return pos_to_control_group
@@ -243,5 +249,6 @@ def read_enable_thread_json(enable_thread_json):
     """
     Returns the contents of the JSON file that maps enables to thread ids.
     """
-    json_data = json.load(open(enable_thread_json))
-    return json_data
+    with open(enable_thread_json) as j:
+        json_data = json.load(j)
+        return json_data

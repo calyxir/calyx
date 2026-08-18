@@ -1,5 +1,5 @@
-import xml.etree.ElementTree as ET
 import sys
+import xml.etree.ElementTree as ET
 
 
 def get_ports(kernel_xml):

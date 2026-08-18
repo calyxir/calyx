@@ -1,12 +1,13 @@
 # pylint: disable=import-error
-import sys
-import calyx.builder as cb
-import queues.queue_call as qc
-import queues.strict_or_rr as strict_or_rr
-import queues.fifo as fifo
-import queues.flow_inference as fi
 import json
 import os
+import sys
+
+import calyx.builder as cb
+
+import queues.flow_inference as fi
+import queues.queue_call as qc
+from queues import fifo, strict_or_rr
 
 rr_id = 0
 strict_id = 0

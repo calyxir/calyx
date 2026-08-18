@@ -1,6 +1,6 @@
-from dataclasses import dataclass, field
-from typing import Any, Optional
 import heapq
+from dataclasses import dataclass, field
+from typing import Any
 
 ERR_CODE = 2**32 - 1
 PUSH_CODE = 2**32 - 2
@@ -116,7 +116,7 @@ class NWCSimple:
     def is_ripe(self, time: int) -> bool:
         return self.data[0].value[1] <= time
 
-    def query(self, time: int = 0, val: Optional[int] = None) -> int:
+    def query(self, time: int = 0, val: int | None = None) -> int:
         if len(self.data) == 0:
             raise QueueError("Cannot pop from empty queue.")
 
@@ -145,7 +145,7 @@ class NWCSimple:
 
         raise QueueError("Cannot pop from empty queue.")
 
-    def pop(self, time: int = 0, val: Optional[int] = None) -> int:
+    def pop(self, time: int = 0, val: int | None = None) -> int:
         return self.query(time, val)
 
 
@@ -257,7 +257,7 @@ class Pieo:
 
         self.insertion_count += 1
 
-    def query(self, time=0, val=None, remove=False, return_rank=False) -> Optional[int]:
+    def query(self, time=0, val=None, remove=False, return_rank=False) -> int | None:
         """Queries a PIEO. Returns matching value and rank.
         Pops the PIEO if remove is True. Peeks otherwise.
 
@@ -291,7 +291,7 @@ class Pieo:
         # No ripe elements matching value
         raise QueueError("Underflow")
 
-    def pop(self, time=0, val=None, return_rank=False) -> Optional[int]:
+    def pop(self, time=0, val=None, return_rank=False) -> int | None:
         """Pops a PIEO. See query() for specifics."""
 
         return self.query(time, val, True, return_rank)
@@ -364,7 +364,7 @@ class PCQ:
         except QueueError:
             raise QueueError("Overflow")
 
-    def query(self, time=0, val=None) -> Optional[int]:
+    def query(self, time=0, val=None) -> int | None:
         """Queries a PCQ."""
 
         if self.num_elements == 0:
@@ -391,7 +391,7 @@ class PCQ:
 
         raise QueueError(str(self.data) + "Underflow")
 
-    def pop(self, time=0, val=None) -> Optional[int]:
+    def pop(self, time=0, val=None) -> int | None:
         """Pops a PCQ. If we iterate through every bucket and can't find a value,
         raise underflow."""
 

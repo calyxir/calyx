@@ -31,7 +31,7 @@ def generate_replacement_map(inst):
         )
     elif inst["name"] == "std_lsh":
         width = replacement_map["WIDTH"]
-        replacement_map["BITS"] = math.ceil(math.log(width, 2)) + 1
+        replacement_map["BITS"] = math.ceil(math.log2(width)) + 1
     elif inst["name"] == "std_mult_pipe":
         width = replacement_map["WIDTH"]
         replacement_map["W_SHIFTED_ONE"] = width << 1
@@ -72,19 +72,21 @@ def generate_primitive_definition(inst):
 
 # Generates a complete FIRRTL program with primitives.
 def generate(firrtl_filename, primitive_uses_filename):
-    firrtl_file = open(firrtl_filename)
-    primitive_uses_file = open(primitive_uses_filename)
-    # The first line contains the circuit name,
-    # which needs to come before the primitives.
-    print(firrtl_file.readline().rstrip())
-    # Display the primitive definitions.
-    primitive_insts = json.load(primitive_uses_file)
-    if primitive_insts:
-        for inst in primitive_insts:
-            generate_primitive_definition(inst)
-    # Display the rest of the FIRRTL program.
-    for line in firrtl_file.readlines():
-        print(line.rstrip())
+    with (
+        open(firrtl_filename) as firrtl_file,
+        open(primitive_uses_filename) as primitive_uses_file,
+    ):
+        # The first line contains the circuit name,
+        # which needs to come before the primitives.
+        print(firrtl_file.readline().rstrip())
+        # Display the primitive definitions.
+        primitive_insts = json.load(primitive_uses_file)
+        if primitive_insts:
+            for inst in primitive_insts:
+                generate_primitive_definition(inst)
+        # Display the rest of the FIRRTL program.
+        for line in firrtl_file:
+            print(line.rstrip())
 
 
 def main():

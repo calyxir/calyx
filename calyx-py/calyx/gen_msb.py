@@ -1,9 +1,8 @@
-from typing import List
-from calyx.py_ast import Component
 from calyx.builder import Builder, while_with
+from calyx.py_ast import Component
 
 
-def gen_msb_calc(width: int, int_width: int) -> List[Component]:
+def gen_msb_calc(width: int, int_width: int) -> list[Component]:
     """
     Generates Calyx component to produce the following:
     For a given fixed point number x>=1, we want to select the largest n such

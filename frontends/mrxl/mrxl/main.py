@@ -1,9 +1,10 @@
-import sys
-import json
 import argparse
-from .parse import parse
+import json
+import sys
+
 from .gen_calyx import emit, emit_data
-from .interp import interp, InterpError
+from .interp import InterpError, interp
+from .parse import parse
 
 
 def main():

@@ -1,13 +1,13 @@
 import logging as log
 import os
-import time
-import sys
 import shlex
+import sys
+import time
+from pathlib import Path
 
 from fud import errors
 from fud.stages import SourceType, Stage
 from fud.utils import FreshDir, TmpDir, shell
-from pathlib import Path
 
 
 class HwExecutionStage(Stage):
@@ -139,7 +139,7 @@ class HwExecutionStage(Stage):
             if os.path.exists(self.xrt_output_logname):
                 log.debug("XRT log:")
                 with open(self.xrt_output_logname, "r") as f:
-                    for line in f.readlines():
+                    for line in f:
                         log.debug(line.strip())
 
             # And, in emulation mode, also include the emulation log.
@@ -147,7 +147,7 @@ class HwExecutionStage(Stage):
             if os.path.exists(emu_log):
                 log.debug("Emulation log:")
                 with open(emu_log, "r") as f:
-                    for line in f.readlines():
+                    for line in f:
                         log.debug(line.strip())
 
             # It would be nice if we could return this as a file without

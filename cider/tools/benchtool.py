@@ -1,20 +1,19 @@
 #! python3
-
+# noqa: EXE001
 # A simple script runner designed to run cider with hyperfine on the same calyx program
 # across multiple different revisions
 
-from argparse import ArgumentParser
-from pathlib import Path
+import re
 import shutil
 import subprocess
-from typing import List
-import re
+from argparse import ArgumentParser
+from pathlib import Path
 
 WORKDIR_NAME = ".fud2_benchtool"
 
 
 def check_dependency(dependency: str):
-    proc = subprocess.run(
+    proc = subprocess.run(  # noqa: PLW1510
         ["which", dependency], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
     )
     if proc.returncode != 0:
@@ -34,7 +33,7 @@ def setup_sim(fud2_command: str, timeout: int):
     comm = fud2_command + f" --dir {WORKDIR_NAME}"
     try:
         subprocess.run(
-            comm, timeout=timeout, shell=True, capture_output=True
+            comm, timeout=timeout, shell=True, capture_output=True, check=False
         ).check_returncode()
     except subprocess.TimeoutExpired:
         pass
@@ -42,14 +41,14 @@ def setup_sim(fud2_command: str, timeout: int):
 
 def extract_calyx_path() -> Path:
     with open(Path(WORKDIR_NAME) / "build.ninja") as f:
-        for line in f.readlines():
+        for line in f:
             if "calyx-base =" in line:
                 base = line.removeprefix("calyx-base =").strip()
                 return Path(base)
     raise RuntimeError("unable to computer cider path from ninja file")
 
 
-def run_hyperfine(command: str, calyx_path: Path, revisions: List[str]):
+def run_hyperfine(command: str, calyx_path: Path, revisions: list[str]):
     # this is a bad regex, do not look at it
     flag_regex = re.compile(r"cider\.flags=((\".*\")|('.*'))")
     flags = flag_regex.search(command)
@@ -67,7 +66,7 @@ def run_hyperfine(command: str, calyx_path: Path, revisions: List[str]):
     base_dir = calyx_path
 
     original_revision = subprocess.run(
-        ["jj", "log", "-r", "@", "-G"], capture_output=True, text=True
+        ["jj", "log", "-r", "@", "-G"], capture_output=True, text=True, check=False
     ).stdout.split()[0]
 
     argument_list = [
@@ -88,7 +87,7 @@ def run_hyperfine(command: str, calyx_path: Path, revisions: List[str]):
             f"{calyx_path / 'target/release/cider'} -l {base_dir} pseudo_cider{data_str}{flags}"
         )
 
-    subprocess.run(argument_list, cwd=WORKDIR_NAME).check_returncode()
+    subprocess.run(argument_list, cwd=WORKDIR_NAME, check=False).check_returncode()
 
 
 def cleanup():

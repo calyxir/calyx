@@ -1,20 +1,20 @@
 import argparse
 import logging as log
-from sys import exit
 import os
+from sys import exit
 
 import toml
 
-from . import check, errors, exec, utils, external
+from . import check, errors, exec, external, utils
 from .config import Configuration
 from .registry import Registry
 from .stages import (
     dahlia,
     futil,
+    jq,
     relay,
     systolic,
     vcdump,
-    jq,
     verilator,
     vivado,
     xilinx,

@@ -1,6 +1,5 @@
 from calyx.builder import HI, Builder, par
 
-
 b = Builder()
 b.import_("primitives/memories/seq.futil")
 b.import_("primitives/binary_operators.futil")

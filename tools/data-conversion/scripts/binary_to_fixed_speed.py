@@ -1,5 +1,5 @@
-import random
 import os
+import random
 
 
 def generate_binary_string(length):
@@ -13,7 +13,7 @@ def generate_tests(num_tests):
     for _ in range(num_tests):
         # Generate a random binary string (up to 32 bits for u32 in Rust)
         binary_string = generate_binary_string(random.randint(1, 24))
-        tests.append((binary_string))
+        tests.append(binary_string)
 
     return tests
 

@@ -1,5 +1,5 @@
 # pylint: disable=import-error
-from typing import List
+
 import calyx.builder as cb
 
 
@@ -105,7 +105,7 @@ def add_main(prog, tree):
     [sum_col0, sum_col1, sum_col2, sum_col3] = [main.reg(32) for i in range(4)]
     tree = main.cell("tree", tree)
 
-    adder_groups: List[cb.GroupBuilder] = [
+    adder_groups: list[cb.GroupBuilder] = [
         # Fill each of our answer registers will the sum of the corresponding column.
         # The tree will be used four times, once for each column.
         # Each time, we will receive a handle to the group that does the work.

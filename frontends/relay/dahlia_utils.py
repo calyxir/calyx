@@ -1,11 +1,10 @@
 import subprocess
-
-from typing import List
 from tempfile import NamedTemporaryFile
 
 from calyx.py_ast import Cell
-from calyx.utils import block
 from relay_utils import DahliaFuncDef, get_dims
+
+from calyx.utils import block
 
 # Starting index variable name
 # for Dahlia array iteration.
@@ -31,7 +30,7 @@ def emit_dahlia_params(fd: DahliaFuncDef) -> str:
 
         dims = get_dims(cell.comp)
         args = cell.comp.args
-        for i in range(0, dims):
+        for i in range(dims):
             cell_str += f"[{args[i + 1]}]"
 
         cells.append(cell_str)
@@ -90,7 +89,7 @@ def emit_dahlia_loop(control_flow: Cell, body: str) -> str:
     return headers[-1]
 
 
-def dahlia_to_calyx(imports: List[str], definitions: List[str]) -> str:
+def dahlia_to_calyx(imports: list[str], definitions: list[str]) -> str:
     """Takes in a string representation of a Dahlia
     imports and function definitions, and lowers it to Calyx.
     This does not include the `import` statements,

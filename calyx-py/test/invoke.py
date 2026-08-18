@@ -1,24 +1,25 @@
+import os
+
+import calyx.py_ast as ast
 from calyx.py_ast import (
-    CompVar,
     Cell,
-    Stdlib,
-    CompPort,
-    ThisPort,
-    Connect,
-    HolePort,
+    CompInst,
     Component,
-    PortDef,
-    SeqComp,
-    Group,
+    CompPort,
+    CompVar,
+    Connect,
     ConstantPort,
     Enable,
-    CompInst,
-    Invoke,
+    Group,
+    HolePort,
     Import,
+    Invoke,
+    PortDef,
     Program,
+    SeqComp,
+    Stdlib,
+    ThisPort,
 )
-import calyx.py_ast as ast
-import os
 
 ast.FILEINFO_BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 

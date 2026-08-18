@@ -1,7 +1,7 @@
 import argparse
 import json
-from calyx import numeric_types
 
+from calyx import numeric_types
 
 if __name__ == "__main__":
     """
@@ -36,15 +36,16 @@ if __name__ == "__main__":
     + int_width {int_width}"
     )
 
-    json_data = json.load(open(json_file))
+    with open(json_file) as j:
+        json_data = json.load(j)
 
-    for key, value in json_data.items():
-        if key != "cycles":
-            new_values = [
-                numeric_types.bitnum_to_fixed(
-                    numeric_types.Bitnum(str(x), is_signed=signed, width=bit_width),
-                    int_width=int_width,
-                ).string_repr
-                for x in value
-            ]
-            print(new_values)
+        for key, value in json_data.items():
+            if key != "cycles":
+                new_values = [
+                    numeric_types.bitnum_to_fixed(
+                        numeric_types.Bitnum(str(x), is_signed=signed, width=bit_width),
+                        int_width=int_width,
+                    ).string_repr
+                    for x in value
+                ]
+                print(new_values)
