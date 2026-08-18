@@ -4,7 +4,7 @@ use num_ir::short::TryFromShort;
 use num_ir::typing::{TypeClass, TypeSpec};
 use num_ir::vbfp::FixedDef;
 use rand::SeedableRng;
-use rand::{Rng, prelude::*};
+use rand::prelude::*;
 
 #[derive(Debug, thiserror::Error)]
 enum DataGenErr {

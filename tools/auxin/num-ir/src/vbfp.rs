@@ -43,7 +43,7 @@ impl FixedDef {
         } else {
             let int_len = (self.total_size - self.exp_mag as usize) as i32;
 
-            -1. * f64::powi(2., int_len - 1)
+            -f64::powi(2., int_len - 1)
         }
     }
 
