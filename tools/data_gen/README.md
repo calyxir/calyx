@@ -18,3 +18,12 @@ a program which uses ``num_ir`` to generate ``n`` random numbers of a given type
   - ``-s, --sep <string>``: separator between elements. defaults to ``\n``. setting a new separator will not include a newline by default.
   - ``-x``: print generated entries as hex strings, rather than pretty printing
   - ``-e``: if ``-x`` is active, also pretty-print entries to stderr.
+
+## preparing data for simulation / using the data generator with ``auxin``
+
+with the ``-x`` flag, an output file can be used as a ``.dat`` without modification. make sure that the output file has the name of the memory you wish to provide data for.
+
+to obtain a ``.data`` file:
+- one option is to use ``-s`` to comma-separate the values, and then paste the contents into the data field.
+- another is to manually write a ``header`` file, generate a ``.dat``-style output, and then use ``auxin`` to perform the conversion
+  - the header format is comma-separated like: ``memory_name,type,length``. no internal spaces.

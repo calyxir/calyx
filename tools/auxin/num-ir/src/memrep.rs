@@ -144,7 +144,6 @@ pub fn rand_dims(
     // generates a random shape with num_dims elements, and with a maximum of dim_max for each dimension
     assert!(num_dims <= 4);
     let rvec = (0..num_dims)
-        .into_iter()
         .map(|_| rng.random_range(1..dim_max))
         .collect();
     SmallVec::from_vec(rvec)
