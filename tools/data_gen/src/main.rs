@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::BufWriter;
+use std::io::Write;
 use std::path::PathBuf;
 
 use argh::FromArgs;
@@ -14,8 +15,11 @@ use rand::prelude::*;
 enum DataGenErr {
     #[error("not fixed point")]
     NotFixed,
+    #[error("I/O error")]
+    IOErr(#[from] std::io::Error),
 }
 
+// wrapper function so the type parsing happens when opts are parsed
 fn read_short_wrap(s: &str) -> Result<TypeSpec, String> {
     TypeSpec::read_short_t(s).map_err(|e| e.to_string())
 }
@@ -60,54 +64,58 @@ struct Opts {
 fn main() -> Result<(), DataGenErr> {
     let opts: Opts = argh::from_env();
 
-    let mut rng = if let Some(seed) = opts.seed {
-        SmallRng::seed_from_u64(seed)
+    let mut rng = opts.seed.map_or(
+        SmallRng::from_rng(&mut rand::rng()),
+        SmallRng::seed_from_u64,
+    );
+
+    let write_handle: Box<dyn Write> = if let Some(p) = opts.out_path {
+        Box::new(File::create(p)?)
     } else {
-        SmallRng::from_rng(&mut rand::rng())
+        Box::new(std::io::stdout())
     };
-    let mut filebuf = if let Some(p) = opts.out_path {
-        File::create(p).map(BufWriter::new).unwrap()
-    } else {
-        panic!("no output");
-    };
+
+    let mut filebuf = BufWriter::new(write_handle);
 
     let mut bitvec_buf = BitVecValue::zero(opts.short_t.width as u32);
     let mut fd: Option<FixedDef> = None;
+
+    // so later code doesn't have to dereference so much
+    let ty = opts.short_t;
+
     if opts.fixed_bound.is_some() {
-        let TypeClass::Fixed { exp_mag: e } = opts.short_t.class else {
+        let TypeClass::Fixed { exp_mag: e } = ty.class else {
             return Err(DataGenErr::NotFixed);
         };
         let fixed_equiv = num_ir::vbfp::FixedDef {
-            total_size: opts.short_t.width,
+            total_size: ty.width,
             exp_mag: e,
-            signed: opts.short_t.signed,
+            signed: ty.signed,
         };
         fd = Some(fixed_equiv)
     }
     for _ in 0..opts.amt {
         if let Some(ref d) = fd {
-            bitvec_buf =
-                d.rand_fixed_bounded(opts.fixed_bound.unwrap(), &mut rng);
+            // this is expectedly quite slow
+            bitvec_buf = opts
+                .fixed_bound
+                .map(|b| d.rand_fixed_bounded(b, &mut rng))
+                .expect("fixed bound should exist");
         } else {
             bitvec_buf.randomize(&mut rng);
         }
         let print_s = if opts.hex {
-            &opts
-                .short_t
-                .write_hexstring(&bitvec_buf, num_ir::typing::Endian::Little)
+            &ty.write_hexstring(&bitvec_buf, num_ir::typing::Endian::Little)
         } else {
-            &opts
-                .short_t
-                .write_string(&bitvec_buf, num_ir::typing::Endian::Little)
+            &ty.write_string(&bitvec_buf, num_ir::typing::Endian::Little)
         };
         use std::io::Write;
-        write!(filebuf, "{}{}", print_s, opts.sep).unwrap();
+        write!(filebuf, "{}{}", print_s, opts.sep)?;
 
         if opts.use_stderr && opts.hex {
             eprintln!(
                 "{}",
-                opts.short_t
-                    .write_string(&bitvec_buf, num_ir::typing::Endian::Little)
+                ty.write_string(&bitvec_buf, num_ir::typing::Endian::Little)
             )
         }
     }

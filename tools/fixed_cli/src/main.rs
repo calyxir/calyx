@@ -2,6 +2,7 @@ use num_ir::typing::Endian;
 use num_ir::{short::TryFromShort, typing::TypeSpec};
 use rustyline::{DefaultEditor, Result};
 
+// attempt to handle the info case: try to parse s into a type.
 fn handle_info(s: &str) {
     let Ok(e) = TypeSpec::read_short_t(s) else {
         println!("can't parse {} into type", s);
@@ -24,6 +25,7 @@ fn main() -> Result<()> {
                     );
                     continue;
                 }
+                // most other commands expect two space separated elements
                 if t.len() < 2 {
                     println!("expecting at least two space-separated elements");
                     continue;
