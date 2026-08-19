@@ -8,14 +8,21 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-itertools = { workspace = true }
 thiserror.workspace = true
+smallvec.workspace = true
+proptest = {version = "1.11", optional = true}
 
-num-traits = { version = "0.2" }
+rand = {workspace = true, optional = true}
 
 # this can probably be feature-reduced, we don't use all of it
 baa.workspace = true
 
+[features]
+default = ["short-types", "rand1"]
+short-types = []
+rand1 = ["dep:rand", "baa/rand1"]
+prop-utils = ["dep:proptest"]
 
 [dev-dependencies]
-proptest = "1.0.0"
+proptest = "1.11"
+rand.workspace = true

@@ -1,21 +1,21 @@
-use crate::{
-    flatten::{
-        flat_ir::{
-            cell_prototype::{CellPrototype, MemoryDimensions},
-            indexes::{
-                AssignmentIdx, AssignmentWinner, ComponentIdx, GlobalCellIdx,
-                GlobalPortIdx,
-            },
-            prelude::AssignedValue,
+use crate::flatten::{
+    flat_ir::{
+        cell_prototype::{CellPrototype, MemoryDimensions},
+        indexes::{
+            AssignmentIdx, AssignmentWinner, ComponentIdx, GlobalCellIdx,
+            GlobalPortIdx,
         },
-        structures::environment::{
-            Environment,
-            clock::{ClockError, ClockErrorWithCell},
-        },
-        text_utils::Color,
+        prelude::AssignedValue,
     },
-    serialization::Dimensions,
+    structures::environment::{
+        Environment,
+        clock::{ClockError, ClockErrorWithCell},
+    },
+    text_utils::Color,
 };
+
+use cider_serde::Dimensions;
+
 use baa::BitVecOps;
 use calyx_utils::{Error as CalyxError, MultiError as CalyxMultiError};
 use itertools::Itertools;
@@ -135,7 +135,7 @@ pub enum CiderError {
 
     /// A wrapper for serialization errors
     #[error(transparent)]
-    SerializationError(#[from] crate::serialization::SerializationError),
+    SerializationError(#[from] cider_serde::SerializationError),
 
     /// A nonspecific error, used for arbitrary messages
     #[error("{0}")]

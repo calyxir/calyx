@@ -1,0 +1,3 @@
+mem_read_a,f32,1
+mem_read_b,f32,1
+mem_write,f32,1

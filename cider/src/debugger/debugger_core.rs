@@ -28,7 +28,7 @@ use crate::{
         },
         text_utils::{Color, format_file_line, print_debugger_welcome},
     },
-    serialization::PrintCode,
+    formatting::PrintCode,
 };
 
 use std::{collections::HashSet, num::NonZeroU32, path::PathBuf, rc::Rc};

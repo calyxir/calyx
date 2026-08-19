@@ -53,20 +53,41 @@ while the 'interpreter' python equivalent to ``json_to_dat.py`` is still in-tree
 
 # future work
 
-- deprecate the ``bits`` typeclass or properly define it
-- dimensions: fixed-size vec instead of array
-- add an option to preserve shapes or entirely flatten higher-dim arrays?
-- support shape.json?
-- add 'real' cast functionality via ops: other than bitcasts, also support some value-preserving casts.
-- add 'guarded' constructors for TypeClass, fixed-point, which checks if values are permitted
-- some redundancy between the ``vbfp`` 'definition' of fixed-point and TypeSpec. probably get rid of this
+- functionality
+  - add 'real' cast functionality via ops: other than bitcasts, also support some value-preserving casts.
+  - add equivalents of ``write_string`` for ``std::format::Formatter`` (basically a display-like)
 
+- library work
+  - add 'guarded' constructors for TypeClass, fixed-point, which checks if values are permitted
+  - some redundancy between the ``vbfp`` 'definition' of fixed-point and TypeSpec. probably get rid of this
+  - endianness support is shoddy, ``Endian`` is not ``Copy``.
+  - deprecate the ``bits`` typeclass or properly define it
+  - solidify dimension handling rules (see flattened output section)
+
+- optimisation
+  - formats / ``num_ir``: there is still an excessive amount of string cleaning for hexstrings
+    - we can also use the width of a type to hint how many characters to read.
+  - unfortunately data still gets copied around. when serializing in particular there are areas where ``Strings`` are probably used unnecessarily.
+  - many other places
 
 - baa improvements / extensions:
   - mutable iterator to elements in the bitvec arrays? (or generally, more intuitive approaches to working with array values)
-  - 'batched' ops for bitvec arrays?
-    - as in, beyond a 'map' operation, is it posible to use pre-computed masks?
+  - ``Vec<BitVecValue>`` duplicates metadata for each ``BitVecValue``. find an alternative.
+  - smarter approaches to 'batching' an op over an array: how can we permit some data sharing while also limiting what a mutator can do to the array?
   - upstream a ``to_dec_str_signed`` function
 
-- ``formats`` crate could be cleaned up
-- toplevel dependencies could be cleaned up
+- json interface
+  - ``struson`` is streaming. better for memory efficiency when reading files. however, currently, reading json requires two passes through: one to read types, one to read data. it'd be nice to figure out an overall 'better' way of managing this
+  - ``struson``'s ``next_number_as_str`` is still pretty slow, not necessarily due to validity checks. i *think* it's because it goes byte-by-byte?
+  - find a better solution to ``stdin`` reads than copying it. 
+
+- plain csv format
+  - building off of the directory format, we could have CSVs to represent each memory rather than the hex ``.dat`` format
+  - this is very possible, but isn't a priority.
+
+## a note on flattened output
+
+(discuss why shaped output is bad. thus, will *read* shaped json, but will not produce it.)
+(shape will be retained when reading cider information to IR. ir also has support for writing it out. this is *not* necessary, though)
+
+(shape not retained when reading / writing dir, always 1d)

@@ -232,15 +232,9 @@ version = "0.1.0"
 dependencies = [
  "argh",
  "baa",
- "cider",
  "conv-formats",
- "itertools 0.14.0",
- "nom 7.1.3",
  "num-ir",
- "num-traits",
- "proptest",
  "serde",
- "serde_json",
  "thiserror 2.0.18",
 ]
 
@@ -253,6 +247,7 @@ dependencies = [
  "fraction",
  "num-bigint",
  "paste",
+ "rand 0.10.2",
  "serde",
 ]
 
@@ -431,8 +426,8 @@ dependencies = [
  "serde",
  "serde_with",
  "smallvec",
- "strum",
- "strum_macros",
+ "strum 0.28.0",
+ "strum_macros 0.28.0",
  "thiserror 2.0.18",
 ]
 
@@ -651,6 +646,7 @@ dependencies = [
  "calyx-utils",
  "ciborium",
  "cider-idx",
+ "cider-serde",
  "delegate",
  "fraction",
  "fst-writer",
@@ -665,7 +661,7 @@ dependencies = [
  "petgraph",
  "proptest",
  "rand 0.10.2",
- "rustyline",
+ "rustyline 17.0.2",
  "serde",
  "serde_json",
  "serde_with",
@@ -701,6 +697,17 @@ dependencies = [
  "proptest",
  "serde",
  "smallvec",
+]
+
+[[package]]
+name = "cider-serde"
+version = "0.1.0"
+dependencies = [
+ "ciborium",
+ "proptest",
+ "serde",
+ "smallvec",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -859,12 +866,12 @@ name = "conv-formats"
 version = "0.1.0"
 dependencies = [
  "baa",
- "cider",
- "nom 7.1.3",
+ "cider-serde",
  "num-ir",
  "proptest",
  "serde",
- "serde_json",
+ "smallvec",
+ "struson",
  "thiserror 2.0.18",
 ]
 
@@ -1168,14 +1175,10 @@ name = "data_gen"
 version = "0.1.0"
 dependencies = [
  "argh",
- "calyx-frontend",
- "calyx-ir",
- "calyx-opt",
- "calyx-utils",
- "lazy_static",
+ "baa",
+ "num-ir",
  "rand 0.10.2",
- "serde",
- "serde_json",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -1259,6 +1262,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "duplicate"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e92f10a49176cbffacaedabfaa11d51db1ea0f80a83c26e1873b43cd1742c24"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "proc-macro2-diagnostics",
 ]
 
 [[package]]
@@ -1385,6 +1399,14 @@ name = "find-msvc-tools"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
+
+[[package]]
+name = "fixed_cli"
+version = "0.7.1"
+dependencies = [
+ "num-ir",
+ "rustyline 18.0.1",
+]
 
 [[package]]
 name = "fixedbitset"
@@ -2002,9 +2024,9 @@ checksum = "09edd9e8b54e49e587e4f6295a7d29c3ea94d469cb40ab8ca70b288248a81db2"
 
 [[package]]
 name = "libc"
-version = "0.2.182"
+version = "0.2.189"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6800badb6cb2082ffd7b6a67e6125bb39f18782f793520caee8cb8846be06112"
+checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
 
 [[package]]
 name = "libloading"
@@ -2226,6 +2248,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "nix"
+version = "0.31.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf20d2fde8ff38632c426f1165ed7436270b44f199fc55284c38276f9db47c3d"
+dependencies = [
+ "bitflags 2.11.0",
+ "cfg-if",
+ "cfg_aliases",
+ "libc",
+]
+
+[[package]]
 name = "nom"
 version = "4.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2391,9 +2425,9 @@ name = "num-ir"
 version = "0.1.0"
 dependencies = [
  "baa",
- "itertools 0.14.0",
- "num-traits",
  "proptest",
+ "rand 0.10.2",
+ "smallvec",
  "thiserror 2.0.18",
 ]
 
@@ -2755,10 +2789,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "proptest"
-version = "1.10.0"
+name = "proc-macro2-diagnostics"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37566cb3fdacef14c0737f9546df7cfeadbfbc9fef10991038bf5015d0c80532"
+checksum = "af066a9c399a26e020ada66a034357a868728e72cd426f3adcd35f80d88d88c8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+ "version_check 0.9.5",
+]
+
+[[package]]
+name = "proptest"
+version = "1.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4b45fcc2344c680f5025fe57779faef368840d0bd1f42f216291f0dc4ace4744"
 dependencies = [
  "bit-set",
  "bit-vec",
@@ -3166,12 +3212,31 @@ dependencies = [
  "libc",
  "log",
  "memchr",
- "nix",
+ "nix 0.30.1",
  "radix_trie",
  "unicode-segmentation",
  "unicode-width 0.2.2",
  "utf8parse",
  "windows-sys 0.60.2",
+]
+
+[[package]]
+name = "rustyline"
+version = "18.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53f6a737db68eb1a8ccff86b584b2fc13eca6a7bb6f78ebc7c529547e3ab9684"
+dependencies = [
+ "bitflags 2.11.0",
+ "cfg-if",
+ "clipboard-win",
+ "libc",
+ "log",
+ "memchr",
+ "nix 0.31.3",
+ "unicode-segmentation",
+ "unicode-width 0.2.2",
+ "utf8parse",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3535,9 +3600,30 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "strum"
+version = "0.27.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
+dependencies = [
+ "strum_macros 0.27.2",
+]
+
+[[package]]
+name = "strum"
 version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9628de9b8791db39ceda2b119bbe13134770b56c138ec1d3af810d045c04f9bd"
+
+[[package]]
+name = "strum_macros"
+version = "0.27.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7695ce3845ea4b33927c055a39dc438a45b059f7c1b3d91d38d10355fb8cbca7"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
 
 [[package]]
 name = "strum_macros"
@@ -3549,6 +3635,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "struson"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a8eaaf563e9de627dadbe66ff8b7ef8f065fc69844c90ed6acdc90bdc9f0571"
+dependencies = [
+ "duplicate",
+ "serde_core",
+ "strum 0.27.2",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
