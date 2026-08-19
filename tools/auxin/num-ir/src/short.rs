@@ -176,7 +176,7 @@ mod tests {
     #[test]
     fn parse_fixed(s in "d[iu]", w in 1..i32::MAX, exp in any::<i32>()){
         // typenames wider than 64 are okay. but parsing a decimal wider than f64 might not
-        prop_assume!(exp <= (w as i32));
+        prop_assume!(exp <= w);
         let full = format!("{}{}:{}",s,w,exp);
         let t= TypeSpec::read_short_t(&full)?;
         prop_assert_eq!(t.class.clone(), TypeClass::Fixed{exp_mag: exp});

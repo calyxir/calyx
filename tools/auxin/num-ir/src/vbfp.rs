@@ -121,7 +121,6 @@ pub fn within_precision(fd: &FixedDef, expc: f64, got: &BitVecValue) -> bool {
 }
 
 #[cfg(test)]
-
 mod tests {
     use super::*;
 
@@ -200,12 +199,12 @@ mod tests {
                 exp_mag: 4,
                 signed: true
             };
-            let corr_fixed = fd.from_fp_rounded(f.into()).unwrap();
+            let corr_fixed = fd.from_fp_rounded(f).unwrap();
             let corr_bits = corr_fixed.to_u64().unwrap();
 
             prop_assert_eq!(corr_bits>> 4, 8);
             // due to two's complement, fractional bits should be zeroed
-            prop_assert_eq!(corr_bits & 0, 0);
+            prop_assert_eq!(corr_bits & 0xf, 0);
 
         }
 
