@@ -3,6 +3,7 @@ use crate::traversal::{
 };
 use calyx_ir::{self as ir, RRC};
 use itertools::Itertools;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 /// A data structure to track rewrites of ports with added functionality to declare
@@ -10,6 +11,7 @@ use std::rc::Rc;
 #[derive(Default, Clone)]
 struct WireRewriter {
     rewrites: ir::rewriter::PortRewriteMap,
+    visited: HashSet<ir::Canonical>, // If there are two or more occurences then we cannot safely inline
 }
 
 impl WireRewriter {
@@ -49,11 +51,19 @@ impl WireRewriter {
         dst: RRC<ir::Port>,
     ) {
         let wire_in = wire.borrow().get("in");
+        let wire_in_key = wire_in.borrow().canonical();
         log::debug!(
             "dst rewrite: {} -> {}",
-            wire_in.borrow().canonical(),
+            wire_in_key,
             dst.borrow().canonical(),
         );
+
+        // Already visited the wire, cannot safely inline, see issue #2437 for more details
+        //   Once we have explored a wire twice we add it to this set to make sure we dont check any other ones
+        if self.visited.contains(&wire_in_key) {
+            return;
+        }
+
         let old_v = self.insert(Rc::clone(&wire_in), dst);
 
         // If the insertion process found an old key, we have something like:
@@ -65,6 +75,9 @@ impl WireRewriter {
         // simple inlining will not work.
         if old_v.is_some() {
             self.remove(wire_in);
+
+            // To make sure we dont check this wire again, add to visited set, see #2437 for more details
+            self.visited.insert(wire_in_key);
         }
 
         // No forwading generated because the wire is used in dst position
@@ -119,7 +132,10 @@ impl WireRewriter {
                 (from.clone(), Rc::clone(final_to.unwrap_or(to)))
             })
             .collect();
-        Self { rewrites }
+        Self {
+            rewrites,
+            visited: HashSet::new(),
+        }
     }
 }
 
