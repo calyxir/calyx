@@ -3,6 +3,7 @@ mod convert;
 mod diagnostic;
 mod document;
 mod goto_definition;
+mod hover;
 mod log;
 mod query_result;
 mod ts_utils;
@@ -16,6 +17,7 @@ use convert::Point;
 use diagnostic::Diagnostic;
 use document::Document;
 use goto_definition::DefinitionProvider;
+use hover::HoverProvider;
 use query_result::QueryResult;
 use resolve_path::PathResolveExt;
 use serde::Deserialize;
@@ -204,7 +206,7 @@ impl LanguageServer for Backend {
                     completion_item: None,
                 }),
                 hover_provider: Some(lspt::HoverProviderCapability::Simple(
-                    false,
+                    true,
                 )),
                 ..Default::default()
             },
@@ -349,6 +351,25 @@ impl LanguageServer for Backend {
                     completions.into_iter().map(|ci| ci.into()).collect(),
                 )
             }))
+    }
+
+    /// LSP method: 'textDocument/hover'
+    async fn hover(
+        &self,
+        params: lspt::HoverParams,
+    ) -> jsonrpc::Result<Option<lspt::Hover>> {
+        let url = &params.text_document_position_params.text_document.uri;
+        let point: Point = params.text_document_position_params.position.into();
+        let config = self.config.read().unwrap();
+        Ok(self
+            .read_document(url, |doc| doc.hover(point.clone(), &config))
+            .and_then(|result| {
+                result.resolve(|result, path| {
+                    let url = lspt::Url::from_file_path(path).ok()?;
+                    self.read_and_open(&url, |doc| result.resume(&config, doc))
+                })
+            })
+            .map(Into::into))
     }
 
     /// LSP method: 'shutdown'
