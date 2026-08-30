@@ -55,12 +55,13 @@ pub trait DefinitionProvider {
     ) -> Option<DefRes> {
         match thing {
             Things::Cell(node, name) => self.find_cell(url, node, name),
+            Things::CellPort(..) => None,
             Things::SelfPort(node, name) => {
                 self.find_self_port(url, node, name)
             }
             Things::Group(node, name) => self.find_group(url, node, name),
             Things::Import(_node, name) => self.find_import(config, url, name),
-            Things::Component(name) => self.find_component(config, name),
+            Things::Component(_, name) => self.find_component(config, name),
         }
     }
 
