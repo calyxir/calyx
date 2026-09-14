@@ -32,9 +32,10 @@ use crate::{
         },
         text_utils::Color,
     },
+    formatting::PrintCode,
     logging::*,
-    serialization::{DataDump, MemoryDeclaration, PrintCode},
 };
+use cider_serde::{DataDump, MemoryDeclaration};
 use std::{
     collections::VecDeque,
     convert::Into,

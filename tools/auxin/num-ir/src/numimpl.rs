@@ -1,12 +1,12 @@
+//! implementation of additional features relating to number representation
+//!
+//! these largely have to do with reading a value in from a string, and writing a value to a string.
 use baa::{BitVecOps, BitVecValue};
 
 use crate::typing::{Endian, NumParseErr};
 use crate::vbfp::*;
 
-// implementation of additional features relating to number representation
-
 // the below read/write implementations are to make the implementations in TypeSpec more manageable
-// TODO: is it worth making specific, static variants of these?
 
 /// Determine if a string starts with ``0x``, and is thus a hex literal
 #[inline]
@@ -14,37 +14,29 @@ pub fn is_hexstring(s: &str) -> bool {
     s.starts_with("0x")
 }
 
-/// Read a string containing a hex literal into a [BitVecValue] of maximum width ``width``
+#[inline]
+fn rm_prefix<'a>(s: &'a str, pre: &str) -> Option<&'a str> {
+    s.trim_start().strip_prefix(pre)
+}
+
+/// Read a string containing a hex literal into a [BitVecValue] of maximum width ``width``. Discards leading ``0x``, if given.
 pub fn read_hexstring(
     s: &str,
     _end: Endian,
     width: usize,
 ) -> Result<baa::BitVecValue, NumParseErr> {
-    let Some(cleaned_str) = s.trim_start().strip_prefix("0x") else {
-        return Err(NumParseErr::HexRead(format!(
-            "could not strip prefix from {}",
-            s
-        )));
-    };
-    let Ok(val) = baa::BitVecValue::from_hex_str(cleaned_str) else {
-        return Err(NumParseErr::HexRead(format!(
-            "baa could not read {} as hex",
-            s
-        )));
-    };
-
-    if val.width() > (width as u32) {
-        return Err(NumParseErr::HexRead(format!(
-            "bad hexstring {}: incorrect width, not {}",
-            s, width
-        )));
+    let to_parse = rm_prefix(s, "0x").unwrap_or(s);
+    let v = baa::BitVecValue::from_str_radix(to_parse, 16, width as u32)
+        .map_err(|e| NumParseErr::Baa(s.to_string(), e))?;
+    if v.min_width() > (width as u32) {
+        return Err(NumParseErr::TooLarge(width));
     }
-    Ok(val)
+    Ok(v.slice((width - 1) as u32, 0))
 }
 
 /// Read a string containing a float literal into a [BitVecValue]. ``width`` must be 32 or 64, as only ``f32`` and ``f64`` are supported.
 pub fn float_read(
-    s: String,
+    s: &str,
     _end: Endian,
     width: usize,
 ) -> Result<baa::BitVecValue, NumParseErr> {
@@ -72,12 +64,9 @@ pub fn float_write(b: &baa::BitVecValue, _end: Endian, width: usize) -> String {
     }
 }
 
-// TODO: this conditional-heavy thing can probably be simplified
-// TODO: probably needs range checks
-
 /// Read a string containing an integer literal into a ``BitVecValue`` with max bit length ``width``. Interpret signs if the ``signed`` option is true, otherwise it is impossible to 'coerce' a negative number into an unsigned during this call.
 pub fn int_read(
-    s: String,
+    s: &str,
     _end: Endian,
     width: usize,
     signed: bool,
@@ -87,8 +76,12 @@ pub fn int_read(
             "found sign when parsing unsigned int".to_string(),
         ));
     }
-    BitVecValue::from_str_radix(&s, 10, width as u32)
-        .map_err(|e| NumParseErr::Baa(s, e))
+    let v = BitVecValue::from_str_radix(s, 10, width as u32)
+        .map_err(|e| NumParseErr::Baa(s.to_string(), e))?;
+    if v.min_width() > (width as u32) {
+        return Err(NumParseErr::TooLarge(width));
+    }
+    Ok(v.slice((width - 1) as u32, 0))
 }
 
 /// Interpret the contents of ``b`` as representing an integer of ``width`` bits. If ``signed`` is provided, treat as two's complement.
@@ -106,14 +99,20 @@ pub fn int_write(
     }
 }
 
-/// Read a string containing only 1, 0 into a [BitVecValue].
+/// Read a string containing only 1, 0 into a [BitVecValue]. Discards leading ``0b``, if given
 pub fn bits_read(
-    s: String,
+    s: &str,
     _end: Endian,
     width: usize,
 ) -> Result<BitVecValue, NumParseErr> {
-    BitVecValue::from_str_radix(&s, 2, width as u32)
-        .map_err(|e| NumParseErr::Baa(s, e))
+    let cleaned_str = rm_prefix(s, "0b").unwrap_or(s);
+
+    let v = BitVecValue::from_str_radix(cleaned_str, 2, width as u32)
+        .map_err(|e| NumParseErr::Baa(s.to_string(), e))?;
+    if v.min_width() > (width as u32) {
+        return Err(NumParseErr::TooLarge(width));
+    }
+    Ok(v.slice((width - 1) as u32, 0))
 }
 
 /// Write out the bits of ``b``, prefixed with ``0b``
@@ -122,9 +121,13 @@ pub fn bits_write(b: &BitVecValue, _end: Endian) -> String {
     format!("0b{}", b.to_bit_str())
 }
 
-/// Read a string containing a fixed-point literal into a [BitVecValue] with max bit length ``width``. Interpret signs if the ``signed`` option is included, otherwise it is impossible to 'coerce' a negative number into an unsigned during this call. ``exp_mag`` is used to control the factor by which ``f = float(s)`` is scaled, i.e. ``fixed = 2**exp_mag * f``
+/// Read a string containing a fixed-point literal into a [BitVecValue] with max bit length ``width``.
+///
+/// Interpret signs if the ``signed`` option is included, otherwise it is impossible to 'coerce' a negative number into an unsigned during this call.
+///
+/// ``exp_mag`` is used to control the factor by which ``f = float(s)`` is scaled, i.e. ``fixed = (2**exp_mag) * f``
 pub fn fixed_read(
-    s: String,
+    s: &str,
     _end: Endian,
     width: usize,
     signed: bool,
@@ -165,8 +168,7 @@ pub fn fixed_write(
     format!("{}", r)
 }
 
-// we can't always tell from bytes alone whether a number is 'correctly' typed, so instead just use same byteslice-based Thing for all of them
-
+// TODO: better semantics, maybe warn if b is too long rather than truncating?
 /// Read bytes ``b`` into a [BitVecValue] with number of bits ``width``.
 pub fn try_from_bytes(
     b: &[u8],
@@ -186,22 +188,11 @@ pub fn try_from_bytes(
 #[cfg(test)]
 mod tests {
 
-    // use crate::numrep::ReprType;
-
     use super::*;
-
-    // #[test]
-    // fn get_fixed_refs() {
-    //     let e = fixed::FixedI32::<fixed::types::extra::U16>::from_str("-0.5")
-    //         .unwrap();
-    //     println!("{:#x}", e.to_bits())
-    // }
 
     #[test]
     fn test_fixed_from_string() {
-        let result =
-            fixed_read(String::from("-0.5"), Endian::Little, 32, true, 16)
-                .unwrap();
+        let result = fixed_read("-0.5", Endian::Little, 32, true, 16).unwrap();
 
         // test by getting bits from -0.5 float directly using fixed
         let equiv_bits = 0xffff_8000_u32;
@@ -209,20 +200,6 @@ mod tests {
             try_from_bytes(&equiv_bits.to_le_bytes(), 32, Endian::Little)
                 .unwrap();
         assert_eq!(equiv, result)
-    }
-
-    #[test]
-    fn test_fixed_roundtrip() {
-        // attempt to roundtrip a value in bytes through the fixed expression
-        let orig_bits = 0x0000_8000_u32; // +0.5
-
-        let thru_bits =
-            try_from_bytes(&orig_bits.to_le_bytes(), 32, Endian::Little)
-                .unwrap();
-
-        let out_bits = thru_bits.to_u64().unwrap();
-
-        assert_eq!(orig_bits as u64, out_bits);
     }
 
     #[test]
@@ -250,8 +227,7 @@ mod tests {
         use std::str::FromStr;
         let ref_bits = f32::from_str("0.123").unwrap().to_bits();
 
-        let comp_bits =
-            float_read(String::from("0.123"), Endian::Little, 32).unwrap();
+        let comp_bits = float_read("0.123", Endian::Little, 32).unwrap();
         assert_eq!(ref_bits as u64, comp_bits.to_u64().unwrap());
     }
 
@@ -264,26 +240,14 @@ mod tests {
     }
 
     #[test]
-    fn test_int_roundtrip() {
-        let orig_bytes = (-1_i64).to_le_bytes();
-
-        let thru_bits =
-            try_from_bytes(&orig_bytes, 64, Endian::Little).unwrap();
-
-        assert_eq!(thru_bits.to_u64().unwrap(), u64::from_le_bytes(orig_bytes));
-    }
-
-    #[test]
     fn test_int_from_string() {
         let ref_bits = u64::from_str_radix("ffffffff", 16).unwrap();
         let comp_bits =
-            int_read(String::from("4294967295"), Endian::Little, 64, false)
-                .unwrap();
+            int_read("4294967295", Endian::Little, 64, false).unwrap();
         assert_eq!(ref_bits, comp_bits.to_u64().unwrap());
 
         let ref_bits = u64::MAX;
-        let comp_bits =
-            int_read(String::from("-1"), Endian::Little, 64, true).unwrap();
+        let comp_bits = int_read("-1", Endian::Little, 64, true).unwrap();
         assert_eq!(ref_bits, comp_bits.to_u64().unwrap());
     }
 
@@ -297,8 +261,42 @@ mod tests {
     #[test]
     fn test_bits_from_string() {
         let ref_bits = u64::from_str_radix("4", 16).unwrap();
-        let comp_bits =
-            bits_read(String::from("100"), Endian::Little, 64).unwrap();
+        let comp_bits = bits_read("0b100", Endian::Little, 64).unwrap();
         assert_eq!(ref_bits, comp_bits.to_u64().unwrap());
+    }
+
+    #[cfg(feature = "prop-utils")]
+    mod prop_tests {
+        use super::*;
+        use crate::props::*;
+        use proptest::prelude::*;
+        proptest! {
+        // the following roundtrip tests generate a random bitvec, attempt to serialise it, then read the result back.
+        // floats aren't tested because rounding will inevitably lead to the loss of some bits
+        #[test]
+        fn bits_roundtrip((v, width) in bitvec_width_max(128)){
+            let equiv_str = bits_write(&v, Endian::Little);
+            let read_back = bits_read(&equiv_str, Endian::Little, width as usize).unwrap();
+            prop_assert_eq!(v, read_back);
+        }
+
+        #[test]
+        fn int_roundtrip((v, width) in bitvec_width_max(128), signed in any::<bool>()){
+            let equiv_str = int_write(&v, Endian::Little, width as usize, signed);
+            let read_back = int_read(&equiv_str, Endian::Little, width as usize, signed).unwrap();
+            prop_assert_eq!(v, read_back);
+        }
+
+        // these are done with fixed exp_width for convenience.
+        // 50 is chosen to avoid overflowing f64
+        #[test]
+        fn fixed_roundtrip((v, width) in bitvec_width_max(50), signed in any::<bool>()){
+                let exp_width = width.saturating_sub(16) as i32;
+                let equiv_str = fixed_write(&v, Endian::Little, width as usize, signed, exp_width);
+            let read_back = fixed_read(&equiv_str, Endian::Little, width as usize, signed, exp_width).unwrap();
+            prop_assert_eq!(v, read_back);
+        }
+
+        }
     }
 }

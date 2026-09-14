@@ -4,23 +4,22 @@ use super::{
     Primitive, combinational::*, prim_trait::RaceDetectionPrimitive,
     stateful::*,
 };
-use crate::{
-    flatten::{
-        flat_ir::{
-            cell_prototype::{
-                CellPrototype, DoubleWidthType, FXType, MemType,
-                MemoryPrototype, SingleWidthType, TripleWidthType,
-            },
-            indexes::{CellDefinitionIdx, GlobalCellIdx, MemoryRegion},
-            prelude::GlobalPortIdx,
+use crate::flatten::{
+    flat_ir::{
+        cell_prototype::{
+            CellPrototype, DoubleWidthType, FXType, MemType, MemoryPrototype,
+            SingleWidthType, TripleWidthType,
         },
-        structures::{
-            context::Context,
-            environment::{CellLedger, MemoryMap, clock::ClockMap},
-        },
+        indexes::{CellDefinitionIdx, GlobalCellIdx, MemoryRegion},
+        prelude::GlobalPortIdx,
     },
-    serialization::DataDump,
+    structures::{
+        context::Context,
+        environment::{CellLedger, MemoryMap, clock::ClockMap},
+    },
 };
+
+use cider_serde::DataDump;
 
 use baa::BitVecValue;
 

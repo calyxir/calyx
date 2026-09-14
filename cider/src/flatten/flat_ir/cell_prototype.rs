@@ -1,9 +1,8 @@
 use calyx_ir::{self as cir, BoolAttr};
 use smallvec::SmallVec;
 
-use crate::{
-    flatten::primitives::utils::get_params, serialization::Dimensions,
-};
+use crate::flatten::primitives::utils::get_params;
+use cider_serde::Dimensions;
 
 use super::prelude::ComponentIdx;
 

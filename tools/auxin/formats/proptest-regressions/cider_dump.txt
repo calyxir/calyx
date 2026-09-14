@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 8ee173d14138bf6c00fa71d791917ee2ef7c3c5112aee8cd17a1f170f5e25f06 # shrinks to t = TypeSpec { width: 4294967296, signed: false, class: Bits }
+cc 6d3f6cd5b212a3c2209c3ac8cfdb6ca594e167568bace1f8b409978f8306bf14 # shrinks to t = TypeSpec { width: 1, signed: false, class: Bits }
