@@ -45,7 +45,7 @@ The fact that the multiplier has one `out` port while the divider has two is not
 
 The differences that _do_ matter are:
 - The `static` qualifier is used to declare the component as static and to specify its latency (3 cycles).
-- The `done` port is absent from the multiplier's signature.
+- The simplified signature above omits the `done` port. The actual `std_mult_pipe` primitive also has `clk`, `reset`, and `done` ports, but a client of a static component need not use them.
 
 A client of the multiplier must pass two inputs and raise the `go` signal as before.
 However, the client need not then wait for the component to indicate completion.
