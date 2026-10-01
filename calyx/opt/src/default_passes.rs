@@ -1,16 +1,17 @@
 //! Defines the default passes available to [PassManager].
 use crate::pass_manager::PassResult;
 use crate::passes::{
-    AddGuard, Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
-    CompileInvoke, CompileRepeat, CompileStatic, ComponentInliner,
-    ConstantPortProp, DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval,
-    DeadGroupRemoval, DefaultAssigns, Externalize, GoInsertion, GroupToInvoke,
-    GroupToSeq, InferShare, LowerGuards, MergeAssign, Papercut,
-    ProfilerInstrumentation, PropagateProtected, RemoveIds, ResetInsertion,
-    SimplifyStaticGuards, SimplifyWithControl, StaticFSMAllocation,
-    StaticFSMOpts, StaticInference, StaticInliner, StaticPromotion,
-    StaticRepeatFSMAllocation, SynthesisPapercut, TopDownCompileControl,
-    UniquefyEnables, UnrollBounded, WellFormed, WireInliner, WrapMain,
+    AddGuard, BankConflicts, Canonicalize, CellShare, ClkInsertion,
+    CollapseControl, CombProp, CompileInvoke, CompileRepeat, CompileStatic,
+    ComponentInliner, ConstantPortProp, DataPathInfer, DeadAssignmentRemoval,
+    DeadCellRemoval, DeadGroupRemoval, DefaultAssigns, Externalize,
+    GoInsertion, GroupToInvoke, GroupToSeq, InferShare, LowerGuards,
+    MergeAssign, Papercut, ProfilerInstrumentation, PropagateProtected,
+    RemoveIds, ResetInsertion, SimplifyStaticGuards, SimplifyWithControl,
+    StaticFSMAllocation, StaticFSMOpts, StaticInference, StaticInliner,
+    StaticPromotion, StaticRepeatFSMAllocation, SynthesisPapercut,
+    TopDownCompileControl, UniquefyEnables, UnrollBounded, WellFormed,
+    WireInliner, WrapMain,
 };
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
@@ -44,6 +45,7 @@ impl PassManager {
         pm.register_pass::<StaticPromotion>()?;
         pm.register_pass::<SimplifyStaticGuards>()?;
         pm.register_pass::<DataPathInfer>()?;
+        pm.register_pass::<BankConflicts>()?;
         pm.register_pass::<ExternalToRef>()?;
 
         // Compilation passes

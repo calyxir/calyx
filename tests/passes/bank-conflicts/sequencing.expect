@@ -1,0 +1,22 @@
+component seq_two_reads
+banks m 1
+assign m readA read 0
+assign m readB read 0
+component par_if_arms
+conflict m ra read wbase read
+conflict m rb read wbase read
+banks m 2
+assign m ra read 0
+assign m rb read 0
+assign m wbase read 1
+component unused_memory
+banks idle 1
+banks used 1
+assign used read_used read 0
+component multidim_memories
+banks idle 1
+banks m2 1
+banks s2 1
+assign m2 rd read 0
+assign s2 sq read 0
+component main

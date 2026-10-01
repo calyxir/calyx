@@ -1,0 +1,123 @@
+// -p bank-conflicts -x bank-conflicts:report=<out> -b none
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/memories/seq.futil";
+component seq_two_reads(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+  }
+  wires {
+    group readA {
+      m.addr0 = 3'd0;
+      r0.in = m.read_data;
+      r0.write_en = 1'd1;
+      readA[done] = r0.done;
+    }
+    group readB {
+      m.addr0 = 3'd1;
+      r1.in = m.read_data;
+      r1.write_en = 1'd1;
+      readB[done] = r1.done;
+    }
+  }
+  control {
+    seq {
+      readA;
+      readB;
+    }
+  }
+}
+component par_if_arms(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    flag = std_reg(1);
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+    r2 = std_reg(32);
+  }
+  wires {
+    group wbase {
+      m.addr0 = 3'd0;
+      r0.in = m.read_data;
+      r0.write_en = 1'd1;
+      wbase[done] = r0.done;
+    }
+    group ra {
+      m.addr0 = 3'd1;
+      r1.in = m.read_data;
+      r1.write_en = 1'd1;
+      ra[done] = r1.done;
+    }
+    group rb {
+      m.addr0 = 3'd2;
+      r2.in = m.read_data;
+      r2.write_en = 1'd1;
+      rb[done] = r2.done;
+    }
+  }
+  control {
+    par {
+      wbase;
+      if flag.out {
+        ra;
+      }
+      else {
+        rb;
+      }
+    }
+  }
+}
+component unused_memory(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    used = comb_mem_d1(32, 8, 3);
+    idle = comb_mem_d1(32, 8, 3);
+    r0 = std_reg(32);
+  }
+  wires {
+    group read_used {
+      used.addr0 = 3'd0;
+      r0.in = used.read_data;
+      r0.write_en = 1'd1;
+      read_used[done] = r0.done;
+    }
+  }
+  control {
+    read_used;
+  }
+}
+component multidim_memories(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m2 = comb_mem_d2(32, 4, 4, 3, 3);
+    idle = comb_mem_d2(32, 4, 4, 3, 3);
+    s2 = seq_mem_d2(32, 4, 4, 3, 3);
+    r0 = std_reg(32);
+  }
+  wires {
+    group sq {
+      s2.addr0 = 3'd0;
+      s2.addr1 = 3'd1;
+      s2.content_en = 1'd1;
+      sq[done] = s2.done;
+    }
+    group rd {
+      m2.addr0 = 3'd0;
+      m2.addr1 = 3'd1;
+      r0.in = m2.read_data;
+      r0.write_en = 1'd1;
+      rd[done] = r0.done;
+    }
+  }
+  control {
+    seq {
+      rd;
+      sq;
+    }
+  }
+}
+component main() -> () {
+  cells {}
+  wires {}
+  control {}
+}
