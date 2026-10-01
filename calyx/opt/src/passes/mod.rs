@@ -1,4 +1,5 @@
 //! Passes for the Calyx compiler.
+mod bank_conflicts;
 mod canonical;
 mod cell_share;
 mod clk_insertion;
@@ -46,6 +47,7 @@ mod well_formed;
 mod wire_inliner;
 mod wrap_main;
 
+pub use bank_conflicts::BankConflicts;
 pub use canonical::Canonicalize;
 pub use cell_share::CellShare;
 pub use clk_insertion::ClkInsertion;

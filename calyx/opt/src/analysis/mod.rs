@@ -3,6 +3,9 @@
 //! The analyses construct data-structures that make answering certain queries
 //! about Calyx programs easier.
 
+mod access_simultaneity;
+mod bank_conflict;
+mod bank_report;
 mod compaction_analysis;
 mod compute_static;
 mod control_id;
@@ -15,6 +18,8 @@ mod graph;
 mod graph_coloring;
 mod inference_analysis;
 mod live_range_analysis;
+mod loop_dependence;
+mod memory_access;
 mod port_interface;
 mod promotion_analysis;
 pub mod reaching_defns;
@@ -26,6 +31,11 @@ mod static_par_timing;
 mod static_tree;
 mod variable_detection;
 
+pub use bank_conflict::BankConflictAnalysis;
+pub use bank_report::{
+    AccessKind, AccessSite, BankAssignment, BankReport, DepKind, MemoryBanks,
+    MemoryConflict, MemoryDependence,
+};
 pub use compaction_analysis::CompactionAnalysis;
 pub use compute_static::IntoStatic;
 pub use compute_static::WithStatic;
