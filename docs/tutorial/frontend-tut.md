@@ -35,6 +35,18 @@ This short program shows off all of MrXL's features, so let's pick it apart line
 
 > If you are going through this tutorial in the [Docker container][docker], you can skip these installation steps and jump to [*Running MrXL*][running-mrxl-example] just below.
 
+Install the `mrxl` binary, together with the [`builder` library][calyx-py-lib] it depends on, by running this command from the repository root (you will need [uv][]):
+
+```
+uv tool install --editable ./frontends/mrxl --with-editable ./calyx-py
+```
+
+Since both packages are installed in uv's [editable mode](https://docs.astral.sh/uv/pip/packages/#editable-packages), 
+changes you make to the `mrxl` source as you follow this tutorial will take effect immediately (i.e., you don't need to reinstall `mrxl`).
+
+(Note: if you get a warning saying that `mrxl` is not on your `PATH`, try running `uv tool update-shell`, then restart your shell.)
+
+
 First, install the [`builder` library][calyx-py-lib] by typing the following command from the repository root:
 ```
 cd calyx-py && flit install -s && cd -
@@ -205,7 +217,7 @@ For `map` operations, we'll perform a computation on every element of an input a
 We can use Calyx's [while loops][lf-while] to do this.
 At a high level, we want to generate the following pieces of hardware:
 1. A register to store the current value of the loop index.
-2. A comparator to check of the loop index is less than the array size.
+2. A comparator to check if the loop index is less than the array size.
 3. An adder to increment the value of the index.
 4. Whatever hardware is needed to implement the loop body computation.
 
@@ -473,3 +485,4 @@ This transformation is achieved using a [`fud2`][fud2] pass that converts MrXL-n
 [running-mrxl-example]: #running-mrxl
 [mymap-stub]: https://github.com/calyxir/calyx/blob/master/frontends/mrxl/mrxl/gen_calyx.py#L171-L191
 [banking-need]: #memory-banking
+[uv]: https://docs.astral.sh/uv/
