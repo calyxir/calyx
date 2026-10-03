@@ -46,5 +46,5 @@ fud2 examples/futil/multi-component.futil --to vcd -s sim.data=empty.json
 ```
 
 (Note: we need to first create an empty JSON file `empty.json`, as fud2 expects 
-a JSON data file for simulation even when the design has no memories -- an empty 
-JSOn file suffices in this case.)
+a JSON data file for simulation even when the design has no memories; an empty 
+JSON file suffices here.)
