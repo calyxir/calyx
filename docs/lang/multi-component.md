@@ -39,7 +39,12 @@ we don't have to set the `go` signal of the component to high because we
 don't need to save a new value into it.
 The component executes the two groups in-order.
 
-To see the output from running this component, run the command:
+To see the output from running this component, run the following:
 ```
-fud2 examples/futil/multi-component.futil --to vcd
+echo '{}' > empty.json
+fud2 examples/futil/multi-component.futil --to vcd -s sim.data=empty.json 
 ```
+
+(Note: we need to first create an empty JSON file `empty.json`, as fud2 expects 
+a JSON data file for simulation even when the design has no memories -- an empty 
+JSOn file suffices in this case.)
