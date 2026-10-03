@@ -196,6 +196,6 @@ Congratulations! You've simulated your first hardware design with Calyx.
 [core-lib]: https://github.com/calyxir/calyx/blob/master/primitives/core.futil
 [calyx-docker]: https://github.com/calyxir/calyx/pkgs/container/calyx
 [hw-design]: ./intro.md#running-a-hardware-design
-[auxin]: ../tools/auxin/README.md
+[auxin]: https://github.com/calyxir/calyx/tree/main/tools/auxin
 [vi]: https://en.wikipedia.org/wiki/Vi_(text_editor)
 [uv]: https://docs.astral.sh/uv/

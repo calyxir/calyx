@@ -40,14 +40,23 @@ We'll fill these sections up minimally in the next sections.
 ## A Memory Cell
 
 Let's turn our skeleton into a tiny, nearly no-op Calyx program.
-We'll start by adding a memory component to the cells:
+
+First, we add an extra `import` statement to import a library for memories supporting 
+combinational (same-cycle) reads:
+
+```
+import "primitives/memories/comb.futil";
+```
+
+Then, we'll add a memory component to the cells:
 
 ```
 {{#include ../../examples/tutorial/language-tutorial-mem.futil:cells}}
 ```
 
 This new line declares a new cell called `mem` and the primitive component `comb_mem_d1` represents a 1D memory.
-You can see the definition of `comb_mem_d1`, and all the other standard components, in the `primitives/core.futil` library we imported.
+You can see the definition of `comb_mem_d1` in the `primitives/memories/comb.futil` library we imported.
+(The definition of other standard components are visible in `primitives/core.futil`.)
 
 This one has three parameters:
 the data width (here, 32 bits),
@@ -143,6 +152,9 @@ But now we're controlling things with an execution schedule.
 If you're curious to see how the Calyx compiler lowers this program to a Verilog-like structural form of Calyx, you can do this:
 
     calyx language-tutorial-mem.futil
+
+(Note: if you installed Calyx from source, you'll need to first build the compiler by doing `cargo build`, 
+then execute the compiler binary on this program by doing `./target/debug/calyx language-tutorial-mem.futil`.)
 
 Notably, you'll see `control {}` in the output, meaning that the compiler has eliminated all the control statements and replaced them with continuous assignments in `wires`.
 
@@ -256,7 +268,7 @@ the condition can be run combinationally:
 By comparing with 8, we should now be running our loop body 8 times.
 
 Try running this program again.
-The output should be the result of adding 4 to the initial value 8 times, so 10 + 8 × 4.
+The output should be the result of adding 4 to the initial value 8 times, so 10 + 8 × 4, which is 42.
 
 > The complete program for this section is available under [examples/tutorial/language-tutorial-iterate.futil](https://github.com/calyxir/calyx/blob/master/examples/tutorial/language-tutorial-iterate.futil).
 
