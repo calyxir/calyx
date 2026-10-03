@@ -113,12 +113,14 @@ Install fud2 using Cargo:
 
     cargo install --path fud2
 
-fud2 requires [Ninja][] and [uv][], so install those if you don't already have them.
+fud2 requires [Ninja][] and [uv][uv], so install those if you don't already have them.
 For example, use `brew install ninja uv` on macOS or `apt-get install ninja-build` followed by `curl -LsSf https://astral.sh/uv/install.sh | sh` on Debian/Ubuntu.
 
 Configure fud2 by typing:
 
-    fud2 config edit
+    fud2 config edit -e vi 
+
+(The `-e vi` argument tells `fud2` to open the config file in [vi][vi]; if you want, you can replace `vi` with another editor.)
 
 And put this in the resulting TOML file:
 
@@ -154,7 +156,9 @@ You could consider:
 
 ## Running a Hardware Design
 
-You're all set to run a Calyx hardware design now. Run the following command:
+You're all set to run a Calyx hardware design now. 
+
+First, run `cargo build -p auxin` to build [Auxin][auxin], our data conversion tool. Then, run the following command:
 
 ```
 fud2 examples/tutorial/language-tutorial-iterate.futil \
@@ -192,3 +196,6 @@ Congratulations! You've simulated your first hardware design with Calyx.
 [core-lib]: https://github.com/calyxir/calyx/blob/master/primitives/core.futil
 [calyx-docker]: https://github.com/calyxir/calyx/pkgs/container/calyx
 [hw-design]: ./intro.md#running-a-hardware-design
+[auxin]: ../tools/auxin/README.md
+[vi]: https://en.wikipedia.org/wiki/Vi_(text_editor)
+[uv]: https://docs.astral.sh/uv/
