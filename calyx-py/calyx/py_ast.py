@@ -55,9 +55,7 @@ class FileTable:
 
 class PosTable:
     counter: int = 0
-    table: dict[
-        tuple[int, int], int
-    ] = {}  # contents: (fileid, linenum) -> positionId  # noqa: RUF012
+    table: dict[tuple[int, int], int] = {}  # contents: (fileid, linenum) -> positionId  # noqa: RUF012
 
     @staticmethod
     def determine_source_loc() -> int | None:
