@@ -47,8 +47,10 @@ pub enum Things<'a> {
     Cell(ts::Node<'a>, String),
     /// Identifier referring to a port
     SelfPort(ts::Node<'a>, String),
+    /// Identifier referring to a port on a cell
+    CellPort(ts::Node<'a>, String, String),
     /// Identifier refeferring to a component
-    Component(String),
+    Component(ts::Node<'a>, String),
     /// Identifier referring to a group
     Group(ts::Node<'a>, String),
     /// Mainly a way to test jumping to other files. How does this work with LSP?
@@ -397,11 +399,29 @@ impl Document {
     pub fn thing_at_point(&self, point: Point) -> Option<Things<'_>> {
         self.node_at_point(&point).and_then(|node| {
             if node.parent().is_some_and(|p| p.kind() == "port") {
-                // when our parent is a port and we have a next sibling
-                // we are looking at a cell. if we don't have a next
-                // sibling, we are looking at a port on our current component
-                if node.next_sibling().is_some() {
-                    Some(Things::Cell(node, self.node_text(&node).to_string()))
+                let parent = node.parent().unwrap();
+                // p.in -> (port (ident) @cell "." (ident) @port)
+                // in -> (port (ident) @port)
+                if parent.named_child_count() == 2 {
+                    let cell = parent.named_child(0)?;
+                    let port = parent.named_child(1)?;
+                    // Cursor is over the cell
+                    if node.id() == cell.id() {
+                        Some(Things::Cell(
+                            node,
+                            self.node_text(&node).to_string(),
+                        ))
+                    // Cursor is over the port
+                    } else if node.id() == port.id() {
+                        Some(Things::CellPort(
+                            node,
+                            self.node_text(&cell).to_string(),
+                            self.node_text(&node).to_string(),
+                        ))
+                    // Cursor is over the anonymous "."
+                    } else {
+                        None
+                    }
                 } else if node.prev_sibling().is_none() {
                     Some(Things::SelfPort(
                         node,
@@ -417,7 +437,8 @@ impl Document {
             } else if node.parent().is_some_and(|p| p.kind() == "hole") {
                 // if we are looking at the first part of a hole, we are looking
                 // at a group name
-                if node.next_sibling().is_some() {
+                if node.kind() == "ident" && node.next_named_sibling().is_some()
+                {
                     Some(Things::Group(node, self.node_text(&node).to_string()))
                 } else {
                     None
@@ -428,7 +449,7 @@ impl Document {
             } else if node.parent().is_some_and(|p| p.kind() == "instantiation")
             {
                 // inside a cell instantiation, we are looking at a component
-                Some(Things::Component(self.node_text(&node).to_string()))
+                Some(Things::Component(node, self.node_text(&node).to_string()))
             } else if node.parent().is_some_and(|p| p.kind() == "import") {
                 // inside an import, we are ofc looking at an import
                 Some(Things::Import(
