@@ -1,70 +1,16 @@
 use argh::FromArgs;
-use cider::serialization::{DataDump, SerializationError};
-use conv_formats::filerep::HintedTryToIR;
-use core::str;
 use num_ir::typing;
 use std::{
-    fs::File,
-    io::{self, Read, Write},
     path::{Path, PathBuf},
     str::FromStr,
 };
-use thiserror::Error;
+
+mod io;
+use crate::io::AuxinError;
 
 const JSON_EXTENSION: &str = "data";
 const CIDER_EXTENSION: &str = "dump";
 const DAT_EXTENSION: &str = "dat";
-
-#[derive(Error)]
-enum CiderDataConverterError {
-    #[error("Failed to read file: {0}")]
-    IoError(#[from] std::io::Error),
-
-    #[error("Failed to parse \"to\" argument: {0}")]
-    BadToArgument(String),
-
-    #[error("internal: {0}")]
-    BadInternal(String),
-
-    #[error("Bad input target. Specify manually?")]
-    BadInTarget,
-
-    #[error(
-        "Unable to guess the conversion target. Please specify the target using the \"--to\" argument"
-    )]
-    UnknownTarget,
-
-    #[error(transparent)]
-    SerdeError(#[from] serde_json::Error),
-
-    #[error(transparent)]
-    DataDumpError(#[from] SerializationError),
-
-    #[error(
-        "Missing output path. This is required for the \"to dat\" conversion"
-    )]
-    MissingDatOutputPath,
-    // #[error("Output path for \"to dat\" exists but it is a file")]
-    // DatOutputPathIsFile,
-}
-
-impl std::fmt::Debug for CiderDataConverterError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{self}")
-    }
-}
-
-impl From<conv_formats::filerep::FileFmtErr> for CiderDataConverterError {
-    fn from(value: conv_formats::filerep::FileFmtErr) -> Self {
-        Self::BadInternal(format!("filefmt: {value}"))
-    }
-}
-
-impl From<typing::OpError> for CiderDataConverterError {
-    fn from(value: typing::OpError) -> Self {
-        Self::BadInternal(format!("typing / conversion: {value}"))
-    }
-}
 
 /// What are we converting the input to
 #[derive(Debug, Clone, Copy)]
@@ -78,7 +24,7 @@ enum Formats {
 }
 
 impl FromStr for Formats {
-    type Err = CiderDataConverterError;
+    type Err = io::AuxinError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
@@ -87,7 +33,7 @@ impl FromStr for Formats {
             "dat" | "verilog-dat" | "verilog" | "verilator" | "icarus" => {
                 Ok(Formats::Dat)
             }
-            _ => Err(CiderDataConverterError::BadToArgument(s.to_string())),
+            _ => Err(io::AuxinError::ToArgErr(s.to_string())),
         }
     }
 }
@@ -125,6 +71,7 @@ struct Opts {
     #[argh(default = "String::from(DAT_EXTENSION)")]
     file_extension: String,
 }
+// TODO: maybe protect the file_extension? / separate read and write
 
 // TODO: not having round_float may present problems
 // TODO: not having use_quotes may present problems
@@ -141,49 +88,47 @@ fn infer_format(path: &Path) -> Option<Formats> {
     }
 }
 
-fn main() -> Result<(), CiderDataConverterError> {
+fn main() -> Result<(), AuxinError> {
     let mut opts: Opts = argh::from_env();
 
     if opts.input_format.is_none() {
         let Some(ref p) = opts.input_path else {
-            return Err(CiderDataConverterError::BadInTarget);
+            return Err(AuxinError::UnknownIn);
         };
         opts.input_format = infer_format(p);
     }
     if opts.output_format.is_none() {
         let Some(ref p) = opts.output_path else {
-            return Err(CiderDataConverterError::UnknownTarget);
+            return Err(AuxinError::UnknownTarget);
         };
         opts.output_format = infer_format(p);
     }
 
-    use conv_formats::filerep::{FileIO, TryFromIR};
-
     let Some(in_fmt) = opts.input_format else {
-        return Err(CiderDataConverterError::BadInTarget);
+        return Err(AuxinError::UnknownIn);
+    };
+
+    let Some(out_fmt) = opts.output_format else {
+        return Err(AuxinError::UnknownTarget);
     };
 
     let mut loaded_ir = match in_fmt {
         Formats::Json => {
-            let input = get_read_handle(&opts)?;
-            let parsed_json = conv_formats::json::JsonData::read_into(input)?;
-            parsed_json.hinted_try_to_ir()?
+            let jh = conv_formats::json::JsonHandler { out_hex: false };
+            io::file_read(&jh, &opts.input_path, "json")?
         }
         Formats::Dat => {
             // TODO: default 'dat' into untyped
-            // NOTE: if a header does not exist, this will fail!
             let Some(ref path) = opts.input_path else {
-                return Err(CiderDataConverterError::UnknownTarget);
+                return Err(AuxinError::UnknownTarget);
             };
-            use conv_formats::filerep::DirIO;
-            let dump =
-                DataDump::read_into_dir(path, opts.file_extension.clone())?;
-            dump.hinted_try_to_ir()?
+
+            let dh = conv_formats::dat_dir::DirHandler;
+            io::dir_read(&dh, path, opts.file_extension.clone())?
         }
         Formats::DataDump => {
-            let input = get_read_handle(&opts)?;
-            let parsed_dump = DataDump::read_into(input)?;
-            parsed_dump.hinted_try_to_ir()?
+            let ch = conv_formats::cider_dump::CiderHandler;
+            io::file_read(&ch, &opts.input_path, "data_dump")?
         }
     };
 
@@ -201,60 +146,24 @@ fn main() -> Result<(), CiderDataConverterError> {
         }
     }
 
-    let Some(out_fmt) = opts.output_format else {
-        return Err(CiderDataConverterError::UnknownTarget);
-    };
-
     match out_fmt {
         Formats::Json => {
-            let jd = if opts.hex {
-                conv_formats::json::JsonData::try_from_ir_fmt(
-                    loaded_ir,
-                    &conv_formats::filerep::OutputOpts { print_hex: true },
-                )?
-            } else {
-                conv_formats::json::JsonData::try_from_ir(loaded_ir)?
-            };
-            let output = get_output_handle(&opts)?;
-            jd.write_out(output)?;
+            let jh = conv_formats::json::JsonHandler { out_hex: opts.hex };
+            io::file_write(&jh, loaded_ir, &opts.output_path, "json")?
         }
         Formats::Dat => {
-            if opts.output_path.is_none() {
-                return Err(CiderDataConverterError::MissingDatOutputPath);
-            }
-            let dd = DataDump::try_from_ir(loaded_ir)?;
-            use conv_formats::filerep::DirIO;
-            dd.write_out_dir(&opts.output_path.unwrap(), opts.file_extension)?;
+            let Some(p) = opts.output_path else {
+                return Err(AuxinError::MissingDatOutputPath);
+            };
+
+            let dh = conv_formats::dat_dir::DirHandler;
+            io::dir_write(&dh, loaded_ir, &p, opts.file_extension.clone())?;
         }
         Formats::DataDump => {
-            let output = get_output_handle(&opts)?;
-            let dd = DataDump::try_from_ir(loaded_ir)?;
-
-            dd.write_out(output)?;
+            let ch = conv_formats::cider_dump::CiderHandler;
+            io::file_write(&ch, loaded_ir, &opts.output_path, "data_dump")?
         }
     }
 
     Ok(())
-}
-
-fn get_output_handle(
-    opts: &Opts,
-) -> Result<Box<dyn Write>, CiderDataConverterError> {
-    let output: Box<dyn Write> = opts
-        .output_path
-        .as_ref()
-        .map(|path| File::create(path).map(|x| Box::new(x) as Box<dyn Write>))
-        .unwrap_or(Ok(Box::new(io::stdout())))?;
-    Ok(output)
-}
-
-fn get_read_handle(
-    opts: &Opts,
-) -> Result<Box<dyn Read>, CiderDataConverterError> {
-    let input: Box<dyn Read> = opts
-        .input_path
-        .as_ref()
-        .map(|path| File::open(path).map(|x| Box::new(x) as Box<dyn Read>))
-        .unwrap_or(Ok(Box::new(io::stdin())))?;
-    Ok(input)
 }

@@ -1,0 +1,17 @@
+[package]
+name = "cider-serde"
+version = "0.1.0"
+authors = ["The Calyx authors"]
+edition.workspace = true
+rust-version.workspace = true
+
+
+
+[dependencies]
+smallvec = { workspace = true, features = ["union", "const_generics"] }
+serde = { workspace = true, features = ["derive"] }
+thiserror.workspace = true
+ciborium = "0.2"
+
+[dev-dependencies]
+proptest = "1.0"

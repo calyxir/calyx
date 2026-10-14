@@ -17,7 +17,7 @@ use crate::{
         },
         text_utils::Color,
     },
-    serialization::{PrintCode, format_row},
+    formatting::{PrintCode, format_row},
 };
 
 use cider_idx::impl_index;

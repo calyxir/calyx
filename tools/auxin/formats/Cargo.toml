@@ -6,14 +6,17 @@ edition.workspace = true
 version = "0.1.0"
 
 [dependencies]
-cider.workspace = true
+cider-serde.workspace = true
 serde.workspace = true
-serde_json = { workspace = true , features = ["arbitrary_precision"]}
 
 thiserror.workspace = true
-nom = "7.1"
 num-ir = {path = "../num-ir"}
 baa.workspace = true
+smallvec.workspace = true
+struson = { version = "0.7.2", features = ["serde"] }
+
+
 
 [dev-dependencies]
-proptest = "1.0.0"
+proptest = "1.11.0"
+num-ir = {path = "../num-ir", features = ["prop-utils"]}

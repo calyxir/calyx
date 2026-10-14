@@ -9,7 +9,7 @@ use crate::{
         environment::clock::{ClockPair, TransitiveSet},
         thread::ThreadIdx,
     },
-    serialization::PrintCode,
+    formatting::PrintCode,
 };
 use baa::{BitVecOps, BitVecValue};
 use cider_idx::{IndexRef, impl_index, impl_index_nonzero, iter::IndexRange};

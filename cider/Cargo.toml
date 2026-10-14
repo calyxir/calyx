@@ -15,6 +15,7 @@ data-race-stats = []
 [dependencies]
 smallvec = { workspace = true, features = ["union", "const_generics"] }
 serde = { workspace = true, features = ["derive", "rc"] }
+cider-serde.workspace = true
 itertools.workspace = true
 pest.workspace = true
 pest_derive.workspace = true
