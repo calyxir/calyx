@@ -1,0 +1,240 @@
+// -p bank-conflicts -x bank-conflicts:report=<out> -b none
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/memories/seq.futil";
+component while_raw_war(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    flag = std_reg(1);
+    r0 = std_reg(32);
+  }
+  wires {
+    group wbody {
+      m.addr0 = 3'd0;
+      m.write_data = 32'd1;
+      m.write_en = 1'd1;
+      wbody[done] = m.done;
+    }
+    group rbody {
+      m.addr0 = 3'd0;
+      r0.in = m.read_data;
+      r0.write_en = 1'd1;
+      rbody[done] = r0.done;
+    }
+  }
+  control {
+    while flag.out {
+      seq {
+        wbody;
+        rbody;
+      }
+    }
+  }
+}
+component while_reads_only(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    flag = std_reg(1);
+    r0 = std_reg(32);
+  }
+  wires {
+    group rbody {
+      m.addr0 = 3'd0;
+      r0.in = m.read_data;
+      r0.write_en = 1'd1;
+      rbody[done] = r0.done;
+    }
+  }
+  control {
+    while flag.out {
+      rbody;
+    }
+  }
+}
+component repeat_raw_war(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    r0 = std_reg(32);
+  }
+  wires {
+    group wbody {
+      m.addr0 = 3'd0;
+      m.write_data = 32'd1;
+      m.write_en = 1'd1;
+      wbody[done] = m.done;
+    }
+    group rbody {
+      m.addr0 = 3'd0;
+      r0.in = m.read_data;
+      r0.write_en = 1'd1;
+      rbody[done] = r0.done;
+    }
+  }
+  control {
+    repeat 3 {
+      seq {
+        wbody;
+        rbody;
+      }
+    }
+  }
+}
+component repeat_once(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    r0 = std_reg(32);
+  }
+  wires {
+    group wbody {
+      m.addr0 = 3'd0;
+      m.write_data = 32'd1;
+      m.write_en = 1'd1;
+      wbody[done] = m.done;
+    }
+    group rbody {
+      m.addr0 = 3'd0;
+      r0.in = m.read_data;
+      r0.write_en = 1'd1;
+      rbody[done] = r0.done;
+    }
+  }
+  control {
+    repeat 1 {
+      seq {
+        wbody;
+        rbody;
+      }
+    }
+  }
+}
+component static_repeat_raw_war(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    r0 = std_reg(32);
+  }
+  wires {
+    static<1> group wbody {
+      m.addr0 = 3'd0;
+      m.write_data = 32'd1;
+      m.write_en = 1'd1;
+    }
+    static<1> group rbody {
+      m.addr0 = 3'd0;
+      r0.in = m.read_data;
+      r0.write_en = 1'd1;
+    }
+  }
+  control {
+    static repeat 3 {
+      static seq {
+        wbody;
+        rbody;
+      }
+    }
+  }
+}
+component static_repeat_once(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 4, 2);
+  }
+  wires {
+    static<1> group wbody {
+      m.addr0 = 2'd0;
+      m.write_data = 32'd1;
+      m.write_en = 1'd1;
+    }
+    static<1> group rbody {
+      m.addr0 = 2'd0;
+    }
+  }
+  control {
+    static repeat 1 {
+      static seq {
+        wbody;
+        rbody;
+      }
+    }
+  }
+}
+component nested_repeat(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+  }
+  wires {
+    group w {
+      m.addr0 = 3'd0;
+      m.write_data = 32'd1;
+      m.write_en = 1'd1;
+      w[done] = m.done;
+    }
+  }
+  control {
+    repeat 2 {
+      repeat 2 {
+        w;
+      }
+    }
+  }
+}
+component repeat_two_writes(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+  }
+  wires {
+    group wa {
+      m.addr0 = 3'd0;
+      m.write_data = 32'd1;
+      m.write_en = 1'd1;
+      wa[done] = m.done;
+    }
+    group wb {
+      m.addr0 = 3'd1;
+      m.write_data = 32'd2;
+      m.write_en = 1'd1;
+      wb[done] = m.done;
+    }
+  }
+  control {
+    repeat 2 {
+      seq {
+        wa;
+        wb;
+      }
+    }
+  }
+}
+component dependence_per_memory(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    n = comb_mem_d1(32, 8, 3);
+    r = std_reg(32);
+    flag = std_reg(1);
+  }
+  wires {
+    group wm {
+      m.addr0 = 3'd0;
+      m.write_data = 32'd1;
+      m.write_en = 1'd1;
+      wm[done] = m.done;
+    }
+    group rn {
+      n.addr0 = 3'd0;
+      r.in = n.read_data;
+      r.write_en = 1'd1;
+      rn[done] = r.done;
+    }
+  }
+  control {
+    while flag.out {
+      seq {
+        wm;
+        rn;
+      }
+    }
+  }
+}
+component main() -> () {
+  cells {}
+  wires {}
+  control {}
+}

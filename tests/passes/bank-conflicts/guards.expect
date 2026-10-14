@@ -1,0 +1,31 @@
+component complementary_writes
+banks m 1
+assign m wf write 0
+assign m wt write 0
+component complementary_write_read
+banks m 1
+assign m ga write 0
+assign m gb read 0
+component union_guard_write
+conflict m ga write gb read
+banks m 2
+assign m ga write 0
+assign m gb read 1
+component union_guard_seq_read
+conflict m ga read gb read
+banks m 2
+assign m ga read 0
+assign m gb read 1
+component comb_read_guards
+banks m 1
+assign m rf read 0
+assign m rt read 0
+component seq_read_guards
+banks m 1
+assign m rf read 0
+assign m rt read 0
+component seq_write_guards
+banks m 1
+assign m wf write 0
+assign m wt write 0
+component main

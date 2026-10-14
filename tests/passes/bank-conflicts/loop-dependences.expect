@@ -1,0 +1,51 @@
+component while_raw_war
+banks m 1
+assign m rbody read 0
+assign m wbody write 0
+dep m war rbody read wbody write
+dep m raw wbody write rbody read
+dep m waw wbody write wbody write
+component while_reads_only
+banks m 1
+assign m rbody read 0
+component repeat_raw_war
+banks m 1
+assign m rbody read 0
+assign m wbody write 0
+dep m war rbody read wbody write
+dep m raw wbody write rbody read
+dep m waw wbody write wbody write
+component repeat_once
+banks m 1
+assign m rbody read 0
+assign m wbody write 0
+component static_repeat_raw_war
+banks m 1
+assign m rbody read 0
+assign m wbody write 0
+dep m war rbody read wbody write
+dep m raw wbody write rbody read
+dep m waw wbody write wbody write
+component static_repeat_once
+banks m 1
+assign m rbody read 0
+assign m wbody write 0
+component nested_repeat
+banks m 1
+assign m w write 0
+dep m waw w write w write
+component repeat_two_writes
+banks m 1
+assign m wa write 0
+assign m wb write 0
+dep m waw wa write wa write
+dep m waw wa write wb write
+dep m waw wb write wa write
+dep m waw wb write wb write
+component dependence_per_memory
+banks m 1
+banks n 1
+assign m wm write 0
+assign n rn read 0
+dep m waw wm write wm write
+component main
