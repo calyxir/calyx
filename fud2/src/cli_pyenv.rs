@@ -1,4 +1,4 @@
-use std::{fs, process::Command};
+use std::{fs, path::PathBuf, process::Command};
 
 use argh::{CommandInfo, FromArgs};
 use fud_core::{
@@ -21,18 +21,71 @@ pub enum PyenvAction {
     Activate(ActivateCommand),
 }
 
+trait ResourceLocations {
+    fn env_dest(&self, driver: &fud_core::Driver) -> PathBuf;
+    fn config(&self, driver: &fud_core::Driver) -> PathBuf;
+}
+
 /// initialize python venv and install necessary packages
 #[derive(FromArgs)]
 #[argh(subcommand, name = "init")]
-pub struct InitCommand {}
+pub struct InitCommand {
+    /// path to install the environment
+    #[argh(option)]
+    env_dest: Option<PathBuf>,
+
+    /// path to read config from
+    #[argh(option)]
+    config: Option<PathBuf>,
+}
+
+impl ResourceLocations for InitCommand {
+    fn env_dest(&self, driver: &fud_core::Driver) -> PathBuf {
+        self.env_dest
+            .clone()
+            .unwrap_or(config::data_dir(&driver.name))
+    }
+
+    fn config(&self, driver: &fud_core::Driver) -> PathBuf {
+        self.config
+            .clone()
+            .unwrap_or(config::config_path(&driver.name))
+    }
+}
 
 /// activate the fud2 python venv for manual management
 #[derive(FromArgs)]
 #[argh(subcommand, name = "activate")]
-pub struct ActivateCommand {}
+pub struct ActivateCommand {
+    /// path to install the environment
+    #[argh(option)]
+    env_dest: Option<PathBuf>,
+
+    /// path to read config from
+    #[argh(option)]
+    config: Option<PathBuf>,
+}
+
+impl ResourceLocations for ActivateCommand {
+    fn env_dest(&self, driver: &fud_core::Driver) -> PathBuf {
+        self.env_dest
+            .clone()
+            .unwrap_or(config::data_dir(&driver.name))
+    }
+
+    fn config(&self, driver: &fud_core::Driver) -> PathBuf {
+        self.config
+            .clone()
+            .unwrap_or(config::config_path(&driver.name))
+    }
+}
 
 impl PyenvCommand {
-    fn init(&self, driver: &fud_core::Driver) -> anyhow::Result<()> {
+    fn init(
+        &self,
+        cmd: &impl ResourceLocations,
+        driver: &fud_core::Driver,
+    ) -> anyhow::Result<()> {
         // This is a bit of a hack to detect whether or not uv is installed
         if Command::new("uv").arg("--version").output().is_err() {
             anyhow::bail!(
@@ -40,7 +93,7 @@ impl PyenvCommand {
             )
         }
 
-        let data_dir = config::data_dir(&driver.name);
+        let data_dir = cmd.env_dest(driver);
         fs::create_dir_all(&data_dir)?;
 
         let pyenv = data_dir.join("venv");
@@ -54,7 +107,8 @@ impl PyenvCommand {
             .output()?;
 
         // grab the location of the calyx base install
-        let config = config::load_config(&driver.name);
+        let config_path = cmd.config(driver);
+        let config = config::load_config(config_path.as_path());
         let calyx_base: String = config.extract_inner("calyx.base")?;
 
         Command::new("uv")
@@ -75,7 +129,6 @@ impl PyenvCommand {
             .output()?;
 
         // add python location to fud2.toml
-        let config_path = config::config_path(&driver.name);
         let contents = fs::read_to_string(&config_path)?;
         let mut toml_doc: toml_edit::DocumentMut = contents.parse()?;
 
@@ -97,8 +150,12 @@ impl PyenvCommand {
         Ok(())
     }
 
-    fn activate(&self, driver: &fud_core::Driver) -> anyhow::Result<()> {
-        let data_dir = config::data_dir(&driver.name);
+    fn activate(
+        &self,
+        cmd: &impl ResourceLocations,
+        driver: &fud_core::Driver,
+    ) -> anyhow::Result<()> {
+        let data_dir = cmd.env_dest(driver);
         let pyenv = data_dir.join("venv");
 
         if !pyenv.exists() {
@@ -117,8 +174,8 @@ impl PyenvCommand {
 
     fn run(&self, driver: &fud_core::Driver) -> anyhow::Result<()> {
         match self.sub {
-            PyenvAction::Init(_) => self.init(driver),
-            PyenvAction::Activate(_) => self.activate(driver),
+            PyenvAction::Init(ref cmd) => self.init(cmd, driver),
+            PyenvAction::Activate(ref cmd) => self.activate(cmd, driver),
         }
     }
 }
