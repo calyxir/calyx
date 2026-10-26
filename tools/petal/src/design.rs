@@ -520,6 +520,18 @@ pub fn parse_probe_name(name: &str) -> Result<ProbeName<'_>> {
             group: caller_group,
             component,
         })
+    } else if let Some(prefix) = name.strip_suffix("_contprimitive_probe") {
+        // ex. w1___main_contprimitive_probe
+        let mut parts = prefix.split(pat);
+        let name = parts.next().unwrap();
+        let component = parts.next().unwrap();
+        Ok(ProbeName::ContinuousPrimitive { name, component })
+    } else if let Some(prefix) = name.strip_suffix("_contcell_probe") {
+        // ex. w1___main_contcell_probe
+        let mut parts = prefix.split(pat);
+        let name = parts.next().unwrap();
+        let component = parts.next().unwrap();
+        Ok(ProbeName::ContinuousCell { name, component })
     } else {
         anyhow::bail!("failed to parse {name}")
     }
@@ -1128,10 +1140,7 @@ impl Design {
         // iterate through all probes in this scope. Structural enable probes will be ignored as nodes for them were previously created.
         for probe_scope in h[cell_scope].scopes(h) {
             let name = h[probe_scope].name(h);
-            if name.ends_with("_probe")
-                && !name.ends_with("_contprimitive_probe")
-            {
-                // ignore continuous primitives for now
+            if name.ends_with("_probe") {
                 let out = get_var(h, &h[probe_scope], "out")?;
                 let probe = h[out].signal_ref();
                 let probe_name = parse_probe_name(name)?;
@@ -1271,6 +1280,17 @@ impl Design {
                         component: _,
                     } => {
                         // we iterated through all structural enables at the beginning, so we will skip those here.
+                        continue;
+                    }
+                    ProbeName::ContinuousPrimitive {
+                        name: _,
+                        component: _,
+                    }
+                    | ProbeName::ContinuousCell {
+                        name: _,
+                        component: _,
+                    } => {
+                        // NOTE: Ignored for cycle counts but will be necessary for utilization
                         continue;
                     }
                 }
@@ -1618,7 +1638,9 @@ pub fn get_component(h: &Hierarchy, cell_scope: ScopeRef) -> Result<&str> {
         ProbeName::Group { component, .. }
         | ProbeName::InvokePrimitive { component, .. }
         | ProbeName::InvokeCell { component, .. }
-        | ProbeName::InvokeGroup { component, .. } => Ok(component),
+        | ProbeName::InvokeGroup { component, .. }
+        | ProbeName::ContinuousPrimitive { component, .. }
+        | ProbeName::ContinuousCell { component, .. } => Ok(component),
     }
 }
 
@@ -1662,6 +1684,16 @@ pub enum ProbeName<'a> {
         name: &'a str,
         // group that does the invoking
         group: &'a str,
+        component: &'a str,
+    },
+    ContinuousPrimitive {
+        // NOTE: Ignored for cycle counts but will be necessary for utilization
+        name: &'a str,
+        component: &'a str,
+    },
+    ContinuousCell {
+        // NOTE: Ignored for cycle counts but will be necessary for utilization
+        name: &'a str,
         component: &'a str,
     },
 }
