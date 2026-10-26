@@ -1,0 +1,13 @@
+main;f;add (primitive) 1
+main;f;val (primitive) 1
+main;read;val (primitive) 1
+main;write;mem (primitive) 1
+=========
+name,num_times_active,total_cycles,min,max,avg,can_static
+main.f,1,1,1,1,1.0,true
+main.read,1,1,1,1,1.0,true
+main.t,0,0,0,0,0.0,false
+main.write,1,1,1,1,1.0,true
+=========
+name,num_fsms,total_cycles,times_active,avg,useful_cycles,useful_cycles_percent,group_or_primitive,fsm_update,pd_update,mult_control,other
+main [main],0,3,1,3.00,3,100.00,100.00,0.00,0.00,0.00,0.00

@@ -36,7 +36,7 @@ override-dependencies = [
 
 # Use same Ruff version across multiple Python linting CI tasks (for both pushes and PRs)
 [tool.ruff]
-required-version = "==0.17.0"
+required-version = ">=0.17.0"
 
 [project.optional-dependencies]
 ntt = ["ntt-pipeline"]

@@ -69,16 +69,29 @@ impl GroupStats {
     }
 
     pub fn convert_to_csv_struct(&self) -> GroupStatsOut {
-        let avg = self.total_cycles as f64 / self.num_times_active as f64;
-        let can_static = self.max == self.min;
-        GroupStatsOut {
-            name: self.name.clone(),
-            total_cycles: self.total_cycles,
-            min: self.min,
-            max: self.max,
-            num_times_active: self.num_times_active,
-            avg,
-            can_static,
+        // corner case: group was invoked zero times.
+        if self.num_times_active == 0 {
+            GroupStatsOut {
+                name: self.name.clone(),
+                total_cycles: self.total_cycles,
+                min: 0,
+                max: 0,
+                num_times_active: 0,
+                avg: 0.,
+                can_static: false, // TODO: make this into a ternary?
+            }
+        } else {
+            let avg = self.total_cycles as f64 / self.num_times_active as f64;
+            let can_static = self.max == self.min;
+            GroupStatsOut {
+                name: self.name.clone(),
+                total_cycles: self.total_cycles,
+                min: self.min,
+                max: self.max,
+                num_times_active: self.num_times_active,
+                avg,
+                can_static,
+            }
         }
     }
 
