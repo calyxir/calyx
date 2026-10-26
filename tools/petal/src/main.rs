@@ -8,12 +8,10 @@ mod visuals;
 mod adls;
 mod calyx_py;
 mod dahlia_design;
-mod statistics;
 
 use crate::adls::AdlIntermediateInfo;
 use crate::calyx_timeline::{CalyxTimeline, CurrentlyActive};
 use crate::design::{AdlMode, Design, RegisterId, Stack};
-use crate::statistics::Statistics;
 use crate::visuals::flamegraph::write_calyx_flames;
 use anyhow::{Context, Ok, Result, anyhow};
 use baa::{BitVecMutOps, BitVecValue};
@@ -21,6 +19,7 @@ use clap::Parser;
 use indexmap::IndexMap;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::fs;
+use visuals::statistics::Statistics;
 use wellen::*;
 
 #[derive(Parser, Debug)]

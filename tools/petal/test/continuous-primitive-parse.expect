@@ -4,7 +4,7 @@ main;t;val (primitive) 1
 main;write;mem (primitive) 1
 =========
 name,num_times_active,total_cycles,min,max,avg,can_static
-main.f,0,0,18446744073709551615,0,NaN,false
+main.f,0,0,0,0,0.0,false
 main.read,1,1,1,1,1.0,true
 main.t,1,1,1,1,1.0,true
 main.write,1,1,1,1,1.0,true

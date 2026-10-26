@@ -6,3 +6,4 @@ pub(crate) mod timeline;
 pub(crate) mod perfetto_protos;
 
 pub(crate) mod flamegraph;
+pub mod statistics;
