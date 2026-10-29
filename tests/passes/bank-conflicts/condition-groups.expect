@@ -1,0 +1,16 @@
+component if_condition_access
+conflict m cg read sib read
+banks m 2
+assign m cg read 0
+assign m sib read 1
+component while_condition_access
+conflict m cg read sibling read
+banks m 2
+assign m cg read 0
+assign m sibling read 1
+component while_condition_dependence
+banks m 1
+assign m ccond read 0
+assign m wbody write 0
+dep m waw wbody write wbody write
+component main

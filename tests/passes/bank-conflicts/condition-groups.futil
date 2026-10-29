@@ -1,0 +1,104 @@
+// -p bank-conflicts -x bank-conflicts:report=<out> -b none
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/memories/seq.futil";
+component if_condition_access(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    lt = std_lt(32);
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+  }
+  wires {
+    group sib {
+      m.addr0 = 3'd0;
+      r0.in = m.read_data;
+      r0.write_en = 1'd1;
+      sib[done] = r0.done;
+    }
+    comb group cg {
+      m.addr0 = 3'd1;
+      lt.left = m.read_data;
+      lt.right = 32'd5;
+    }
+    group body {
+      r1.in = 32'd1;
+      r1.write_en = 1'd1;
+      body[done] = r1.done;
+    }
+  }
+  control {
+    par {
+      sib;
+      if lt.out with cg {
+        body;
+      }
+    }
+  }
+}
+component while_condition_access(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    lt = std_lt(32);
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+  }
+  wires {
+    group sibling {
+      m.addr0 = 3'd0;
+      r0.in = m.read_data;
+      r0.write_en = 1'd1;
+      sibling[done] = r0.done;
+    }
+    comb group cg {
+      m.addr0 = 3'd1;
+      lt.left = m.read_data;
+      lt.right = 32'd5;
+    }
+    group body {
+      r1.in = 32'd1;
+      r1.write_en = 1'd1;
+      body[done] = r1.done;
+    }
+  }
+  control {
+    par {
+      sibling;
+      while lt.out with cg {
+        body;
+      }
+    }
+  }
+}
+component while_condition_dependence(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    r = std_reg(32);
+    c = std_reg(1);
+  }
+  wires {
+    group wbody {
+      m.addr0 = 3'd1;
+      m.write_data = 32'd7;
+      m.write_en = 1'd1;
+      wbody[done] = m.done;
+    }
+    comb group ccond {
+      m.addr0 = 3'd0;
+      r.in = m.read_data;
+      c.in = 1'd1;
+    }
+  }
+  control {
+    while c.out with ccond {
+      seq {
+        wbody;
+      }
+    }
+  }
+}
+component main() -> () {
+  cells {}
+  wires {}
+  control {}
+}

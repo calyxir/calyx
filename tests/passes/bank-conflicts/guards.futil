@@ -1,0 +1,201 @@
+// -p bank-conflicts -x bank-conflicts:report=<out> -b none
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/memories/seq.futil";
+component complementary_writes(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    flag = std_reg(1);
+  }
+  wires {
+    group wt {
+      m.addr0 = 3'd0;
+      m.write_data = 32'd1;
+      m.write_en = flag.out ? 1'd1;
+      wt[done] = m.done;
+    }
+    group wf {
+      m.addr0 = 3'd1;
+      m.write_data = 32'd2;
+      m.write_en = !flag.out ? 1'd1;
+      wf[done] = m.done;
+    }
+  }
+  control {
+    par {
+      wt;
+      wf;
+    }
+  }
+}
+component complementary_write_read(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    r0 = std_reg(32);
+    c = std_reg(1);
+  }
+  wires {
+    group ga {
+      m.addr0 = 3'd0;
+      m.write_data = 32'd1;
+      m.write_en = !c.out ? 1'd1;
+      ga[done] = m.done;
+    }
+    group gb {
+      m.addr0 = c.out ? 3'd1;
+      r0.in = m.read_data;
+      r0.write_en = c.out ? 1'd1;
+      gb[done] = r0.done;
+    }
+  }
+  control {
+    par {
+      ga;
+      gb;
+    }
+  }
+}
+component union_guard_write(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    r0 = std_reg(32);
+    c = std_reg(1);
+  }
+  wires {
+    group ga {
+      m.addr0 = 3'd0;
+      m.write_data = 32'd1;
+      m.write_en = c.out ? 1'd1;
+      m.write_en = !c.out ? 1'd1;
+      ga[done] = m.done;
+    }
+    group gb {
+      m.addr0 = c.out ? 3'd1;
+      r0.in = m.read_data;
+      r0.write_en = c.out ? 1'd1;
+      gb[done] = r0.done;
+    }
+  }
+  control {
+    par {
+      ga;
+      gb;
+    }
+  }
+}
+component union_guard_seq_read(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = seq_mem_d1(32, 8, 3);
+    c = std_reg(1);
+  }
+  wires {
+    group ga {
+      m.addr0 = 3'd0;
+      m.content_en = c.out ? 1'd1;
+      m.content_en = !c.out ? 1'd1;
+      ga[done] = m.done;
+    }
+    group gb {
+      m.addr0 = 3'd1;
+      m.content_en = c.out ? 1'd1;
+      gb[done] = m.done;
+    }
+  }
+  control {
+    par {
+      ga;
+      gb;
+    }
+  }
+}
+component comb_read_guards(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+    flag = std_reg(1);
+  }
+  wires {
+    group rt {
+      m.addr0 = flag.out ? 3'd0;
+      r0.in = m.read_data;
+      r0.write_en = 1'd1;
+      rt[done] = r0.done;
+    }
+    group rf {
+      m.addr0 = !flag.out ? 3'd1;
+      r1.in = m.read_data;
+      r1.write_en = 1'd1;
+      rf[done] = r1.done;
+    }
+  }
+  control {
+    par {
+      rt;
+      rf;
+    }
+  }
+}
+component seq_read_guards(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = seq_mem_d1(32, 8, 3);
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+    flag = std_reg(1);
+  }
+  wires {
+    group rt {
+      m.addr0 = 3'd0;
+      m.content_en = flag.out ? 1'd1;
+      r0.in = m.read_data;
+      r0.write_en = 1'd1;
+      rt[done] = m.done;
+    }
+    group rf {
+      m.addr0 = 3'd1;
+      m.content_en = !flag.out ? 1'd1;
+      r1.in = m.read_data;
+      r1.write_en = 1'd1;
+      rf[done] = m.done;
+    }
+  }
+  control {
+    par {
+      rt;
+      rf;
+    }
+  }
+}
+component seq_write_guards(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = seq_mem_d1(32, 8, 3);
+    flag = std_reg(1);
+  }
+  wires {
+    group wt {
+      m.addr0 = 3'd0;
+      m.content_en = 1'd1;
+      m.write_data = 32'd1;
+      m.write_en = flag.out ? 1'd1;
+      wt[done] = m.done;
+    }
+    group wf {
+      m.addr0 = 3'd1;
+      m.content_en = 1'd1;
+      m.write_data = 32'd2;
+      m.write_en = !flag.out ? 1'd1;
+      wf[done] = m.done;
+    }
+  }
+  control {
+    par {
+      wt;
+      wf;
+    }
+  }
+}
+component main() -> () {
+  cells {}
+  wires {}
+  control {}
+}
