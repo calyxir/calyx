@@ -1,0 +1,24 @@
+import "primitives/core.futil";
+comb component alu_bitwise<"toplevel"=1>(op: 2, lhs: 32, rhs: 32, invert_rhs: 1) -> (out: 32) {
+  cells {
+    right = std_wire(32);
+    not_1 = std_not(32);
+    A = std_and(32);
+    B = std_or(32);
+    C = std_xor(32);
+  }
+  wires {
+    C.left = lhs;
+    B.left = lhs;
+    A.left = lhs;
+    right.in = !invert_rhs ? rhs;
+    not_1.in = rhs;
+    right.in = invert_rhs ? not_1.out;
+    C.right = right.out;
+    out = op == 2'd2 ? C.out;
+    B.right = right.out;
+    out = op == 2'd1 ? B.out;
+    A.right = right.out;
+    out = op == 2'd0 ? A.out;
+  }
+}
