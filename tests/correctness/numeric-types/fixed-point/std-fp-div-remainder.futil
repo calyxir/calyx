@@ -1,0 +1,44 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/binary_operators.futil";
+
+component main() -> () {
+  cells {
+    @external left = comb_mem_d1(32, 1, 1);
+    @external right = comb_mem_d1(32, 1, 1);
+    @external unsigned_quot = comb_mem_d1(32, 1, 1);
+    @external unsigned_rem = comb_mem_d1(32, 1, 1);
+    @external signed_quot = comb_mem_d1(32, 1, 1);
+    @external signed_rem = comb_mem_d1(32, 1, 1);
+    div = std_fp_div_pipe(32, 16, 16);
+    sdiv = std_fp_sdiv_pipe(32, 16, 16);
+  }
+  wires {
+    left.addr0 = 1'd0;
+    right.addr0 = 1'd0;
+    group write_result {
+      unsigned_quot.addr0 = 1'd0;
+      unsigned_quot.write_data = div.out_quotient;
+      unsigned_quot.write_en = 1'd1;
+      unsigned_rem.addr0 = 1'd0;
+      unsigned_rem.write_data = div.out_remainder;
+      unsigned_rem.write_en = 1'd1;
+      signed_quot.addr0 = 1'd0;
+      signed_quot.write_data = sdiv.out_quotient;
+      signed_quot.write_en = 1'd1;
+      signed_rem.addr0 = 1'd0;
+      signed_rem.write_data = sdiv.out_remainder;
+      signed_rem.write_en = 1'd1;
+      write_result[done] = unsigned_quot.done & unsigned_rem.done & signed_quot.done & signed_rem.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      par {
+        invoke div(left = left.read_data, right = right.read_data)();
+        invoke sdiv(left = left.read_data, right = right.read_data)();
+      }
+      write_result;
+    }
+  }
+}
