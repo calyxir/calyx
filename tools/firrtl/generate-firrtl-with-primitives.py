@@ -72,26 +72,13 @@ def generate_primitive_definition(inst):
 
 # Generates a complete FIRRTL program with primitives.
 def generate(firrtl_filename, primitive_uses_filename):
-    firrtl_file = open(firrtl_filename)
-    primitive_uses_file = open(primitive_uses_filename)
-    # The first line contains the circuit name,
-    # which needs to come before the primitives.
-    print(firrtl_file.readline().rstrip())
-    print(firrtl_file.readline().rstrip())
-    # Display the primitive definitions.
-    primitive_insts = json.load(primitive_uses_file)
-    if primitive_insts:
-        for inst in primitive_insts:
-            generate_primitive_definition(inst)
-    # Display the rest of the FIRRTL program.
-    for line in firrtl_file.readlines():
-        print(line.rstrip())
     with (
         open(firrtl_filename) as firrtl_file,
         open(primitive_uses_filename) as primitive_uses_file,
     ):
-        # The first line contains the circuit name,
-        # which needs to come before the primitives.
+        # The first two lines contain the FIRRTL version and circuit name,
+        # which need to come before the primitives.
+        print(firrtl_file.readline().rstrip())
         print(firrtl_file.readline().rstrip())
         # Display the primitive definitions.
         primitive_insts = json.load(primitive_uses_file)
