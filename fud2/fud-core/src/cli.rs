@@ -459,7 +459,8 @@ fn register_plugin(
     let config_path = config::config_path(&driver.name);
     let mut toml_doc = get_toml_doc(&config_path)?;
 
-    let config = config::load_config(&driver.name)
+    let config_path = config::config_path(&driver.name);
+    let config = config::load_config(config_path.as_path())
         .adjoin(Serialized::default("plugins", [full_path.to_string()]));
 
     toml_doc["plugins"] = toml_edit::value(
@@ -607,7 +608,8 @@ fn config_from_cli_ext<T: CliExt>(
     name: &str,
 ) -> anyhow::Result<figment::Figment> {
     let args: FudArgs<T> = argh::from_env();
-    let mut config = config::load_config(name);
+    let config_path = config::config_path(name);
+    let mut config = config::load_config(config_path.as_path());
 
     // Use `--set` arguments to override configuration values.
     for set in args.set {

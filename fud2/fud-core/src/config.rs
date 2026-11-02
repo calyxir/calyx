@@ -63,9 +63,7 @@ pub fn default_config() -> Figment {
 }
 
 /// Load configuration data from the standard config file location.
-pub fn load_config(name: &str) -> Figment {
-    let config_path = config_path(name);
-
+pub fn load_config(config_path: &Path) -> Figment {
     // Use our defaults, overridden by the TOML config file.
     default_config().merge(Toml::file(config_path))
 }
