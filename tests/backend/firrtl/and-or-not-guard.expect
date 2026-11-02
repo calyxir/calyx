@@ -1,5 +1,6 @@
+FIRRTL version 4.0.0
 circuit main:
-    module main:
+    public module main:
         input in: UInt<32>
         input cond: UInt<1>
         input cond2: UInt<1>
@@ -9,13 +10,13 @@ circuit main:
         input clk: Clock
         input reset: UInt<1>
         output done: UInt<1>
-        out is invalid ; default initialization
-        out <= UInt(0)
-        done is invalid ; default initialization
-        done <= UInt(0)
+        invalidate out ; default initialization
+        connect out, UInt(0)
+        invalidate done ; default initialization
+        connect done, UInt(0)
         ; COMPONENT START: main
-        done <= UInt(1)
+        connect done, UInt(1)
         when and(or(not(cond), cond2), cond3):
-            out <= in
+            connect out, in
         ; COMPONENT END: main
 

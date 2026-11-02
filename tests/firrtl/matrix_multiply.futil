@@ -58,7 +58,7 @@ component main() -> () {
     val_b = std_reg(32);
 
     // Multiply-and-accumulate unit
-    mul_add = multiply_and_add();
+    @inline mul_add = multiply_and_add();
 
     // Comparators
     le0 = std_le(32);

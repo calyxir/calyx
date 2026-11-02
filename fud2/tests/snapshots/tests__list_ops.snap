@@ -3,6 +3,11 @@ source: fud2/tests/tests.rs
 ---
 [
     (
+        "arcilator",
+        "firrtl-with-primitives",
+        "dat",
+    ),
+    (
         "area-report-to-flamegraph",
         "area-report",
         "flamegraph",

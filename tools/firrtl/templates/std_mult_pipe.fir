@@ -14,36 +14,36 @@
 
         ; Start sending the done signal.
         when eq(go, UInt(1)):
-            done_buf[0] <= UInt(1)
+            connect done_buf[0], UInt(1)
         else:
-            done_buf[0] <= UInt(0)
+            connect done_buf[0], UInt(0)
 
         ; Push the done signal through the pipeline.
         when eq(go, UInt(1)):
-            done_buf[1] <= done_buf[0]
+            connect done_buf[1], done_buf[0]
         else:
-            done_buf[1] <= UInt(0)
+            connect done_buf[1], UInt(0)
 
         ; Register the inputs
         when eq(reset, UInt(1)):
-            ltmp <= UInt(0)
-            rtmp <= UInt(0)
+            connect ltmp, UInt(0)
+            connect rtmp, UInt(0)
         else:
             when eq(go, UInt(1)):
-                ltmp <= left
-                rtmp <= right
+                connect ltmp, left
+                connect rtmp, right
             else:
-                ltmp <= UInt(0)
-                rtmp <= UInt(0)
+                connect ltmp, UInt(0)
+                connect rtmp, UInt(0)
         
         ; Compute the output and save it to out_tmp
         when eq(reset, UInt(1)):
-            out_tmp <= UInt(0)
+            connect out_tmp, UInt(0)
         else:
             when eq(go, UInt(1)):
-                out_tmp <= mul(ltmp, rtmp)
+                connect out_tmp, mul(ltmp, rtmp)
             else:
-                out_tmp <= out_tmp
+                connect out_tmp, out_tmp
 
-        out <= bits(out_tmp, HIGH, LOW)
-        done <= done_buf[1]
+        connect out, bits(out_tmp, HIGH, LOW)
+        connect done, done_buf[1]

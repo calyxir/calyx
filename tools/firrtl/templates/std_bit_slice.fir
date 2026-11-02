@@ -2,4 +2,4 @@
         input in : UInt<IN_WIDTH>
         output out : UInt<OUT_WIDTH>
 
-        out <= bits(in, END_IDX, START_IDX)
+        connect out, bits(in, END_IDX, START_IDX)
