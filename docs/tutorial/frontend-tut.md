@@ -157,8 +157,8 @@ To make it easy to generate hardware, we'll use Calyx's [`builder` module][calyx
 ```python
 import calyx.builder as cb
 
-prog = cb.Builder() # A Calyx program
-main = prog.component("main") # Create a component named "main"
+prog = cb.Builder()  # A Calyx program
+main = prog.component("main")  # Create a component named "main"
 ```
 
 

@@ -74,9 +74,7 @@ int main(int argc, char* argv[]) {
         is_seq = mem["memory_type"] == "Sequential"
         total_size = mem["total_size"]
 
-        read_data_decl = (
-            f"uint32_t {name}_read_data_reg = 0;" if is_seq else ""
-        )
+        read_data_decl = f"uint32_t {name}_read_data_reg = 0;" if is_seq else ""
         cpp.append(
             f"""
   // Initialize {name}
