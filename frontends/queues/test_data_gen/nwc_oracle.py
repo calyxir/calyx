@@ -1,9 +1,9 @@
 # For usage, see gen_test_data.sh
 
 import sys
+
 import queues
 import util
-
 
 if __name__ == "__main__":
     commands, values, ranks, times = util.parse_json(True, True)

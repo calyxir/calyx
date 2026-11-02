@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import threading
-from typing import Dict, Tuple, Union, Optional, List
 from dataclasses import dataclass
+
 from . import py_ast as ast
 
 # Thread-local storage to keep track of the current GroupBuilder we have
@@ -30,7 +30,7 @@ class Builder:
         self.program = ast.Program(imports=[], components=[])
         self.imported = set()
         self.import_("primitives/core.futil")
-        self._index: Dict[str, ComponentBuilder] = {}
+        self._index: dict[str, ComponentBuilder] = {}
         ast.FILEINFO_BASE_PATH = fileinfo_base_path
         ast.EMIT_SOURCELOC = emit_sourceloc
 
@@ -72,18 +72,18 @@ class ComponentBuilder:
         self,
         prog: Builder,
         name: str,
-        latency: Optional[int] = None,
+        latency: int | None = None,
         is_comb: bool = False,
     ):
         """Contructs a new component in the current program."""
         self.prog = prog
-        self.component: Union[ast.Component, ast.CombComponent] = (
+        self.component: ast.Component | ast.CombComponent = (
             ast.Component(
                 name,
                 attributes=set(),
                 inputs=[],
                 outputs=[],
-                structs=list(),
+                structs=[],
                 controls=ast.Empty(),
                 latency=latency,
             )
@@ -93,11 +93,11 @@ class ComponentBuilder:
                 attributes=set(),
                 inputs=[],
                 outputs=[],
-                structs=list(),
+                structs=[],
             )
         )
 
-        self.index: Dict[str, Union[GroupBuilder, CellBuilder]] = {}
+        self.index: dict[str, GroupBuilder | CellBuilder] = {}
         self.continuous = GroupBuilder(None, self)
         self.next_gen_idx = 0
 
@@ -110,25 +110,29 @@ class ComponentBuilder:
                 return name
 
     # Attributes are expected to be either just an attribute name or an (attribute name, value) tuple
-    RawPortAttr = Union[str, Tuple[str, int]]
+    RawPortAttr = str | tuple[str, int]
 
     def input(
-        self, name: str, size: int, attribute_literals: List[RawPortAttr] = []
+        self, name: str, size: int, attribute_literals: list[RawPortAttr] | None = None
     ) -> ExprBuilder:
         """Declare an input port on the component.
 
         Returns an expression builder for the port.
         """
 
+        if attribute_literals is None:
+            attribute_literals = []
         return self._port_with_attributes(name, size, True, attribute_literals)
 
     def output(
-        self, name: str, size: int, attribute_literals: List[RawPortAttr] = []
+        self, name: str, size: int, attribute_literals: list[RawPortAttr] | None = None
     ) -> ExprBuilder:
         """Declare an output port on the component.
 
         Returns an expression builder for the port.
         """
+        if attribute_literals is None:
+            attribute_literals = []
         return self._port_with_attributes(name, size, False, attribute_literals)
 
     def attribute(self, name: str, value: int) -> None:
@@ -154,7 +158,7 @@ class ComponentBuilder:
             elif isinstance(attr, tuple):
                 attributes.add(ast.PortAttribute(attr[0], attr[1]))
             else:
-                raise ValueError(
+                raise ValueError(  # noqa: TRY004
                     f"Attempted to add invalid attribute {attr} to {name}. `attr` should be either a `str` or (`str`, `int) tuple."
                 )
         if is_input:
@@ -179,15 +183,15 @@ class ComponentBuilder:
     def control(self) -> ControlBuilder:
         """Access the component's control program."""
         if isinstance(self.component, ast.CombComponent):
-            raise AttributeError(
+            raise AttributeError(  # noqa: TRY004
                 "Combinational components do not have control programs."
             )
         return ControlBuilder(self.component.controls)
 
     @control.setter
-    def control(self, builder: Union[ast.Control, ControlBuilder]):
+    def control(self, builder: ast.Control | ControlBuilder):
         if isinstance(self.component, ast.CombComponent):
-            raise AttributeError(
+            raise AttributeError(  # noqa: TRY004
                 "Combinational components do not have control programs."
             )
         if isinstance(builder, ControlBuilder):
@@ -196,10 +200,10 @@ class ComponentBuilder:
             self.component.controls = builder
 
     # NOTE: Could also be a GroupBuilder
-    Controllable = Union[ast.Control, str, ast.Group, list, set, ast.Empty, None]
+    Controllable = ast.Control | str | ast.Group | list | set | ast.Empty | None
 
     def case(
-        self, signal: ExprBuilder, cases: Dict[int, Controllable], signed=False
+        self, signal: ExprBuilder, cases: dict[int, Controllable], signed=False
     ) -> None:
         """Add the required cells, wiring, and `if` statements to enable `case`
         like semantics in the component. Does not support `default` cases.
@@ -240,7 +244,7 @@ class ComponentBuilder:
         else:
             raise NotFoundError(
                 f"Cell `{name}' not found in component {self.component.name}.\n"
-                f"Known cells: {list(map(lambda c: c.id.name, self.component.cells))}"
+                f"Known cells: {[c.id.name for c in self.component.cells]}"
             )
 
     def try_get_cell(self, name: str) -> CellBuilder:
@@ -254,7 +258,7 @@ class ComponentBuilder:
     def get_group(self, name: str) -> GroupBuilder:
         """Retrieve a group builder by name."""
         if isinstance(self.component, ast.CombComponent):
-            raise AttributeError("Combinational components do not have groups.")
+            raise AttributeError("Combinational components do not have groups.")  # noqa: TRY004
         out = self.index.get(name)
         if out and isinstance(out, GroupBuilder):
             return out
@@ -266,17 +270,17 @@ class ComponentBuilder:
     def try_get_group(self, name: str) -> GroupBuilder:
         """Tries to get a group builder by name. If cannot find it, return None"""
         if isinstance(self.component, ast.CombComponent):
-            raise AttributeError("Combinational components do not have groups.")
+            raise AttributeError("Combinational components do not have groups.")  # noqa: TRY004
         out = self.index.get(name)
         if out and isinstance(out, GroupBuilder):
             return out
         else:
             return None
 
-    def group(self, name: str, static_delay: Optional[int] = None) -> GroupBuilder:
+    def group(self, name: str, static_delay: int | None = None) -> GroupBuilder:
         """Create a new group with the given name and (optional) static delay."""
         if isinstance(self.component, ast.CombComponent):
-            raise AttributeError("Combinational components do not have groups.")
+            raise AttributeError("Combinational components do not have groups.")  # noqa: TRY004
         group = ast.Group(ast.CompVar(name), connections=[], static_delay=static_delay)
         assert group not in self.component.wires, f"group '{name}' already exists"
 
@@ -288,7 +292,7 @@ class ComponentBuilder:
     def comb_group(self, name: str) -> GroupBuilder:
         """Create a new combinational group with the given name."""
         if isinstance(self.component, ast.CombComponent):
-            raise AttributeError(
+            raise AttributeError(  # noqa: TRY004
                 "Combinational components do not have combinational groups."
             )
         group = ast.CombGroup(ast.CompVar(name), connections=[])
@@ -302,7 +306,7 @@ class ComponentBuilder:
     def static_group(self, name: str, latency: int) -> GroupBuilder:
         """Create a new static group with the given name."""
         if isinstance(self.component, ast.CombComponent):
-            raise AttributeError("Combinational components do not have groups.")
+            raise AttributeError("Combinational components do not have groups.")  # noqa: TRY004
         group = ast.StaticGroup(ast.CompVar(name), connections=[], latency=latency)
         assert group not in self.component.wires, f"group '{name}' already exists"
 
@@ -314,7 +318,7 @@ class ComponentBuilder:
     def cell(
         self,
         name: str,
-        comp: Union[ast.CompInst, ComponentBuilder],
+        comp: ast.CompInst | ComponentBuilder,
         is_external: bool = False,
         is_ref: bool = False,
     ) -> CellBuilder:
@@ -358,7 +362,9 @@ class ComponentBuilder:
 
         return self.cell(cell_name, ast.CompInst(comp_name, []))
 
-    def reg(self, size: int, name: str = None, is_ref: bool = False) -> CellBuilder:
+    def reg(
+        self, size: int, name: str | None = None, is_ref: bool = False
+    ) -> CellBuilder:
         """Generate a StdReg cell."""
         assert isinstance(size, int), f"size {size} is not an int"
         if name:
@@ -476,7 +482,7 @@ class ComponentBuilder:
         self,
         operation: str,
         size: int,
-        name: Optional[str] = None,
+        name: str | None = None,
         signed: bool = False,
     ) -> CellBuilder:
         """Generate a binary cell of the kind specified in `operation`."""
@@ -485,95 +491,117 @@ class ComponentBuilder:
         assert isinstance(name, str), f"name {name} is not a string"
         return self.cell(name, ast.Stdlib.op(operation, size, signed))
 
-    def add(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
+    def add(
+        self, size: int, name: str | None = None, signed: bool = False
+    ) -> CellBuilder:
         """Generate a StdAdd cell."""
         return self.binary("add", size, name, signed)
 
-    def sub(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
+    def sub(
+        self, size: int, name: str | None = None, signed: bool = False
+    ) -> CellBuilder:
         """Generate a StdSub cell."""
         return self.binary("sub", size, name, signed)
 
     def div_pipe(
-        self, size: int, name: str = None, signed: bool = False
+        self, size: int, name: str | None = None, signed: bool = False
     ) -> CellBuilder:
         """Generate a Div_Pipe cell."""
         return self.binary("div_pipe", size, name, signed)
 
     def mult_pipe(
-        self, size: int, name: str = None, signed: bool = False
+        self, size: int, name: str | None = None, signed: bool = False
     ) -> CellBuilder:
         """Generate a Mult_Pipe cell."""
         return self.binary("mult_pipe", size, name, signed)
 
-    def gt(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
+    def gt(
+        self, size: int, name: str | None = None, signed: bool = False
+    ) -> CellBuilder:
         """Generate a StdGt cell."""
         return self.binary("gt", size, name, signed)
 
-    def lt(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
+    def lt(
+        self, size: int, name: str | None = None, signed: bool = False
+    ) -> CellBuilder:
         """Generate a StdLt cell."""
         return self.binary("lt", size, name, signed)
 
-    def eq(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
+    def eq(
+        self, size: int, name: str | None = None, signed: bool = False
+    ) -> CellBuilder:
         """Generate a StdEq cell."""
         return self.binary("eq", size, name, signed)
 
-    def neq(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
+    def neq(
+        self, size: int, name: str | None = None, signed: bool = False
+    ) -> CellBuilder:
         """Generate a StdNeq cell."""
         return self.binary("neq", size, name, signed)
 
-    def ge(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
+    def ge(
+        self, size: int, name: str | None = None, signed: bool = False
+    ) -> CellBuilder:
         """Generate a StdGe cell."""
         return self.binary("ge", size, name, signed)
 
-    def le(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
+    def le(
+        self, size: int, name: str | None = None, signed: bool = False
+    ) -> CellBuilder:
         """Generate a StdLe cell."""
         return self.binary("le", size, name, signed)
 
-    def rsh(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
+    def rsh(
+        self, size: int, name: str | None = None, signed: bool = False
+    ) -> CellBuilder:
         """Generate a StdRsh cell."""
         return self.binary("rsh", size, name, signed)
 
-    def lsh(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
+    def lsh(
+        self, size: int, name: str | None = None, signed: bool = False
+    ) -> CellBuilder:
         """Generate a StdLsh cell."""
         return self.binary("lsh", size, name, signed)
 
-    def cat(self, left_width: int, right_width: int, name: str = None) -> CellBuilder:
+    def cat(
+        self, left_width: int, right_width: int, name: str | None = None
+    ) -> CellBuilder:
         """Generate a StdCat cell."""
         return self.cell(
             name or self.generate_name("cat"),
             ast.Stdlib.cat(left_width, right_width, left_width + right_width),
         )
 
-    def logic(self, operation, size: int, name: str = None) -> CellBuilder:
+    def logic(self, operation, size: int, name: str | None = None) -> CellBuilder:
         """Generate a logical operator cell, of the flavor specified in `operation`."""
         name = name or self.generate_name(operation)
         assert isinstance(name, str)
         return self.cell(name, ast.Stdlib.op(operation, size, False))
 
-    def and_(self, size: int, name: str = None) -> CellBuilder:
+    def and_(self, size: int, name: str | None = None) -> CellBuilder:
         """Generate a StdAnd cell."""
         name = name or self.generate_name("and")
         return self.logic("and", size, name)
 
-    def or_(self, size: int, name: str = None) -> CellBuilder:
+    def or_(self, size: int, name: str | None = None) -> CellBuilder:
         """Generate a StdOr cell."""
         name = name or self.generate_name("or")
         return self.logic("or", size, name)
 
-    def not_(self, size: int, name: str = None) -> CellBuilder:
+    def not_(self, size: int, name: str | None = None) -> CellBuilder:
         """Generate a StdNot cell."""
         name = name or self.generate_name("not")
         return self.logic("not", size, name)
 
-    def const_mult(
-        self, size: int, const: int, name: Optional[str] = None
-    ) -> CellBuilder:
+    def const_mult(self, size: int, const: int, name: str | None = None) -> CellBuilder:
         """Generate a StdConstMult cell."""
         name = name or self.generate_name("const_mult")
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.const_mult(size, const))
 
-    def pad(self, in_width: int, out_width: int, name: str = None) -> CellBuilder:
+    def pad(
+        self, in_width: int, out_width: int, name: str | None = None
+    ) -> CellBuilder:
         """Generate a StdPad cell."""
         name = name or self.generate_name("pad")
         return self.cell(name, ast.Stdlib.pad(in_width, out_width))
@@ -1499,9 +1527,8 @@ class CellBuilder(CellLikeBuilder):
             "std_slt",
             "std_fp_sgt",
             "std_fp_slt",
-        ):
-            if port_name in ("left", "right"):
-                return inst.args[0]
+        ) and port_name in ("left", "right"):
+            return inst.args[0]
         if prim in ("comb_mem_d1", "seq_mem_d1", "comb_mem_d2", "seq_mem_d2"):
             if port_name == "write_en":
                 return 1
@@ -1573,13 +1600,13 @@ class GroupBuilder:
 
     def __init__(
         self,
-        group_like: Optional[Union[ast.Group, ast.CombGroup]],
+        group_like: ast.Group | ast.CombGroup | None,
         comp: ComponentBuilder,
     ):
         self.group_like = group_like
         self.comp = comp
 
-    def as_enable(self) -> Optional[ast.Enable]:
+    def as_enable(self) -> ast.Enable | None:
         if isinstance(self.group_like, ast.Group):
             return ast.Enable(self.group_like.id.name)
         else:
@@ -1588,8 +1615,8 @@ class GroupBuilder:
     def asgn(
         self,
         lhs: ExprBuilder,
-        rhs: Union[ExprBuilder, CondExprBuilder, int],
-        cond: Optional[ExprBuilder] = None,
+        rhs: ExprBuilder | CondExprBuilder | int,
+        cond: ExprBuilder | None = None,
     ):
         """Add a connection to the group.
 
@@ -1698,7 +1725,7 @@ def infer_width(expr):
     return group_builder.infer_width(expr)
 
 
-def ctx_asgn(lhs: ExprBuilder, rhs: Union[ExprBuilder, CondExprBuilder]):
+def ctx_asgn(lhs: ExprBuilder, rhs: ExprBuilder | CondExprBuilder):
     """Add an assignment to the current group context."""
     assert TLS.groups, "assignment outside `with group`"
     group_builder: GroupBuilder = TLS.groups[-1]
@@ -1751,14 +1778,14 @@ def static_seq(*args) -> ast.StaticSeqComp:
     return ast.StaticSeqComp([as_control(x) for x in args])
 
 
-def add_comp_ports(comp: ComponentBuilder, input_ports: List, output_ports: List):
+def add_comp_ports(comp: ComponentBuilder, input_ports: list, output_ports: list):
     """Adds `input_ports`/`output_ports` as inputs/outputs to comp.
 
     `input_ports`/`output_ports` should contain either an (input_name, input_width) pair
     or an (input_name, input_width, attributes) triple.
     """
 
-    def normalize_ports(ports: List):
+    def normalize_ports(ports: list):
         for port in ports:
             if len(port) == 2:
                 yield (port[0], port[1], [])
@@ -1814,12 +1841,12 @@ def add_register_params(comp: ComponentBuilder, name, width):
 
 
 def build_connections(
-    cell1: Union[CellBuilder, ThisBuilder],
-    cell2: Union[CellBuilder, ThisBuilder],
+    cell1: CellBuilder | ThisBuilder,
+    cell2: CellBuilder | ThisBuilder,
     root1: str,
     root2: str,
-    forward_ports: List,
-    reverse_ports: List,
+    forward_ports: list,
+    reverse_ports: list,
 ):
     """
     Intended for wiring together two cells whose ports have similar names.

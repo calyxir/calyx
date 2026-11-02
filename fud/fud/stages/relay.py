@@ -1,8 +1,8 @@
 from pathlib import Path
 
+from fud import config as cfg
 from fud.stages import SourceType, Stage
 from fud.utils import shell, unwrap_or
-from fud import config as cfg
 
 
 class RelayStage(Stage):
@@ -32,6 +32,6 @@ class RelayStage(Stage):
         @builder.step(description=str(script))
         def run_relay(input_path: SourceType.Path) -> SourceType.Stream:
             flags = unwrap_or(config["stages", self.name, "flags"], "")
-            return shell(f"{str(script)} {str(input_path)} {flags}")
+            return shell(f"{script!s} {input_path!s} {flags}")
 
         return run_relay(input)

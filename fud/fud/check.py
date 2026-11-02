@@ -1,9 +1,11 @@
-from pathlib import Path
-from termcolor import colored, cprint
 import shutil
 import subprocess
-from packaging import version
 import sys
+from pathlib import Path
+
+from packaging import version
+from termcolor import colored, cprint
+
 from fud import config
 
 # Dictionary that defines how to check the version for different tools.
@@ -67,7 +69,7 @@ def version_compare(cmp_str, installed, required):
     if cmp_str == "status_is_not":
         return required not in installed
 
-    raise Exception(f"Unknown compare string: {cmp_str}")
+    raise Exception(f"Unknown compare string: {cmp_str}")  # noqa: TRY002
 
 
 def check_version(name, exec_path):

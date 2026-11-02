@@ -1,12 +1,10 @@
 # For usage, see gen_test_data.sh
 
-import random
-
 import json
+import random
 import sys
-from typing import Dict, Union, Optional
 
-FormatType = Dict[str, Union[bool, str, int]]
+FormatType = dict[str, bool | str | int]
 
 
 def format_gen(width: int) -> FormatType:
@@ -66,7 +64,7 @@ def no_err_cmds_list(queue_size, num_cmds):
 
 
 def dump_json(
-    num_cmds, no_err: bool, queue_size: Optional[int] = None, nwc=False, use_ranks=False
+    num_cmds, no_err: bool, queue_size: int | None = None, nwc=False, use_ranks=False
 ):
     """Prints a JSON representation of the data to stdout.
     The data itself is populated randomly, following certain rules:

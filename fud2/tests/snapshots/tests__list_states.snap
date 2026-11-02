@@ -14,6 +14,7 @@ source: fud2/tests/tests.rs
     "firrtl",
     "firrtl-with-primitives",
     "flamegraph",
+    "flamegraph-folded-for-tests",
     "hls-impl-report",
     "hls-report",
     "jq",

@@ -1,11 +1,12 @@
 # pylint: disable=import-error
 import sys
+
 import calyx.builder as cb
-import queues.queue_call as qc
 import queues.binheap.round_robin as rr
 import queues.binheap.strict as st
-import queues.tree as tr
 import queues.flow_inference as fi
+import queues.queue_call as qc
+import queues.tree as tr
 
 # This complex tree has the shape rr(strict(A, B, C), rr(D, E, F), strict(G, H))
 

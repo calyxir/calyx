@@ -1,8 +1,10 @@
+use anyhow::anyhow;
 use rhai::{Dynamic, ImmutableString, ParseError, Position};
 
 use crate::{
     DriverBuilder,
     exec::{SetupRef, StateRef},
+    script::exec_scripts::RhaiMultiIOSetupCtx,
 };
 use std::{
     cell::{RefCell, RefMut},
@@ -446,6 +448,7 @@ pub struct ScriptRunner {
     builder: Rc<RefCell<DriverBuilder>>,
     engine: rhai::Engine,
     rhai_functions: rhai::AST,
+    rhai_functions_names: HashSet<String>,
     resolver: Option<Resolver>,
     setups: Rc<RefCell<HashMap<String, SetupRef>>>,
 }
@@ -456,6 +459,7 @@ impl ScriptRunner {
             builder: Rc::new(RefCell::new(builder)),
             engine: rhai::Engine::new(),
             rhai_functions: rhai::AST::empty(),
+            rhai_functions_names: HashSet::new(),
             resolver: Some(Resolver::default()),
             setups: Rc::default(),
         };
@@ -484,6 +488,15 @@ impl ScriptRunner {
             };
             let functions =
                 self.resolver.as_mut().unwrap().register_path(f, ast);
+            for function in functions.iter_functions() {
+                if self.rhai_functions_names.contains(function.name) {
+                    return Err(anyhow!(
+                        "Multiple functions have the name \"{}\". This is not allowed.",
+                        function.name
+                    ));
+                }
+                self.rhai_functions_names.insert(function.name.to_string());
+            }
             self.rhai_functions = self.rhai_functions.merge(&functions);
         }
         Ok(self)
@@ -614,6 +627,63 @@ impl ScriptRunner {
                     &setups,
                     &[input],
                     &[output],
+                    rctx,
+                );
+
+                // try to set op source
+                #[cfg(debug_assertions)]
+                if let Some(name) = sctx.path.file_name() {
+                    bld.borrow_mut().op_source(op, name.to_string_lossy());
+                }
+                Ok(op)
+            },
+        );
+    }
+
+    fn create_state_refs(
+        arr: rhai::Array,
+        ctx: &rhai::NativeCallContext,
+    ) -> impl Iterator<Item = RhaiResult<StateRef>> {
+        arr.into_iter()
+            .map(|v| match v.clone().try_cast::<StateRef>() {
+                Some(s) => Ok(s),
+                None => Err(RhaiSystemError::state_ref(v)
+                    .with_pos(ctx.call_position())
+                    .into()),
+            })
+    }
+
+    fn reg_op_multi(&mut self, sctx: ScriptContext) {
+        let bld = Rc::clone(&self.builder);
+        self.engine.register_fn(
+            "op_multi",
+            move |ctx: rhai::NativeCallContext,
+                  name: &str,
+                  setups: rhai::Array,
+                  input: rhai::Array,
+                  output: rhai::Array,
+                  build: rhai::FnPtr|
+                  -> RhaiResult<_> {
+                let setups = sctx.setups_array(&ctx, setups)?;
+                let rctx = RhaiMultiIOSetupCtx {
+                    _path: sctx.path.clone(),
+                    ast: Rc::new(sctx.ast.clone_functions_only()),
+                    name: build.fn_name().to_string(),
+                };
+
+                let mut input_state_refs: Vec<StateRef> = vec![];
+                for s in Self::create_state_refs(input, &ctx) {
+                    input_state_refs.push(s?);
+                }
+                let mut output_state_refs: Vec<StateRef> = vec![];
+                for s in Self::create_state_refs(output, &ctx) {
+                    output_state_refs.push(s?);
+                }
+                let op = bld.borrow_mut().add_op(
+                    name,
+                    &setups,
+                    &input_state_refs,
+                    &output_state_refs,
                     rctx,
                 );
 
@@ -883,6 +953,7 @@ impl ScriptRunner {
         let sctx = self.script_context(path.to_path_buf());
         self.reg_rule(sctx.clone());
         self.reg_op(sctx.clone());
+        self.reg_op_multi(sctx.clone());
         self.reg_shell(sctx.clone());
         self.reg_shell_deps(sctx.clone());
         self.reg_defop_syntax(sctx.clone());

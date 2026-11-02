@@ -1,16 +1,15 @@
-from typing import List, Set, Optional
+from __future__ import annotations
 
-import appdirs  # type: ignore
-import toml
-import sys
 import logging as log
+import sys
 from pathlib import Path
 from pprint import PrettyPrinter
 
-from . import stages
+import appdirs  # type: ignore
+import toml
 
+from . import errors, external, registry, stages
 from .utils import eprint
-from . import errors, external, registry
 
 # Key for the root folder
 ROOT = "root"
@@ -152,7 +151,7 @@ class DynamicDict:
         if lastkey in data:
             del data[lastkey]
         else:
-            log.warning(f"`{'.'.join(keys)}' not found. Ignoring delete command.")
+            log.warning(f"`{'.'.join(keys)}' not found. Ignoring delete command.")  # noqa: LOG015
 
     def __contains__(self, keys):
         data = self.data
@@ -168,7 +167,7 @@ def wizard(table, data):
     """
     Prompt the user for unset keys as specified in `data`.
     """
-    for key in data.keys():
+    for key in data:
         if not isinstance(table, dict):
             table = {}
 
@@ -208,7 +207,7 @@ class Configuration:
         """Find the configuration file."""
         self.path = Path(appdirs.user_config_dir("fud"))
         if not self.path.parent.exists():
-            log.warning(f"{self.path.parent} doesn't exist. Creating it.")
+            log.warning(f"{self.path.parent} doesn't exist. Creating it.")  # noqa: LOG015
         self.path.mkdir(parents=True, exist_ok=True)
 
         self.config_file = self.path / "config.toml"
@@ -222,7 +221,7 @@ class Configuration:
         self.wizard_data = DynamicDict(WIZARD_DATA)
         self.fill_missing(DEFAULT_CONFIGURATION, self.config.data)
         if ("global", ROOT) not in self.config:
-            log.warning(f"global.{ROOT} is not set in the configuration")
+            log.warning(f"global.{ROOT} is not set in the configuration")  # noqa: LOG015
 
     def commit(self):
         """
@@ -243,7 +242,7 @@ class Configuration:
         """
         if isinstance(default, dict):
             # go over all the keys in the default
-            for key in default.keys():
+            for key in default:
                 # if the key is not in the config, add it
                 if key not in config:
                     config[key] = default[key]
@@ -256,8 +255,8 @@ class Configuration:
         Launch the wizard to prompt user for unset keys.
         """
         changed = False
-        for key in self.config.data.keys():
-            if key in self.wizard_data.data.keys():
+        for key in self.config.data:
+            if key in self.wizard_data.data:
                 self.config.data[key] = wizard(self.config[key], WIZARD_DATA[key])
                 changed = True
         if changed:
@@ -327,7 +326,7 @@ class Configuration:
                 # Only delete the stage if it's marked as an external
                 del self[["externals", args.name]]
             else:
-                log.warning(
+                log.warning(  # noqa: LOG015
                     f"Ignoring delete command, no external script named `{args.name}'."
                 )
 
@@ -342,7 +341,7 @@ class Configuration:
         for name, stage in self["stages"].items():
             if "file_extensions" not in stage:
                 continue
-            if any([ext == suffix for ext in stage["file_extensions"]]):
+            if any(ext == suffix for ext in stage["file_extensions"]):
                 stages.append(name)
 
         # Implied stages only discovered when there is exactly one
@@ -355,7 +354,7 @@ class Configuration:
         stage = stages[0]
 
         states = self.registry.get_states(stage)
-        sources: Set[str] = set([source for (source, _) in states])
+        sources: set[str] = {source for (source, _) in states}
 
         # Only able to discover state if the stage has one input
         if len(sources) > 1:
@@ -365,24 +364,26 @@ class Configuration:
 
     def construct_path(
         self,
-        source: Optional[str] = None,
-        target: Optional[str] = None,
+        source: str | None = None,
+        target: str | None = None,
         input_file=None,
         output_file=None,
-        through=[],
-    ) -> List[stages.Stage]:
+        through=None,
+    ) -> list[stages.Stage]:
         """
         Construct the path of stages implied by the passed arguments.
         """
         # find source
+        if through is None:
+            through = []
         if source is None:
             source = self.discover_implied_states(input_file)
-            log.debug(f"Inferred source state: {source}")
+            log.debug(f"Inferred source state: {source}")  # noqa: LOG015
 
         # find target
         if target is None:
             target = self.discover_implied_states(output_file)
-            log.debug(f"Inferred target state: {target}")
+            log.debug(f"Inferred target state: {target}")  # noqa: LOG015
 
         path = self.registry.make_path(source, target, through)
 

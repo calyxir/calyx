@@ -1,8 +1,9 @@
 # pylint: disable=import-error
 import sys
+
 import calyx.builder as cb
 import queues.queue_call as qc
-import queues.fifo as fifo
+from queues import fifo
 
 
 def build():

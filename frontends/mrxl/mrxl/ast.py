@@ -1,13 +1,12 @@
 # fmt: off
 from dataclasses import dataclass
-from typing import List, Union, Optional
 
 
 @dataclass
 class Type:
     """Either an array of some size, or a register."""
     base: str
-    size: Optional[int]  # If `None`, this is a register.
+    size: int | None  # If `None`, this is a register.
 
 
 # ANCHOR: decl
@@ -32,7 +31,7 @@ class VarExpr:
     name: str
 
 
-BaseExpr = Union[LitExpr, VarExpr]
+BaseExpr = LitExpr | VarExpr
 
 
 @dataclass
@@ -46,7 +45,7 @@ class BinExpr:
 @dataclass
 class Bind:
     """A binding from a source to a (list of) destination(s)."""
-    dst: List[str]
+    dst: list[str]
     src: str
 
 
@@ -54,7 +53,7 @@ class Bind:
 class Map:
     """A map operation."""
     par: int
-    binds: List[Bind]
+    binds: list[Bind]
     body: BinExpr
 
 
@@ -62,7 +61,7 @@ class Map:
 class Reduce:
     """A reduce operation."""
     par: int
-    binds: List[Bind]
+    binds: list[Bind]
     init: LitExpr
     body: BinExpr
 
@@ -72,10 +71,10 @@ class Reduce:
 class Stmt:
     """A statement in the program."""
     dst: str
-    operation: Union[Map, Reduce]
+    operation: Map | Reduce
 # ANCHOR_END: stmt
 
-    def __init__(self, dst: str, operation: Union[Map, Reduce]):
+    def __init__(self, dst: str, operation: Map | Reduce):
         self.dst = dst
         if isinstance(operation, Map):
             # Ensure that bindings for Map contain only one destination
@@ -91,6 +90,6 @@ class Stmt:
 @dataclass
 class Prog:
     """A MrXL program."""
-    decls: List[Decl]  # Memory declarations
-    stmts: List[Stmt]  # Map and reduce statements
+    decls: list[Decl]  # Memory declarations
+    stmts: list[Stmt]  # Map and reduce statements
 # ANCHOR_END: prog

@@ -1,28 +1,27 @@
-from typing import List
-
-from calyx.py_ast import (
-    CompVar,
-    Stdlib,
-    Component,
-    Program,
-)
-from calyx.utils import float_to_fixed_point
+import os
 from math import factorial, log2
-from calyx.numeric_types import FixedPoint
-from calyx.gen_ln import generate_ln
+
 from calyx.builder import (
+    HI,
     Builder,
-    ComponentBuilder,
     CellAndGroup,
-    while_with,
+    CellBuilder,
+    ComponentBuilder,
+    const,
     if_with,
     invoke,
-    CellBuilder,
-    const,
-    HI,
     par,
+    while_with,
 )
-import os
+from calyx.gen_ln import generate_ln
+from calyx.numeric_types import FixedPoint
+from calyx.py_ast import (
+    Component,
+    CompVar,
+    Program,
+    Stdlib,
+)
+from calyx.utils import float_to_fixed_point
 
 
 def generate_fp_pow_component(
@@ -467,7 +466,7 @@ def generate_control(comp: ComponentBuilder, degree: int, is_signed: bool):
 
 def generate_exp_taylor_series_approximation(
     builder: Builder, degree: int, width: int, int_width: int, is_signed: bool
-) -> List[Component]:
+) -> list[Component]:
     """Generates Calyx components to produce the Taylor series
     approximation of e^x to the provided degree. Given this is
     a Maclaurin series, it can be written more generally as:
@@ -558,7 +557,7 @@ def gen_constant_cell(
 
 def generate_fp_pow_full(
     builder: Builder, degree: int, width: int, int_width: int, is_signed: bool
-) -> List[Component]:
+) -> list[Component]:
     """
     Generates a component that can calculate b^x, for any fixed point b and x.
     Here is the idea behind how the component works:
@@ -789,7 +788,7 @@ if __name__ == "__main__":
         args.is_signed,
         args.base_is_e,
     ]
-    if all(map(lambda x: x is not None, required_fields)):
+    if all(x is not None for x in required_fields):
         degree = args.degree
         width = args.width
         int_width = args.int_width

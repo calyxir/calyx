@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
+# noqa: EXE001
+from gen_pe import BITWIDTH, PE_NAME, pe
+from systolic_arg_parser import SystolicConfiguration
+from systolic_scheduling import gen_schedules
 
-from gen_pe import pe, PE_NAME, BITWIDTH
 from calyx import builder as cb
 from calyx import py_ast
 from calyx.utils import bits_needed
-from systolic_arg_parser import SystolicConfiguration
-from systolic_scheduling import gen_schedules
 
 # Global constant for the current bitwidth.
 DEPTH = "depth"
@@ -65,7 +66,7 @@ def instantiate_memory(comp: cb.ComponentBuilder, top_or_left, idx, size):
         name = f"l{idx}"
         target_reg = f"left_{idx}_0"
     else:
-        raise Exception(f"Invalid top_or_left: {top_or_left}")
+        raise Exception(f"Invalid top_or_left: {top_or_left}")  # noqa: TRY002
 
     idx_width = bits_needed(size)
     # Instantiate the memory

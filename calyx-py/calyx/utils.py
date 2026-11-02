@@ -1,5 +1,5 @@
-import textwrap
 import math
+import textwrap
 
 
 def block(decl, contents, indent=2, sep="\n", with_curly=True):
@@ -26,7 +26,7 @@ def bits_needed(num):
     """
     Number of bits needed to represent `num`.
     """
-    return math.floor(math.log(num, 2)) + 1
+    return math.floor(math.log2(num)) + 1
 
 
 def float_to_fixed_point(value: float, N: int) -> float:

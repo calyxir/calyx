@@ -2,11 +2,11 @@ import logging as log
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from fud.stages import Source, SourceType, Stage
-from fud.stages.remote_context import RemoteExecution, LocalSandbox
-from fud.stages.futil import CalyxStage
-from fud.utils import shell
 from fud import config as cfg
+from fud.stages import Source, SourceType, Stage
+from fud.stages.futil import CalyxStage
+from fud.stages.remote_context import LocalSandbox, RemoteExecution
+from fud.utils import shell
 
 
 def get_ports(kernel_xml):

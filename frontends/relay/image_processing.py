@@ -1,6 +1,5 @@
-import numpy as np
-
 import imageio
+import numpy as np
 from PIL import Image
 
 
@@ -32,8 +31,8 @@ def preprocess_google(img_path):
 
 def preprocess_img_mnist(img_path):
     """Preprocessing required for MNIST classification."""
-    from PIL import Image
     import cv2
+    from PIL import Image
 
     img = Image.open(img_path)
     img = np.array(img)
@@ -41,7 +40,7 @@ def preprocess_img_mnist(img_path):
     try:
         # This may cause an error if the image is already in grayscale.
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    except Exception:
+    except Exception:  # noqa: BLE001, S110
         pass
     # Resize.
     img = cv2.resize(img, (28, 28)).astype(np.float32) / 255
@@ -85,8 +84,8 @@ SupportedDatasets = {
 def preprocess_image(img, dataset: str):
     """Preprocesses an image for classification."""
     dataset = dataset.lower()
-    if dataset not in SupportedDatasets.keys():
-        raise Exception(
+    if dataset not in SupportedDatasets:
+        raise Exception(  # noqa: TRY002
             f"Preprocessing the image for: {dataset} is not supported. "
             f"Supported datasets: {SupportedDatasets}"
         )

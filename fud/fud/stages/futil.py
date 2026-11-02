@@ -1,5 +1,5 @@
-from fud.stages import SourceType, Stage
 from fud import config as cfg
+from fud.stages import SourceType, Stage
 
 from ..utils import shell, unwrap_or
 

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-
-import json
-import numpy as np
-import sys
+# noqa: EXE001
 import itertools
+import json
+import sys
 from pathlib import Path
+
+import numpy as np
 
 
 def generate_bank_strings(banks):
@@ -69,4 +70,4 @@ if __name__ == "__main__":
         main(filename, random)
     else:
         print(f"{filename} doesn't exist.")
-        exit(1)
+        sys.exit(1)

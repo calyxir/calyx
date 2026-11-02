@@ -1,10 +1,11 @@
 # type: ignore
-import tvm
-from tvm import relay
-from calyx.py_ast import CompVar, Stdlib, CompInst, Cell, Invoke, CompPort
-from calyx.utils import bits_needed
-from typing import List
 from dataclasses import dataclass
+
+import tvm
+from calyx.py_ast import Cell, CompInst, CompPort, CompVar, Invoke, Stdlib
+from tvm import relay
+
+from calyx.utils import bits_needed
 
 # Mapping from the tensor dimensions to the
 # corresponding Calyx primitive.
@@ -25,7 +26,7 @@ class DahliaFuncDef:
     function_id: str
     component_name: str
     dest: CompVar
-    args: List[CompVar]
+    args: list[CompVar]
     attributes: tvm.ir.Attrs
     data_type: str
     component: CompInst
@@ -45,7 +46,7 @@ def get_dims(c: CompInst):
     return id2dimensions[id]
 
 
-def get_dimension_sizes(c: CompInst) -> List[int]:
+def get_dimension_sizes(c: CompInst) -> list[int]:
     """Given a cell `c`, returns the corresponding
     memory sizes.
     Example:
@@ -59,15 +60,17 @@ def get_addr_ports(c: CompInst):
     for each address port in the component
     instance."""
     dims = get_dims(c)
-    addresses = range(0, dims)
+    addresses = range(dims)
     indices = range(dims + 1, dims << 1 + 1)
     return [(f"addr{i}", c.args[n]) for (i, n) in zip(addresses, indices)]
 
 
 def emit_invoke_control(
-    decl: CompVar, dest: Cell, args: List[Cell], old_args=[], old_dest=None
+    decl: CompVar, dest: Cell, args: list[Cell], old_args=None, old_dest=None
 ) -> Invoke:
     """Returns the Invoke control."""
+    if old_args is None:
+        old_args = []
     ref_cells = []
     inputs = []
 

@@ -1,9 +1,10 @@
 import os
 
-from profiler.visuals import flame, timeline
+from profiler.classes.adl import Adl, AdlMap, DahliaAdlMap, SourceLoc
 from profiler.classes.primitive_metadata import PrimitiveMetadata
-from profiler.classes.adl import AdlMap, Adl, DahliaAdlMap, SourceLoc
-from profiler.classes.tracedata import FlameMapMode, TraceData, PTrace, CycleTrace
+from profiler.classes.tracedata import CycleTrace, FlameMapMode, PTrace, TraceData
+from profiler.visuals import flame, timeline
+
 from .classes.stack_element import StackElement, StackElementType
 
 
@@ -45,12 +46,10 @@ def create_dahlia_trace(tracedata: TraceData, dahlia_map: DahliaAdlMap):
                     else []
                 )
                 raw_stack_items.append(entry)
-            stack_elements = list(
-                map(
-                    lambda content: StackElement(content, StackElementType.ADL_LINE),
-                    raw_stack_items,
-                )
-            )
+            stack_elements = [
+                StackElement(content, StackElementType.ADL_LINE)
+                for content in raw_stack_items
+            ]
 
             dahlia_stacks.append(stack_elements)
         dahlia_trace.add_cycle(i, CycleTrace(dahlia_stacks))

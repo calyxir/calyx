@@ -1,19 +1,19 @@
 from .stage import (
+    VivadoExtractStage,
+    VivadoHLSExtractStage,
+    VivadoHLSPlaceAndRouteExtractStage,
+    VivadoHLSPlaceAndRouteStage,
+    VivadoHLSStage,
     VivadoStage,
     VivadoStageFSMs,
-    VivadoExtractStage,
-    VivadoHLSStage,
-    VivadoHLSExtractStage,
-    VivadoHLSPlaceAndRouteStage,
-    VivadoHLSPlaceAndRouteExtractStage,
 )
 
 __all__ = [
+    "VivadoExtractStage",
+    "VivadoHLSExtractStage",
+    "VivadoHLSPlaceAndRouteExtractStage",
+    "VivadoHLSPlaceAndRouteStage",
+    "VivadoHLSStage",
     "VivadoStage",
     "VivadoStageFSMs",
-    "VivadoExtractStage",
-    "VivadoHLSStage",
-    "VivadoHLSExtractStage",
-    "VivadoHLSPlaceAndRouteStage",
-    "VivadoHLSPlaceAndRouteExtractStage",
 ]

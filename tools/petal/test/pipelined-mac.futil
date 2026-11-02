@@ -1,0 +1,183 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/binary_operators.futil";
+
+component pipelined_mac(
+  data_valid: 1,
+  a: 32,
+  b: 32,
+  c: 32
+) -> (
+  out: 32,
+  output_valid: 1
+) {
+  cells {
+    mult_pipe = std_mult_pipe(32);
+    add = std_add(32);
+
+    // Pipeline register between stage 1 & 2
+    pipe1 = std_reg(32);
+    // Pipeline register after stage 2
+    pipe2 = std_reg(32);
+
+    stage2_valid = std_reg(1); // Stage 2 should run this execution
+    out_valid = std_reg(1);    // Output is valid
+    data_valid_reg = std_reg(1); // Stores value of data_valid
+  }
+  wires {
+    group stage1<"static"=4> {
+      mult_pipe.left = a;
+      mult_pipe.right = b;
+      pipe1.in = mult_pipe.out;
+      pipe1.write_en = mult_pipe.done;
+      mult_pipe.go = !mult_pipe.done ? 1'd1;
+      stage1[done] = pipe1.done;
+    }
+    group stage2 {
+      add.left = pipe1.out;
+      add.right = c;
+      pipe2.write_en = 1'd1;
+      pipe2.in = add.out;
+      stage2[done] = pipe2.done;
+    }
+    group set_stage2_valid {
+      stage2_valid.in = 1'd1;
+      stage2_valid.write_en = 1'd1;
+      set_stage2_valid[done] = stage2_valid.done;
+    }
+    group unset_stage2_valid {
+      stage2_valid.in = 1'd0;
+      stage2_valid.write_en = 1'd1;
+      unset_stage2_valid[done] = stage2_valid.done;
+    }
+
+    group set_out_valid {
+      out_valid.in = 1'd1;
+      out_valid.write_en = 1'd1;
+      set_out_valid[done] = out_valid.done;
+    }
+    group unset_out_valid {
+      out_valid.in = 1'd0;
+      out_valid.write_en = 1'd1;
+      unset_out_valid[done] = out_valid.done;
+    }
+    group write_data_valid {
+      data_valid_reg.write_en = 1'd1;
+      data_valid_reg.in = data_valid;
+      write_data_valid[done] = data_valid_reg.done;
+    }
+
+    output_valid = out_valid.out;
+    out = pipe2.out;
+  }
+  control {
+    seq {
+      write_data_valid;
+      // Execute all stages in parallel
+      par {
+        if data_valid_reg.out { stage1; }
+        if stage2_valid.out { stage2; }
+      }
+      // Configure valid signals for next invoke
+      par {
+        if data_valid_reg.out {
+          set_stage2_valid;
+        } else {
+          unset_stage2_valid;
+        }
+        if stage2_valid.out {
+          set_out_valid;
+        } else {
+          unset_out_valid;
+        }
+      }
+    }
+  }
+}
+
+component main() -> () {
+  cells {
+    // Input memories
+    @external a = comb_mem_d1(32, 10, 4);
+    @external b = comb_mem_d1(32, 10, 4);
+
+    // Output memory: Expected output 31178
+    @external out = comb_mem_d1(32, 1, 1);
+
+    // Registers to save value at current memory index
+    read_a = std_reg(32);
+    read_b = std_reg(32);
+    read_c = std_reg(32);
+
+    // Index into memories `a` & `b`.
+    idx0 = std_reg(4);
+    add0 = std_add(4);
+    lt0 = std_lt(4);
+
+    mac = pipelined_mac();
+  }
+  wires {
+    group init_all {
+      idx0.in = 4'd0;
+      idx0.write_en = 1'd1;
+      init_all[done] = idx0.done;
+    }
+    group store_a {
+      a.addr0 = idx0.out;
+      read_a.write_en = 1'd1;
+      read_a.in = a.read_data;
+      store_a[done] = read_a.done;
+    }
+    group store_b {
+      b.addr0 = idx0.out;
+      read_b.write_en = 1'd1;
+      read_b.in = b.read_data;
+      store_b[done] = read_b.done;
+    }
+    group incr_idx {
+      idx0.in = add0.out;
+      idx0.write_en = 1'd1;
+      add0.left = 4'd1;
+      add0.right = idx0.out;
+      incr_idx[done] = idx0.done;
+    }
+    group save_out {
+      out.addr0 = 1'd0;
+      out.write_en = 1'd1;
+      out.write_data = mac.out;
+      save_out[done] = out.done;
+    }
+    comb group in_range {
+      lt0.left = idx0.out;
+      lt0.right = 4'd10;
+    }
+  }
+  control {
+    seq {
+      init_all;
+      // Pipeline initialization: when idx0 == 0.
+      // Perform the first multiplication w/o accumulate
+      par { store_a; store_b; }
+      invoke mac(data_valid = 1'd1, a = read_a.out, b = read_b.out)();
+      incr_idx;
+      // Pipeline steady-state: when idx0 < 10.
+      // Perform i+1 th multiply & i th accumulate
+      while lt0.out with in_range {
+        seq {
+          par { store_a; store_b; }
+          invoke mac(
+            data_valid = 1'd1,
+            a = read_a.out,
+            b = read_b.out,
+            c = mac.out
+          )();
+          incr_idx;
+        }
+      }
+      // Pipeline flushing: when idx0 == 10.
+      // Perform the final accumulate
+      invoke mac(c = mac.out)();
+      save_out;
+    }
+  }
+}

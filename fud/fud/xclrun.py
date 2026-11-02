@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# noqa: EXE001
 """A standalone tool for executing compiled Xilinx XRT bitstreams.
 
 This tool can be invoked as a subprocess to run a compiled `.xclbin`, which may
@@ -29,16 +30,21 @@ invocation of xclrun looks something like this::
 .. _pyxrt: https://github.com/Xilinx/XRT/blob/master/src/python/pybind11/src/pyxrt.cpp
 """
 
+from __future__ import annotations
+
 import argparse
-import pynq
-import numpy as np
-import simplejson as sjson
 import sys
+from collections.abc import Mapping
 from os import environ
-from typing import Mapping, Any, Dict
 from pathlib import Path
-from fud.stages.verilator.json_to_dat import parse_fp_widths, float_to_fixed
+from typing import Any
+
+import numpy as np
+import pynq
+import simplejson as sjson
 from calyx.numeric_types import InvalidNumericType
+
+from fud.stages.verilator.json_to_dat import float_to_fixed, parse_fp_widths
 
 
 def mem_to_buf(mem):
@@ -62,13 +68,13 @@ def buf_to_mem(fmt, buf):
         convert_to_fp(buf)
         return list(buf)
     elif fmt["numeric_type"] == "bitnum":
-        return list([int(e) for e in buf])
+        return [int(e) for e in buf]
 
     else:
         raise InvalidNumericType('Fud only supports "fixed_point" and "bitnum".')
 
 
-def run(xclbin: Path, data: Mapping[str, Any]) -> Dict[str, Any]:
+def run(xclbin: Path, data: Mapping[str, Any]) -> dict[str, Any]:
     """Takes in a json data output and runs pynq using the data provided
     returns a dictionary that can be converted into json
 
@@ -88,7 +94,7 @@ def run(xclbin: Path, data: Mapping[str, Any]) -> Dict[str, Any]:
         buffer.sync_to_device()
 
     # Run the kernel.
-    kernel = getattr(ol, list(ol.ip_dict)[0])  # Like ol.wrapper_1
+    kernel = getattr(ol, next(iter(ol.ip_dict)))  # Like ol.wrapper_1
     kernel.call(*buffers)
 
     # Collect the output data.
@@ -143,7 +149,7 @@ def xclrun():
     out_data = run(Path(args.bin), in_data)
 
     # Dump the output JSON data.
-    outfile = open(args.out, "w") if args.out else sys.stdout
+    outfile = open(args.out, "w") if args.out else sys.stdout  # noqa: SIM115
     sjson.dump(out_data, outfile, indent=2, use_decimal=True)
 
 

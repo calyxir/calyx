@@ -1,9 +1,9 @@
 # pylint: disable=import-error
 import sys
-import calyx.builder as cb
-import queues.queue_call as qc
-import queues.binheap.fifo as bhf
 
+import calyx.builder as cb
+import queues.binheap.fifo as bhf
+import queues.queue_call as qc
 
 if __name__ == "__main__":
     """Top-level function to build the program."""

@@ -1,11 +1,11 @@
+import os
 import shutil
 from pathlib import Path, PurePath
-import os
 
+from fud import config as cfg
 from fud.stages import SourceType, Stage
 from fud.stages.remote_context import RemoteExecution
 from fud.utils import TmpDir, shell
-from fud import config as cfg
 
 from .extract import hls_extract, place_and_route_extract
 
@@ -40,7 +40,6 @@ class VivadoBaseStage(Stage):
         """
         Device files required for executing this Vivado flow
         """
-        pass
 
     def extra_flags(self, config):
         """

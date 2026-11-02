@@ -1,4 +1,4 @@
-// -p external-to-ref
+// -p external-to-ref -x external-to-ref:activate=true
 
 import "primitives/core.futil";
 import "primitives/memories/seq.futil";

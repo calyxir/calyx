@@ -1,12 +1,13 @@
 import logging as log
+import shutil
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-import shutil
 
-from fud.utils import TmpDir, FreshDir
+from fud.utils import FreshDir, TmpDir
+
 from .. import errors
-from ..stages import Source, SourceType, ComputationGraph, Stage
 from ..config import Configuration
+from ..stages import ComputationGraph, Source, SourceType, Stage
 
 
 class RemoteExecution:

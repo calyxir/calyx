@@ -2,7 +2,7 @@ use cranelift_entity::PrimaryMap;
 use fud_core::{
     exec::{
         OpRef, Operation,
-        plan::{EnumeratePlanner, FindPlan},
+        plan::{EnumeratePlanner, FindPlan, InductivePlanner},
     },
     flang::{PathRef, Plan},
     run::EmitBuildFn,
@@ -17,6 +17,8 @@ use fud_core::exec::plan::SatPlanner;
 fn all_planners() -> impl Iterator<Item = Box<dyn FindPlan>> {
     #[allow(unused_mut)]
     let mut out: Vec<Box<dyn FindPlan>> = vec![Box::new(EnumeratePlanner {})];
+    out.push(Box::new(InductivePlanner {}));
+
     #[cfg(feature = "sat_planner")]
     out.push(Box::new(SatPlanner {}));
 
@@ -280,6 +282,63 @@ fn find_plan_self_loop() {
             found ir: yes;
             expected ir:
                 s1 = t1(s1);
+        }
+    }
+}
+
+#[test]
+fn find_plan_skip_self_loop_in_chain() {
+    for path_finder in all_planners() {
+        println!("testing planner: {path_finder:?}");
+        make_test! {
+            ----------
+            config
+            ----------
+            states: s1, s2, s3;
+            ops:
+                t1 : s1 => s2;
+                t2 : s2 => s2;
+                t3 : s2 => s3;
+            ----------
+            tests
+            ----------
+            planner: path_finder;
+            inputs: s1;
+            outputs: s3;
+            throughs:;
+            found ir: yes;
+            expected ir:
+                s2_1 = t1(s1);
+                s3 = t3(s2_1);
+        }
+    }
+}
+
+#[test]
+fn find_plan_hit_self_loop_in_chain() {
+    for path_finder in all_planners() {
+        println!("testing planner: {path_finder:?}");
+        make_test! {
+            ----------
+            config
+            ----------
+            states: s1, s2, s3;
+            ops:
+                t1 : s1 => s2;
+                t2 : s2 => s2;
+                t3 : s2 => s3;
+            ----------
+            tests
+            ----------
+            planner: path_finder;
+            inputs: s1;
+            outputs: s3;
+            throughs: t2;
+            found ir: yes;
+            expected ir:
+                s2_1 = t1(s1);
+                s2_2 = t2(s2_1);
+                s3 = t3(s2_2);
         }
     }
 }

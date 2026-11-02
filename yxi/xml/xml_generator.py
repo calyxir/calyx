@@ -1,8 +1,8 @@
-import sys
 import json
-from xml.etree.ElementTree import Element, SubElement, tostring
-from xml.dom import minidom
+import sys
 from math import log2
+from xml.dom import minidom
+from xml.etree.ElementTree import Element, SubElement, tostring
 
 """
 This file takes in a `.yxi` description and outputs a xml suitable for a `kernel.xml` file
@@ -125,13 +125,13 @@ def prettify(elem):
 if __name__ == "__main__":
     yxi_filename = "input.yxi"
     if len(sys.argv) != 2:
-        raise Exception(
+        raise Exception(  # noqa: TRY002
             "The `kernel.xml` generator takes 1 `.yxi` file name as an argument."
         )
 
     yxi_filename = sys.argv[1]
     if not yxi_filename.endswith(".yxi"):
-        raise Exception("The `kernel.xml` generator requires an `.yxi` file as input.")
+        raise Exception("The `kernel.xml` generator requires an `.yxi` file as input.")  # noqa: TRY002
 
     with open(yxi_filename, "r", encoding="utf-8") as f:
         yxi = json.load(f)

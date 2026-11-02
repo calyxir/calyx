@@ -1,9 +1,9 @@
 import json
+import logging as log
 import os
-from pathlib import Path, PurePath
 import re
 import traceback
-import logging as log
+from pathlib import Path, PurePath
 
 from fud import errors
 

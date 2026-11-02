@@ -197,13 +197,33 @@ fn request_with_planner(
     through: &[&str],
     planner: impl FindPlan + 'static,
 ) -> Request {
+    request_with_planner_and_files(
+        driver,
+        start,
+        &[],
+        end,
+        &[],
+        through,
+        planner,
+    )
+}
+
+fn request_with_planner_and_files(
+    driver: &Driver,
+    start: &[&str],
+    start_files: &[Utf8PathBuf],
+    end: &[&str],
+    end_files: &[Utf8PathBuf],
+    through: &[&str],
+    planner: impl FindPlan + 'static,
+) -> Request {
     fud_core::exec::Request {
-        start_files: vec![],
+        start_files: start_files.to_vec(),
         start_states: start
             .iter()
             .map(|s| driver.get_state(s).unwrap())
             .collect(),
-        end_files: vec![],
+        end_files: end_files.to_vec(),
         end_states: end.iter().map(|s| driver.get_state(s).unwrap()).collect(),
         through: through.iter().map(|s| driver.get_op(s).unwrap()).collect(),
         workdir: ".".into(),
@@ -301,6 +321,35 @@ fn sim_tests() {
 }
 
 #[test]
+fn axi_wrapped_test_with_output_file() {
+    let driver = test_driver();
+    request_with_planner_and_files(
+        &driver,
+        &["dahlia"],
+        &["start.fuse".into()],
+        &["calyx"],
+        &["tmp.futil".into()],
+        &["axi-wrapped"],
+        LegacyPlanner {},
+    )
+    .test(&driver);
+}
+
+#[test]
+fn axi_wrapped_test_without_output_file() {
+    let driver = test_driver();
+    // dahlia-to-calyx is redundant here but needed because otherwise there is a race condition as this looks
+    // very similar to the `axi_wrapped_test_with_output_file` and insta can't tell them apart.
+    request(
+        &driver,
+        &["dahlia"],
+        &["calyx"],
+        &["dahlia-to-calyx", "axi-wrapped"],
+    )
+    .test(&driver);
+}
+
+#[test]
 fn cider_tests() {
     let driver = test_driver();
     request(&driver, &["calyx"], &["dat"], &["cider"]).test(&driver);
@@ -366,6 +415,19 @@ fn simple_defops() {
 }
 
 #[test]
+fn test_multiop() {
+    let driver = driver_from_path("op_multi");
+    request_with_planner(
+        &driver,
+        &["s1", "s2"],
+        &["s3", "s4"],
+        &[],
+        EnumeratePlanner {},
+    )
+    .test(&driver);
+}
+
+#[test]
 fn config() {
     let config = figment::Figment::from({
         let source = r#"
@@ -400,4 +462,11 @@ fn emit_bad_config() {
     } else {
         panic!()
     }
+}
+
+#[test]
+#[should_panic]
+fn fail_on_duplicated_setups() {
+    let driver = driver_from_path("fail_on_duplicated_setups");
+    request(&driver, &["state0"], &["state1"], &[]).test(&driver);
 }

@@ -12,3 +12,6 @@ readme = "README.md"
 
 [project.scripts]
 profiler = "profiler.main:main"
+
+[tool.ruff.lint.per-file-ignores]
+"main.py" = ["DTZ005"]

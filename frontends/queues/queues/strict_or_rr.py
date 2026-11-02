@@ -1,6 +1,7 @@
 # pylint: disable=import-error
 import calyx.builder as cb
 import calyx.py_ast as ast
+
 from calyx.utils import bits_needed
 
 # This determines the maximum possible length of the queue:

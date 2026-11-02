@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
+import os
+
 import calyx.builder as cb
-from systolic_arg_parser import SystolicConfiguration
-from calyx.utils import bits_needed
 from gen_array_component import (
-    create_systolic_array,
     BITWIDTH,
     NAME_SCHEME,
+    create_systolic_array,
 )
 from gen_post_op import (
+    OUT_MEM,
     default_post_op,
-    relu_post_op,
     leaky_relu_post_op,
     relu_dynamic_post_op,
-    OUT_MEM,
+    relu_post_op,
 )
-import os
+from systolic_arg_parser import SystolicConfiguration
+
+from calyx.utils import bits_needed
 
 # Dict that maps command line arguments (e.g., "leaky-relu") to component names
 # and function that creates them.
@@ -147,7 +149,7 @@ if __name__ == "__main__":
     # Building the main component
     prog = cb.Builder(fileinfo_base_path=os.path.dirname(os.path.realpath(__file__)))
     comp_unit_inserted = create_systolic_array(prog, systolic_config)
-    if systolic_config.post_op in POST_OP_DICT.keys():
+    if systolic_config.post_op in POST_OP_DICT:
         component_building_func = POST_OP_DICT[systolic_config.post_op]
         postop_comp_inserted = component_building_func(prog, config=systolic_config)
     else:

@@ -1,11 +1,13 @@
 import json
+import os
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Any, Literal
+
 import cocotb
 from cocotb.clock import Clock
+from cocotb.triggers import FallingEdge, Timer, with_timeout
 from cocotbext.axi import AxiBus, AxiRam
-from cocotb.triggers import Timer, FallingEdge, with_timeout
-from typing import Literal, Mapping, Any, Union
-from pathlib import Path
-import os
 
 
 # NOTE (nathanielnrn) cocotb-bus 0.2.1 has a bug that does not recognize optional
@@ -74,7 +76,7 @@ async def run_kernel_test(toplevel, data_path: str):
     await tb.reset()
 
     data = None
-    with open(data_path) as f:
+    with open(data_path) as f:  # noqa: ASYNC230
         data = json.load(f)
         f.close()
     assert data is not None
@@ -128,7 +130,7 @@ def data_width(mem: str, data):
 def decode(
     b: bytes,
     width: int,
-    byteorder: Union[Literal["little"], Literal["big"]] = "little",
+    byteorder: Literal["little", "big"] = "little",
     signed=False,
 ):
     """Return the list of `ints` corresponding to value in `b` based on
@@ -149,7 +151,7 @@ def decode(
 def encode(
     lst: list[int],
     width,
-    byteorder: Union[Literal["little"], Literal["big"]] = "little",
+    byteorder: Literal["little", "big"] = "little",
 ):
     """Return the `width`-wide byte representation of lst with byteorder"""
     return [i.to_bytes(width, byteorder) for i in lst]

@@ -1,4 +1,4 @@
-from .xclbin import XilinxStage
 from .execution import HwExecutionStage
+from .xclbin import XilinxStage
 
-__all__ = ["XilinxStage", "HwExecutionStage"]
+__all__ = ["HwExecutionStage", "XilinxStage"]

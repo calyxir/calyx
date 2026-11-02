@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
-from prettytable import PrettyTable
-import numpy as np
-import calyx.py_ast as ast
-import calyx.builder as cb
-from calyx.utils import bits_needed
 import os
+
+import calyx.builder as cb
+import calyx.py_ast as ast
+import numpy as np
+from prettytable import PrettyTable
+
+from calyx.utils import bits_needed
 
 
 def reduce_parallel_control_pass(component: ast.Component, N: int, input_size: int):
@@ -62,7 +64,7 @@ def get_pipeline_data(n, num_stages):
     """
     operations = [[() for _ in range(n)] for _ in range(num_stages)]
     t = n
-    for i in range(0, num_stages):
+    for i in range(num_stages):
         t >>= 1
         j = t
         mult_register = 0
@@ -93,7 +95,7 @@ def get_multiply_data(n, num_stages):
     mults = [[] for _ in range(num_stages)]
     phi_index = 1
     t = n
-    for i in range(0, num_stages):
+    for i in range(num_stages):
         t >>= 1
         j = t
         register_index = 0
@@ -119,7 +121,7 @@ def pp_table(operations, multiplies, n, num_stages):
             table_row.append(f"a[{lhs}] {op} a[{rhs}] * phis[{phi_index}]")
         table.add_row(table_row)
     table = table.get_string().split("\n")
-    table = [" ".join(("//", line)) for line in table]
+    table = [f"// {line}" for line in table]
     print("\n".join(table))
 
 
@@ -311,7 +313,7 @@ if __name__ == "__main__":
 
     input_bitwidth, input_size, modulus = None, None, None
     required_fields = [args.input_bitwidth, args.input_size, args.modulus]
-    if all(map(lambda x: x is not None, required_fields)):
+    if all(x is not None for x in required_fields):
         input_bitwidth = args.input_bitwidth
         input_size = args.input_size
         modulus = args.modulus

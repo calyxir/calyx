@@ -1,12 +1,13 @@
-from typing import Dict
-import sys
+from __future__ import annotations
+
 import logging as log
+import os
 import shutil
-from tempfile import TemporaryDirectory, NamedTemporaryFile, TemporaryFile
+import subprocess
+import sys
 from io import BytesIO, IOBase
 from pathlib import Path
-import subprocess
-import os
+from tempfile import NamedTemporaryFile, TemporaryDirectory, TemporaryFile
 
 from . import errors
 
@@ -36,11 +37,9 @@ def unwrap_or(val, default):
 
 def logging_setup(args):
     # Color for warning, error, and info messages.
-    log.addLevelName(log.INFO, "\033[1;34m%s\033[1;0m" % log.getLevelName(log.INFO))
-    log.addLevelName(
-        log.WARNING, "\033[1;33m%s\033[1;0m" % log.getLevelName(log.WARNING)
-    )
-    log.addLevelName(log.ERROR, "\033[1;31m%s\033[1;0m" % log.getLevelName(log.ERROR))
+    log.addLevelName(log.INFO, f"\033[1;34m{log.getLevelName(log.INFO)}\033[1;0m")
+    log.addLevelName(log.WARNING, f"\033[1;33m{log.getLevelName(log.WARNING)}\033[1;0m")
+    log.addLevelName(log.ERROR, f"\033[1;31m{log.getLevelName(log.ERROR)}\033[1;0m")
 
     # Set verbosity level.
     level = None
@@ -105,7 +104,7 @@ class FreshDir(Directory):
         # Select a name that doesn't exist.
         i = 0
         while True:
-            name = "fud-out-{}".format(i)
+            name = f"fud-out-{i}"
             if not os.path.exists(name):
                 break
             i += 1
@@ -190,12 +189,12 @@ def shell(
     if is_debug():
         stderr = None
         if capture_stdout:
-            stdout = TemporaryFile()
+            stdout = TemporaryFile()  # noqa: SIM115
         else:
             stdout = None
     else:
-        stderr = TemporaryFile()
-        stdout = TemporaryFile()
+        stderr = TemporaryFile()  # noqa: SIM115
+        stdout = TemporaryFile()  # noqa: SIM115
 
     # Set up environment variables, merging the current environment with
     # any new settings.
@@ -245,7 +244,7 @@ def transparent_shell(cmd):
     proc.wait()
 
 
-def profiling_dump(durations: Dict[str, float]) -> str:
+def profiling_dump(durations: dict[str, float]) -> str:
     """
     Returns time elapsed during each stage or step of the fud execution.
     """
@@ -259,7 +258,7 @@ def profiling_dump(durations: Dict[str, float]) -> str:
     )
 
 
-def profiling_csv(durations: Dict[str, float]) -> str:
+def profiling_csv(durations: dict[str, float]) -> str:
     """
     Dumps the profiling information into a CSV format.
     For example, with
@@ -276,7 +275,7 @@ def profiling_csv(durations: Dict[str, float]) -> str:
     return "\n".join([f"{p},{round(t, 3)}" for (p, t) in durations.items()])
 
 
-def profile_stages(durations: Dict[str, float], is_csv) -> str:
+def profile_stages(durations: dict[str, float], is_csv) -> str:
     """
     Returns either a human-readable or CSV format profiling information,
     depending on `is_csv`.

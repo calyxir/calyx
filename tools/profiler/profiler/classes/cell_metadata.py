@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+
 from profiler.classes.errors import ProfilerException
 
 

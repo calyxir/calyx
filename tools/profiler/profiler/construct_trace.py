@@ -1,19 +1,20 @@
+from collections import defaultdict
+from dataclasses import dataclass
+
 import vcdvcd
 
 from profiler.classes.cell_metadata import CellMetadata
 from profiler.classes.control_metadata import ControlMetadata
+from profiler.classes.errors import ProfilerException
 from profiler.classes.tracedata import (
+    ControlRegUpdateType,
     CycleTrace,
-    Utilization,
-    UtilizationCycleTrace,
-    TraceData,
     StackElement,
     StackElementType,
-    ControlRegUpdateType,
+    TraceData,
+    Utilization,
+    UtilizationCycleTrace,
 )
-from dataclasses import dataclass
-from collections import defaultdict
-from profiler.classes.errors import ProfilerException
 
 DELIMITER = "___"
 
@@ -104,7 +105,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             for fsm in self.control_metadata.fsms:
                 if name.startswith(f"{fsm}.out["):
                     signal_id_dict[sid].append(name)
-                if name.startswith(f"{fsm}.write_en") or name.startswith(f"{fsm}.in"):
+                if name.startswith((f"{fsm}.write_en", f"{fsm}.in")):
                     tdcc_signal_id_to_names[sid].append(name)
             for par_done_reg in self.control_metadata.par_done_regs:
                 if (
@@ -268,7 +269,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         # update value
                         fsm_current[fsm_name] = event.value
                 # process all probes.
-                for probe_label in probe_labels_to_sets:
+                for probe_label in probe_labels_to_sets:  # noqa: PLC0206
                     cutoff = f"_{probe_label}"
                     if cutoff in event.signal:
                         # record cell name instead of component name.
@@ -419,7 +420,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     reg_name = ".".join(write_en_split[:-1])
                     cell_name = ".".join(write_en_split[:-2])
                     in_signal = f"{reg_name}.in"
-                    reg_new_value = events[in_signal] if in_signal in events else 0
+                    reg_new_value = events.get(in_signal, 0)
                     if not (
                         reg_name in self.control_metadata.par_done_regs
                         and reg_new_value == 0
@@ -434,14 +435,14 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                             reg_name, cell_name, cell_to_change_type
                         )
 
-                for cell in cell_to_val_changes:
+                for cell, values in cell_to_val_changes.items():
                     self.tracedata.register_control_reg_update(
-                        cell, clock_cycle, cell_to_val_changes[cell]
+                        cell, clock_cycle, values
                     )
                 if len(cell_to_change_type) > 0:
-                    leaf_cell = sorted(
+                    leaf_cell = max(
                         cell_to_change_type.keys(), key=(lambda k: k.count("."))
-                    )[-1]
+                    )
                     control_reg_per_cycle[clock_cycle] = cell_to_change_type[leaf_cell]
         return (control_group_events, control_reg_per_cycle)
 
@@ -479,26 +480,16 @@ def create_cycle_trace(
     while cell_worklist:
         current_cell = cell_worklist.pop()
         # catch all active units that are groups in this component.
-        active_groups: set[str] = (
-            info_this_cycle["group-active"][current_cell]
-            if current_cell in info_this_cycle["group-active"]
-            else set()
+        active_groups: set[str] = info_this_cycle["group-active"].get(
+            current_cell, set()
         )
-        structural_enables: set[str] = (
-            info_this_cycle["structural-enable"][current_cell]
-            if current_cell in info_this_cycle["structural-enable"]
-            else set()
+        structural_enables: set[str] = info_this_cycle["structural-enable"].get(
+            current_cell, set()
         )
-        primitive_enables: set[str] = (
-            info_this_cycle["primitive-enable"][current_cell]
-            if current_cell in info_this_cycle["primitive-enable"]
-            else set()
+        primitive_enables: set[str] = info_this_cycle["primitive-enable"].get(
+            current_cell, set()
         )
-        cell_invokes = (
-            info_this_cycle["cell-invoke"][current_cell]
-            if current_cell in info_this_cycle["cell-invoke"]
-            else dict()
-        )
+        cell_invokes = info_this_cycle["cell-invoke"].get(current_cell, {})
 
         # obtain and process control enables
         add_control_enables(
@@ -535,9 +526,9 @@ def create_cycle_trace(
         cell_worklist += invoked_cells
 
     # Only retain stacks that lead to leaf nodes.
-    for elem in elem_name_to_stack:
+    for elem, value in elem_name_to_stack.items():
         if elem not in parents:
-            stacks_this_cycle.append(elem_name_to_stack[elem])
+            stacks_this_cycle.append(value)
 
     return CycleTrace(stacks_this_cycle)
 
@@ -667,8 +658,8 @@ def add_invoked_cells(
         - parents: Registers the invoker group as a parent
     """
     invoked_cells = []
-    for cell_invoker_group in cell_invokes:
-        for invoked_cell in cell_invokes[cell_invoker_group]:
+    for cell_invoker_group, invoked_cells in cell_invokes.items():
+        for invoked_cell in invoked_cells:
             # TODO: if rewritten... then look for the rewritten cell from cell-active
             # probably worth putting some info in the flame graph that the cell is rewritten from the originally coded one?
             current_component = (
@@ -739,9 +730,7 @@ def get_new_cell_to_change_type(
     elif (
         par_done_indicator in reg_name
         and cell_to_change_type[cell_name] == ControlRegUpdateType.FSM
-    ):
-        return ControlRegUpdateType.BOTH
-    elif (
+    ) or (
         fsm_indicator in reg_name
         and cell_to_change_type[cell_name] == ControlRegUpdateType.PAR_DONE
     ):

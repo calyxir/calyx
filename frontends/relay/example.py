@@ -1,7 +1,7 @@
+import relay_utils
+import relay_visitor
 import tvm
 from tvm import relay
-import relay_visitor
-import relay_utils
 
 
 def tensor_add():
@@ -133,7 +133,7 @@ Available functions:"""
 
     # See if the command line contains a correct function name.
     func_name = input[0]
-    func = FUNCTIONS[func_name]() if func_name in FUNCTIONS.keys() else None
+    func = FUNCTIONS[func_name]() if func_name in FUNCTIONS else None
     if func is None:
         print(f"Function `{func_name}` is not a supported.")
         pretty_print_functions()

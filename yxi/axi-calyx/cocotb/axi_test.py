@@ -1,11 +1,13 @@
 import json
+import os
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Any, Literal
+
 import cocotb
 from cocotb.clock import Clock
+from cocotb.triggers import ClockCycles, FallingEdge, RisingEdge, Timer, with_timeout
 from cocotbext.axi import AxiBus, AxiRam
-from cocotb.triggers import Timer, FallingEdge, with_timeout, RisingEdge, ClockCycles
-from typing import Literal, Mapping, Any, Union, List
-from pathlib import Path
-import os
 
 
 # NOTE (nathanielnrn) cocotb-bus 0.2.1 has a bug that does not recognize optional
@@ -23,8 +25,8 @@ class KernelTB:
     async def setup_rams(self, data: Mapping[str, Any]):
         # Create cocotb AxiRams
         rams = {}
-        for mem in data.keys():
-            assert not isinstance(data[mem]["data"][0], list)
+        for mem, value in data.items():
+            assert not isinstance(value["data"][0], list)
             size = mem_size_in_bytes(mem, data)
             width = data_width_in_bytes(mem, data)
 
@@ -42,10 +44,10 @@ class KernelTB:
 
             # NOTE: This defaults to little endian to match AxiRam defaults
             data_in_bytes = encode(
-                data[mem]["data"],
+                value["data"],
                 width,
                 byteorder="little",
-                signed=bool(data[mem]["format"]["is_signed"]),
+                signed=bool(value["format"]["is_signed"]),
             )
             addr = 0x0000
             rams[mem].write(addr, data_in_bytes)
@@ -66,7 +68,7 @@ class KernelTB:
 async def run_kernel_test(toplevel, data_path: str):
     tb = KernelTB(toplevel, Path(data_path))
     data_map = None
-    with open(data_path) as f:
+    with open(data_path) as f:  # noqa: ASYNC230
         data_map = json.load(f)
         f.close()
     assert data_map is not None
@@ -120,7 +122,7 @@ def data_width_in_bytes(mem: str, data):
 def decode(
     b: bytes,
     width: int,
-    byteorder: Union[Literal["little"], Literal["big"]] = "little",
+    byteorder: Literal["little", "big"] = "little",
     signed=False,
 ):
     """Return the list of `ints` corresponding to value in `b` based on
@@ -139,9 +141,9 @@ def decode(
 
 
 def encode(
-    lst: List[int],
+    lst: list[int],
     width,
-    byteorder: Union[Literal["little"], Literal["big"]] = "little",
+    byteorder: Literal["little", "big"] = "little",
     signed: bool = False,
 ) -> bytes:
     """Return the `width`-wide byte representation of lst with byteorder"""

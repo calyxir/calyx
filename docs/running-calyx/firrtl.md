@@ -6,7 +6,7 @@ Calyx programs can be translated into the [FIRRTL](https://bar.eecs.berkeley.edu
 
 To translate an example program to FIRRTL, try:
 
-    $ cargo run examples/tutorial/language-tutorial-iterate.futil -p external-to-ref -p all -b firrtl
+    $ cargo run examples/tutorial/language-tutorial-iterate.futil -p external-to-ref -x external-to-ref:activate=true -p all -b firrtl
 
 ## Running with `fud2`
 
@@ -69,3 +69,14 @@ Both examples will yield
   }
 }
 ```
+
+### Adding SystemVerilog Primitives for `firrtl`
+
+To add primitives to `firrtl`, you would add the SystemVerilog implementation of the primitive to the file, `fud2/rsrc/primitives-for-firrtl.sv`
+
+### Adding Firrtl Primitives for `firrtl-with-primitives`
+
+1.  **Create a Template:** Add a `.fir` file to `tools/firrtl/templates/`. The filename should match the primitive name (e.g., `std_add.fir`).
+2.  **Define the Interface:** The template must define a `module` whose ports (names and widths) match the [Calyx primitive library](https://docs.calyxir.org/libraries/core.html).
+3.  **Update the Replacement Map:** If your FIRRTL primitive template uses unique parameters (those that are not in the SV definition of the primitive), update the replacement map logic in `tools/firrtl/generate-firrtl-with-primitives.py`. 
+4.  **Testing:** Add a `runt` test in `tests/firrtl/primitive-templates` to ensure the new implementation generates valid FIRRTL and produces correct simulation results.

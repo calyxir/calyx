@@ -54,7 +54,7 @@ def parse_dat(path, is_bn, args):
         for hex_value in f.readlines():
             if hex_value.startswith("//"):
                 log.debug(
-                    f"Ignorning line {repr(hex_value)}"
+                    f"Ignorning line {hex_value!r}"
                     + f" since it looks like a comment: {path}"
                 )
                 continue
@@ -108,7 +108,7 @@ def convert(x, round: bool, is_signed: bool, width: int, is_bn: bool, int_width=
     # Otherwise, this is a fixed-point number.
     try:
         return FixedPoint(x, width, int_width, is_signed).hex_string(with_prefix)
-    except InvalidNumericType as error:
+    except InvalidNumericType:
         if round:
             # Only round if it is not already representable.
             fractional_width = width - int_width
@@ -116,7 +116,7 @@ def convert(x, round: bool, is_signed: bool, width: int, is_bn: bool, int_width=
             x = str(x)
             return FixedPoint(x, width, int_width, is_signed).hex_string(with_prefix)
         else:
-            raise error
+            raise
 
 
 def convert2dat(output_dir, data, extension, round: bool):

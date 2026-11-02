@@ -162,12 +162,13 @@ def create_memory_cell_dict(memory):
 
 def get_memory_cells(yxi_json_filepath):
     memory_cell_dicts = []
-    yxi_json = json.load(open(yxi_json_filepath))
-    for memory in yxi_json["memories"]:
-        memory_cell_dict = create_memory_cell_dict(memory)
-        memory_cell_dicts.append(memory_cell_dict)
+    with open(yxi_json_filepath) as y:
+        yxi_json = json.load(y)
+        for memory in yxi_json["memories"]:
+            memory_cell_dict = create_memory_cell_dict(memory)
+            memory_cell_dicts.append(memory_cell_dict)
 
-    return memory_cell_dicts
+        return memory_cell_dicts
 
 
 def generate(yxi_json):

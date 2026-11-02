@@ -1,7 +1,8 @@
 # pylint: disable=import-error
 import calyx.builder as cb
-from calyx.utils import bits_needed
 from calyx.tuple import insert_tuplify
+
+from calyx.utils import bits_needed
 
 ERR_CODE = 2**32 - 1
 PUSH_CODE = 2**32 - 2

@@ -34,6 +34,6 @@ class SystolicStage(Stage):
         @builder.step(description=str(script))
         def run_systolic(input_path: SourceType.Path) -> SourceType.Stream:
             flags = unwrap_or(config["stages", self.name, "flags"], "")
-            return shell(f"{str(script)} {str(input_path)} {flags}")
+            return shell(f"{script!s} {input_path!s} {flags}")
 
         return run_systolic(input)

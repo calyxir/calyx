@@ -1,7 +1,7 @@
-import numpy as np
 import argparse
 import json
 
+import numpy as np
 
 if __name__ == "__main__":
     """
@@ -38,7 +38,7 @@ if __name__ == "__main__":
 
     left = np.zeros((ll, ld), "f")
     top = np.zeros((td, tl), "f")
-    json_data = json.load(open(json_file))["memories"]
+    json_data = json.load(open(json_file))["memories"]  # noqa: SIM115
 
     for r in range(ll):
         for c in range(ld):

@@ -1,14 +1,15 @@
-from calyx.py_ast import (
-    CompVar,
-    Stdlib,
-    SeqComp,
-    CompPort,
-    Enable,
-    While,
-    ParComp,
-)
-from . import ast
 import calyx.builder as cb
+from calyx.py_ast import (
+    CompPort,
+    CompVar,
+    Enable,
+    ParComp,
+    SeqComp,
+    Stdlib,
+    While,
+)
+
+from . import ast
 
 
 def gen_map_impl(
@@ -30,7 +31,7 @@ def gen_map_impl(
       - a group that implements the loop condition, checking if the index
         has reached the end of the input array
     """
-    from .gen_calyx import incr_group, cond_group, CompileError
+    from .gen_calyx import CompileError, cond_group, incr_group
 
     # Parallel loops representing the `map` body
     map_loops = []
@@ -59,7 +60,7 @@ def gen_map_impl(
             if isinstance(expr, ast.LitExpr):
                 return cb.const(32, expr.value)
             if isinstance(expr, ast.VarExpr):
-                return CompPort(CompVar(name2arr[expr.name]), "read_data")
+                return CompPort(CompVar(name2arr[expr.name]), "read_data")  # noqa: B023
             raise CompileError(f"Unhandled expression: {type(expr)}")
 
         # ANCHOR: map_op

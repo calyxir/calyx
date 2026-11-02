@@ -1,5 +1,6 @@
-from calyx.builder import Builder, invoke
 import os
+
+from calyx.builder import Builder, invoke
 
 
 # Creates a component the has a case statement.

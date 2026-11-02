@@ -1,11 +1,11 @@
+import numpy as np
 import onnx
 import relay_visitor
-import tvm
-import tvm.relay as relay
-import numpy as np
 import simplejson as sjson
-from image_processing import preprocess_image
+import tvm
 from calyx.py_ast import Import
+from image_processing import preprocess_image
+from tvm import relay
 
 WIDTH = 32
 FRAC_WIDTH = 16

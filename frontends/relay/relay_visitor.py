@@ -1,35 +1,30 @@
 #!/usr/bin/env python3
 # type: ignore
-from typing import Tuple
-
-import numpy as np
-import tvm
-from tvm import relay
-from tvm.relay.expr_functor import ExprFunctor
-from tvm.relay.function import Function
-
-
+import os
 from collections import defaultdict
-from typing import List, Dict
 
+# Calyx-py soureinfo should emit paths relative to the script's directory
+import calyx.py_ast as ast
+import numpy as np
 import relay_utils as ru
+import tvm
 from calyx.py_ast import (
     Cell,
-    CompVar,
     CompInst,
+    Component,
+    CompVar,
     Import,
     Program,
     SeqComp,
     Stdlib,
-    Component,
 )
-from calyx.utils import float_to_fixed_point
-from calyx import numeric_types
 from dahlia_impl import emit_components
+from tvm import relay
+from tvm.relay.expr_functor import ExprFunctor
+from tvm.relay.function import Function
 
-# Calyx-py soureinfo should emit paths relative to the script's directory
-import calyx.py_ast as ast
-import os
+from calyx import numeric_types
+from calyx.utils import float_to_fixed_point
 
 ast.FILEINFO_BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 
@@ -58,17 +53,17 @@ class Relay2Calyx(ExprFunctor):
     """The main compilation visitor."""
 
     def __init__(self):
-        super(Relay2Calyx, self).__init__()
+        super().__init__()
         self.id_dictionary = defaultdict(int)
         self.function_id_dictionary = defaultdict(int)
 
         # A dictionary of currently visited variable nodes,
         # since some nodes may be visited more than once.
-        self.id_to_cell: Dict[str, Cell] = {}
+        self.id_to_cell: dict[str, Cell] = {}
 
         # A dictionary of variable names to dimensionality.
         # This used for the data in Calyx simulation.
-        self.id_to_shape: Dict[str, Tuple] = {}
+        self.id_to_shape: dict[str, tuple] = {}
 
         # maps the operator name/ destination memory width to the
         # dahlia function. Used to detect when two dahlia functions are
@@ -78,7 +73,7 @@ class Relay2Calyx(ExprFunctor):
         # For each Relay CallNode, there is an associated
         # Dahlia FuncDef so that it can be lowered from Dahlia
         # to Calyx as a stand-alone component.
-        self.func_defs: List[ru.DahliaFuncDef] = []
+        self.func_defs: list[ru.DahliaFuncDef] = []
 
         # Controls, wires of the main component.
         self.controls = []
@@ -86,7 +81,7 @@ class Relay2Calyx(ExprFunctor):
 
         self.pos_count = 0
 
-        self.source_map: Dict[str, str] = {}
+        self.source_map: dict[str, str] = {}
 
         # for let stmts such as `let %x13: (_,_) = (%x9, %x12)
         # if %x9 is equal to some memory mem9, and %x12 is equal to some memory mem12
@@ -124,7 +119,7 @@ class Relay2Calyx(ExprFunctor):
         Visits a Relay variable and returns the
         corresponding Calyx memory/memories.
         """
-        if var in self.tuple_dic.keys():
+        if var in self.tuple_dic:
             return self.tuple_dic[var]
         if isinstance(var.type_annotation, tvm.ir.type.TupleType):
             # returns a list of names instead
@@ -150,7 +145,7 @@ class Relay2Calyx(ExprFunctor):
         if (atts1 is None) != (atts2 is None):
             atts_are_same = False
         if (atts1 is not None) and (atts2 is not None):
-            for key in atts1.keys():
+            for key in atts1:
                 attr1 = atts1.get_str(key)
                 attr2 = atts2.get_str(key)
                 # even if the contents of tvm.ir.container.Array are the same it
@@ -160,7 +155,7 @@ class Relay2Calyx(ExprFunctor):
                 ):
                     attr1 = list(attr1)
                     attr2 = list(attr2)
-                if not attr1 == attr2:
+                if attr1 != attr2:
                     atts_are_same = False
         args_are_same = True
         for arg1, arg2 in zip(args1, args2):
@@ -288,9 +283,9 @@ class Relay2Calyx(ExprFunctor):
             tag = self.pos_count
             self.pos_count += 1
 
-            self.source_map[tag] = [
+            self.source_map[tag] = next(
                 x for x in str(let).splitlines() if x.startswith("let")
-            ][0]
+            )
 
             # only add to Dahlia Functions list and map if we are actually want to
             # use a new Dahlia Function, i.e., if we are not reusing the function
@@ -413,7 +408,7 @@ def flatten_lst(lst):
             flat.append(elt)
         elif isinstance(elt, list):
             for sub_elt in elt:
-                flat.append(sub_elt)
+                flat.append(sub_elt)  # noqa: PERF402
         else:
             assert 0, "Args must evaluate to a Cell"
     return flat
@@ -434,7 +429,7 @@ def relay_transforms(mod) -> Function:
     return mod["main"]
 
 
-def check_naming_convention(func_defs: List[ru.DahliaFuncDef]):
+def check_naming_convention(func_defs: list[ru.DahliaFuncDef]):
     """Names that begin with the prefix `__` are reserved for
     the Dahlia programs that are created to implement the
     respective Relay call nodes. For example, `__x` is
@@ -448,7 +443,7 @@ def check_naming_convention(func_defs: List[ru.DahliaFuncDef]):
         variables = [v.id.name for v in f.args + [f.dest]]
         reserved_variables = list(filter(is_reserved, variables))
         if reserved_variables:
-            raise Exception(
+            raise Exception(  # noqa: TRY002
                 f"Relay call node: `{f.function_id}` violates the naming convention. No "
                 "variables should be prefixed with `__`. This is reserved for Dahlia "
                 "local variables used before lowering to Calyx. Offending variable name(s): "
@@ -483,11 +478,11 @@ def get_program_dat_memories(relay_ir):
     is used for Calyx simulation."""
     visitor = Relay2Calyx()
     relay_ir = relay_transforms(relay_ir)
-    _, func_defs = visitor.visit(relay_ir)
+    _, _func_defs = visitor.visit(relay_ir)
 
     memories = {}
     for id, shape in visitor.id_to_shape.items():
-        if id in visitor.mem_data.keys():
+        if id in visitor.mem_data:
             memories[id] = {
                 "data": visitor.mem_data[id].tolist(),
                 "format": {
@@ -525,7 +520,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     if args.file is None:
-        raise Exception(
+        raise Exception(  # noqa: TRY002
             "The TVM Relay visitor requires a file containing the Relay IR."
         )
 

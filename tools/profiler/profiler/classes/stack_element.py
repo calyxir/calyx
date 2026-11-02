@@ -57,6 +57,12 @@ class StackElement:
         else:
             return self.internal_name
 
+    def __le__(self, other):
+        return self.__repr__() <= other.__repr__()
+
+    def __lt__(self, other):
+        return self.__repr__() < other.__repr__()
+
     def __repr__(self):
         match self.element_type:
             case StackElementType.GROUP:

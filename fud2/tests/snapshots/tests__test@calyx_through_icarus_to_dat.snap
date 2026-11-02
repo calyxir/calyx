@@ -18,15 +18,17 @@ cider-calyx-passes = -p none
 rule calyx-cider
   command = $calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out
 
-python = python3
-build json-dat.py: get-rsrc
+auxin = $calyx-base/target/debug/auxin
 rule hex-data
-  command = $python json-dat.py --from-json $in $out
+  command = $auxin $in --from json --to dat -o $out
 rule json-data
-  command = $python json-dat.py --to-json $out $in
+  command = $auxin -e out $in --from dat --to json -o $out
+build legacy_data.jq: get-rsrc
+rule json-data-cleanup
+  command = awk '/Simulated/ {print $$2}' $log | xargs jq -f legacy_data.jq $in --argjson cycles > $out
 sim_data = /test/data.json
 datadir = sim_data
-build $datadir: hex-data $sim_data | json-dat.py
+build $datadir: hex-data $sim_data
 rule sim-run
   command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out || (cat $out >&2 && false)
 cycle-limit = 500000000
@@ -46,6 +48,8 @@ build sim_1.exe: icarus-compile-standalone-tb verilog-noverify_1.sv | tb.sv
 build sim.log: sim-run sim_1.exe $datadir
   bin = sim_1.exe
   args = +NOTRACE=1
-build dat_1.json: json-data $datadir sim.log | json-dat.py
+build im.json: json-data $datadir | sim.log
+build dat_1.json: json-data-cleanup im.json | sim.log legacy_data.jq
+  log = sim.log
 
 default dat_1.json

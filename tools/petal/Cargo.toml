@@ -1,0 +1,29 @@
+[package]
+name = "petal"
+authors.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+repository.workspace = true
+readme.workspace = true
+description.workspace = true
+categories.workspace = true
+homepage.workspace = true
+edition.workspace = true
+version.workspace = true
+rust-version = "1.90.0"
+
+[dependencies]
+anyhow.workspace = true
+clap = { version = "4.6", features = ["derive"] }
+wellen = "0.25.5"
+baa.workspace = true
+rustc-hash = "2.1.2"
+cranelift-entity = "0.128.4"
+smallvec.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+log.workspace = true
+indexmap.workspace = true
+prost = "0.14.4"
+rand = "0.10.2"
+csv.version = "1.4.0"

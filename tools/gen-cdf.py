@@ -1,5 +1,6 @@
 import json
 import sys
+
 import matplotlib.pyplot as plt
 
 """
@@ -28,7 +29,7 @@ if __name__ == "__main__":
     # It basically maps a number n to the number of cells shared exactly n
     # times, but the data is organized by both which component the sharing is
     # happening in, and cell type
-    data = json.load(open(json_file))
+    data = json.load(open(json_file))  # noqa: SIM115
 
     # this input dic will have string keys that we want to turn into ints
     for comp_map in data.values():
@@ -73,11 +74,11 @@ if __name__ == "__main__":
     # given a sharing frequencies, we need cumulative frequencies to build a cdf
     cumulative_val = 0.0
     y_axis = []
-    x_axis = list(range(1, max(int(x) for x in total_data.keys()) + 1))
+    x_axis = list(range(1, max(int(x) for x in total_data) + 1))
     for i in x_axis:
         # if there is an entry for key i, add it's corresponding value.
         # otherwise add 0.
-        pdf_val = total_data[i] if i in total_data else 0.0
+        pdf_val = total_data.get(i, 0.0)
         cumulative_val += pdf_val
         y_axis.append(cumulative_val)
 

@@ -1,13 +1,13 @@
 import base64
-from typing import Tuple
-import numpy as np
-from math import log2
-from fractions import Fraction
+import logging as log
+import math
+import struct
 from dataclasses import dataclass
 from decimal import Decimal, getcontext
-import math
-import logging as log
-import struct
+from fractions import Fraction
+from math import log2
+
+import numpy as np
 
 
 class InvalidNumericType(Exception):
@@ -55,9 +55,9 @@ class NumericType:
         self.width = width
         self.is_signed = is_signed
 
-        stripped_prefix = value[2:] if value.startswith("0x") else value
+        stripped_prefix = value.removeprefix("0x")
         if any(digit == "x" for digit in stripped_prefix):
-            log.error(
+            log.error(  # noqa: LOG015
                 f"Memory contains the value: `{value}', which is uninitialized. "
                 "This happens when the Calyx design attempts to read a port"
                 " that is not connected to anything."
@@ -141,7 +141,7 @@ Unsigned Integer: {self.uint_repr}"""
         )
 
 
-def partition(decimal: Decimal, rational: Fraction) -> Tuple[int, Fraction]:
+def partition(decimal: Decimal, rational: Fraction) -> tuple[int, Fraction]:
     if rational.denominator == 1:
         # It is a whole number.
         return int(decimal), Fraction(0)
@@ -151,7 +151,7 @@ def partition(decimal: Decimal, rational: Fraction) -> Tuple[int, Fraction]:
         return 0, Fraction(decimal)
     else:
         ipart, fpart = str(decimal).split(".")
-        return int(ipart), Fraction("0.{}".format(fpart))
+        return int(ipart), Fraction(f"0.{fpart}")
 
 
 @dataclass
@@ -218,8 +218,8 @@ class FixedPoint(NumericType):
     Integer width: {self.int_width}
     Fractional width: {self.frac_width}
 has led to overflow.
-{"Required int width: {}".format(required_int_width) if int_overflow else ""}
-{"Required fractional width: {}".format(required_frac_width) if frac_overflow else ""}
+{f"Required int width: {required_int_width}" if int_overflow else ""}
+{f"Required fractional width: {required_frac_width}" if frac_overflow else ""}
 """
             )
 
@@ -264,7 +264,7 @@ has led to overflow.
 
         int_value = 0
         # Sum over integer bits.
-        for i in range(0, self.int_width):
+        for i in range(self.int_width):
             if self.bit_string_repr[i] == "1":
                 int_value += exponent
             exponent >>= 1

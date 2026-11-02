@@ -1,7 +1,8 @@
 # pylint: disable=import-error
 import calyx.builder as cb
-from calyx.utils import bits_needed
 from queues.binheap.stable_binheap import insert_stable_binheap
+
+from calyx.utils import bits_needed
 
 FACTOR = 4
 
@@ -33,9 +34,7 @@ def insert_binheap_strict(prog, name, n, order, flow_infer, queue_size_factor=FA
             ref_err=err,
         )
 
-    binheap_invokes = dict(
-        [(i, binheap_invoke(value, order.index(i))) for i in range(n)]
-    )
+    binheap_invokes = {i: binheap_invoke(value, order.index(i)) for i in range(n)}
 
     comp.control += [infer_flow, comp.case(flow.out, binheap_invokes)]
 

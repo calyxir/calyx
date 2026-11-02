@@ -1,5 +1,3 @@
-from typing import Optional
-
 import time
 
 
@@ -75,7 +73,7 @@ class Executor:
         self._profiler = Profiler() if profile else DummyProfiler()
 
         # Current context
-        self.ctx: Optional[str] = None
+        self.ctx: str | None = None
 
         # Disable spinner outputs
         self._no_spinner = False
@@ -126,7 +124,7 @@ class Executor:
         self._update()
 
 
-class ContextExecutor(object):
+class ContextExecutor:
     """
     Handles execution of a generic context.
     """

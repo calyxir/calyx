@@ -7,7 +7,6 @@ from calyx.builder import (
     while_with,
 )
 
-
 GRID_COLS = 256
 BSIZE = 16
 # Arrays are BSIZE x GRID_COLS
@@ -37,7 +36,7 @@ def inner_loop(
 ):
     first_half = []
     seq_compute = []
-    for k in range(0, m):
+    for k in range(m):
         buffer_up_1 = main.seq_mem_d2(f"buffer_up_1{loop_prefix}_{m}_{k}", **mem_args)
         buffer_up_2 = main.seq_mem_d2(f"buffer_up_2{loop_prefix}_{m}_{k}", **mem_args)
         buf_1_mems.append(buffer_up_1.name)
@@ -149,13 +148,13 @@ def outer_loop_unrolled(main: ComponentBuilder):
                 middle_loop1(main, m),
                 # middle_loop2(main, m)
             ]
-            for m in range(0, BSIZE)
+            for m in range(BSIZE)
         )
     )
 
 
 def outer_loop_seq(main: ComponentBuilder):
-    return [[middle_loop1(main, m), middle_loop2(main, m)] for m in range(0, BSIZE)]
+    return [[middle_loop1(main, m), middle_loop2(main, m)] for m in range(BSIZE)]
 
 
 def main():

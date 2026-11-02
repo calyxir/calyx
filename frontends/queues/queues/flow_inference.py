@@ -1,7 +1,8 @@
 # pylint: disable=import-error
 import calyx.builder as cb
-from calyx.utils import bits_needed
 from calyx.tuple import insert_untuplify
+
+from calyx.utils import bits_needed
 
 
 def insert_boundary_flow_inference(prog, name, boundaries, flow_bits=None):

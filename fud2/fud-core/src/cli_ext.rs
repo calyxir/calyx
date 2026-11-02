@@ -44,6 +44,7 @@ pub type FromArgFn<T> = fn(&[&str], &[&str]) -> Result<T, argh::EarlyExit>;
 ///     fn inner_command_info() -> Vec<CommandInfo> {
 ///         vec![CommandInfo {
 ///             name: "test",
+///             short: &'t',
 ///             description: "test command",
 ///         }]
 ///     }

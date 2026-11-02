@@ -1,5 +1,5 @@
-from dataclasses import dataclass, field
 from collections import defaultdict
+from dataclasses import dataclass, field
 
 from .cell_metadata import CellMetadata
 
@@ -74,5 +74,5 @@ class ControlMetadata:
         self.component_to_fsms[component].add(fsm_name)
 
         for cell in cell_metadata.component_to_cells[component]:
-            fully_qualified_fsm = ".".join((cell, fsm_name))
+            fully_qualified_fsm = f"{cell}.{fsm_name}"
             self.fsms.add(fully_qualified_fsm)

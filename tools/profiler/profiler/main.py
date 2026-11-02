@@ -1,19 +1,17 @@
 import argparse
-from datetime import datetime
-import os
-from profiler.visuals.utilization_plots import Plotter
-import vcdvcd
 import json
+import os
+from datetime import datetime
 
-import profiler.adl_mapping as adl_mapping
-import profiler.construct_trace as construct_trace
-import profiler.preprocess as preprocess
-from profiler.visuals import flame, timeline, stats
+import vcdvcd
 
+from profiler import adl_mapping, construct_trace, preprocess
 from profiler.classes.cell_metadata import CellMetadata
-from profiler.classes.primitive_metadata import PrimitiveMetadata
 from profiler.classes.control_metadata import ControlMetadata
-from profiler.classes.tracedata import TraceData, ControlRegUpdateType, Utilization
+from profiler.classes.primitive_metadata import PrimitiveMetadata
+from profiler.classes.tracedata import ControlRegUpdateType, TraceData, Utilization
+from profiler.visuals import flame, stats, timeline
+from profiler.visuals.utilization_plots import Plotter
 
 
 def setup_metadata(args):

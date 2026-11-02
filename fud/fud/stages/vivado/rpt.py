@@ -17,8 +17,8 @@ class RPTParser:
     def _clean_and_strip(elems):
         "Remove all empty elements from the list and strips each string element."
         nonempty = filter(lambda e: e != "\n" and e != "", elems)
-        m = map(lambda e: e.strip(), nonempty)
-        return list(map(lambda e: "index" if e == "" else e, m))
+        m = (e.strip() for e in nonempty)
+        return ["index" if e == "" else e for e in m]
 
     @staticmethod
     def _parse_simple_header(line):
@@ -74,15 +74,13 @@ class RPTParser:
         base_hdrs = lines[0].split("|")[1:-1]
 
         if len(base_hdrs) != len(multi_headers):
-            raise Exception(
+            raise Exception(  # noqa: TRY002
                 "Something went wrong while parsing multi header "
-                + "base len: {}, mult len: {}".format(
-                    len(base_hdrs), len(multi_headers)
-                )
+                + f"base len: {len(base_hdrs)}, mult len: {len(multi_headers)}"
             )
 
         hdrs = []
-        for idx in range(0, len(base_hdrs)):
+        for idx in range(len(base_hdrs)):
             for mult in multi_headers[idx]:
                 hdrs.append((base_hdrs[idx].strip() + " " + mult).strip())
 

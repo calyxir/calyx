@@ -30,3 +30,13 @@ fpga = ["pynq"]
 
 [project.scripts]
 fud = "fud.main:main"
+
+[tool.ruff.lint.per-file-ignores]
+"main.py" = ["LOG015"]
+"__init__.py" = ["TRY002", "LOG015", "RUF012"]
+"remote_context.py" = ["LOG015"]
+"json_to_dat.py" = ["TRY002", "LOG015"]
+"extract.py" = ["TRY002", "LOG015", "BLE001"]
+"execution.py" = ["LOG015"]
+"xclbin.py" = ["LOG015"]
+"utils.py" = ["LOG015"]

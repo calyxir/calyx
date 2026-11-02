@@ -1,20 +1,20 @@
 import json
 import sys
 
-from typing import Dict, List, Tuple
+import calyx.builder as cb
 from calyx.py_ast import (
-    CompVar,
-    Stdlib,
-    SeqComp,
     CompPort,
-    Enable,
-    While,
-    ParComp,
+    CompVar,
     Control,
     Empty,
+    Enable,
+    ParComp,
+    SeqComp,
+    Stdlib,
+    While,
 )
+
 from . import ast
-import calyx.builder as cb
 from . import map as map_impl
 
 
@@ -24,7 +24,7 @@ class CompileError(Exception):
 
 def cond_group(
     comp: cb.ComponentBuilder, idx: cb.CellBuilder, arr_size: int, suffix: str
-) -> Tuple[str, str]:
+) -> tuple[str, str]:
     """
     Creates a group that checks if the index is less than the array size.
     """
@@ -196,7 +196,7 @@ def gen_stmt_impl(
     comp: cb.ComponentBuilder,
     stmt: ast.Stmt,
     arr_size: int,
-    name2par: Dict[str, int],
+    name2par: dict[str, int],
     statement_idx: int,
     use_my_map_impl: bool,
 ) -> Control:
@@ -231,9 +231,9 @@ def gen_stmt_impl(
         return gen_reduce_impl(comp, stmt.dst, stmt.operation, arr_size, statement_idx)
 
 
-def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
+def compute_par_factors(stmts: list[ast.Stmt]) -> dict[str, int]:
     """Maps the name of memories to their banking factors."""
-    out: Dict[str, int] = dict()
+    out: dict[str, int] = {}
 
     def add_par(mem: str, par: int):
         # If we've already inferred a banking factor for this memory,
@@ -258,7 +258,7 @@ def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
     return out
 
 
-def get_output_data(decls: List[ast.Decl]) -> Dict[str, int]:
+def get_output_data(decls: list[ast.Decl]) -> dict[str, int]:
     """
     Return a dictionary mapping the variable name of each output variable to its size
     """
@@ -281,7 +281,7 @@ def emit_data(prog: ast.Prog, data):
     for var, size in output_vars.items():
         data[var] = [0] * size
     par_factors = compute_par_factors(prog.stmts)
-    calyx_data = dict()
+    calyx_data = {}
     for var, val in data.items():
         banking_factor = par_factors.get(var)
         if banking_factor:
@@ -391,7 +391,7 @@ def emit(prog: ast.Prog, use_my_map_impl: bool = False):
                 #  cells.append(emit_reg_decl(stmt.dest, 32))
             used_names.append(stmt.dst)
 
-    control: List[Control] = []
+    control: list[Control] = []
     # Generate Calyx for each statement
     for i, stmt in enumerate(prog.stmts):
         control.append(

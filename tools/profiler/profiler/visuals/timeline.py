@@ -7,7 +7,7 @@ from perfetto.protos.perfetto.trace.perfetto_trace_pb2 import (
 from profiler.classes.adl import DahliaAdlMap
 from profiler.classes.cell_metadata import CellMetadata
 from profiler.classes.primitive_metadata import PrimitiveMetadata
-from profiler.classes.tracedata import CycleTrace, TraceData, StackElementType, PTrace
+from profiler.classes.tracedata import CycleTrace, PTrace, StackElementType, TraceData
 from profiler.classes.visuals.timeline import (
     CalyxProtoTimeline,
     DahliaProtoTimeline,

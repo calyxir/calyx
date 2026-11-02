@@ -1,9 +1,9 @@
 # For usage, see gen_test_data.sh
 
 import sys
+
 import queues
 import util
-
 
 if __name__ == "__main__":
     max_cmds, len = int(sys.argv[1]), int(sys.argv[2])

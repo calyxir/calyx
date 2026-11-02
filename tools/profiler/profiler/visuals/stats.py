@@ -3,14 +3,13 @@ import os
 
 from profiler.classes.cell_metadata import CellMetadata
 from profiler.classes.control_metadata import ControlMetadata
-from profiler.classes.tracedata import (
-    TraceData,
-    CycleType,
-    CycleTrace,
-    StackElementType,
-)
-
 from profiler.classes.summaries import GroupSummary
+from profiler.classes.tracedata import (
+    CycleTrace,
+    CycleType,
+    StackElementType,
+    TraceData,
+)
 
 
 def create_group_summaries(cell_metadata: CellMetadata, tracedata: TraceData):
@@ -52,8 +51,7 @@ def create_group_summaries(cell_metadata: CellMetadata, tracedata: TraceData):
             currently_active_to_start[new_group] = i
 
     # groups that are active until the end
-    for still_active_group in currently_active_to_start:
-        start_cycle = currently_active_to_start[still_active_group]
+    for still_active_group, start_cycle in currently_active_to_start.items():
         group_summaries[still_active_group].register_interval(
             range(start_cycle, len(tracedata.trace))
         )
@@ -250,9 +248,9 @@ def write_par_stats(tracedata: TraceData, out_dir):
                 group
             ].num_times_active,
         }
-        for field in stats_dict:
+        for field, value in stats_dict.items():
             if field not in ["group-name", "useful-cycles (%)", "flattened-cycles (%)"]:
-                totals[field] += stats_dict[field]
+                totals[field] += value
         stats.append(stats_dict)
     totals["group-name"] = "TOTAL"
     totals["flattened-cycles (%)"] = round(

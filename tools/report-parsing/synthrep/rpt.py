@@ -20,11 +20,9 @@ class RPTParser:
         while preserving the left indentation of the element at index `preserve_index`.
         """
         indexed = filter(lambda ie: ie[1] != "\n" and ie[1] != "", enumerate(elems))
-        cleaned = map(
-            lambda ie: (
-                ie[1].rstrip("\n ") if ie[0] == preserve_index else ie[1].strip()
-            ),
-            indexed,
+        cleaned = (
+            (ie[1].rstrip("\n ") if ie[0] == preserve_index else ie[1].strip())
+            for ie in indexed
         )
         return list(cleaned)
 
@@ -82,15 +80,13 @@ class RPTParser:
         base_hdrs = lines[0].split("|")[1:-1]
 
         if len(base_hdrs) != len(multi_headers):
-            raise Exception(
+            raise Exception(  # noqa: TRY002
                 "Something went wrong while parsing multi header "
-                + "base len: {}, mult len: {}".format(
-                    len(base_hdrs), len(multi_headers)
-                )
+                + f"base len: {len(base_hdrs)}, mult len: {len(multi_headers)}"
             )
 
         hdrs = []
-        for idx in range(0, len(base_hdrs)):
+        for idx in range(len(base_hdrs)):
             for mult in multi_headers[idx]:
                 hdrs.append((base_hdrs[idx].strip() + " " + mult).strip())
 
@@ -165,8 +161,8 @@ class RPTParser:
         out = f"{new_parent_str} {tree[val]}\n"
         if not tree["children"]:
             return out
-        for comp, subtree in tree["children"].items():
-            out += RPTParser._folded_helper(comp, subtree, val, new_parent_str)
+        for child_comp, subtree in tree["children"].items():
+            out += RPTParser._folded_helper(child_comp, subtree, val, new_parent_str)
         return out
 
     @staticmethod

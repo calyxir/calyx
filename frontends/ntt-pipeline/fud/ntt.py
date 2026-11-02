@@ -1,8 +1,10 @@
 import importlib.util
-from fud import errors
-from fud.stages import Stage, SourceType
-from fud.utils import shell
 import pathlib
+
+from fud.stages import SourceType, Stage
+from fud.utils import shell
+
+from fud import errors
 
 
 class NTTStage(Stage):
@@ -45,7 +47,7 @@ class NTTStage(Stage):
 
         @builder.step(description=cmd)
         def run_ntt(conf: SourceType.Path) -> SourceType.Stream:
-            return shell(f"{cmd} {str(conf)}")
+            return shell(f"{cmd} {conf!s}")
 
         return run_ntt(input)
 

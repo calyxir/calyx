@@ -12,3 +12,6 @@ readme = "README.md"
 
 [project.scripts]
 synthrep = "synthrep.cli:main"
+
+[tool.ruff.lint.per-file-ignores]
+"extract.py" = ["TRY002", "LOG015"]
