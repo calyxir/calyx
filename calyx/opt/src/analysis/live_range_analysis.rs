@@ -922,9 +922,8 @@ impl LiveRangeAnalysis {
             })
             .collect();
 
-        // The invoked component may read the state of its `ref` cells before
-        // writing it, so they count as read. They are not counted as written
-        // because the component might not write them at all.
+        // `ref` cells count as read (the component may read before writing)
+        // but not as written, since it might not write them at all.
         read_set.extend(
             ref_cells
                 .iter()
@@ -975,7 +974,6 @@ impl LiveRangeAnalysis {
                 Self::port_to_cell_name(src, shareable_components)
             })
             .collect();
-        // uses of shareable components passed to the invoke as `ref` cells
         uses.extend(
             ref_cells
                 .iter()

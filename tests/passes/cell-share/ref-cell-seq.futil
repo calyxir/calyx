@@ -2,8 +2,7 @@
 import "primitives/compile.futil";
 import "primitives/memories/comb.futil";
 
-// No `par` here. `a` is set, then `b` is set, then the invoke reads `a` through' a `ref` cell.
-// `a` must keep its value across `write_b`, so `a` and `b` must not share.
+// `a` is read through a `ref` cell after `write_b`, so `a` and `b` must not share.
 component copy_ref() -> () {
   cells {
     ref src = std_reg(32);

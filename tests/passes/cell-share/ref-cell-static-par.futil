@@ -1,8 +1,7 @@
 // -p well-formed -p simplify-with-control -p cell-share -p remove-ids
 import "primitives/compile.futil";
 
-// `a` is only used as a `ref` cell of a static invoke, which runs in parallel with
-// the group that writes `b`. They must not share.
+// `a` (only a static invoke's `ref` cell) and `b` are live in parallel and must not share.
 static<1> component write_ref() -> () {
     cells {
         ref r = std_reg(32);

@@ -1,5 +1,4 @@
-// Cell sharing must not merge a cell that is only used as a `ref` cell of an
-// invoke with a cell that is used in parallel with that invoke.
+// A `ref` cell of an invoke must not share with a cell used in parallel with it.
 import "primitives/core.futil";
 import "primitives/memories/seq.futil";
 
