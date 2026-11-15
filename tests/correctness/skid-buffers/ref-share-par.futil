@@ -1,0 +1,50 @@
+// Cell sharing must not merge a cell that is only used as a `ref` cell of an
+// invoke with a cell that is used in parallel with that invoke.
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+
+component push_len() -> () {
+  cells {
+    ref out = std_skid_buffer(4);
+  }
+  wires {
+    static<1> group do_push {
+      out.in = 4'd4;
+      out.i_valid = 1'd1;
+    }
+  }
+  control {
+    do_push;
+  }
+}
+
+component main(@go go: 1) -> (@done done: 1) {
+  cells {
+    @external(1) debug = seq_mem_d1(4, 1, 1);
+    len = std_skid_buffer(4);
+    sample = std_skid_buffer(4);
+    push_len = push_len();
+  }
+  wires {
+    static<1> group push_sample {
+      sample.in = 4'd11;
+      sample.i_valid = 1'd1;
+    }
+
+    group drain_sample {
+      sample.i_ready = 1'd1;
+      debug.addr0 = 1'd0;
+      debug.write_data = sample.out;
+      debug.content_en = sample.o_valid;
+      debug.write_en = sample.o_valid;
+      drain_sample[done] = debug.done;
+    }
+  }
+  control {
+    par {
+      invoke push_len[out = len]()();
+      push_sample;
+      drain_sample;
+    }
+  }
+}

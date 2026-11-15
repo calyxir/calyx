@@ -20,6 +20,7 @@ type ReadWriteInfo = (
 type InvokeInfo<'a> = (
     &'a [(ir::Id, ir::RRC<ir::Port>)],
     &'a [(ir::Id, ir::RRC<ir::Port>)],
+    &'a [(ir::Id, ir::RRC<ir::Cell>)],
 );
 
 /// Returns [ir::Cell] which are read from in the assignments.
@@ -879,10 +880,12 @@ impl LiveRangeAnalysis {
         None
     }
 
-    // gets the gens/kills (aka reads/writes) of the invoke given inputs, outputs, and comb group.
+    // gets the gens/kills (aka reads/writes) of the invoke given inputs, outputs,
+    // ref cells, and comb group.
     fn gen_kill_invoke(
         inputs: &[(ir::Id, ir::RRC<ir::Port>)],
         outputs: &[(ir::Id, ir::RRC<ir::Port>)],
+        ref_cells: &[(ir::Id, ir::RRC<ir::Cell>)],
         comb_group_info: &Option<ir::RRC<ir::CombGroup>>,
         comp: &ir::RRC<ir::Cell>,
         shareable_components: &ShareSet,
@@ -919,6 +922,20 @@ impl LiveRangeAnalysis {
             })
             .collect();
 
+        // The invoked component may read the state of its `ref` cells before
+        // writing it, so they count as read. They are not counted as written
+        // because the component might not write them at all.
+        read_set.extend(
+            ref_cells
+                .iter()
+                .filter(|(_, cell)| {
+                    shareable_components.is_shareable_component(cell)
+                })
+                .map(|(_, cell)| {
+                    (cell.borrow().prototype.clone(), cell.borrow().name())
+                }),
+        );
+
         if let Some(comb_group) = comb_group_info {
             read_set.extend(
                 comb_group
@@ -940,12 +957,13 @@ impl LiveRangeAnalysis {
         (read_set, write_set)
     }
 
-    // gets the uses of the invoke given inputs, outputs, and comb group.
+    // gets the uses of the invoke given inputs, outputs, ref cells, and comb group.
     // Should include any cell that is either read from or written to at all
     // in the invoke statement (including the comb group)
     fn uses_invoke(
         inputs: &[(ir::Id, ir::RRC<ir::Port>)],
         outputs: &[(ir::Id, ir::RRC<ir::Port>)],
+        ref_cells: &[(ir::Id, ir::RRC<ir::Cell>)],
         comb_group_info: &Option<ir::RRC<ir::CombGroup>>,
         shareable_components: &ShareSet,
     ) -> TypeNameSet {
@@ -957,6 +975,17 @@ impl LiveRangeAnalysis {
                 Self::port_to_cell_name(src, shareable_components)
             })
             .collect();
+        // uses of shareable components passed to the invoke as `ref` cells
+        uses.extend(
+            ref_cells
+                .iter()
+                .filter(|(_, cell)| {
+                    shareable_components.is_shareable_component(cell)
+                })
+                .map(|(_, cell)| {
+                    (cell.borrow().prototype.clone(), cell.borrow().name())
+                }),
+        );
         // uses of shareable components in the comb group (if it exists)
         if let Some(comb_group) = &comb_group_info {
             uses.extend(
@@ -978,7 +1007,7 @@ impl LiveRangeAnalysis {
     }
 
     // updates liveness for an invoke: build to handle either static or dynamic invokes
-    // invoke_info = (inputs, outputs) of invoke
+    // invoke_info = (inputs, outputs, ref_cells) of invoke
     // comp = comp being invokes
     // comb_group_invo = Option<comb group if invoke has one>
     // liveness_info = (alive, gens, kills) coming into the invoke
@@ -992,12 +1021,17 @@ impl LiveRangeAnalysis {
         id: u64,
         liveness_info: (Prop, Prop, Prop),
     ) -> (Prop, Prop, Prop) {
-        let (inputs, outputs) = invoke_info;
+        let (inputs, outputs, ref_cells) = invoke_info;
         let (mut alive, mut gens, mut kills) = liveness_info;
 
         // get uses of all shareable components, and then update self.invokes_enables_map
-        let uses_shareable =
-            Self::uses_invoke(inputs, outputs, comb_group_info, &self.share);
+        let uses_shareable = Self::uses_invoke(
+            inputs,
+            outputs,
+            ref_cells,
+            comb_group_info,
+            &self.share,
+        );
 
         self.invokes_enables_map
             .entry(id)
@@ -1008,6 +1042,7 @@ impl LiveRangeAnalysis {
         let (reads, writes) = LiveRangeAnalysis::gen_kill_invoke(
             inputs,
             outputs,
+            ref_cells,
             comb_group_info,
             comp,
             &self.state_share,
@@ -1194,12 +1229,13 @@ impl LiveRangeAnalysis {
             ir::StaticControl::Invoke(ir::StaticInvoke {
                 inputs,
                 outputs,
+                ref_cells,
                 comp,
                 ..
             }) => {
                 //get the shareable components used in the invoke stmt
                 self.update_invoke_liveness(
-                    (inputs, outputs),
+                    (inputs, outputs, ref_cells),
                     &None,
                     comp,
                     ControlId::get_guaranteed_id_static(sc),
@@ -1223,11 +1259,12 @@ impl LiveRangeAnalysis {
             ir::Control::Invoke(ir::Invoke {
                 inputs,
                 outputs,
+                ref_cells,
                 comb_group,
                 comp,
                 ..
             }) => self.update_invoke_liveness(
-                (inputs, outputs),
+                (inputs, outputs, ref_cells),
                 comb_group,
                 comp,
                 ControlId::get_guaranteed_id(c),

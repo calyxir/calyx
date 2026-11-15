@@ -1,0 +1,41 @@
+// -p well-formed -p simplify-with-control -p cell-share -p dead-cell-removal -p remove-ids
+import "primitives/compile.futil";
+
+// `a` is only used as a `ref` cell of the invoke, which runs in parallel with
+// the group that writes `b`. They are live at the same time and must not share.
+component write_ref() -> () {
+    cells {
+        ref r = std_reg(32);
+    }
+    wires {
+        group write_r {
+            r.in = 32'd4;
+            r.write_en = 1'd1;
+            write_r[done] = r.done;
+        }
+    }
+    control {
+        write_r;
+    }
+}
+
+component main() -> () {
+    cells {
+        w = write_ref();
+        a = std_reg(32);
+        b = std_reg(32);
+    }
+    wires {
+        group write_b {
+            b.in = 32'd11;
+            b.write_en = 1'd1;
+            write_b[done] = b.done;
+        }
+    }
+    control {
+        par {
+            invoke w[r = a]()();
+            write_b;
+        }
+    }
+}
