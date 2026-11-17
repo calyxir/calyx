@@ -2,4 +2,4 @@
 Error: Program execution has stalled. The following groups are running but not making progress:
 main::[4mbad[0m
 
-Error: internal: filefmt: format-specific: Input is not a valid data dump
+Error: InternalErr("data_dump: lib cider_serde: Input is not a valid data dump")

@@ -7,7 +7,7 @@ use crate::{
             thread::ThreadMap,
         },
     },
-    serialization::{LazySerializable, PrintCode},
+    formatting::{LazySerializable, PrintCode},
 };
 
 use baa::BitVecValue;

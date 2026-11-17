@@ -16,7 +16,7 @@ type Node<'i> = pest_consume::Node<'i, Rule, ()>;
 use crate::{
     debugger::commands::{ParsePrintTarget, PointAction},
     errors::CiderResult,
-    serialization::PrintCode,
+    formatting::PrintCode,
 };
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes

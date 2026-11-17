@@ -1,504 +1,284 @@
-use serde::{self, Deserialize, Serialize, Serializer};
-use serde_json::Value;
-use std::collections::{BTreeMap, HashMap};
+//! implements the [crate::filerep::FileStore] trait for [JsonHandler]
 
-use crate::filerep::{self, FileFmtErr, FileMems};
+use baa::BitVecValue;
+use std::collections::HashMap;
+use std::io::{BufRead, Read, Seek, Write};
+
+use crate::filerep::*;
+use crate::json_common::*;
 use num_ir::memrep::*;
 use num_ir::typing::*;
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, Eq, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum JsonTypes {
-    Bitnum,
-    #[serde(alias = "fixed_point")]
-    Fixed,
-    #[serde(alias = "ieee754_float")]
-    IEEE754Float,
+use smallvec::SmallVec;
+
+use struson::{
+    reader::*,
+    writer::{JsonStreamWriter, JsonWriter},
+};
+
+#[derive(Default)]
+struct ArrayReader {
+    data: Vec<BitVecValue>,
+    dim_sizes: SmallVec<[usize; 4]>,
+    is_quoted: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct FormatInfo {
-    pub numeric_type: JsonTypes,
-    pub is_signed: bool,
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub width: Option<u32>,
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub int_width: Option<u32>,
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub frac_width: Option<u32>,
+#[derive(Debug, thiserror::Error)]
+pub enum JsonErr {
+    #[error("error reading array at {0:?}")]
+    ArrayRead(struson::reader::JsonReaderPosition),
+
+    #[error(transparent)]
+    NumIR(#[from] NumParseErr),
+
+    #[error(transparent)]
+    Typing(#[from] JsonTypeError),
+    #[error(transparent)]
+    JsonRead(#[from] struson::reader::ReaderError),
+
+    #[error(transparent)]
+    JsonNum(#[from] struson::writer::JsonNumberError),
+
+    #[error(transparent)]
+    JsonSer(#[from] struson::serde::SerializerError),
+
+    #[error(transparent)]
+    JsonDe(#[from] struson::serde::DeserializerError),
+
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
-fn json_err<T: ToString>(s: T) -> FileFmtErr {
-    FileFmtErr::FileSpecific(format!("json: {}", s.to_string()))
-}
-
-/*
-    ideally would also check for overspecified format (i.e. non-fixed_point with frac_width defined)
-*/
-impl FormatInfo {
-    // returns fixed-point as (overall width, frac_width)
-    // a bit verbose, but roughly self-documenting
-    #[inline]
-    fn normalise_fixed(&self) -> Result<(usize, i32), FileFmtErr> {
-        if let Some(w) = self.width {
-            if w > 64 {
-                return Err(json_err("fixed width > 64"));
-            }
-            match (self.int_width, self.frac_width) {
-                (Some(i), Some(f)) if i + f == w => Ok((w as usize, f as i32)),
-                (None, Some(f)) if f < w => Ok((w as usize, f as i32)),
-                (Some(i), None) if i < w => {
-                    Ok((w as usize, (w as i32 - (i as i32))))
-                }
-                _ => Err(json_err(format!("malformed fixed type {self:?}"))),
-            }
-        } else {
-            match (self.int_width, self.frac_width) {
-                (Some(i), Some(f)) if i + f <= 64 => {
-                    Ok(((i + f) as usize, f as i32))
-                }
-                _ => Err(json_err(format!("malformed fixed type {self:?}"))),
-            }
-        }
-    }
-}
-
-impl TryFrom<&TypeSpec> for FormatInfo {
-    type Error = FileFmtErr;
-
-    fn try_from(value: &TypeSpec) -> Result<Self, Self::Error> {
-        use TypeClass as tc;
-        let mut frac_width = None;
-        let numeric_type = match value.class {
-            tc::Bits => JsonTypes::Bitnum,
-            tc::Int => JsonTypes::Bitnum,
-            tc::Float => JsonTypes::IEEE754Float,
-            tc::Fixed { exp_mag: e } => {
-                frac_width = Some(if e < 0 { 0 } else { e } as u32);
-                JsonTypes::Fixed
-            }
-            _ => {
-                return Err(FileFmtErr::FileSpecific(format!(
-                    "unknown type class {:?}",
-                    value.class
-                )));
-            }
-        };
-        Ok(FormatInfo {
-            numeric_type,
-            is_signed: value.signed,
-            width: Some(value.width as u32),
-            int_width: None,
-            frac_width,
-        })
-    }
-}
-
-impl TryFrom<&FormatInfo> for TypeSpec {
-    type Error = FileFmtErr;
-    fn try_from(value: &FormatInfo) -> Result<Self, Self::Error> {
-        use TypeClass as tc;
-
-        use JsonTypes::*;
-        let mut total_width = value.width;
-        let class = match value.numeric_type {
-            Bitnum => tc::Int,
-            IEEE754Float => tc::Float,
-            Fixed => {
-                let (t, frac_width) = value.normalise_fixed()?;
-                total_width = Some(t as u32);
-                tc::Fixed {
-                    exp_mag: frac_width,
-                }
-            }
-        };
-        Ok(TypeSpec {
-            width: total_width.unwrap() as usize,
-            signed: value.is_signed,
-            class,
-        })
-    }
+#[inline(always)]
+fn arr_err<R: Read>(r: &JsonStreamReader<R>) -> JsonErr {
+    JsonErr::ArrayRead(r.current_position(false))
 }
 
 /*
-    NOTE: as implemented, some fixed point numbers which exceed the precision of f64 but are still valid fixed-point may not work.
+TODO: can use number of elements in dim, once known, as guiding assumption.
+once the number of elements in a dim is known, try to read that many, terminate, and then continue to next level. this'd hopefully decrease recursion.
 
-    ``Value`` is maybe not the ideal way to do this, but is good enough
 */
+impl ArrayReader {
+    fn read_arr_helper<R: Read>(
+        &mut self,
+        r: &mut JsonStreamReader<R>,
+        ty: &TypeSpec,
+        curr_dim: usize,
+    ) -> Result<(), JsonErr> {
+        r.begin_array()?;
+        let mut curr_type: Option<ValueType> = None; // type of current dimension
+        let mut item_ct = 0; // number of items in current dim
 
-// handles unquoted+ quoted numbers when they probably shouldn't be?
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct JsonDataEntry {
-    pub data: Value,
-    pub format: FormatInfo,
-}
-
-// split array into sub-arrays of [size] length
-fn chunks_size_n(inp: Vec<Value>, size: usize) -> Vec<Value> {
-    inp.chunks(size)
-        .map(|e| serde_json::to_value(Vec::from(e)).unwrap())
-        .collect()
-}
-
-// this is awful!
-fn reshape(inp: Vec<Value>, shape: [usize; 4], dims: usize) -> Vec<Value> {
-    match dims {
-        1 => inp
-            .iter()
-            .map(|e| serde_json::to_value(e).unwrap())
-            .collect(),
-        2 => {
-            let d2_size = shape.get(1).unwrap();
-
-            inp.chunks(*d2_size)
-                .map(|e| serde_json::to_value(Vec::from(e)).unwrap())
-                .collect()
+        // set up a counter for this dimension
+        if self.dim_sizes.len() == curr_dim {
+            self.dim_sizes.push(0)
         }
-        3 => {
-            let d2_size: usize = shape[1..3].iter().product();
-            let d3_size = shape.get(2).unwrap();
-            inp.chunks(d2_size)
-                .map(|e| {
-                    serde_json::to_value(chunks_size_n(Vec::from(e), *d3_size))
-                        .unwrap()
-                })
-                .collect()
-        }
-        4 => {
-            let d2_size: usize = shape[1..4].iter().product();
-            let d3_size: usize = shape[2..4].iter().product();
-            let d4_size = shape.get(3).unwrap();
-            inp.chunks(d2_size)
-                .map(|e| {
-                    e.chunks(d3_size)
-                        .map(|e2| {
-                            serde_json::to_value(chunks_size_n(
-                                Vec::from(e2),
-                                *d4_size,
-                            ))
-                            .unwrap()
-                        })
-                        .collect()
-                })
-                .collect()
-        }
-        _ => panic!("bad dim_ct"),
-    }
-}
+        while r.has_next()? {
+            let nt = r.peek()?;
+            if curr_type.is_none() {
+                curr_type = Some(nt)
+            }
+            if nt != curr_type.unwrap() {
+                return Err(arr_err(r));
+            }
 
-impl JsonDataEntry {
-    fn try_entry_to_ir(
-        self,
-        t: &TypeSpec,
-    ) -> Result<SingleMem, filerep::FileFmtErr> {
-        let Ok((vals, dimensions, num_dimensions)) = destructure(&self.data)
-        else {
-            return Err(json_err("bad flattening"));
-        };
-        let data: Vec<_> = vals
-            .iter()
-            .map(|e| match e {
-                Value::Number(_) => {
-                    t.read_string(e.to_string(), Endian::Little)
+            match nt {
+                ValueType::Array => {
+                    self.read_arr_helper(r, ty, curr_dim + 1)?
                 }
-                Value::String(s) => {
-                    t.read_string(s.to_string(), Endian::Little)
+                ValueType::String => {
+                    let s = r.next_str()?;
+                    let parsed = ty.read_str(s, Endian::Little)?;
+                    self.data.push(parsed)
                 }
-                _ => panic!("unknown type"),
-            })
-            .collect::<Result<_, _>>()?;
-
-        assert_eq!(
-            dimensions
-                .into_iter()
-                .filter(|e| { *e != 0 })
-                .product::<usize>(),
-            data.len()
-        );
-        Ok(SingleMem::new(
-            data,
-            dimensions,
-            num_dimensions,
-            t.clone(),
-            Endian::Little,
-        ))
-    }
-    fn try_entry_from_ir(
-        inp: &SingleMem,
-        opts: Option<&filerep::OutputOpts>,
-    ) -> Result<JsonDataEntry, filerep::FileFmtErr> {
-        let is_bin = inp.ty().class == TypeClass::Bits;
-        let is_hex = opts.is_some_and(|x| x.print_hex);
-        let as_num = inp
-            .iter_data()
-            .map(|e| {
-                if is_hex {
-                    serde_json::Value::String(
-                        inp.ty().write_hexstring(e, Endian::Little),
-                    )
-                } else if is_bin {
-                    serde_json::Value::String(
-                        inp.ty().write_string(e, Endian::Little),
-                    )
-                } else {
-                    serde_json::Value::Number(
-                        serde_json::Number::from_string_unchecked(
-                            inp.ty().write_string(e, Endian::Little),
-                        ),
-                    )
+                ValueType::Number => {
+                    let num_s = r.next_number_as_str()?;
+                    let parsed = ty.read_str(num_s, Endian::Little)?;
+                    self.data.push(parsed)
                 }
-            })
-            .collect();
-        Ok(JsonDataEntry {
-            data: serde_json::to_value(reshape(
-                as_num,
-                inp.dimensions,
-                inp.num_dimensions,
-            ))
-            .unwrap(),
-            format: FormatInfo::try_from(inp.ty())?,
-        })
-    }
-}
-
-// using a hashmap here means that the serialization is non-deterministic but
-// for now that's probably fine
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct JsonData(
-    #[serde(serialize_with = "ordered_map")] pub HashMap<String, JsonDataEntry>,
-);
-
-// impl<T: nr::ReprType> StringFormat<T> for JsonDataEntry {}
-/// For use with serde's [serialize_with] attribute
-/// see: https://stackoverflow.com/questions/42723065/how-to-sort-hashmap-keys-when-serializing-with-serde
-fn ordered_map<S, K: Ord + Serialize, V: Serialize>(
-    value: &HashMap<K, V>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    let ordered: BTreeMap<_, _> = value.iter().collect();
-    ordered.serialize(serializer)
-}
-
-impl filerep::TryFromIR for JsonData {
-    fn try_from_ir(inp: FileMems) -> Result<Self, filerep::FileFmtErr> {
-        let mut res = HashMap::new();
-        for (k, v) in inp.mems.iter() {
-            res.insert(
-                k.to_string(),
-                JsonDataEntry::try_entry_from_ir(v, None)?,
-            );
+                _ => return Err(arr_err(r)),
+            };
+            item_ct += 1;
         }
-        Ok(JsonData(res))
-    }
-}
-
-impl JsonData {
-    pub fn try_from_ir_fmt(
-        inp: FileMems,
-        opts: &filerep::OutputOpts,
-    ) -> Result<Self, FileFmtErr> {
-        let mut res = HashMap::new();
-        for (k, v) in inp.mems.iter() {
-            res.insert(
-                k.to_string(),
-                JsonDataEntry::try_entry_from_ir(v, Some(opts))?,
-            );
+        if self.dim_sizes[curr_dim] == 0 {
+            self.dim_sizes[curr_dim] = item_ct
+        } else if self.dim_sizes[curr_dim] != item_ct {
+            return Err(arr_err(r));
         }
-        Ok(JsonData(res))
-    }
-}
-
-impl filerep::TryToIR for JsonData {
-    fn try_to_ir(
-        self,
-        types: &HashMap<String, TypeSpec>,
-    ) -> Result<FileMems, filerep::FileFmtErr> {
-        let mut new_mems = FileMems {
-            mems: HashMap::new(),
-        };
-
-        for (k, v) in self.0.into_iter() {
-            let ty = types.get(&k).unwrap();
-            new_mems.mems.insert(k, v.try_entry_to_ir(ty)?);
+        if matches!(curr_type, Some(ValueType::String)) {
+            self.is_quoted = true;
         }
-        Ok(new_mems)
-    }
-}
-
-impl From<serde_json::Error> for FileFmtErr {
-    fn from(value: serde_json::Error) -> Self {
-        Self::FileSpecific(format!("json: {}", value))
-    }
-}
-
-impl filerep::FileIO for JsonData {
-    fn read_into(src: Box<dyn std::io::Read>) -> Result<JsonData, FileFmtErr> {
-        let res: JsonData = serde_json::from_reader(src)?;
-        Ok(res)
-    }
-    fn write_out(
-        &self,
-        dest: Box<dyn std::io::Write>,
-    ) -> Result<(), FileFmtErr> {
-        serde_json::to_writer_pretty(dest, self)?;
+        r.end_array()?;
         Ok(())
     }
 }
 
-impl filerep::ExtractType for JsonData {
-    fn extract_types(&self) -> Result<HashMap<String, TypeSpec>, FileFmtErr> {
-        let mut res = HashMap::new();
-        for (k, v) in self.0.iter() {
-            let new_spec = TypeSpec::try_from(&v.format)?;
-            res.insert(k.clone(), new_spec);
-        }
-        Ok(res)
-    }
+/// Attempt to read only the array portion (i.e. the 'value') part of a fud2 data entry.
+///
+/// assumes that reader is at the start of the array, and the key has already been consumed.
+fn try_read_arr<R: Read>(
+    r: &mut JsonStreamReader<R>,
+    ty: &TypeSpec,
+) -> Result<ArrayReader, JsonErr> {
+    let mut a = ArrayReader::default();
+    a.read_arr_helper(r, ty, 0)?;
+    debug_assert_eq!(a.dim_sizes.iter().product::<usize>(), a.data.len());
+    Ok(a)
 }
 
-impl filerep::HintedTryToIR for JsonData {}
+/// Attempt to write a [SingleMem] as a object containing both ``format`` and ``data``.
+fn try_write_obj<W: Write>(
+    m: SingleMem,
+    w: &mut JsonStreamWriter<W>,
+    is_hex: bool,
+) -> Result<(), JsonErr> {
+    let is_bin = m.ty().class == TypeClass::Bits;
 
-struct JsonDataDestructor {
-    pub dimensions: [usize; 4], // maps dimension : dimension size
-    pub num_dimensions: usize,
-    // pub dimensions: HashMap<u32, usize>, // maps dimension : dimension size
-    pub status: Option<FileFmtErr>,
+    w.begin_object()?;
+    w.name("data")?;
+
+    debug_assert_eq!(m.size(), m.dimensions.iter().product::<usize>());
+
+    // when writing out json data, only do so in a 1D array.
+    w.begin_array()?;
+
+    for el in m.iter_data() {
+        let s_to_write = if is_hex {
+            m.ty().write_hexstring(el, Endian::Little)
+        } else {
+            m.ty().write_string(el, Endian::Little)
+        };
+        if is_bin || is_hex {
+            w.string_value(&s_to_write)?;
+        } else {
+            w.number_value_from_string(&s_to_write)?;
+        }
+    }
+    w.end_array()?;
+
+    w.name("format")?;
+    let json_t = FormatInfo::try_from(m.ty())?;
+
+    w.serialize_value(&json_t)?;
+    w.end_object()?;
+
+    Ok(())
+}
+
+// if more options exist in the future, we could split JsonReader / JsonWriter.
+pub struct JsonHandler {
+    /// whether to output results as hexstrings, regardless of specified type.
+    pub out_hex: bool,
+}
+
+impl FileStore for JsonHandler {
+    type Err = JsonErr;
+
+    /// this implementation is particularly slow, avoid if performance is necessary.
+    /// because we use a streaming JSON library, and need to read a file two times, [JsonHandler::read_stream] copies ``stdin`` to a buffer.  this naturally introduces overhead.
+    fn read_stream<R: BufRead>(
+        &self,
+        mut handle: R,
+    ) -> Result<MemsMap, Self::Err> {
+        let mut stdin_buf: Vec<u8> = Vec::new();
+        let mut linebuf = String::with_capacity(20);
+        while handle.read_line(&mut linebuf)? != 0 {
+            let cleaned = linebuf.trim();
+            stdin_buf.extend_from_slice(cleaned.as_bytes());
+            linebuf.clear();
+        }
+        let typemap = read_types(&mut stdin_buf.as_slice())?;
+        read_data(stdin_buf.as_slice(), typemap)
+    }
+
+    fn read_filelike<R: BufRead + Seek>(
+        &self,
+        src: R,
+    ) -> Result<MemsMap, Self::Err> {
+        let mut handle = src;
+        let typemap = read_types(&mut handle)?;
+        handle.rewind()?;
+        read_data(handle, typemap)
+    }
+
+    fn write<W: Write>(&self, inp: MemsMap, dest: W) -> Result<(), Self::Err> {
+        use struson::writer::WriterSettings;
+        let mut sw = JsonStreamWriter::new_custom(
+            dest,
+            WriterSettings {
+                pretty_print: true,
+                ..Default::default()
+            },
+        );
+        sw.begin_object()?;
+        for (mem_name, mem) in inp.mems.into_iter() {
+            sw.name(&mem_name)?;
+            try_write_obj(mem, &mut sw, self.out_hex)?;
+        }
+        sw.end_object()?;
+
+        Ok(())
+    }
 }
 
 /*
-    destruct an n-dimensional array. Very Bad, no good
-    probably an excess of allocations. if only there were some easy way to do this...
+    seek_to consumes the "key". so, if seeking to "bar", in "foo" don't need to next_name() the "bar" part.
+
+
+    seek back still 'advances' in the file, but goes to the nesting level recorded in seek_to. i.e. if seeking to "bar" while in object "foo", a seek_back will go back a nesting level to "foo", but skip all other keys / values in "foo". so "foo.baz" would be skipped.
 */
-fn destructure_helper(
-    destr: &mut JsonDataDestructor,
-    v: &Value,
-    level: usize,
-) -> Vec<Value> {
-    let Value::Array(arr) = v else {
-        destr.status = Some(json_err(format!("invalid value {}", v)));
-        // return Err(NonNumError(v.to_string()));
-        return Vec::new();
-    };
-    let level_size = destr.dimensions.get_mut(level).unwrap();
-    if *level_size == 0 {
-        destr.num_dimensions += 1;
-        *level_size = arr.len();
-    } else if *level_size != arr.len() {
-        destr.status = Some(json_err("incorrectly sized dimension"));
-        // return Err(JsonParseError::DimError);
 
-        return Vec::new();
+// TODO: rather than seeks, can we do skips?
+/// Read the "format" keys and values within a ``fud2`` .data file.
+///
+/// Because JSON does not require any key ordering, we read the whole file twice. Types are read first. [read_data] then uses the type information to convert numerical data into [SingleMem], without first copying the strings out.
+pub fn read_types<R: Read>(
+    inp: R,
+) -> Result<HashMap<String, TypeSpec>, JsonErr> {
+    let mut sr = JsonStreamReader::new(inp);
+    let mut typemap: HashMap<String, TypeSpec> = HashMap::new();
+    sr.begin_object()?;
+
+    // read types first
+    let type_p = struson::json_path!["format"];
+    while sr.has_next()? {
+        let mem_name = sr.next_name_owned()?;
+        sr.seek_to(&type_p)?;
+        let v: FormatInfo = sr.deserialize_next()?;
+        sr.seek_back(&type_p)?;
+        typemap.insert(mem_name, TypeSpec::try_from(&v)?);
     }
-    match arr.first().unwrap() {
-        Value::Number(_) | Value::String(_) => arr.clone(),
-        Value::Array(_) => arr
-            .iter()
-            .flat_map(|v: &Value| destructure_helper(destr, v, level + 1))
-            .collect(),
-        _ => {
-            destr.status = Some(json_err(format!(
-                "invalid value {}",
-                arr.first().unwrap()
-            )));
-            // return Err(NonNumError(arr.first().unwrap().to_string()));
-            Vec::new()
-        }
-    }
+    sr.end_object()?;
+    Ok(typemap)
 }
 
-fn destructure(
-    v: &Value,
-) -> Result<(Vec<Value>, [usize; 4], usize), FileFmtErr> {
-    let mut destr = JsonDataDestructor {
-        dimensions: [0, 0, 0, 0],
-        num_dimensions: 0,
-        status: None,
-    };
-    let res = destructure_helper(&mut destr, v, 0);
-    match destr.status {
-        Some(e) => Err(e),
-        None => Ok((res, destr.dimensions, destr.num_dimensions)),
+/// Read the "data" keys and values within a ``fud2`` .data file.
+///
+/// See [read_types] for details on usage.
+pub fn read_data<R: Read>(
+    inp: R,
+    mut t: HashMap<String, TypeSpec>,
+) -> Result<MemsMap, JsonErr> {
+    let mut new_mems = MemsMap::default();
+
+    let mut sr = JsonStreamReader::new(inp);
+
+    let data_p = struson::json_path!["data"];
+    sr.begin_object()?;
+    while sr.has_next()? {
+        let mem_name = sr.next_name_owned()?;
+        sr.seek_to(&data_p)?;
+        let mem_ty = t.remove(&mem_name).unwrap();
+        let v = try_read_arr(&mut sr, &mem_ty)?;
+        sr.seek_back(&data_p)?;
+
+        new_mems.mems.insert(
+            mem_name,
+            SingleMem::new(v.data, v.dim_sizes, mem_ty, Endian::Little),
+        );
     }
-}
+    sr.end_object()?;
 
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-
-    #[test]
-    fn test_json_data() {
-        let data = r#"
-{
-  "in": {
-    "data": [
-    [
-        [4.0],
-        [5.0]
-    ],
-    [
-        [3.0],
-        [1.0]
-    ]
-
-    ],
-    
-    "format": {
-      "numeric_type": "ieee754_float",
-      "is_signed": false,
-      "width": 32
-    }
-  },
-  "out": {
-    "data": [
-      6
-    ],
-    "format": {
-      "numeric_type": "bitnum",
-      "is_signed": false,
-      "width": 32
-    }
-  }
-}"#;
-
-        let json_data: JsonData = serde_json::from_str(data).unwrap();
-        use filerep::HintedTryToIR;
-
-        let fm = json_data.hinted_try_to_ir().unwrap();
-        for (_, v) in fm.mems.iter() {
-            let as_str = v
-                .iter_data()
-                .map(|e| {
-                    serde_json::Value::Number(
-                        serde_json::Number::from_string_unchecked(
-                            num_ir::numimpl::float_write(e, Endian::Little, 32),
-                        ),
-                    )
-                })
-                .collect::<Vec<Value>>();
-            println!("{:?}", v.dimensions);
-            println!("{:?}", as_str);
-            // println!("{:?}", reshape(as_str, v.dimensions, v.num_dimensions));
-            // for e in t.data {
-            //     use nr::ReprType;
-            //     println!(
-            //         "{}",
-            //         numimpl::Float64::to_str(&e, nr::Endian::Little)
-            //     );
-            // }
-        }
-        // use crate::filerep::TryFromIR;
-        // let njs = JsonData::try_from_ir(&fm, &typeprops).unwrap();
-        // println!("{:?}", njs)
-
-        // println!("{}", serde_json::to_string_pretty(&json_data).unwrap());
-    }
+    Ok(new_mems)
 }

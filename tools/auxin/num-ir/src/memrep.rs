@@ -1,9 +1,8 @@
-// abstractions for describing representation(s) of numbers
+//! abstractions around a uniformly-typed 'memory' containing several elements.
 
 use crate::typing::*;
 use baa::BitVecOps;
-
-// TODO: the below is probably quite bad but. works
+use smallvec::SmallVec;
 
 /// [SingleMem] contains the contents of a memory.
 ///
@@ -11,8 +10,8 @@ use baa::BitVecOps;
 #[derive(Debug)]
 pub struct SingleMem {
     pub(self) data: Vec<baa::BitVecValue>, // container for the data elements
-    pub dimensions: [usize; 4], // begrudgingly, multi-dimensional memories are supported
-    pub num_dimensions: usize,
+    pub dimensions: SmallVec<[usize; 4]>, // begrudgingly, multi-dimensional memories are supported
+
     // [dtype] is not stored with every element of the data vec for space efficiency
     dtype: TypeSpec,
     pub end: Endian,
@@ -23,18 +22,22 @@ impl SingleMem {
     /// Create a new [SingleMem] from the specified parameters.
     pub fn new(
         data: Vec<baa::BitVecValue>,
-        dimensions: [usize; 4],
-        num_dimensions: usize,
+        dimensions: SmallVec<[usize; 4]>,
         dtype: TypeSpec,
         end: Endian,
     ) -> Self {
         SingleMem {
             data,
             dimensions,
-            num_dimensions,
             dtype,
             end,
         }
+    }
+
+    /// Returns the number of entries in the memory.
+    pub fn size(&self) -> usize {
+        // self.dimensions.iter().product()
+        self.data.len()
     }
 
     /// return an immutable iterator to the memory contents
@@ -53,7 +56,7 @@ impl SingleMem {
         num_bits: usize,
     ) -> Result<(), crate::typing::OpError> {
         if num_bits > self.dtype.width {
-            Err(String::from("truncation to size larger than input"))
+            Err(OpError::TruncWider)
         } else if num_bits == self.dtype.width {
             // effectively nops
             self.dtype.class = TypeClass::Bits;
@@ -75,9 +78,7 @@ impl SingleMem {
         num_bits: usize,
     ) -> Result<(), crate::typing::OpError> {
         if num_bits < self.dtype.width {
-            Err(String::from(
-                "trying to sign-extend to width less than current width. use truncate instead.",
-            ))
+            Err(OpError::SENarrower)
         } else if num_bits == self.dtype.width {
             // effectively nops
             self.dtype.class = TypeClass::Bits;
@@ -96,9 +97,7 @@ impl SingleMem {
         out_t: TypeSpec,
     ) -> Result<(), crate::typing::OpError> {
         if out_t.width < self.dtype.width {
-            Err(String::from(
-                "attempted bitcast to width smaller than current size. use a truncate first if this is intended.",
-            ))
+            Err(OpError::BitcastNarrower)
         } else {
             self.dtype = out_t;
             Ok(())
@@ -133,4 +132,19 @@ impl SingleMem {
             ..self
         })
     }
+}
+
+#[cfg(feature = "rand1")]
+pub fn rand_dims(
+    num_dims: usize,
+    dim_max: usize,
+    rng: &mut impl rand::Rng,
+) -> SmallVec<[usize; 4]> {
+    use rand::RngExt;
+    // generates a random shape with num_dims elements, and with a maximum of dim_max for each dimension
+    assert!(num_dims <= 4);
+    let rvec = (0..num_dims)
+        .map(|_| rng.random_range(1..dim_max))
+        .collect();
+    SmallVec::from_vec(rvec)
 }
