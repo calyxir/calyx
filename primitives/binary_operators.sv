@@ -173,25 +173,30 @@ module std_fp_div_pipe #(
     always_ff @(posedge clk) begin
       if (reset) begin
         out_quotient <= 0;
-        out_remainder <= 0;
       end else if (start) begin
         out_quotient <= 0;
-        out_remainder <= left;
       end else if (go == 0) begin
         out_quotient <= out_quotient;
-        out_remainder <= out_remainder;
       end else if (dividend_is_zero) begin
         out_quotient <= 0;
-        out_remainder <= 0;
       end else if (finished) begin
         out_quotient <= quotient_next;
-        out_remainder <= out_remainder;
       end else begin
         out_quotient <= out_quotient;
-        if (right <= out_remainder)
-          out_remainder <= out_remainder - right;
-        else
-          out_remainder <= out_remainder;
+      end
+    end
+
+    always_ff @(posedge clk) begin
+      if (reset) begin
+        out_remainder <= 0;
+      end else if (start) begin
+        out_remainder <= left;
+      end else if (go && running && idx == WIDTH - 1) begin
+        // Save the remainder of the unshifted operands before the fractional
+        // iterations. Undo the shift performed when computing acc_next.
+        out_remainder <= acc_next[WIDTH:1];
+      end else begin
+        out_remainder <= out_remainder;
       end
     end
 

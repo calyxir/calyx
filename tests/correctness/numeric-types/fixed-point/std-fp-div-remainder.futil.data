@@ -1,0 +1,68 @@
+{
+  "left": {
+    "data": [
+      100.5
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": false,
+      "width": 32,
+      "frac_width": 16
+    }
+  },
+  "right": {
+    "data": [
+      0.5
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": false,
+      "width": 32,
+      "frac_width": 16
+    }
+  },
+  "unsigned_quot": {
+    "data": [
+      0.0
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": false,
+      "width": 32,
+      "frac_width": 16
+    }
+  },
+  "unsigned_rem": {
+    "data": [
+      0.0
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": false,
+      "width": 32,
+      "frac_width": 16
+    }
+  },
+  "signed_quot": {
+    "data": [
+      0.0
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": true,
+      "width": 32,
+      "frac_width": 16
+    }
+  },
+  "signed_rem": {
+    "data": [
+      0.0
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": true,
+      "width": 32,
+      "frac_width": 16
+    }
+  }
+}

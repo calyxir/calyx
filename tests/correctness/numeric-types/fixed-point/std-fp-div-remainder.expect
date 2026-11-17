@@ -1,0 +1,20 @@
+{
+  "left": [
+    100.5
+  ],
+  "right": [
+    0.5
+  ],
+  "signed_quot": [
+    201
+  ],
+  "signed_rem": [
+    0
+  ],
+  "unsigned_quot": [
+    201
+  ],
+  "unsigned_rem": [
+    0
+  ]
+}
