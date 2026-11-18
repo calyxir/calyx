@@ -1,0 +1,61 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: arcilator"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+calyx-base = /test/calyx
+calyx-exe = $calyx-base/target/debug/calyx
+calyx-lib-path = $calyx-base
+args = 
+rule calyx
+  command = $calyx-exe -l $calyx-lib-path -b $backend $args $in > $out
+rule calyx-pass
+  command = $calyx-exe -l $calyx-lib-path -p $pass $args $in > $out
+cider-calyx-passes = -p none
+rule calyx-cider
+  command = $calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out
+
+calyx-base = /test/calyx
+circt-dir = $calyx-base/circt
+firtool-exe = $circt-dir/build/bin/firtool
+arcilator-exe = $circt-dir/build/bin/arcilator
+arcilator-header-script = $circt-dir/tools/arcilator/arcilator-header-cpp.py
+arcilator-include = $circt-dir/tools/arcilator
+gen-driver-script = $calyx-base/tools/firrtl/arcilator/gen_driver.py
+sim_data = /test/data.json
+cider-converter = $calyx-base/target/debug/cider-data-converter
+rule arcilator-firtool
+  command = $firtool-exe $in -ir-hw -o $out
+rule arcilator-compile
+  command = $arcilator-exe $in -state-file=$state_file -o $ll_file
+rule arcilator-header
+  command = python3 $arcilator-header-script $in | sed 's/)extern/)\n\nextern/g' > $out
+rule gen-driver
+  command = python3 $gen-driver-script --yxi $in --out $out
+rule clang-c
+  command = clang -Wno-override-module -c $in -o $out
+rule linking
+  command = clang++ -I $arcilator-include -I $out_dir -I $calyx-base/tools/firrtl/arcilator $in -o $out
+rule extract-mem
+  command = $cider-converter --to dat --output-path $out_dir $in
+rule simulation
+  command = ./$in $data_file > $out
+
+build arcilator-out/design.mlir: arcilator-firtool /input.ext
+build arcilator-out/mapping.json arcilator-out/simulator.ll: arcilator-compile arcilator-out/design.mlir
+  state_file = arcilator-out/mapping.json
+  ll_file = arcilator-out/simulator.ll
+build arcilator-out/header.h: arcilator-header arcilator-out/mapping.json
+build arcilator-out/driver.cpp: gen-driver memory-info.json
+build arcilator-out/hardware_model.o: clang-c arcilator-out/simulator.ll
+build arcilator-out/simulate: linking arcilator-out/driver.cpp arcilator-out/hardware_model.o | arcilator-out/header.h
+  out_dir = arcilator-out
+build sim_data_dir: extract-mem $sim_data
+  out_dir = sim_data_dir
+build /output.ext: simulation arcilator-out/simulate | sim_data_dir
+  data_file = sim_data_dir
+
+default /output.ext

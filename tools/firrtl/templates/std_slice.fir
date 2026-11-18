@@ -2,4 +2,4 @@
         input in : UInt<IN_WIDTH>
         output out : UInt<OUT_WIDTH>
 
-        out <= tail(in, DIFF) ; DIFF should be IN_WIDTH - OUT_WIDTH
+        connect out, tail(in, DIFF) ; DIFF should be IN_WIDTH - OUT_WIDTH

@@ -85,7 +85,7 @@ fn calyx_to_firrtl_helper(e, input, output, firrtl_primitives) {
 
 // Calyx to FIRRTL.
 let firrtl = state("firrtl", ["fir"]); // using Verilog primitives
-let firrtl_with_primitives = state("firrtl-with-primitives", ["fir"]); // using FIRRTL primitives
+export const firrtl_with_primitives = state("firrtl-with-primitives", ["fir"]); // using FIRRTL primitives
 
 // let calyx = get_state("calyx");
 // let calyx_setup = get_setup("Calyx compiler");

@@ -34,11 +34,9 @@ impl Backend for PrimitiveUsesBackend {
     }
 
     fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
-        let main_comp = ctx.entrypoint();
-
         let mut primitive_set: HashSet<PrimitiveUse> = HashSet::new();
 
-        gen_primitive_set(ctx, main_comp, &mut primitive_set);
+        gen_primitive_set(ctx, &mut primitive_set);
 
         write_json(primitive_set.clone(), file)?;
 
@@ -59,20 +57,20 @@ struct PrimitiveParam {
 }
 
 /// Accumulates a set with each primitive with a given set of parameters
-/// in the program with entrypoint `main_comp`.
+/// in the program.
 fn gen_primitive_set(
     ctx: &ir::Context,
-    main_comp: &ir::Component,
     primitive_set: &mut HashSet<PrimitiveUse>,
 ) {
-    for cell in main_comp.cells.iter() {
-        let cell_ref = cell.borrow();
-        match &cell_ref.prototype {
-            ir::CellType::Primitive {
+    for comp in &ctx.components {
+        for cell in comp.cells.iter() {
+            let cell_ref = cell.borrow();
+            if let ir::CellType::Primitive {
                 name,
                 param_binding,
                 ..
-            } => {
+            } = &cell_ref.prototype
+            {
                 let curr_params = param_binding
                     .iter()
                     .map(|(param_name, param_size)| PrimitiveParam {
@@ -86,15 +84,6 @@ fn gen_primitive_set(
                 };
                 (*primitive_set).insert(curr_primitive);
             }
-            ir::CellType::Component { name } => {
-                let component = ctx
-                    .components
-                    .iter()
-                    .find(|comp| comp.name == name)
-                    .unwrap();
-                gen_primitive_set(ctx, component, primitive_set);
-            }
-            _ => (),
         }
     }
 }

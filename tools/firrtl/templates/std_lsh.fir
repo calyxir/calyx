@@ -3,4 +3,4 @@
         input right : UInt<WIDTH>
         output out : UInt<WIDTH>
 
-        out <= dshl(left, bits(right, BITS, 0))
+        connect out, dshl(left, bits(right, BITS, 0))
