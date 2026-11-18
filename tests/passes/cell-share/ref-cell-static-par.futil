@@ -1,0 +1,38 @@
+// -p well-formed -p simplify-with-control -p cell-share -p remove-ids
+import "primitives/compile.futil";
+
+// `a` (only a static invoke's `ref` cell) and `b` are live in parallel and must not share.
+static<1> component write_ref() -> () {
+    cells {
+        ref r = std_reg(32);
+    }
+    wires {
+        static<1> group write_r {
+            r.in = 32'd4;
+            r.write_en = 1'd1;
+        }
+    }
+    control {
+        write_r;
+    }
+}
+
+component main() -> () {
+    cells {
+        w = write_ref();
+        a = std_reg(32);
+        b = std_reg(32);
+    }
+    wires {
+        static<1> group write_b {
+            b.in = 32'd11;
+            b.write_en = 1'd1;
+        }
+    }
+    control {
+        static par {
+            static invoke w[r = a]()();
+            write_b;
+        }
+    }
+}

@@ -1,0 +1,70 @@
+// -p well-formed -p simplify-with-control -p cell-share -p dead-cell-removal -p remove-ids
+import "primitives/compile.futil";
+import "primitives/memories/comb.futil";
+
+// `a` is read through a `ref` cell after `write_b`, so `a` and `b` must not share.
+component copy_ref() -> () {
+  cells {
+    ref src = std_reg(32);
+    ref dst = std_reg(32);
+    t = std_reg(32);
+  }
+  wires {
+    group load {
+      t.in = src.out;
+      t.write_en = 1'd1;
+      load[done] = t.done;
+    }
+    group store {
+      dst.in = t.out;
+      dst.write_en = 1'd1;
+      store[done] = dst.done;
+    }
+  }
+  control {
+    seq { load; store; }
+  }
+}
+
+component main() -> () {
+  cells {
+    @external(1) mem = comb_mem_d1(32, 2, 2);
+    a = std_reg(32);
+    b = std_reg(32);
+    d = std_reg(32);
+    c = copy_ref();
+  }
+  wires {
+    group write_a {
+      a.in = 32'd1;
+      a.write_en = 1'd1;
+      write_a[done] = a.done;
+    }
+    group write_b {
+      b.in = 32'd2;
+      b.write_en = 1'd1;
+      write_b[done] = b.done;
+    }
+    group store_d {
+      mem.addr0 = 2'd0;
+      mem.write_data = d.out;
+      mem.write_en = 1'd1;
+      store_d[done] = mem.done;
+    }
+    group store_b {
+      mem.addr0 = 2'd1;
+      mem.write_data = b.out;
+      mem.write_en = 1'd1;
+      store_b[done] = mem.done;
+    }
+  }
+  control {
+    seq {
+      write_a;
+      write_b;
+      invoke c[src = a, dst = d]()();
+      store_d;
+      store_b;
+    }
+  }
+}
