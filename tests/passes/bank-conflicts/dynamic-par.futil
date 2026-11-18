@@ -1,0 +1,244 @@
+// -p bank-conflicts -x bank-conflicts:report=<out> -b none
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/memories/seq.futil";
+component par_two_reads(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+  }
+  wires {
+    group readA {
+      m.addr0 = 3'd0;
+      r0.in = m.read_data;
+      r0.write_en = 1'd1;
+      readA[done] = r0.done;
+    }
+    group readB {
+      m.addr0 = 3'd1;
+      r1.in = m.read_data;
+      r1.write_en = 1'd1;
+      readB[done] = r1.done;
+    }
+  }
+  control {
+    par {
+      readA;
+      readB;
+    }
+  }
+}
+component par_three_reads(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+    r2 = std_reg(32);
+  }
+  wires {
+    group readA {
+      m.addr0 = 3'd0;
+      r0.in = m.read_data;
+      r0.write_en = 1'd1;
+      readA[done] = r0.done;
+    }
+    group readB {
+      m.addr0 = 3'd1;
+      r1.in = m.read_data;
+      r1.write_en = 1'd1;
+      readB[done] = r1.done;
+    }
+    group readC {
+      m.addr0 = 3'd2;
+      r2.in = m.read_data;
+      r2.write_en = 1'd1;
+      readC[done] = r2.done;
+    }
+  }
+  control {
+    par {
+      readA;
+      readB;
+      readC;
+    }
+  }
+}
+component par_read_write(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    r0 = std_reg(32);
+  }
+  wires {
+    group rd {
+      m.addr0 = 3'd0;
+      r0.in = m.read_data;
+      r0.write_en = 1'd1;
+      rd[done] = r0.done;
+    }
+    group wr {
+      m.addr0 = 3'd1;
+      m.write_data = 32'd5;
+      m.write_en = 1'd1;
+      wr[done] = m.done;
+    }
+  }
+  control {
+    par {
+      rd;
+      wr;
+    }
+  }
+}
+component nested_par(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+    r2 = std_reg(32);
+  }
+  wires {
+    group a {
+      m.addr0 = 3'd0;
+      r0.in = m.read_data;
+      r0.write_en = 1'd1;
+      a[done] = r0.done;
+    }
+    group b {
+      m.addr0 = 3'd1;
+      r1.in = m.read_data;
+      r1.write_en = 1'd1;
+      b[done] = r1.done;
+    }
+    group c {
+      m.addr0 = 3'd2;
+      r2.in = m.read_data;
+      r2.write_en = 1'd1;
+      c[done] = r2.done;
+    }
+  }
+  control {
+    par {
+      par {
+        a;
+        b;
+      }
+      c;
+    }
+  }
+}
+component two_mems(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    n = comb_mem_d1(32, 8, 3);
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+  }
+  wires {
+    group ra {
+      m.addr0 = 3'd0;
+      r0.in = m.read_data;
+      r0.write_en = 1'd1;
+      ra[done] = r0.done;
+    }
+    group rb {
+      n.addr0 = 3'd0;
+      r1.in = n.read_data;
+      r1.write_en = 1'd1;
+      rb[done] = r1.done;
+    }
+  }
+  control {
+    par {
+      ra;
+      rb;
+    }
+  }
+}
+component par_seq_mem(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = seq_mem_d1(32, 8, 3);
+    r0 = std_reg(32);
+  }
+  wires {
+    group readA {
+      m.addr0 = 3'd0;
+      m.content_en = 1'd1;
+      r0.in = m.read_data;
+      r0.write_en = 1'd1;
+      readA[done] = m.done;
+    }
+    group writeB {
+      m.addr0 = 3'd1;
+      m.content_en = 1'd1;
+      m.write_data = 32'd5;
+      m.write_en = 1'd1;
+      writeB[done] = m.done;
+    }
+  }
+  control {
+    par {
+      readA;
+      writeB;
+    }
+  }
+}
+component par_static_groups(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+  }
+  wires {
+    static<2> group sa {
+      m.addr0 = %[0:1] ? 3'd0;
+      r0.in = m.read_data;
+      r0.write_en = %[0:1] ? 1'd1;
+    }
+    static<2> group sb {
+      m.addr0 = %[1:2] ? 3'd1;
+      r1.in = m.read_data;
+      r1.write_en = %[1:2] ? 1'd1;
+    }
+  }
+  control {
+    par {
+      sa;
+      sb;
+    }
+  }
+}
+component par_static_islands(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    m = comb_mem_d1(32, 8, 3);
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+  }
+  wires {
+    static<2> group sa {
+      m.addr0 = %[0:1] ? 3'd0;
+      r0.in = m.read_data;
+      r0.write_en = %[0:1] ? 1'd1;
+    }
+    static<2> group sb {
+      m.addr0 = %[1:2] ? 3'd1;
+      r1.in = m.read_data;
+      r1.write_en = %[1:2] ? 1'd1;
+    }
+  }
+  control {
+    par {
+      static par {
+        sa;
+      }
+      static par {
+        sb;
+      }
+    }
+  }
+}
+component main() -> () {
+  cells {}
+  wires {}
+  control {}
+}

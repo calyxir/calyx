@@ -1,0 +1,48 @@
+component disjoint_intervals
+banks m 1
+assign m sa read 0
+assign m sb read 0
+component overlapping_intervals
+conflict m a read b read
+banks m 2
+assign m a read 0
+assign m b read 1
+component nested_static_par
+banks m 1
+assign m sa read 0
+assign m sb read 0
+component seq_offsets
+banks m 1
+assign m sa read 0
+assign m sd write 0
+component interval_chain
+conflict m a read c read
+conflict m b read d read
+conflict m c read d read
+banks m 2
+assign m a read 0
+assign m b read 0
+assign m c read 1
+assign m d read 2
+component static_complementary_writes
+banks m 1
+assign m wf write 0
+assign m wt write 0
+component static_union_guard
+conflict m sa write sb read
+banks m 2
+assign m sa write 0
+assign m sb read 1
+component static_if_arms
+conflict m base read ra read
+conflict m base read rb read
+banks m 2
+assign m base read 0
+assign m ra read 1
+assign m rb read 1
+component static_seq_mem
+conflict m readA read writeB write
+banks m 2
+assign m readA read 0
+assign m writeB write 1
+component main

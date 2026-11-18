@@ -1,0 +1,47 @@
+component par_two_reads
+conflict m readA read readB read
+banks m 2
+assign m readA read 0
+assign m readB read 1
+component par_three_reads
+conflict m readA read readB read
+conflict m readA read readC read
+conflict m readB read readC read
+banks m 3
+assign m readA read 0
+assign m readB read 1
+assign m readC read 2
+component par_read_write
+conflict m rd read wr write
+banks m 2
+assign m rd read 0
+assign m wr write 1
+component nested_par
+conflict m a read b read
+conflict m a read c read
+conflict m b read c read
+banks m 3
+assign m a read 0
+assign m b read 1
+assign m c read 2
+component two_mems
+banks m 1
+banks n 1
+assign m ra read 0
+assign n rb read 0
+component par_seq_mem
+conflict m readA read writeB write
+banks m 2
+assign m readA read 0
+assign m writeB write 1
+component par_static_groups
+conflict m sa read sb read
+banks m 2
+assign m sa read 0
+assign m sb read 1
+component par_static_islands
+conflict m sa read sb read
+banks m 2
+assign m sa read 0
+assign m sb read 1
+component main
