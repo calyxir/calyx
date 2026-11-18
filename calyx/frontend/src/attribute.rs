@@ -1,6 +1,6 @@
 use calyx_utils::{CalyxResult, Error, Id};
 use std::str::FromStr;
-use strum::EnumCount;
+use strum::EnumCount as _;
 use strum_macros::{AsRefStr, EnumCount, EnumString, FromRepr};
 
 /// Attributes that have been deprecated.
